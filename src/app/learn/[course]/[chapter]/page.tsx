@@ -31,6 +31,7 @@ import { PatternCard } from "@/components/mdx/PatternCard";
 import { SolutionCard } from "@/components/mdx/SolutionCard";
 import { Annotation } from "@/components/mdx/Annotation";
 import { ContentImage } from "@/components/mdx/Image";
+import { Mermaid } from "@/components/mdx/Mermaid";
 
 
 interface ChapterPageProps {
@@ -56,6 +57,30 @@ function RemarkDirectivePlugin() {
     };
 }
 
+/**
+ * Returns the diagram source when a <pre> wraps a single ```mermaid fence,
+ * or null for any other code block.
+ */
+function mermaidSource(node: any): string | null {
+    const child = node?.children?.[0];
+    if (child?.tagName !== "code") return null;
+
+    const className = child.properties?.className;
+    const classes: string[] = Array.isArray(className)
+        ? className
+        : typeof className === "string"
+            ? className.split(" ")
+            : [];
+    if (!classes.includes("language-mermaid")) return null;
+
+    const text = child.children
+        ?.filter((n: any) => n.type === "text")
+        .map((n: any) => n.value)
+        .join("");
+
+    return text?.trim() ? text : null;
+}
+
 export default async function ChapterPage({ params }: ChapterPageProps) {
     const { course: courseSlug, chapter: chapterSlug } = await params;
     const course = getCourse(courseSlug);
@@ -65,16 +90,24 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         notFound();
     }
 
-    const { content: rawContent, data } = getChapterContent(courseSlug, chapterSlug);
+    const { content: rawContent, data, status } = await getChapterContent(courseSlug, chapterSlug);
+
+    // The API is the authority on whether this chapter exists.
+    if (status === "notFound") {
+        notFound();
+    }
+
     // Strip the first H1 from markdown — ArticleHeader already renders the title
     const content = rawContent.replace(/^#(?!#)\s+.+$/m, "").trimStart();
     const chapterIndex = course.chapters.findIndex((ch) => ch.slug === chapterSlug);
     const prevChapter = chapterIndex > 0 ? course.chapters[chapterIndex - 1] : null;
     const nextChapter = chapterIndex < course.chapters.length - 1 ? course.chapters[chapterIndex + 1] : null;
 
-    // Check if content is locked (premium chapter for non-premium user)
-    // TODO: Implement actual user permission check here
-    const isLocked = chapter.isPremium;
+    // The gate lives in the API, not here: a body only arrives if the caller is
+    // allowed to read it. `status` tells us which prompt to show.
+    const needsSignIn = status === "unauthenticated";
+    const needsSubscription = status === "unentitled";
+    const isLocked = needsSignIn || needsSubscription;
 
     // Extract headings for "On This Page"
     const headings = content.match(/^(##|###)\s+(.+)$/gm)?.map((h) => {
@@ -135,7 +168,20 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
                 ? <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground" {...props}>{children}</code>
                 : <code className={className} {...props}>{children}</code>;
         },
-        pre: ({ node, ...props }: any) => <pre className="bg-muted rounded-lg p-4 overflow-x-auto my-4 text-sm font-mono" {...props} />,
+        // A ```mermaid fence renders as a diagram, not as code. Intercepted at
+        // `pre` rather than `code` because <Mermaid /> emits a <div>, which is
+        // invalid inside <pre> and would break hydration.
+        pre: ({ node, children, ...props }: any) => {
+            const chart = mermaidSource(node);
+            if (chart !== null) {
+                return <Mermaid chart={chart} />;
+            }
+            return (
+                <pre className="bg-muted rounded-lg p-4 overflow-x-auto my-4 text-sm font-mono" {...props}>
+                    {children}
+                </pre>
+            );
+        },
         // Tables
         table: ({ node, ...props }: any) => <div className="overflow-x-auto my-6"><table className="w-full border-collapse text-sm" {...props} /></div>,
         thead: ({ node, ...props }: any) => <thead className="bg-muted/60" {...props} />,
@@ -174,22 +220,43 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
                         companies={headerCompanies}
                     />
 
+                    <div className="mb-6 flex items-center justify-between rounded-lg border border-border bg-card/40 px-4 py-3">
+                        <p className="text-sm text-muted-foreground">
+                            Want to sketch your design first? Open the whiteboard.
+                        </p>
+                        <Button asChild size="sm">
+                            <Link href={`/learn/${course.slug}/${chapter.slug}/try`}>
+                                Try here
+                            </Link>
+                        </Button>
+                    </div>
+
                     {/* Content */}
                     <div className="markdown-content">
-                        {content.includes("Coming Soon") || content.trim() === "" ? (
-                            <div className="py-12 text-center">
-                                <p className="text-muted-foreground">Coming Soon</p>
-                            </div>
-                        ) : isLocked ? (
+                        {isLocked ? (
                             <div className="py-12 text-center border border-border p-6">
                                 <Lock className="h-6 w-6 mx-auto mb-3 text-foreground" />
                                 <h3 className="font-semibold mb-2">Premium Content</h3>
                                 <p className="text-sm text-muted-foreground mb-4">
-                                    Subscribe to unlock this chapter.
+                                    {needsSignIn
+                                        ? "Sign in to read this chapter."
+                                        : "Subscribe to unlock this chapter."}
                                 </p>
-                                <Button className="bg-foreground text-background hover:bg-foreground/90 h-8 text-sm">
-                                    Upgrade
-                                </Button>
+                                {needsSignIn ? (
+                                    <Button asChild className="bg-foreground text-background hover:bg-foreground/90 h-8 text-sm">
+                                        <Link href={`/login?redirect=/learn/${course.slug}/${chapter.slug}`}>
+                                            Sign in
+                                        </Link>
+                                    </Button>
+                                ) : (
+                                    <Button className="bg-foreground text-background hover:bg-foreground/90 h-8 text-sm">
+                                        Upgrade
+                                    </Button>
+                                )}
+                            </div>
+                        ) : content.trim() === "" ? (
+                            <div className="py-12 text-center">
+                                <p className="text-muted-foreground">Coming Soon</p>
                             </div>
                         ) : (
                             <ReactMarkdown
