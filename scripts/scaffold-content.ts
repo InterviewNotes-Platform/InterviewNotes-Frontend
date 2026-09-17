@@ -1,7 +1,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { courses } from '../src/lib/data';
+import { courses } from './courses-source';
 
 // Helper to sanitize title for filename if needed (though we have slug)
 const sanitize = (str: string) => str.replace(/[^a-z0-9-]/gi, '-').toLowerCase();

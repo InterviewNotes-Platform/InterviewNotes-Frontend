@@ -1,6 +1,6 @@
 
 import { notFound } from "next/navigation";
-import { getCourse, getChapter } from "@/lib/data";
+import { getCourse, getChapter } from "@/lib/courses";
 import { getChapterContent } from "@/lib/content";
 import { CourseSidebar } from "@/components/layout/CourseSidebar";
 import { ScrollableMain } from "@/components/layout/ScrollableMain";
@@ -83,8 +83,8 @@ function mermaidSource(node: any): string | null {
 
 export default async function ChapterPage({ params }: ChapterPageProps) {
     const { course: courseSlug, chapter: chapterSlug } = await params;
-    const course = getCourse(courseSlug);
-    const chapter = course ? getChapter(courseSlug, chapterSlug) : undefined;
+    const course = await getCourse(courseSlug);
+    const chapter = course ? await getChapter(courseSlug, chapterSlug) : undefined;
 
     if (!course || !chapter) {
         notFound();
