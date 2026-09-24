@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
-import { courses } from '../src/lib/data';
+import { courses } from './courses-source';
 
 // Helper to determine difficulty
 const getDifficulty = (section: string, title: string): "easy" | "medium" | "hard" => {

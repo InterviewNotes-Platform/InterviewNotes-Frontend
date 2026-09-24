@@ -1,6 +1,6 @@
 import { CourseCard } from "@/components/courses/CourseCard";
 import { Footer } from "@/components/layout/Footer";
-import { courses } from "@/lib/data";
+import { getVisibleCourses } from "@/lib/courses";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata = {
@@ -8,7 +8,8 @@ export const metadata = {
     description: "Master System Design, ML System Design, LLD and more. Designed for Senior, Staff, and Principal engineering roles.",
 };
 
-export default function LearnPage() {
+export default async function LearnPage() {
+    const courses = await getVisibleCourses();
     return (
         <main className="min-h-screen">
             <section className="py-16">
@@ -29,7 +30,7 @@ export default function LearnPage() {
 
                     {/* Course Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                        {courses.filter((c) => !c.disabled).map((course) => (
+                        {courses.map((course) => (
                             <CourseCard key={course.id} course={course} />
                         ))}
                     </div>

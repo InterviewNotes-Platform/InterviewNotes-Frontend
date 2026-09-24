@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Course, getGroupedChapters, Chapter } from "@/lib/data";
+import { Course, getGroupedChapters, Chapter } from "@/lib/courses";
 import { Search, Lock, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { CourseIcon } from "@/components/course-icon";
