@@ -10,7 +10,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, ChevronDown, Sparkles } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ModeToggle } from "@/components/ui/mode-toggle";
@@ -85,9 +85,9 @@ export function Header() {
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
-                        <Link href="/#pricing">
+                        <Link href="/#access">
                             <Button variant="ghost" className="text-foreground/70 hover:text-foreground hover:bg-muted/50 font-medium text-sm h-9 transition-all">
-                                Pricing
+                                Access
                             </Button>
                         </Link>
                         <Link href="/#faq">
@@ -101,13 +101,6 @@ export function Header() {
                 {/* Right Section: Actions */}
                 <div className="hidden md:flex items-center gap-3 flex-shrink-0">
                     <div className="flex items-center gap-2">
-                        {/* Premium Button */}
-                        <Link href="/#pricing">
-                            <Button variant="outline" className="border-[var(--gold)]/50 text-[var(--gold-hover)] hover:bg-[var(--gold)]/10 text-sm h-8 font-semibold">
-                                Premium
-                            </Button>
-                        </Link>
-
                         {!loading && user ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -174,20 +167,14 @@ export function Header() {
                         ))}
 
                         <div className="pt-4 border-t border-border space-y-3 px-2">
-                            <Link href="/#pricing" className="block" onClick={() => setMobileMenuOpen(false)}>
+                            <Link href="/#access" className="block" onClick={() => setMobileMenuOpen(false)}>
                                 <Button variant="ghost" className="w-full justify-start text-foreground">
-                                    Pricing
+                                    Access
                                 </Button>
                             </Link>
                             <Link href="/#faq" className="block" onClick={() => setMobileMenuOpen(false)}>
                                 <Button variant="ghost" className="w-full justify-start text-foreground">
                                     FAQ
-                                </Button>
-                            </Link>
-                            <Link href="/#pricing" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="outline" className="w-full justify-start border-primary text-primary">
-                                    <Sparkles className="h-4 w-4 mr-2" />
-                                    Premium
                                 </Button>
                             </Link>
                             <Link href="/login" className="block" onClick={() => setMobileMenuOpen(false)}>

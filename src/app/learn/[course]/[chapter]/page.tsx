@@ -220,17 +220,6 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
                         companies={headerCompanies}
                     />
 
-                    <div className="mb-6 flex items-center justify-between rounded-lg border border-border bg-card/40 px-4 py-3">
-                        <p className="text-sm text-muted-foreground">
-                            Want to sketch your design first? Open the whiteboard.
-                        </p>
-                        <Button asChild size="sm">
-                            <Link href={`/learn/${course.slug}/${chapter.slug}/try`}>
-                                Try here
-                            </Link>
-                        </Button>
-                    </div>
-
                     {/* Content */}
                     <div className="markdown-content">
                         {isLocked ? (

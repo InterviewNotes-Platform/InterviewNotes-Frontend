@@ -163,9 +163,9 @@ export function HomeContent({ courses }: HomeContentProps) {
                                     <ArrowRight className="ml-2 h-5 w-5" />
                                 </Button>
                             </Link>
-                            <Link href="/#pricing">
+                            <Link href="/#access">
                                 <Button size="lg" variant="outline" className="h-12 px-8 text-base font-bold border-2 border-border/60 hover:bg-muted/60 hover:border-foreground/20 transition-all rounded-xl">
-                                    View Pricing
+                                    How Access Works
                                 </Button>
                             </Link>
                         </div>
@@ -191,7 +191,7 @@ export function HomeContent({ courses }: HomeContentProps) {
             </section>
 
             {/* Access Section */}
-            <section id="pricing" className="py-20 md:py-28 border-t border-border/50 bg-muted/20 scroll-mt-20">
+            <section id="access" className="py-20 md:py-28 border-t border-border/50 bg-muted/20 scroll-mt-20">
                 <div className="container mx-auto px-6 md:px-8">
                     <div className="text-center mb-16 max-w-4xl mx-auto">
                         <Badge variant="outline" className="mb-4 border-[var(--gold)]/30 text-[var(--gold-hover)]">
