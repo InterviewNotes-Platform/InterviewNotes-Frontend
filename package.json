@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@netlify/plugin-nextjs": "^5.15.8",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
