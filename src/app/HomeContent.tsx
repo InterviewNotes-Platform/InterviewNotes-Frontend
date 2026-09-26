@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Footer } from "@/components/layout/Footer";
 import { CourseIcon } from "@/components/course-icon";
-import { ArrowRight, Sparkles, Users, BookOpen, Trophy, Zap, CheckCircle2, Star, ChevronDown, Quote } from "lucide-react";
+import { ArrowRight, Sparkles, BookOpen, Clock, Zap, CheckCircle2, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const topics = [
@@ -53,15 +53,15 @@ const trackConfigs = [
 const faqs = [
     {
         q: "What interview types does InterviewNotes cover?",
-        a: "We cover ML System Design, ML Platform Design, LLM Platform Design, Gen AI Foundations, and Gen AI Native Design — everything you need for MLE, Senior MLE, and Staff AI/ML roles.",
+        a: "We cover ML System Design, ML Platform Design, LLM Platform Design, Gen AI Foundations, and Gen AI Native Design — preparation for ML and AI engineering interviews.",
     },
     {
-        q: "What does Premium include?",
-        a: "Premium gives you lifetime access to all articles across every track, AI-powered interview prep tools, and free updates as we add new content. One-time payment, no subscriptions.",
+        q: "Is there a paid plan?",
+        a: "Paid access is not available yet. Our plan is to keep a free sample of chapters and offer the full library as paid access later. Nothing is for sale today.",
     },
     {
         q: "Can I try it for free?",
-        a: "Yes! Every track includes 2 free articles so you can preview the depth and quality of content before upgrading.",
+        a: "Yes. Free chapters are marked on each track page, so you can read them and judge the depth for yourself.",
     },
     {
         q: "How is the content structured?",
@@ -69,71 +69,9 @@ const faqs = [
     },
     {
         q: "How often is new content added?",
-        a: "We continuously add new chapters and tracks. Premium members get all updates for free, forever.",
+        a: "We add chapters and tracks over time. Each track page shows what is available today.",
     },
 ];
-
-const testimonials = [
-    {
-        name: "Priya S.",
-        role: "SDE-3",
-        company: "Google",
-        quote: "The system design modules gave me a structured framework I was missing. Landed my L5 offer in 6 weeks of prep.",
-        initials: "PS",
-    },
-    {
-        name: "Marcus T.",
-        role: "Senior MLE",
-        company: "Meta",
-        quote: "ML Platform Design track is gold. Covered exactly what came up in my Meta loop — feature stores, model serving, the works.",
-        initials: "MT",
-    },
-    {
-        name: "Ananya R.",
-        role: "Staff Engineer",
-        company: "Amazon",
-        quote: "LLM Platform Design track is exactly what I needed for my Anthropic loop. Inference serving, fine-tuning, guardrails — all in one place.",
-        initials: "AR",
-    },
-    {
-        name: "Jake L.",
-        role: "SDE-2",
-        company: "Netflix",
-        quote: "GenAI design track is ahead of every other resource out there. RAG patterns and agent architectures — all covered.",
-        initials: "JL",
-    },
-    {
-        name: "Sarah K.",
-        role: "Senior SDE",
-        company: "Microsoft",
-        quote: "ML System Design track nailed it — recommendation systems, search ranking, fraud detection. Exactly what came up in my interview.",
-        initials: "SK",
-    },
-    {
-        name: "Ravi M.",
-        role: "ML Engineer",
-        company: "Apple",
-        quote: "Gen AI Foundations track gave me the theory I was missing. Went into my OpenAI interview confident on transformers and attention. Got the offer.",
-        initials: "RM",
-    },
-    {
-        name: "Emily C.",
-        role: "SDE-2",
-        company: "Google",
-        quote: "Worth every penny. The depth of each article is closer to a textbook chapter than a blog post. Premium was a no-brainer.",
-        initials: "EC",
-    },
-    {
-        name: "David W.",
-        role: "Senior SDE",
-        company: "Amazon",
-        quote: "I prepped with three other platforms before this. InterviewNotes is the only one that covers ML system design properly.",
-        initials: "DW",
-    },
-];
-
-const testimonialsRow1 = testimonials.slice(0, 4);
-const testimonialsRow2 = testimonials.slice(4, 8);
 
 interface HomeContentProps {
     courses: Course[];
@@ -156,6 +94,11 @@ export function HomeContent({ courses }: HomeContentProps) {
         return () => clearInterval(interval);
     }, []);
 
+    const totalChapters = courses.reduce((sum, c) => sum + c.chapterCount, 0);
+    const totalHours = Math.round(
+        courses.reduce((sum, c) => sum + c.chapters.reduce((s, ch) => s + ch.estimatedReadTime, 0), 0) / 60,
+    );
+
     return (
         <main className="min-h-screen bg-background">
             {/* Hero Section */}
@@ -175,7 +118,7 @@ export function HomeContent({ courses }: HomeContentProps) {
                                 className="px-4 py-2 bg-primary/10 border-primary/30 text-primary gap-2 text-sm font-bold hover:bg-primary/20 transition-colors cursor-pointer shadow-sm"
                             >
                                 <Sparkles className="h-4 w-4" />
-                                Your complete interview prep
+                                ML & GenAI interview prep
                                 <ArrowRight className="h-4 w-4" />
                             </Badge>
                         </div>
@@ -199,7 +142,7 @@ export function HomeContent({ courses }: HomeContentProps) {
                         {/* Hero Subtitle */}
                         <p className="text-base md:text-lg text-muted-foreground/90 max-w-2xl mx-auto mb-8 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-5 duration-700 delay-150">
                             One platform for <span className="text-foreground font-semibold">ML System Design, LLM Platforms & GenAI</span> interviews.
-                            Everything you need to land your dream ML/AI offer.
+                            Structured chapters to help you prepare for ML/AI interviews.
                         </p>
 
                         {/* Feature Pills */}
@@ -228,12 +171,11 @@ export function HomeContent({ courses }: HomeContentProps) {
                         </div>
 
                         {/* Stats */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-7 duration-700 delay-500">
+                        <div className="grid grid-cols-3 gap-6 md:gap-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-7 duration-700 delay-500">
                             {[
-                                { icon: BookOpen, value: "80+", label: "Design Modules" },
-                                { icon: Users, value: "5K+", label: "Engineers" },
-                                { icon: Trophy, value: "90%", label: "Offer Rate" },
-                                { icon: Zap, value: "6", label: "Tracks" },
+                                { icon: BookOpen, value: String(totalChapters), label: "Chapters" },
+                                { icon: Zap, value: String(courses.length), label: "Tracks" },
+                                { icon: Clock, value: `~${totalHours}h`, label: "Reading Time" },
                             ].map((stat, i) => (
                                 <div key={i} className="text-center group cursor-default">
                                     <div className="p-3 rounded-xl bg-primary/5 w-fit mx-auto mb-3 group-hover:bg-primary/15 transition-all border border-primary/10">
@@ -248,93 +190,25 @@ export function HomeContent({ courses }: HomeContentProps) {
                 </div>
             </section>
 
-            {/* Testimonials Section */}
-            <section className="py-20 md:py-28 border-t border-border/50 overflow-hidden">
-                <div className="container mx-auto px-6 md:px-8">
-                    <div className="text-center mb-12 max-w-4xl mx-auto">
-                        <Badge variant="outline" className="mb-4 border-primary/30 text-primary">
-                            Testimonials
-                        </Badge>
-                        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-6 tracking-tight">
-                            Engineers Who Landed Offers
-                        </h2>
-                        <p className="text-lg md:text-xl text-muted-foreground/90 leading-relaxed">
-                            Trusted by engineers at Google, Meta, Amazon, Netflix, Apple & Microsoft.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Row 1 — scrolls left */}
-                <div className="relative mb-5">
-                    <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
-                    <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
-                    <div className="flex testimonial-scroll-left w-max">
-                        {[...testimonialsRow1, ...testimonialsRow1].map((t, i) => (
-                            <div key={i} className="w-[350px] flex-shrink-0 mx-2.5">
-                                <div className="h-full p-5 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm">
-                                    <Quote className="h-5 w-5 text-[var(--gold)]/60 mb-3" />
-                                    <p className="text-sm text-foreground/90 leading-relaxed mb-4">&ldquo;{t.quote}&rdquo;</p>
-                                    <div className="flex items-center gap-3 pt-3 border-t border-border/30">
-                                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                                            {t.initials}
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-semibold text-foreground">{t.name}</div>
-                                            <div className="text-xs text-muted-foreground">{t.role} at {t.company}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Row 2 — scrolls right */}
-                <div className="relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
-                    <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
-                    <div className="flex testimonial-scroll-right w-max">
-                        {[...testimonialsRow2, ...testimonialsRow2].map((t, i) => (
-                            <div key={i} className="w-[350px] flex-shrink-0 mx-2.5">
-                                <div className="h-full p-5 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm">
-                                    <Quote className="h-5 w-5 text-[var(--gold)]/60 mb-3" />
-                                    <p className="text-sm text-foreground/90 leading-relaxed mb-4">&ldquo;{t.quote}&rdquo;</p>
-                                    <div className="flex items-center gap-3 pt-3 border-t border-border/30">
-                                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                                            {t.initials}
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-semibold text-foreground">{t.name}</div>
-                                            <div className="text-xs text-muted-foreground">{t.role} at {t.company}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Pricing Section */}
+            {/* Access Section */}
             <section id="pricing" className="py-20 md:py-28 border-t border-border/50 bg-muted/20 scroll-mt-20">
                 <div className="container mx-auto px-6 md:px-8">
                     <div className="text-center mb-16 max-w-4xl mx-auto">
                         <Badge variant="outline" className="mb-4 border-[var(--gold)]/30 text-[var(--gold-hover)]">
-                            Pricing
+                            Access
                         </Badge>
                         <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-6 tracking-tight">
-                            Simple, Transparent Pricing
+                            Start Free
                         </h2>
                         <p className="text-lg md:text-xl text-muted-foreground/90 leading-relaxed">
-                            One-time payment, lifetime access. No subscriptions, no hidden fees.
+                            Free chapters are available now. Paid access to the full library is planned but not available yet.
                         </p>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-6 justify-center max-w-3xl mx-auto">
-                        {/* Free Tier */}
                         <div className="flex-1 p-6 rounded-2xl border border-border/40 bg-card/40 backdrop-blur-md hover:bg-card/60 transition-all text-left">
                             <div className="flex items-center justify-between mb-4">
-                                <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Free Starter</span>
+                                <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Free Chapters</span>
                                 <span className="text-3xl font-bold text-foreground">$0</span>
                             </div>
                             <ul className="space-y-3 text-sm text-muted-foreground">
@@ -342,7 +216,7 @@ export function HomeContent({ courses }: HomeContentProps) {
                                     <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                                         <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
                                     </div>
-                                    2 articles per track
+                                    Free chapters are marked on each track
                                 </li>
                                 <li className="flex items-center gap-3">
                                     <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -360,52 +234,11 @@ export function HomeContent({ courses }: HomeContentProps) {
                             </div>
                         </div>
 
-                        {/* Premium Tier */}
-                        <div className="flex-1 p-6 rounded-2xl border-2 border-[var(--gold)]/40 bg-gradient-to-b from-[var(--gold)]/10 to-[var(--gold)]/0 backdrop-blur-md relative overflow-hidden text-left shadow-2xl shadow-[var(--gold)]/10 ring-1 ring-[var(--gold)]/20 hover:scale-[1.02] transition-transform duration-300">
-                            <div className="absolute top-0 right-0 bg-[var(--gold)] text-[var(--gold-foreground)] text-[10px] font-black uppercase px-3 py-1 rounded-bl-xl tracking-wide shadow-sm">
-                                Most Popular
-                            </div>
-
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-bold text-[var(--gold-hover)] uppercase tracking-wider flex items-center gap-2">
-                                    <Star className="h-4 w-4 fill-[var(--gold)] text-[var(--gold)]" />
-                                    Premium Access
-                                </span>
-                            </div>
-                            <div className="mb-4">
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-extrabold text-foreground tracking-tight">$40</span>
-                                    <span className="text-sm font-semibold text-muted-foreground">/ lifetime</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground font-medium mt-1">One-time payment. Forever access.</p>
-                            </div>
-
-                            <ul className="space-y-3 text-sm font-medium text-foreground/90">
-                                <li className="flex items-center gap-3">
-                                    <div className="h-5 w-5 rounded-full bg-[var(--gold)]/20 flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--gold)]" />
-                                    </div>
-                                    Unlock all articles & courses
-                                </li>
-                                <li className="flex items-center gap-3">
-                                    <div className="h-5 w-5 rounded-full bg-[var(--gold)]/20 flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--gold)]" />
-                                    </div>
-                                    AI-powered interview prep
-                                </li>
-                                <li className="flex items-center gap-3">
-                                    <div className="h-5 w-5 rounded-full bg-[var(--gold)]/20 flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--gold)]" />
-                                    </div>
-                                    Free updates forever
-                                </li>
-                            </ul>
-                            <div className="mt-6">
-                                <Button className="w-full h-11 font-bold bg-[var(--gold)] hover:bg-[var(--gold-hover)] text-[var(--gold-foreground)] shadow-xl shadow-[var(--gold)]/25 rounded-xl">
-                                    Get Premium — $40
-                                    <ArrowRight className="ml-2 h-5 w-5" />
-                                </Button>
-                            </div>
+                        <div className="flex-1 p-6 rounded-2xl border-2 border-[var(--gold)]/40 bg-gradient-to-b from-[var(--gold)]/10 to-[var(--gold)]/0 backdrop-blur-md text-left">
+                            <span className="text-sm font-bold text-[var(--gold-hover)] uppercase tracking-wider">Full Library</span>
+                            <p className="mt-4 text-sm font-medium text-foreground/90">
+                                Paid access is not available yet. Locked chapters will open up once it launches.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -426,7 +259,7 @@ export function HomeContent({ courses }: HomeContentProps) {
                             Choose Your Path
                         </h2>
                         <p className="text-lg md:text-xl text-muted-foreground/90 leading-relaxed">
-                            Six focused tracks — from fundamentals to interview-ready.
+                            Focused tracks — from fundamentals to interview problems.
                         </p>
                     </div>
 

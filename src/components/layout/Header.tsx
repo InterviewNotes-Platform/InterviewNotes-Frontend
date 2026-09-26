@@ -187,7 +187,7 @@ export function Header() {
                             <Link href="/#pricing" onClick={() => setMobileMenuOpen(false)}>
                                 <Button variant="outline" className="w-full justify-start border-primary text-primary">
                                     <Sparkles className="h-4 w-4 mr-2" />
-                                    Get Premium
+                                    Premium
                                 </Button>
                             </Link>
                             <Link href="/login" className="block" onClick={() => setMobileMenuOpen(false)}>

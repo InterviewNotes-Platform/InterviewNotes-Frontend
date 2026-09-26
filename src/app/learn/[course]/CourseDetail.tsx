@@ -238,13 +238,6 @@ export function CourseDetail({ course }: CourseDetailProps) {
                                             <span>Intermediate</span>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <span className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Access</span>
-                                        <div className="flex items-center gap-2 text-base font-bold text-foreground">
-                                            <Lock className="h-4 w-4 text-[var(--gold)]" />
-                                            <span>Lifetime</span>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 {/* CTA */}
@@ -255,11 +248,6 @@ export function CourseDetail({ course }: CourseDetailProps) {
                                     </Button>
                                 </Link>
 
-                                <div className="text-center">
-                                    <p className="text-xs text-muted-foreground">
-                                        30-day money-back guarantee
-                                    </p>
-                                </div>
                             </div>
                         </div>
                     </div>

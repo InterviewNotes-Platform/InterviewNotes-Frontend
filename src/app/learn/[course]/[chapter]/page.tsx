@@ -240,7 +240,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
                                 <p className="text-sm text-muted-foreground mb-4">
                                     {needsSignIn
                                         ? "Sign in to read this chapter."
-                                        : "Subscribe to unlock this chapter."}
+                                        : "Paid access is not available yet."}
                                 </p>
                                 {needsSignIn ? (
                                     <Button asChild className="bg-foreground text-background hover:bg-foreground/90 h-8 text-sm">
@@ -248,11 +248,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
                                             Sign in
                                         </Link>
                                     </Button>
-                                ) : (
-                                    <Button className="bg-foreground text-background hover:bg-foreground/90 h-8 text-sm">
-                                        Upgrade
-                                    </Button>
-                                )}
+                                ) : null}
                             </div>
                         ) : content.trim() === "" ? (
                             <div className="py-12 text-center">
