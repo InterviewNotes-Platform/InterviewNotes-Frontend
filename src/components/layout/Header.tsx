@@ -11,7 +11,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Menu, X, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { CourseIcon } from "@/components/course-icon";
@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export function Header() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const menuButtonRef = useRef<HTMLButtonElement>(null);
     const { user, loading } = useAuth();
     const router = useRouter();
 
@@ -28,6 +29,12 @@ export function Header() {
         await supabase.auth.signOut();
         router.push("/");
         router.refresh();
+    };
+
+    const closeOnEscape = (event: React.KeyboardEvent) => {
+        if (!mobileMenuOpen || event.key !== "Escape") return;
+        setMobileMenuOpen(false);
+        menuButtonRef.current?.focus();
     };
 
     // Derive initials from name or email
@@ -49,7 +56,7 @@ export function Header() {
     ];
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
+        <header className="sticky top-0 z-50 w-full border-b border-border bg-background" onKeyDown={closeOnEscape}>
             <div className="w-full max-w-[1400px] mx-auto flex h-16 items-center justify-between px-6 md:px-8">
 
                 {/* Left Section: Logo & Nav */}
@@ -85,16 +92,12 @@ export function Header() {
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
-                        <Link href="/#access">
-                            <Button variant="ghost" className="text-foreground/70 hover:text-foreground hover:bg-muted/50 font-medium text-sm h-9 transition-all">
-                                Access
-                            </Button>
-                        </Link>
-                        <Link href="/#faq">
-                            <Button variant="ghost" className="text-foreground/70 hover:text-foreground hover:bg-muted/50 font-medium text-sm h-9 transition-all">
-                                FAQ
-                            </Button>
-                        </Link>
+                        <Button asChild variant="ghost" className="text-foreground/70 hover:text-foreground hover:bg-muted/50 font-medium text-sm h-9 transition-all">
+                            <Link href="/#access">Access</Link>
+                        </Button>
+                        <Button asChild variant="ghost" className="text-foreground/70 hover:text-foreground hover:bg-muted/50 font-medium text-sm h-9 transition-all">
+                            <Link href="/#faq">FAQ</Link>
+                        </Button>
                     </nav>
                 </div>
 
@@ -104,7 +107,7 @@ export function Header() {
                         {!loading && user ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                                    <Button variant="ghost" className="relative h-9 w-9 rounded-full" aria-label="Account menu">
                                         <Avatar className="h-9 w-9 border border-border">
                                             <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
                                                 {initials}
@@ -128,11 +131,9 @@ export function Header() {
                         ) : (
                             <div className="flex items-center gap-2">
                                 <ModeToggle />
-                                <Link href="/login">
-                                    <Button className="bg-foreground text-background hover:bg-foreground/90 h-8 text-sm">
-                                        Sign In
-                                    </Button>
-                                </Link>
+                                <Button asChild className="bg-foreground text-background hover:bg-foreground/90 h-8 text-sm">
+                                    <Link href="/login">Sign In</Link>
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -140,9 +141,12 @@ export function Header() {
 
                 {/* Mobile Menu Button */}
                 <Button
+                    ref={menuButtonRef}
                     variant="ghost"
                     size="icon"
                     className="md:hidden"
+                    aria-label="Menu"
+                    aria-expanded={mobileMenuOpen}
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 >
                     {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -167,21 +171,15 @@ export function Header() {
                         ))}
 
                         <div className="pt-4 border-t border-border space-y-3 px-2">
-                            <Link href="/#access" className="block" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start text-foreground">
-                                    Access
-                                </Button>
-                            </Link>
-                            <Link href="/#faq" className="block" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start text-foreground">
-                                    FAQ
-                                </Button>
-                            </Link>
-                            <Link href="/login" className="block" onClick={() => setMobileMenuOpen(false)}>
-                                <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
-                                    Login
-                                </Button>
-                            </Link>
+                            <Button asChild variant="ghost" className="w-full justify-start text-foreground">
+                                <Link href="/#access" onClick={() => setMobileMenuOpen(false)}>Access</Link>
+                            </Button>
+                            <Button asChild variant="ghost" className="w-full justify-start text-foreground">
+                                <Link href="/#faq" onClick={() => setMobileMenuOpen(false)}>FAQ</Link>
+                            </Button>
+                            <Button asChild className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
+                                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                            </Button>
                         </div>
                     </nav>
                 </div>

@@ -72,12 +72,12 @@ export function StoryBankContent({ course }: StoryBankContentProps) {
                             Jump into the first chapter — you can always come back to add more stories.
                         </p>
                     </div>
-                    <Link href={`/learn/${course.slug}/${course.chapters[0]?.slug || ""}`}>
-                        <Button className="gap-2 bg-[var(--gold)] hover:bg-[var(--gold-hover)] text-[var(--gold-foreground)] font-semibold shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] h-11 px-6">
+                    <Button asChild className="gap-2 bg-[var(--gold)] hover:bg-[var(--gold-hover)] text-[var(--gold-foreground)] font-semibold shadow-md hover:shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] h-11 px-6">
+                        <Link href={`/learn/${course.slug}/${course.chapters[0]?.slug || ""}`}>
                             Start Chapter 1
                             <ArrowRight className="h-4 w-4" />
-                        </Button>
-                    </Link>
+                        </Link>
+                    </Button>
                 </div>
 
             </div>

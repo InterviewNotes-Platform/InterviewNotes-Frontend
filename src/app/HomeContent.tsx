@@ -156,18 +156,16 @@ export function HomeContent({ courses }: HomeContentProps) {
                         </div>
 
                         {/* CTA Buttons */}
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
-                            <Link href="/learn">
-                                <Button size="lg" className="h-12 px-8 text-base font-bold bg-[var(--gold)] hover:bg-[var(--gold-hover)] text-[var(--gold-foreground)] shadow-xl shadow-[var(--gold)]/25 hover:shadow-[var(--gold)]/40 transition-all hover:scale-105 rounded-xl">
+                        <div className="flex flex-col sm:flex-row items-center gap-3 justify-center mb-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
+                            <Button asChild size="lg" className="h-12 px-8 text-base font-bold bg-[var(--gold)] hover:bg-[var(--gold-hover)] text-[var(--gold-foreground)] shadow-xl shadow-[var(--gold)]/25 hover:shadow-[var(--gold)]/40 transition-all hover:scale-105 rounded-xl">
+                                <Link href="/learn">
                                     Start Learning
                                     <ArrowRight className="ml-2 h-5 w-5" />
-                                </Button>
-                            </Link>
-                            <Link href="/#access">
-                                <Button size="lg" variant="outline" className="h-12 px-8 text-base font-bold border-2 border-border/60 hover:bg-muted/60 hover:border-foreground/20 transition-all rounded-xl">
-                                    How Access Works
-                                </Button>
-                            </Link>
+                                </Link>
+                            </Button>
+                            <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base font-bold border-2 border-border/60 hover:bg-muted/60 hover:border-foreground/20 transition-all rounded-xl">
+                                <Link href="/#access">How Access Works</Link>
+                            </Button>
                         </div>
 
                         {/* Stats */}
@@ -226,11 +224,9 @@ export function HomeContent({ courses }: HomeContentProps) {
                                 </li>
                             </ul>
                             <div className="mt-6">
-                                <Link href="/learn">
-                                    <Button variant="outline" className="w-full h-11 font-bold border-2 border-border/60 hover:bg-muted/60 rounded-xl">
-                                        Try Free
-                                    </Button>
-                                </Link>
+                                <Button asChild variant="outline" className="w-full h-11 font-bold border-2 border-border/60 hover:bg-muted/60 rounded-xl">
+                                    <Link href="/learn">Try Free</Link>
+                                </Button>
                             </div>
                         </div>
 
@@ -327,12 +323,12 @@ export function HomeContent({ courses }: HomeContentProps) {
 
                     {/* Bottom CTA */}
                     <div className="text-center mt-16">
-                        <Link href="/learn">
-                            <Button size="lg" className="h-12 px-8 font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 rounded-xl">
+                        <Button asChild size="lg" className="h-12 px-8 font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 rounded-xl">
+                            <Link href="/learn">
                                 View All Courses
                                 <ArrowRight className="ml-2 h-5 w-5" />
-                            </Button>
-                        </Link>
+                            </Link>
+                        </Button>
                     </div>
                 </div>
             </section>
@@ -356,6 +352,7 @@ export function HomeContent({ courses }: HomeContentProps) {
                                 className="border border-border/60 rounded-xl bg-card overflow-hidden transition-all"
                             >
                                 <button
+                                    aria-expanded={openFaq === i}
                                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
                                     className="w-full flex items-center justify-between p-5 text-left cursor-pointer"
                                 >

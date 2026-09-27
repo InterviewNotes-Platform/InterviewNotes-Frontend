@@ -280,7 +280,7 @@
 
   /* Focus visible for better accessibility */
   *:focus-visible {
-    outline: 2px solid hsl(var(--primary));
+    outline: 2px solid var(--primary);
     outline-offset: 2px;
   }
 }

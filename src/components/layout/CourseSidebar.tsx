@@ -157,6 +157,7 @@ export function CourseSidebar({ course, currentChapterSlug }: CourseSidebarProps
                         <div key={section} className="space-y-2">
                             {/* Section Header */}
                             <button
+                                aria-expanded={!!expandedSections[section]}
                                 onClick={() => toggleSection(section)}
                                 className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-foreground/70 uppercase tracking-wide hover:text-foreground transition-colors group rounded-md hover:bg-muted/50"
                             >
@@ -181,10 +182,8 @@ export function CourseSidebar({ course, currentChapterSlug }: CourseSidebarProps
                                         const isCompleted = completedChapters.has(chapter.id);
 
                                         return (
-                                            <Link
+                                            <div
                                                 key={chapter.id}
-                                                ref={isActive ? activeChapterRef : undefined}
-                                                href={`/learn/${course.slug}/${chapter.slug}`}
                                                 className={cn(
                                                     "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors group relative -ml-[2px]",
                                                     isActive
@@ -195,7 +194,7 @@ export function CourseSidebar({ course, currentChapterSlug }: CourseSidebarProps
                                                 {/* Status Icon / Checkbox */}
                                                 <button
                                                     onClick={(e) => toggleCompletion(chapter.id, e)}
-                                                    className="flex-shrink-0 w-5 h-5 flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-full cursor-pointer hover:scale-110 transition-transform"
+                                                    className="relative z-10 flex-shrink-0 w-5 h-5 flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-full cursor-pointer hover:scale-110 transition-transform"
                                                     aria-label={isCompleted ? "Mark as incomplete" : "Mark as complete"}
                                                 >
                                                     {isCompleted ? (
@@ -215,10 +214,14 @@ export function CourseSidebar({ course, currentChapterSlug }: CourseSidebarProps
                                                     )}
                                                 </button>
 
-                                                {/* Title */}
-                                                <span className="flex-1 leading-snug break-words text-sm">
+                                                {/* Title; the ::after overlay keeps the whole row clickable */}
+                                                <Link
+                                                    ref={isActive ? activeChapterRef : undefined}
+                                                    href={`/learn/${course.slug}/${chapter.slug}`}
+                                                    className="flex-1 leading-snug break-words text-sm after:absolute after:inset-0"
+                                                >
                                                     {chapter.title}
-                                                </span>
+                                                </Link>
 
                                                 {/* Premium Badge */}
                                                 {chapter.isPremium && !isCompleted && (
@@ -226,7 +229,7 @@ export function CourseSidebar({ course, currentChapterSlug }: CourseSidebarProps
                                                         <div className="h-1.5 w-1.5 rounded-full bg-primary" title="Premium" />
                                                     </div>
                                                 )}
-                                            </Link>
+                                            </div>
                                         );
                                     })}
                                 </div>

@@ -242,12 +242,12 @@ export function CourseDetail({ course }: CourseDetailProps) {
 
                                 {/* CTA */}
                                 {course.chapters.length > 0 && (
-                                    <Link href={`/learn/${course.slug}/${course.chapters[0].slug}`} className="block">
-                                        <Button className="w-full h-12 text-base font-bold shadow-lg shadow-[var(--gold)]/20 hover:shadow-[var(--gold)]/30 transition-all rounded-lg bg-[var(--gold)] hover:bg-[var(--gold-hover)] text-[var(--gold-foreground)] hover:scale-[1.02] active:scale-[0.98]">
+                                    <Button asChild className="w-full h-12 text-base font-bold shadow-lg shadow-[var(--gold)]/20 hover:shadow-[var(--gold)]/30 transition-all rounded-lg bg-[var(--gold)] hover:bg-[var(--gold-hover)] text-[var(--gold-foreground)] hover:scale-[1.02] active:scale-[0.98]">
+                                        <Link href={`/learn/${course.slug}/${course.chapters[0].slug}`}>
                                             Start Learning Now
                                             <ArrowRight className="ml-2 h-5 w-5" />
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </Button>
                                 )}
 
                             </div>
