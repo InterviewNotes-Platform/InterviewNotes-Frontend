@@ -1,6 +1,12 @@
+# Branches (set in the Netlify UI): `main` → production, `dev` → beta branch deploy.
+# Env vars (API_URL, NEXT_PUBLIC_SUPABASE_*) are set per deploy context in the
+# Netlify UI, never here. See README → Deployment.
 [build]
   command = "npm run build"
   publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
