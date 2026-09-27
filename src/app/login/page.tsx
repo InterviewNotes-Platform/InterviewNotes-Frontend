@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { authCallbackUrl } from "@/lib/auth-redirect";
 
 function GoogleIcon() {
     return (
@@ -29,10 +30,11 @@ export default function LoginPage() {
     const handleGoogleSignIn = async () => {
         setIsLoading(true);
         const supabase = createClient();
+        const redirect = new URLSearchParams(window.location.search).get("redirect");
         await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
+                redirectTo: authCallbackUrl(window.location.origin, redirect),
             },
         });
         // Browser will redirect — no need to setIsLoading(false)
