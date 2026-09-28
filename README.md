@@ -49,3 +49,7 @@ Set these per deploy context in Netlify → Environment variables (placeholders 
 
 Backend calls are currently server-side only, so CORS is not on their path; the backend's
 `CORS_ORIGINS` should still list each deployed frontend origin for any browser-side call.
+
+Note: enabling a branch deploy in the Netlify UI does not retroactively build that branch's
+current HEAD — it only builds on the next new push. Trigger a manual deploy from the Netlify
+dashboard if you need to build an existing commit without pushing new work.
