@@ -164,6 +164,71 @@ describe("getCatalogItem backend states", () => {
    });
 });
 
+const MALFORMED = { status: "unavailable", cause: "malformed" };
+function without(value: object, key: string) {
+   return Object.fromEntries(Object.entries(value).filter(([name]) => name !== key));
+}
+
+const NO_TYPE = without(LESSON, "type");
+const NO_SUMMARY = without(LESSON, "summary");
+const NO_WITHHELD = without(LESSON, "sections_withheld");
+const SECTION = KNOWLEDGE.sections[0];
+
+describe("malformed 2xx payloads are rejected", () => {
+   it.each<[string, unknown]>([
+      ["missing type", NO_TYPE],
+      ["unknown type", { ...LESSON, type: "track" }],
+      ["missing summary", NO_SUMMARY],
+      ["non-string tag", { ...LESSON, tags: ["ok", 1] }],
+      ["tags not an array", { ...LESSON, tags: "ok" }],
+      ["invalid difficulty", { ...LESSON, difficulty: "impossible" }],
+      ["invalid level", { ...LESSON, level: "expert" }],
+      ["missing kind", without(LESSON, "kind")],
+      ["non-string kind", { ...LESSON, kind: 3 }],
+      ["missing sections_withheld", NO_WITHHELD],
+      ["non-boolean sections_withheld", { ...LESSON, sections_withheld: "no" }],
+      ["heading without id", { ...LESSON, headings: [{ level: 2, text: "T" }] }],
+      ["heading with string level", { ...LESSON, headings: [{ id: "t", level: "2", text: "T" }] }],
+      ["heading without text", { ...LESSON, headings: [{ id: "t", level: 2 }] }],
+      ["heading that is not an object", { ...LESSON, headings: ["t"] }],
+      ["section without id", { ...KNOWLEDGE, sections: [{ ...SECTION, id: undefined }] }],
+      ["section without type", { ...KNOWLEDGE, sections: [{ ...SECTION, type: undefined }] }],
+      ["section with non-string title", { ...KNOWLEDGE, sections: [{ ...SECTION, title: 5 }] }],
+      ["section with missing title", { ...KNOWLEDGE, sections: [without(SECTION, "title")] }],
+      ["section without body", { ...KNOWLEDGE, sections: [{ ...SECTION, body: undefined }] }],
+      ["section that is not an object", { ...KNOWLEDGE, sections: [null] }],
+      ["lesson body with unsupported format", { ...LESSON, body: { format: "blocks@1", text: "x" } }],
+      ["lesson body without text", { ...LESSON, body: { format: "markdown@1" } }],
+      ["section body with unsupported format", { ...KNOWLEDGE, sections: [{ ...SECTION, body: { format: "html", text: "x" } }] }],
+      ["an array", []],
+      ["null", null],
+   ])("item: %s", async (_name, payload) => {
+      fetchMock.mockResolvedValue(reply(200, payload));
+      expect(await getCatalogItem("lesson", "x")).toEqual(MALFORMED);
+   });
+
+   it.each<[string, unknown]>([
+      ["missing type", NO_TYPE],
+      ["missing summary", NO_SUMMARY],
+      ["invalid tags element", { ...META, tags: [null] }],
+      ["invalid difficulty", { ...META, difficulty: "trivial" }],
+      ["invalid level", { ...META, level: "guru" }],
+      ["invalid access", { ...META, access: "gold" }],
+   ])("meta: %s", async (_name, payload) => {
+      fetchMock.mockResolvedValue(reply(200, payload));
+      expect(await getCatalogItemMeta("lesson", "x")).toEqual(MALFORMED);
+   });
+
+   it("still accepts every valid enum value and null difficulty/level", async () => {
+      for (const difficulty of ["easy", "medium", "hard", null]) {
+         for (const level of ["foundational", "intermediate", "advanced", null]) {
+            fetchMock.mockResolvedValueOnce(reply(200, { ...LESSON, difficulty, level }));
+            expect((await getCatalogItem("lesson", "x")).status).toBe("ok");
+         }
+      }
+   });
+});
+
 describe("getCatalogItemMeta", () => {
    it("returns public metadata without reading the session", async () => {
       fetchMock.mockResolvedValue(reply(200, META));

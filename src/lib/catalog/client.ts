@@ -2,10 +2,13 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import type {
+   CatalogBody,
+   CatalogHeading,
    CatalogItem,
    CatalogItemType,
    CatalogMeta,
    CatalogResult,
+   CatalogSection,
 } from "./types";
 
 /** How long a signed-out (or metadata) response may be cached at the edge. */
@@ -38,29 +41,67 @@ function isRecord(value: unknown): value is Record<string, unknown> {
    return typeof value === "object" && value !== null;
 }
 
+const ITEM_TYPES = ["knowledge", "lesson", "problem"];
+const DIFFICULTIES = ["easy", "medium", "hard"];
+const LEVELS = ["foundational", "intermediate", "advanced"];
+
+function isString(value: unknown): value is string {
+   return typeof value === "string";
+}
+
+function isOneOfOrNull(value: unknown, allowed: string[]): boolean {
+   return value === null || (isString(value) && allowed.includes(value));
+}
+
 function isMeta(value: unknown): value is CatalogMeta {
    return (
       isRecord(value) &&
-      typeof value.id === "string" &&
-      typeof value.slug === "string" &&
-      typeof value.title === "string" &&
+      isString(value.id) &&
+      isString(value.type) &&
+      ITEM_TYPES.includes(value.type) &&
+      isString(value.slug) &&
+      isString(value.title) &&
+      isString(value.summary) &&
+      Array.isArray(value.tags) &&
+      value.tags.every(isString) &&
+      isOneOfOrNull(value.difficulty, DIFFICULTIES) &&
+      isOneOfOrNull(value.level, LEVELS) &&
       (value.access === "free" || value.access === "premium")
    );
 }
 
-function isMarkdownBody(value: unknown): boolean {
-   return isRecord(value) && value.format === "markdown@1" && typeof value.text === "string";
+/** Only `markdown@1` is renderable; any other body format is refused rather than shown raw. */
+function isBody(value: unknown): value is CatalogBody {
+   return isRecord(value) && value.format === "markdown@1" && isString(value.text);
 }
 
-/** Only `markdown@1` is renderable; any other body format is refused rather than shown raw. */
+function isHeading(value: unknown): value is CatalogHeading {
+   return (
+      isRecord(value) && isString(value.id) && typeof value.level === "number" && isString(value.text)
+   );
+}
+
+function isSection(value: unknown): value is CatalogSection {
+   return (
+      isRecord(value) &&
+      isString(value.id) &&
+      isString(value.type) &&
+      (value.title === null || isString(value.title)) &&
+      isBody(value.body)
+   );
+}
+
 function isItem(value: unknown): value is CatalogItem {
    if (!isMeta(value)) return false;
-   const { body, headings, sections } = value as unknown as Record<string, unknown>;
+   const item = value as unknown as Record<string, unknown>;
    return (
-      Array.isArray(headings) &&
-      Array.isArray(sections) &&
-      (body === null || isMarkdownBody(body)) &&
-      sections.every((section) => isRecord(section) && isMarkdownBody(section.body))
+      (item.kind === null || isString(item.kind)) &&
+      (item.body === null || isBody(item.body)) &&
+      Array.isArray(item.headings) &&
+      item.headings.every(isHeading) &&
+      Array.isArray(item.sections) &&
+      item.sections.every(isSection) &&
+      typeof item.sections_withheld === "boolean"
    );
 }
 
