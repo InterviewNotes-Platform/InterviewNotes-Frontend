@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "../specs"
+		},
+		{
+			"path": "../content"
 		}
 	],
 	"settings": {}
