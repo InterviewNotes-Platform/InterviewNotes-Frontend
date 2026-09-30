@@ -11,6 +11,12 @@
 		},
 		{
 			"path": "../content"
+		},
+		{
+			"path": "../agent-skills"
+		},
+		{
+			"path": "../skills"
 		}
 	],
 	"settings": {}
