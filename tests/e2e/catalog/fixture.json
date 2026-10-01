@@ -1,0 +1,152 @@
+{
+  "identities": {
+    "unentitled": {
+      "token": "e2e-unentitled-access-token",
+      "entitled": false,
+      "user": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "aud": "authenticated",
+        "role": "authenticated",
+        "email": "unentitled@e2e.invalid",
+        "app_metadata": {},
+        "user_metadata": {}
+      }
+    },
+    "entitled": {
+      "token": "e2e-entitled-access-token",
+      "entitled": true,
+      "user": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "aud": "authenticated",
+        "role": "authenticated",
+        "email": "entitled@e2e.invalid",
+        "app_metadata": {},
+        "user_metadata": {}
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "lesson.catalog-e2e-free",
+      "type": "lesson",
+      "slug": "catalog-e2e-free",
+      "title": "Synthetic Free Lesson",
+      "summary": "Free synthetic lesson for catalog end-to-end tests.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "catalog-e2e-home",
+      "body": "## Free lesson heading\n\nFree lesson body marker.\n\n::: callout kind=tip\nSynthetic tip marker.\n:::\n",
+      "headings": [{ "id": "free-lesson-heading", "level": 2, "text": "Free lesson heading" }],
+      "relations": { "prerequisite_of": ["problem.catalog-e2e-related"] }
+    },
+    {
+      "id": "knowledge.catalog-e2e-sections",
+      "type": "knowledge",
+      "slug": "catalog-e2e-sections",
+      "title": "Mixed Access Knowledge",
+      "summary": "Free synthetic knowledge item with one premium section.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "catalog-e2e-home",
+      "kind": "concept",
+      "sections": [
+        { "id": "definition", "type": "definition", "title": "Public definition", "access": "free", "text": "Public section marker." },
+        { "id": "failure-modes", "type": "failure_modes", "title": "Deep failure analysis", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium section body." }
+      ],
+      "relations": { "related": ["problem.catalog-e2e-related"] }
+    },
+    {
+      "id": "problem.catalog-e2e-related",
+      "type": "problem",
+      "slug": "catalog-e2e-related",
+      "title": "Related Practice Problem",
+      "summary": "Free synthetic problem with free and premium neighbours.",
+      "tags": ["e2e"],
+      "difficulty": "medium",
+      "level": null,
+      "access": "free",
+      "home": "catalog-e2e-home",
+      "kind": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Problem prompt marker." }
+      ],
+      "relations": {
+        "prerequisite": ["lesson.catalog-e2e-free"],
+        "related": ["knowledge.catalog-e2e-sections", "lesson.catalog-e2e-premium"]
+      }
+    },
+    {
+      "id": "lesson.catalog-e2e-premium",
+      "type": "lesson",
+      "slug": "catalog-e2e-premium",
+      "title": "Locked Premium Lesson",
+      "summary": "Premium synthetic lesson; only its metadata is public.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "advanced",
+      "access": "premium",
+      "home": "catalog-e2e-home",
+      "body": "## Premium lesson heading\n\nCATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium lesson body.\n",
+      "headings": [{ "id": "premium-lesson-heading", "level": 2, "text": "Premium lesson heading" }],
+      "relations": { "related": ["problem.catalog-e2e-related"] }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "track.catalog-e2e-home",
+      "slug": "catalog-e2e-home",
+      "title": "E2E Home Track",
+      "summary": "Home Track marker.",
+      "modules": [
+        { "key": "orientation", "title": "Orientation", "items": ["lesson.catalog-e2e-free", "knowledge.catalog-e2e-sections"] },
+        { "key": "applied-practice", "title": "Applied Practice", "items": ["problem.catalog-e2e-related", "lesson.catalog-e2e-premium"] }
+      ]
+    },
+    {
+      "id": "track.catalog-e2e-alternate",
+      "slug": "catalog-e2e-alternate",
+      "title": "E2E Alternate Track",
+      "summary": "Alternate Track marker.",
+      "modules": [
+        { "key": "extras", "title": "Extras", "items": ["problem.catalog-e2e-related", "lesson.catalog-e2e-free"] }
+      ]
+    }
+  ],
+  "legacy": {
+    "courses": [
+      {
+        "id": "e2e-legacy-course-id",
+        "slug": "e2e-legacy-course",
+        "title": "E2E Legacy Course",
+        "description": "Synthetic legacy course for the /learn regression test.",
+        "icon": "FileCode",
+        "chapters": [
+          {
+            "id": "e2e-legacy-free-id",
+            "slug": "e2e-legacy-free",
+            "title": "E2E Legacy Free Chapter",
+            "section": "Synthetic Basics",
+            "order": 1,
+            "is_premium": false,
+            "estimated_read_time": 300,
+            "body": "## Legacy heading\n\nLegacy free chapter marker.\n"
+          },
+          {
+            "id": "e2e-legacy-premium-id",
+            "slug": "e2e-legacy-premium",
+            "title": "E2E Legacy Premium Chapter",
+            "section": "Synthetic Basics",
+            "order": 2,
+            "is_premium": true,
+            "estimated_read_time": 300,
+            "body": "## Legacy premium heading\n\nLegacy premium chapter marker.\n"
+          }
+        ]
+      }
+    ]
+  }
+}
