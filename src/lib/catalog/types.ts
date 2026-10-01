@@ -15,12 +15,45 @@ export interface CatalogMeta {
    access: CatalogAccess;
 }
 
-/** A Track's identity; its modules and outline are not consumed yet. */
+/** A Track item's public outline entry; `primary` is true when this Track is the item's home. */
+export interface CatalogOutlineEntry {
+   id: string;
+   type: CatalogItemType;
+   slug: string;
+   title: string;
+   access: CatalogAccess;
+   primary: boolean;
+}
+
+export interface CatalogModule {
+   key: string;
+   title: string;
+   position: number;
+   items: CatalogOutlineEntry[];
+}
+
+/** A Track and its outline: modules, then their items, in the order the API returns them. */
 export interface CatalogTrack {
    id: string;
    slug: string;
    title: string;
    summary: string;
+   modules: CatalogModule[];
+}
+
+/** Where an item sits in one Track; `primary` marks its home Track. */
+export interface CatalogPlacement {
+   track: string;
+   module: string;
+   position: number;
+   primary: boolean;
+}
+
+/** An item's graph neighbours as public metadata, grouped by relation name, plus its placements. */
+export interface CatalogRelated {
+   id: string;
+   relations: Record<string, CatalogMeta[]>;
+   placements: CatalogPlacement[];
 }
 
 export interface CatalogBody {

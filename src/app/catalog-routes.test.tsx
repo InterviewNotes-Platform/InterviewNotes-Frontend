@@ -3,12 +3,13 @@ import { join, relative } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCatalogItem, getCatalogItemMeta, getCatalogTrack } = vi.hoisted(() => ({
+const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
    getCatalogItem: vi.fn(),
    getCatalogItemMeta: vi.fn(),
+   getCatalogRelated: vi.fn(),
    getCatalogTrack: vi.fn(),
 }));
-vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogTrack }));
+vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack }));
 vi.mock("next/navigation", () => ({
    notFound: () => {
       throw new Error("NEXT_NOT_FOUND");
@@ -38,13 +39,14 @@ const ITEM = {
    sections: [],
    sections_withheld: false,
 };
-const TRACK = { id: "track.foo", slug: "foo", title: "Synthetic Track", summary: "Track summary" };
+const TRACK = { id: "track.foo", slug: "foo", title: "Synthetic Track", summary: "Track summary", modules: [] };
 
 beforeEach(() => {
    vi.clearAllMocks();
    getCatalogItem.mockResolvedValue({ status: "ok", data: ITEM });
    getCatalogItemMeta.mockResolvedValue({ status: "ok", data: ITEM });
    getCatalogTrack.mockResolvedValue({ status: "ok", data: TRACK });
+   getCatalogRelated.mockResolvedValue({ status: "unavailable", cause: "upstream" });
 });
 
 describe("type-based route mapping", () => {

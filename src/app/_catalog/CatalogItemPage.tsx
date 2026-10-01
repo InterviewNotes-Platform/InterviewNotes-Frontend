@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CatalogBody } from "@/components/catalog/CatalogBody";
+import { ItemNavigation } from "@/components/catalog/ItemNavigation";
+import { TrackBreadcrumb } from "@/components/catalog/TrackContext";
 import { getCatalogItem, getCatalogItemMeta } from "@/lib/catalog/client";
+import { loadItemNavigation } from "@/lib/catalog/navigation";
 import { catalogHref } from "@/lib/catalog/routes";
 import type { CatalogItem, CatalogItemType, CatalogMeta } from "@/lib/catalog/types";
 import { CatalogStateNotice } from "./CatalogStateNotice";
@@ -42,7 +45,8 @@ function ItemContent({ item }: { item: CatalogItem }) {
 
 /**
  * One canonical page per catalog type + slug. The API decides what this caller may read;
- * the page only presents the result it is given.
+ * the page only presents the result it is given. Relationships are loaded only for a body the
+ * API has already released, so a locked page shows no Track or related context.
  */
 export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; slug: string }) {
    const result = await getCatalogItem(type, slug);
@@ -51,6 +55,8 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
    const signInPath = catalogHref(`${type}.${slug}`) ?? undefined;
    let content;
    let header: Pick<CatalogMeta, "title" | "summary"> | null = null;
+
+   const navigation = result.status === "ok" ? await loadItemNavigation(type, slug) : null;
 
    if (result.status === "ok") {
       header = result.data;
@@ -66,8 +72,10 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
 
    return (
       <main className="max-w-3xl mx-auto px-6 py-8">
+         {navigation?.home ? <TrackBreadcrumb placement={navigation.home} /> : null}
          {header ? <ItemHeader meta={header} /> : null}
          {content}
+         {navigation ? <ItemNavigation navigation={navigation} /> : null}
       </main>
    );
 }

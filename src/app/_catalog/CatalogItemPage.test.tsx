@@ -1,11 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCatalogItem, getCatalogItemMeta } = vi.hoisted(() => ({
+const { getCatalogItem, getCatalogItemMeta, getCatalogRelated } = vi.hoisted(() => ({
    getCatalogItem: vi.fn(),
    getCatalogItemMeta: vi.fn(),
+   getCatalogRelated: vi.fn(),
 }));
-vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta }));
+vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack: vi.fn() }));
 vi.mock("next/navigation", () => ({
    notFound: () => {
       throw new Error("NEXT_NOT_FOUND");
@@ -54,6 +55,7 @@ async function show(type: "lesson" | "problem" | "knowledge", slug: string) {
 beforeEach(() => {
    vi.clearAllMocks();
    getCatalogItemMeta.mockResolvedValue({ status: "ok", data: META });
+   getCatalogRelated.mockResolvedValue({ status: "unavailable", cause: "upstream" });
 });
 
 describe("CatalogItemPage lookup", () => {

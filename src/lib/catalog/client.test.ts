@@ -5,7 +5,7 @@ vi.mock("@/lib/supabase/server", () => ({
    createClient: async () => ({ auth: { getSession } }),
 }));
 
-import { getCatalogItem, getCatalogItemMeta, getCatalogTrack } from "./client";
+import { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } from "./client";
 
 const META = {
    id: "lesson.dynamic-batching",
@@ -266,5 +266,89 @@ describe("getCatalogTrack", () => {
       expect(await getCatalogTrack("x")).toEqual({ status: "notFound" });
       expect(await getCatalogTrack("x")).toEqual({ status: "retired" });
       expect(await getCatalogTrack("x")).toEqual({ status: "unavailable", cause: "malformed" });
+   });
+});
+
+describe("getCatalogTrack outline", () => {
+   const ENTRY = { id: "lesson.a", type: "lesson", slug: "a", title: "A", access: "free", primary: true };
+   const TRACK = {
+      id: "track.t",
+      slug: "t",
+      title: "T",
+      summary: "",
+      modules: [{ key: "m2", title: "Second", position: 1, items: [ENTRY] }, { key: "m1", title: "First", position: 0, items: [] }],
+   };
+
+   it("returns modules and entries in the order the API sent them", async () => {
+      fetchMock.mockResolvedValue(reply(200, TRACK));
+      const result = await getCatalogTrack("t");
+      expect(result).toEqual({ status: "ok", data: TRACK });
+      expect(result.status === "ok" && result.data.modules.map((m) => m.key)).toEqual(["m2", "m1"]);
+   });
+
+   it.each<[string, unknown]>([
+      ["no modules array", { ...TRACK, modules: undefined }],
+      ["a module without a key", { ...TRACK, modules: [{ title: "x", position: 0, items: [] }] }],
+      ["a module with non-array items", { ...TRACK, modules: [{ key: "m", title: "x", position: 0, items: {} }] }],
+      ["an entry with an unknown type", { ...TRACK, modules: [{ key: "m", title: "x", position: 0, items: [{ ...ENTRY, type: "course" }] }] }],
+      ["an entry with an unknown access value", { ...TRACK, modules: [{ key: "m", title: "x", position: 0, items: [{ ...ENTRY, access: "gold" }] }] }],
+      ["an entry without a primary flag", { ...TRACK, modules: [{ key: "m", title: "x", position: 0, items: [{ ...ENTRY, primary: "yes" }] }] }],
+   ])("refuses %s", async (_name, payload) => {
+      fetchMock.mockResolvedValue(reply(200, payload));
+      expect(await getCatalogTrack("t")).toEqual({ status: "unavailable", cause: "malformed" });
+   });
+});
+
+describe("getCatalogRelated", () => {
+   const RELATED = {
+      id: "lesson.dynamic-batching",
+      relations: { prerequisite: [{ ...META, id: "knowledge.rag", type: "knowledge", slug: "rag", access: "free" }], related: [] },
+      placements: [{ track: "synthetic-track", module: "m1", position: 0, primary: true }],
+   };
+
+   it("calls only the related endpoint, with no query string or Git selector", async () => {
+      fetchMock.mockResolvedValue(reply(200, RELATED));
+      expect(await getCatalogRelated("lesson", "dynamic-batching")).toEqual({ status: "ok", data: RELATED });
+      const [url] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.test/catalog/items/lesson/dynamic-batching/related");
+   });
+
+   it("encodes the slug so it cannot change the path", async () => {
+      fetchMock.mockResolvedValue(reply(200, RELATED));
+      await getCatalogRelated("lesson", "a/../b?commit=x");
+      expect(fetchMock.mock.calls[0][0]).toBe("https://api.test/catalog/items/lesson/a%2F..%2Fb%3Fcommit%3Dx/related");
+   });
+
+   it("sends the session token and never caches a signed-in read", async () => {
+      getSession.mockResolvedValue({ data: { session: { access_token: "synthetic-token" } } });
+      fetchMock.mockResolvedValue(reply(200, RELATED));
+      await getCatalogRelated("lesson", "dynamic-batching");
+      const [, init] = fetchMock.mock.calls[0];
+      expect(init.headers).toEqual({ Authorization: "Bearer synthetic-token" });
+      expect(init.cache).toBe("no-store");
+   });
+
+   it("maps the premium gate and removal states without exposing detail", async () => {
+      fetchMock
+         .mockResolvedValueOnce(reply(401))
+         .mockResolvedValueOnce(reply(402))
+         .mockResolvedValueOnce(reply(404))
+         .mockResolvedValueOnce(reply(410));
+      expect(await getCatalogRelated("lesson", "x")).toEqual({ status: "unauthenticated" });
+      expect(await getCatalogRelated("lesson", "x")).toEqual({ status: "unentitled" });
+      expect(await getCatalogRelated("lesson", "x")).toEqual({ status: "notFound" });
+      expect(await getCatalogRelated("lesson", "x")).toEqual({ status: "retired" });
+   });
+
+   it.each<[string, unknown]>([
+      ["a missing id", { ...RELATED, id: undefined }],
+      ["relations as an array", { ...RELATED, relations: [] }],
+      ["a relation group that is not a list", { ...RELATED, relations: { related: "x" } }],
+      ["a related target with an unknown type", { ...RELATED, relations: { related: [{ ...META, type: "track" }] } }],
+      ["a placement without a primary flag", { ...RELATED, placements: [{ track: "t", module: "m", position: 0 }] }],
+      ["placements that are not a list", { ...RELATED, placements: {} }],
+   ])("refuses %s", async (_name, payload) => {
+      fetchMock.mockResolvedValue(reply(200, payload));
+      expect(await getCatalogRelated("lesson", "x")).toEqual({ status: "unavailable", cause: "malformed" });
    });
 });

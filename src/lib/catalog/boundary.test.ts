@@ -19,8 +19,14 @@ describe("catalog browser/Git boundary", () => {
    it("finds the catalog sources it is guarding", () => {
       expect(catalogFiles.map((file) => relative(SRC, file)).sort()).toEqual([
          "components/catalog/CatalogBody.tsx",
+         "components/catalog/EntryRow.tsx",
+         "components/catalog/ItemNavigation.tsx",
+         "components/catalog/RelatedContent.tsx",
+         "components/catalog/TrackContext.tsx",
+         "components/catalog/TrackOutline.tsx",
          "components/catalog/blocks.ts",
          "lib/catalog/client.ts",
+         "lib/catalog/navigation.ts",
          "lib/catalog/routes.ts",
          "lib/catalog/types.ts",
       ]);
@@ -52,5 +58,15 @@ describe("catalog browser/Git boundary", () => {
          const text = read(file);
          if (/^\s*["']use client["']/.test(text)) expect(text, file).not.toMatch(/lib\/catalog\/client/);
       }
+   });
+
+   it("keeps every presentation component free of the client, fetching and effects", () => {
+      for (const file of sources(join(SRC, "components", "catalog"))) {
+         expect(read(file), file).not.toMatch(/catalog\/client|\bfetch\(|useEffect|process\.env/);
+      }
+   });
+
+   it("loads relationships without ever fetching an item body", () => {
+      expect(read(join(SRC, "lib", "catalog", "navigation.ts"))).not.toMatch(/getCatalogItem/);
    });
 });

@@ -7,6 +7,10 @@ import type {
    CatalogItem,
    CatalogItemType,
    CatalogMeta,
+   CatalogModule,
+   CatalogOutlineEntry,
+   CatalogPlacement,
+   CatalogRelated,
    CatalogResult,
    CatalogSection,
    CatalogTrack,
@@ -92,13 +96,61 @@ function isSection(value: unknown): value is CatalogSection {
    );
 }
 
+function isOutlineEntry(value: unknown): value is CatalogOutlineEntry {
+   return (
+      isRecord(value) &&
+      isString(value.id) &&
+      isString(value.type) &&
+      ITEM_TYPES.includes(value.type) &&
+      isString(value.slug) &&
+      isString(value.title) &&
+      (value.access === "free" || value.access === "premium") &&
+      typeof value.primary === "boolean"
+   );
+}
+
+function isModule(value: unknown): value is CatalogModule {
+   return (
+      isRecord(value) &&
+      isString(value.key) &&
+      isString(value.title) &&
+      typeof value.position === "number" &&
+      Array.isArray(value.items) &&
+      value.items.every(isOutlineEntry)
+   );
+}
+
 function isTrack(value: unknown): value is CatalogTrack {
    return (
       isRecord(value) &&
       isString(value.id) &&
       isString(value.slug) &&
       isString(value.title) &&
-      isString(value.summary)
+      isString(value.summary) &&
+      Array.isArray(value.modules) &&
+      value.modules.every(isModule)
+   );
+}
+
+function isPlacement(value: unknown): value is CatalogPlacement {
+   return (
+      isRecord(value) &&
+      isString(value.track) &&
+      isString(value.module) &&
+      typeof value.position === "number" &&
+      typeof value.primary === "boolean"
+   );
+}
+
+function isRelated(value: unknown): value is CatalogRelated {
+   return (
+      isRecord(value) &&
+      isString(value.id) &&
+      isRecord(value.relations) &&
+      !Array.isArray(value.relations) &&
+      Object.values(value.relations).every((items) => Array.isArray(items) && items.every(isMeta)) &&
+      Array.isArray(value.placements) &&
+      value.placements.every(isPlacement)
    );
 }
 
@@ -185,7 +237,18 @@ export function getCatalogItemMeta(
    return request(`${itemPath(type, slug)}/meta`, isMeta, false);
 }
 
-/** A published Track. Tracks are never gated, so no session is sent and the response is shareable. */
+/**
+ * An item's related items and Track placements, as public metadata. A premium item's graph needs
+ * entitlement, so the session is sent; the API answers 401/402 rather than this client deciding.
+ */
+export function getCatalogRelated(
+   type: CatalogItemType,
+   slug: string
+): Promise<CatalogResult<CatalogRelated>> {
+   return request(`${itemPath(type, slug)}/related`, isRelated, true);
+}
+
+/** A published Track and its outline. Tracks are never gated, so no session is sent and the response is shareable. */
 export function getCatalogTrack(slug: string): Promise<CatalogResult<CatalogTrack>> {
    return request(`/catalog/tracks/${encodeURIComponent(slug)}`, isTrack, false);
 }
