@@ -1,4 +1,6 @@
 import { test as base, expect, type Page, type Request, type Response, type Route } from "@playwright/test";
+import { CATALOG_CANARY } from "../../leak/canaries";
+import { inlinedRsc } from "../../leak/scanner";
 import fixture from "./fixture.json";
 
 export const FAKE_API_PORT = 3101;
@@ -26,8 +28,8 @@ export const REJECTED_TOKEN = "e2e-synthetic-rejected-token-fedcba9876543210";
 const PREVIEW_TOKENS = [PREVIEW_TOKEN, REJECTED_TOKEN];
 const SERVER_ONLY_ORIGINS = [FAKE_API_ORIGIN, PREVIEW_API_ORIGIN];
 
-/** Present only in premium bodies/sections of fixture.json. */
-export const CANARY = "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK";
+/** Present only in premium bodies/sections of fixture.json; every canary is registered in tests/leak. */
+export const CANARY = CATALOG_CANARY;
 
 export interface FixtureSection {
    id: string;
@@ -205,17 +207,7 @@ export const test = base.extend<{ identity: Identity; traffic: Traffic }>({
 
 export { expect };
 
-/** The RSC payload Next inlines into HTML as `self.__next_f.push([1, text])` or `[3, base64]` scripts. */
-export function inlinedRsc(html: string): string {
-   return [...html.matchAll(/self\.__next_f\.push\((\[[\s\S]*?\])\)<\/script>/g)]
-      .map(([, chunk]) => {
-         const [kind, data = ""] = JSON.parse(chunk) as [number, string?];
-         if (kind === 1) return data;
-         if (kind === 3) return Buffer.from(data, "base64").toString("utf8");
-         return "";
-      })
-      .join("");
-}
+export { inlinedRsc };
 
 export type Channel = "HTML" | "RSC" | "DOM" | "network";
 
