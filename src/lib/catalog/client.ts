@@ -9,6 +9,7 @@ import type {
    CatalogMeta,
    CatalogResult,
    CatalogSection,
+   CatalogTrack,
 } from "./types";
 
 /** How long a signed-out (or metadata) response may be cached at the edge. */
@@ -88,6 +89,16 @@ function isSection(value: unknown): value is CatalogSection {
       isString(value.type) &&
       (value.title === null || isString(value.title)) &&
       isBody(value.body)
+   );
+}
+
+function isTrack(value: unknown): value is CatalogTrack {
+   return (
+      isRecord(value) &&
+      isString(value.id) &&
+      isString(value.slug) &&
+      isString(value.title) &&
+      isString(value.summary)
    );
 }
 
@@ -172,4 +183,9 @@ export function getCatalogItemMeta(
    slug: string
 ): Promise<CatalogResult<CatalogMeta>> {
    return request(`${itemPath(type, slug)}/meta`, isMeta, false);
+}
+
+/** A published Track. Tracks are never gated, so no session is sent and the response is shareable. */
+export function getCatalogTrack(slug: string): Promise<CatalogResult<CatalogTrack>> {
+   return request(`/catalog/tracks/${encodeURIComponent(slug)}`, isTrack, false);
 }

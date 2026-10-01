@@ -15,6 +15,14 @@ export interface CatalogMeta {
    access: CatalogAccess;
 }
 
+/** A Track's identity; its modules and outline are not consumed yet. */
+export interface CatalogTrack {
+   id: string;
+   slug: string;
+   title: string;
+   summary: string;
+}
+
 export interface CatalogBody {
    format: "markdown@1";
    text: string;

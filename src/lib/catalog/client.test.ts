@@ -5,7 +5,7 @@ vi.mock("@/lib/supabase/server", () => ({
    createClient: async () => ({ auth: { getSession } }),
 }));
 
-import { getCatalogItem, getCatalogItemMeta } from "./client";
+import { getCatalogItem, getCatalogItemMeta, getCatalogTrack } from "./client";
 
 const META = {
    id: "lesson.dynamic-batching",
@@ -243,5 +243,28 @@ describe("getCatalogItemMeta", () => {
       fetchMock.mockResolvedValueOnce(reply(404)).mockResolvedValueOnce(reply(410));
       expect(await getCatalogItemMeta("lesson", "x")).toEqual({ status: "notFound" });
       expect(await getCatalogItemMeta("lesson", "x")).toEqual({ status: "retired" });
+   });
+});
+
+describe("getCatalogTrack", () => {
+   const TRACK = { id: "track.llm-platform", slug: "llm-platform", title: "Synthetic Track", summary: "Synthetic summary", modules: [] };
+
+   it("calls the public track endpoint without reading the session", async () => {
+      fetchMock.mockResolvedValue(reply(200, TRACK));
+      expect(await getCatalogTrack("llm-platform")).toEqual({ status: "ok", data: TRACK });
+      expect(getSession).not.toHaveBeenCalled();
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.test/catalog/tracks/llm-platform");
+      expect(init.headers).toEqual({});
+   });
+
+   it("maps not found, retired and an unusable body", async () => {
+      fetchMock
+         .mockResolvedValueOnce(reply(404))
+         .mockResolvedValueOnce(reply(410))
+         .mockResolvedValueOnce(reply(200, { id: "track.x" }));
+      expect(await getCatalogTrack("x")).toEqual({ status: "notFound" });
+      expect(await getCatalogTrack("x")).toEqual({ status: "retired" });
+      expect(await getCatalogTrack("x")).toEqual({ status: "unavailable", cause: "malformed" });
    });
 });
