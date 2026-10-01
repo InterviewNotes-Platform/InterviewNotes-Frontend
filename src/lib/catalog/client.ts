@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { previewDelivery } from "./preview";
 import type {
    CatalogBody,
    CatalogHeading,
@@ -179,14 +180,20 @@ async function request<T>(
       return unavailable("transport");
    }
 
+   const delivery = previewDelivery(base);
+   if (!delivery) {
+      console.error("catalog: the preview credential cannot be sent safely; no request was made");
+      return unavailable("transport");
+   }
+
    const token = withSession ? await getAccessToken() : null;
    let response: Response;
    try {
       response = await fetch(`${base}${path}`, {
-         headers: token ? { Authorization: `Bearer ${token}` } : {},
-         // A signed-in response is user-specific and must never be shared. A signed-out
-         // response is identical for every signed-out caller, so it may be cached.
-         ...(token
+         headers: { ...delivery.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+         // A signed-in response is user-specific and must never be shared, nor may a preview's.
+         // A signed-out production response is identical for every such caller, so it may be cached.
+         ...(token || !delivery.shareable
             ? { cache: "no-store" as const }
             : { next: { revalidate: REVALIDATE_SECONDS } }),
       });

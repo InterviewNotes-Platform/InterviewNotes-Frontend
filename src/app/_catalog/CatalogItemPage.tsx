@@ -5,14 +5,16 @@ import { ItemNavigation } from "@/components/catalog/ItemNavigation";
 import { TrackBreadcrumb } from "@/components/catalog/TrackContext";
 import { getCatalogItem, getCatalogItemMeta } from "@/lib/catalog/client";
 import { loadItemNavigation } from "@/lib/catalog/navigation";
+import { isPreview } from "@/lib/catalog/preview";
 import { catalogHref } from "@/lib/catalog/routes";
 import type { CatalogItem, CatalogItemType, CatalogMeta } from "@/lib/catalog/types";
 import { CatalogStateNotice } from "./CatalogStateNotice";
+import { PreviewMarker, withPreviewRobots } from "./PreviewMarker";
 
 export async function catalogItemMetadata(type: CatalogItemType, slug: string): Promise<Metadata> {
    const result = await getCatalogItemMeta(type, slug);
-   if (result.status !== "ok") return {};
-   return { title: result.data.title, description: result.data.summary };
+   if (result.status !== "ok") return withPreviewRobots({});
+   return withPreviewRobots({ title: result.data.title, description: result.data.summary });
 }
 
 function ItemHeader({ meta }: { meta: Pick<CatalogMeta, "title" | "summary"> }) {
@@ -25,13 +27,14 @@ function ItemHeader({ meta }: { meta: Pick<CatalogMeta, "title" | "summary"> }) 
 }
 
 function ItemContent({ item }: { item: CatalogItem }) {
+   const stayOnDeployment = isPreview();
    return (
       <>
-         {item.body ? <CatalogBody body={item.body} /> : null}
+         {item.body ? <CatalogBody body={item.body} stayOnDeployment={stayOnDeployment} /> : null}
          {item.sections.map((section) => (
             <section key={section.id} id={section.id}>
                {section.title ? <h2 className="text-2xl font-bold mt-8 mb-3 text-foreground">{section.title}</h2> : null}
-               <CatalogBody body={section.body} />
+               <CatalogBody body={section.body} stayOnDeployment={stayOnDeployment} />
             </section>
          ))}
          {item.sections_withheld ? (
@@ -71,11 +74,14 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
    }
 
    return (
-      <main className="max-w-3xl mx-auto px-6 py-8">
-         {navigation?.home ? <TrackBreadcrumb placement={navigation.home} /> : null}
-         {header ? <ItemHeader meta={header} /> : null}
-         {content}
-         {navigation ? <ItemNavigation navigation={navigation} /> : null}
-      </main>
+      <>
+         <PreviewMarker />
+         <main className="max-w-3xl mx-auto px-6 py-8">
+            {navigation?.home ? <TrackBreadcrumb placement={navigation.home} /> : null}
+            {header ? <ItemHeader meta={header} /> : null}
+            {content}
+            {navigation ? <ItemNavigation navigation={navigation} /> : null}
+         </main>
+      </>
    );
 }

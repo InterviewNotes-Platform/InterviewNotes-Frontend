@@ -93,6 +93,21 @@
       "body": "## Premium lesson heading\n\nCATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium lesson body.\n",
       "headings": [{ "id": "premium-lesson-heading", "level": 2, "text": "Premium lesson heading" }],
       "relations": { "related": ["problem.catalog-e2e-related"] }
+    },
+    {
+      "id": "lesson.catalog-e2e-links",
+      "type": "lesson",
+      "slug": "catalog-e2e-links",
+      "title": "Synthetic Authored Links Lesson",
+      "summary": "Free synthetic lesson whose body links to other InterviewNotes origins.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "body": "Authored links marker.\n\n[production problem](https://interviewnotes.io/problems/catalog-e2e-related), [beta track](https://dev.interviewnotes.io/tracks/catalog-e2e-home#top), [legacy index](https://www.interviewnotes.io/learn), [elsewhere](https://example.com/lessons/catalog-e2e-free).\n",
+      "headings": [],
+      "relations": {}
     }
   ],
   "tracks": [

@@ -27,6 +27,7 @@ describe("catalog browser/Git boundary", () => {
          "components/catalog/blocks.ts",
          "lib/catalog/client.ts",
          "lib/catalog/navigation.ts",
+         "lib/catalog/preview.ts",
          "lib/catalog/routes.ts",
          "lib/catalog/types.ts",
       ]);
