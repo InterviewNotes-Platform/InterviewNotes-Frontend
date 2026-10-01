@@ -4,7 +4,7 @@ import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown"
 import remarkGfm from "remark-gfm";
 import { Mermaid } from "@/components/mdx/Mermaid";
 import { Tip, type TipType } from "@/components/mdx/Tip";
-import { catalogHref } from "@/lib/catalog/routes";
+import { catalogHref, firstPartyPath } from "@/lib/catalog/routes";
 import type { CatalogBody as CatalogBodyData } from "@/lib/catalog/types";
 import { parseBlocks, type Block, type CalloutKind } from "./blocks";
 
@@ -69,18 +69,27 @@ const components: Components = {
    },
    // Assets are deferred (D-14); `markdown@1` has no images.
    img: () => null,
-   a: ({ node, href, children }) => {
-      void node;
-      if (!href) return <span>{children}</span>;
-      const style = "text-primary underline underline-offset-4 hover:text-primary/80 transition-colors";
-      const internal = href.startsWith("ref:") ? catalogHref(href.slice(4)) : null;
-      if (internal) return <Link href={internal} className={style}>{children}</Link>;
-      if (href.startsWith("#")) return <a href={href} className={style}>{children}</a>;
-      return <a href={href} className={style} target="_blank" rel="noopener noreferrer">{children}</a>;
-   },
 };
 
-function Blocks({ blocks }: { blocks: Block[] }) {
+const LINK_STYLE = "text-primary underline underline-offset-4 hover:text-primary/80 transition-colors";
+
+/** In a preview, a link to any InterviewNotes host stays on this deployment instead of reaching another one. */
+function anchor(stayOnDeployment: boolean): Components["a"] {
+   return function Anchor({ node, href, children }) {
+      void node;
+      if (!href) return <span>{children}</span>;
+      const internal = href.startsWith("ref:")
+         ? catalogHref(href.slice(4))
+         : stayOnDeployment
+           ? firstPartyPath(href)
+           : null;
+      if (internal) return <Link href={internal} className={LINK_STYLE}>{children}</Link>;
+      if (href.startsWith("#")) return <a href={href} className={LINK_STYLE}>{children}</a>;
+      return <a href={href} className={LINK_STYLE} target="_blank" rel="noopener noreferrer">{children}</a>;
+   };
+}
+
+function Blocks({ blocks, stayOnDeployment }: { blocks: Block[]; stayOnDeployment: boolean }) {
    return (
       <>
          {blocks.map((block, index) =>
@@ -88,7 +97,7 @@ function Blocks({ blocks }: { blocks: Block[] }) {
                <ReactMarkdown
                   key={index}
                   remarkPlugins={[remarkGfm]}
-                  components={components}
+                  components={{ ...components, a: anchor(stayOnDeployment) }}
                   urlTransform={safeUrl}
                   skipHtml
                >
@@ -97,7 +106,7 @@ function Blocks({ blocks }: { blocks: Block[] }) {
             ) : (
                <div key={index} role="note" data-callout={block.kind}>
                   <Tip type={CALLOUTS[block.kind].type} title={CALLOUTS[block.kind].title}>
-                     <Blocks blocks={block.children} />
+                     <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} />
                   </Tip>
                </div>
             )
@@ -110,11 +119,11 @@ function Blocks({ blocks }: { blocks: Block[] }) {
  * The one renderer for catalog bodies: a Lesson body and every Knowledge/Problem section.
  * It renders whatever the API already authorized and holds no access logic of its own.
  */
-export function CatalogBody({ body }: { body: CatalogBodyData }) {
+export function CatalogBody({ body, stayOnDeployment = false }: { body: CatalogBodyData; stayOnDeployment?: boolean }) {
    if (body.format !== "markdown@1") return null;
    return (
       <div className="markdown-content">
-         <Blocks blocks={parseBlocks(body.text)} />
+         <Blocks blocks={parseBlocks(body.text)} stayOnDeployment={stayOnDeployment} />
       </div>
    );
 }

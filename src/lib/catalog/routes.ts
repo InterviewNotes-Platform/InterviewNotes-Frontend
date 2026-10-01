@@ -7,6 +7,19 @@ const ROUTE_ROOT = {
    track: "/tracks",
 } as const;
 
+const FIRST_PARTY_HOST = /^(?:[a-z0-9-]+\.)*interviewnotes\.io\.?$/;
+
+/** The same path on whichever deployment is serving it, for an https link to any InterviewNotes host; else null. */
+export function firstPartyPath(url: string): string | null {
+   try {
+      const { protocol, hostname, pathname, hash } = new URL(url);
+      if (protocol !== "https:" || !FIRST_PARTY_HOST.test(hostname)) return null;
+      return `/${pathname.replace(/^\/+/, "")}${hash}`;
+   } catch {
+      return null;
+   }
+}
+
 /** The type-based route for an item id such as `lesson.dynamic-batching`; null if malformed. */
 export function catalogHref(id: string): string | null {
    const match = ITEM_ID.exec(id);

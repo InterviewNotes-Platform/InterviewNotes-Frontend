@@ -6,6 +6,11 @@ import { createServer } from "node:http";
 const fixture = JSON.parse(readFileSync(new URL("./fixture.json", import.meta.url), "utf8"));
 const [apiPort, authPort] = process.argv.slice(2).map(Number);
 const HOST = "127.0.0.1";
+// Set: a preview API (backend D9), answering /catalog only to the holder of this secret. Unset: production.
+const previewToken = process.env.FAKE_API_PREVIEW_TOKEN;
+const PRIVATE = "private, no-store";
+/** Every /catalog request and the preview credential it presented, served or refused. */
+const catalogLog = [];
 
 const items = new Map(fixture.items.map((item) => [item.id, item]));
 const tracks = new Map(fixture.tracks.map((track) => [track.slug, track]));
@@ -97,6 +102,17 @@ function catalog(req, res, path) {
    return status ? send(res, status, { detail: "Access denied" }) : send(res, 200, itemOut(item, withheld));
 }
 
+/** Backend `PreviewBoundary`: a preview API serves only its trusted server; production refuses any preview credential. */
+function guardedCatalog(req, res, path) {
+   const presented = req.headers["x-preview-token"] ?? null;
+   catalogLog.push({ path, presented });
+   if (previewToken === undefined) {
+      return presented === null ? catalog(req, res, path) : send(res, 403, { detail: "Forbidden" });
+   }
+   res.setHeader("cache-control", PRIVATE);
+   return presented === previewToken ? catalog(req, res, path) : send(res, 403, { detail: "Forbidden" });
+}
+
 /** The legacy `/content` endpoints read by `/learn/*`. */
 function content(req, res, path) {
    if (path === "/content/courses") {
@@ -137,7 +153,8 @@ const api = createServer((req, res) => {
    const path = new URL(req.url, `http://${HOST}`).pathname;
    if (req.method !== "GET") return send(res, 405, { detail: "Method not allowed" });
    if (path === "/health") return send(res, 200, { status: "ok" });
-   if (path.startsWith("/catalog/")) return catalog(req, res, path);
+   if (path === "/__catalog-log") return send(res, 200, catalogLog);
+   if (path.startsWith("/catalog/")) return guardedCatalog(req, res, path);
    if (path.startsWith("/content/")) return content(req, res, path);
    return send(res, 404, { detail: "Not found" });
 });
@@ -157,4 +174,4 @@ const auth = createServer((req, res) => {
 });
 
 api.listen(apiPort, HOST);
-auth.listen(authPort, HOST);
+if (authPort) auth.listen(authPort, HOST);

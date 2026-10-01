@@ -1,4 +1,6 @@
 import { test as base, expect, type Page, type Request, type Response, type Route } from "@playwright/test";
+import { CATALOG_CANARY } from "../../leak/canaries";
+import { inlinedRsc } from "../../leak/scanner";
 import fixture from "./fixture.json";
 
 export const FAKE_API_PORT = 3101;
@@ -8,8 +10,26 @@ export const FAKE_API_ORIGIN = `http://127.0.0.1:${FAKE_API_PORT}`;
 /** Public (`NEXT_PUBLIC_SUPABASE_URL`): the fake Supabase Auth user endpoint. */
 export const FAKE_AUTH_ORIGIN = `http://127.0.0.1:${FAKE_AUTH_PORT}`;
 
-/** Present only in premium bodies/sections of fixture.json. */
-export const CANARY = "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK";
+/** The preview deployment: a second build of the app, served beside production and wired to a preview API double. */
+export const PREVIEW_PORT = 3103;
+export const PREVIEW_API_PORT = 3104;
+export const REJECTED_PORT = 3105;
+export const PREVIEW_ORIGIN = `http://localhost:${PREVIEW_PORT}`;
+export const PREVIEW_API_ORIGIN = `http://127.0.0.1:${PREVIEW_API_PORT}`;
+/** Same build as the preview, but holding a credential the preview API does not recognise. */
+export const REJECTED_ORIGIN = `http://localhost:${REJECTED_PORT}`;
+/** The default `baseURL`: the production deployment, which holds no preview credential. */
+export const PRODUCTION_ORIGIN = "http://localhost:3100";
+export const PREVIEW_DIST = ".next-preview";
+
+/** Synthetic credentials only. Neither is the beta secret; each must never reach a browser. */
+export const PREVIEW_TOKEN = "e2e-synthetic-preview-token-0123456789abcdef";
+export const REJECTED_TOKEN = "e2e-synthetic-rejected-token-fedcba9876543210";
+const PREVIEW_TOKENS = [PREVIEW_TOKEN, REJECTED_TOKEN];
+const SERVER_ONLY_ORIGINS = [FAKE_API_ORIGIN, PREVIEW_API_ORIGIN];
+
+/** Present only in premium bodies/sections of fixture.json; every canary is registered in tests/leak. */
+export const CANARY = CATALOG_CANARY;
 
 export interface FixtureSection {
    id: string;
@@ -145,6 +165,7 @@ export const test = base.extend<{ identity: Identity; traffic: Traffic }>({
          const origin = new URL(baseURL!).origin;
          const isAppFetch = (request: Request) => request.resourceType() === "fetch" && request.url().startsWith(origin);
          const requests: string[] = [];
+         const requestHeaders: [string, string][] = [];
          const reads: Promise<Received>[] = [];
          const consoleErrors: string[] = [];
 
@@ -156,7 +177,10 @@ export const test = base.extend<{ identity: Identity; traffic: Traffic }>({
             reads.push(passed);
             await passed;
          });
-         page.on("request", (request) => void requests.push(request.url()));
+         page.on("request", (request) => {
+            requests.push(request.url());
+            requestHeaders.push(...Object.entries(request.headers()));
+         });
          page.on("response", (response) => void (isAppFetch(response.request()) || reads.push(read(response))));
          page.on("console", (message) => void (message.type() === "error" && consoleErrors.push(message.text())));
          page.on("pageerror", (error) => void consoleErrors.push(error.message));
@@ -164,10 +188,17 @@ export const test = base.extend<{ identity: Identity; traffic: Traffic }>({
          const traffic = { requests, responses: () => Promise.all(reads) };
          await provide(traffic);
 
-         const apiCalls = requests.filter((url) => url.startsWith(FAKE_API_ORIGIN));
+         const received = await traffic.responses();
+         const apiCalls = requests.filter((url) => SERVER_ONLY_ORIGINS.some((origin) => url.startsWith(origin)));
          expect(apiCalls, "the browser called the server-only content API").toEqual([]);
-         const apiMentions = (await traffic.responses()).filter((r) => r.text?.includes(FAKE_API_ORIGIN));
+         const apiMentions = received.filter((r) => SERVER_ONLY_ORIGINS.some((origin) => r.text?.includes(origin)));
          expect(apiMentions.map((r) => r.url), "a response revealed the server-only API_URL").toEqual([]);
+
+         const isToken = (text: string | null) => PREVIEW_TOKENS.some((token) => text?.includes(token));
+         expect(requests.filter(isToken), "a preview token reached a URL the browser requested").toEqual([]);
+         const headers = requestHeaders.filter(([name, value]) => name === "x-preview-token" || isToken(value));
+         expect(headers.map(([name]) => name), "the browser sent a preview credential").toEqual([]);
+         expect(received.filter((r) => isToken(r.text)).map((r) => r.url), "a response revealed a preview token").toEqual([]);
          expect(consoleErrors, "browser console errors").toEqual([]);
       },
       { auto: true },
@@ -176,17 +207,7 @@ export const test = base.extend<{ identity: Identity; traffic: Traffic }>({
 
 export { expect };
 
-/** The RSC payload Next inlines into HTML as `self.__next_f.push([1, text])` or `[3, base64]` scripts. */
-export function inlinedRsc(html: string): string {
-   return [...html.matchAll(/self\.__next_f\.push\((\[[\s\S]*?\])\)<\/script>/g)]
-      .map(([, chunk]) => {
-         const [kind, data = ""] = JSON.parse(chunk) as [number, string?];
-         if (kind === 1) return data;
-         if (kind === 3) return Buffer.from(data, "base64").toString("utf8");
-         return "";
-      })
-      .join("");
-}
+export { inlinedRsc };
 
 export type Channel = "HTML" | "RSC" | "DOM" | "network";
 
