@@ -46,6 +46,11 @@ Set these per deploy context in Netlify → Environment variables (placeholders 
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | Inlined into the browser bundle at build time |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | Publishable key only, never a secret/service-role key |
 | `API_URL` | Server-side | Backend base URL. Read during the build (`/learn` prerender) and at request time, so it needs the Builds and Functions scopes and a reachable backend |
+| `CATALOG_PREVIEW_TOKEN` | Server-side, `dev` branch-deploy context only | The beta API's shared secret. Sent as `X-Preview-Token` on catalog requests; it also marks catalog pages "Preview" and `noindex`. Never `NEXT_PUBLIC_`; leave unset in production, where the API refuses it |
 
 Backend calls are currently server-side only, so CORS is not on their path; the backend's
 `CORS_ORIGINS` should still list each deployed frontend origin for any browser-side call.
+
+Note: enabling a branch deploy in the Netlify UI does not retroactively build that branch's
+current HEAD — it only builds on the next new push. Trigger a manual deploy from the Netlify
+dashboard if you need to build an existing commit without pushing new work.
