@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CatalogBody } from "@/components/catalog/CatalogBody";
 import { ItemNavigation } from "@/components/catalog/ItemNavigation";
 import { TrackBreadcrumb } from "@/components/catalog/TrackContext";
+import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { getCatalogItem, getCatalogItemMeta } from "@/lib/catalog/client";
 import { loadItemNavigation } from "@/lib/catalog/navigation";
 import { isPreview } from "@/lib/catalog/preview";
@@ -19,9 +20,9 @@ export async function catalogItemMetadata(type: CatalogItemType, slug: string): 
 
 function ItemHeader({ meta }: { meta: Pick<CatalogMeta, "title" | "summary"> }) {
    return (
-      <header className="mb-8">
-         <h1 className="text-3xl font-bold text-foreground">{meta.title}</h1>
-         {meta.summary ? <p className="mt-2 text-muted-foreground">{meta.summary}</p> : null}
+      <header className="mb-12">
+         <h1 className="m-0 text-title text-balance">{meta.title}</h1>
+         {meta.summary ? <p className="mt-3 mb-0 text-body text-pretty text-muted-foreground">{meta.summary}</p> : null}
       </header>
    );
 }
@@ -33,12 +34,12 @@ function ItemContent({ item }: { item: CatalogItem }) {
          {item.body ? <CatalogBody body={item.body} stayOnDeployment={stayOnDeployment} /> : null}
          {item.sections.map((section) => (
             <section key={section.id} id={section.id}>
-               {section.title ? <h2 className="text-2xl font-bold mt-8 mb-3 text-foreground">{section.title}</h2> : null}
+               {section.title ? <h2 className="mt-12 mb-4 text-section text-balance">{section.title}</h2> : null}
                <CatalogBody body={section.body} stayOnDeployment={stayOnDeployment} />
             </section>
          ))}
          {item.sections_withheld ? (
-            <p role="note" className="mt-8 border border-border p-4 text-sm text-muted-foreground">
+            <p role="note" className="mt-8 mb-0 rounded-lg bg-surface p-4 text-supporting text-muted-foreground">
                Some sections of this content are premium and are not included in your access.
             </p>
          ) : null}
@@ -76,12 +77,14 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
    return (
       <>
          <PreviewMarker />
-         <main className="max-w-3xl mx-auto px-6 py-8">
-            {navigation?.home ? <TrackBreadcrumb placement={navigation.home} /> : null}
-            {header ? <ItemHeader meta={header} /> : null}
-            {content}
-            {navigation ? <ItemNavigation navigation={navigation} /> : null}
-         </main>
+         <PageContainer as="main" className="py-12 md:py-16">
+            <ReadingColumn>
+               {navigation?.home ? <TrackBreadcrumb placement={navigation.home} /> : null}
+               {header ? <ItemHeader meta={header} /> : null}
+               {content}
+               {navigation ? <ItemNavigation navigation={navigation} /> : null}
+            </ReadingColumn>
+         </PageContainer>
       </>
    );
 }

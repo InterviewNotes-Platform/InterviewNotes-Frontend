@@ -231,6 +231,12 @@ describe("ItemNavigation", () => {
       expect(hrefs()).toEqual(["/lessons/rel"]);
    });
 
+   it("renders an empty, hideable wrapper, so its separator never floats under a page with no navigation", () => {
+      const { container } = render(<ItemNavigation navigation={{ id: "lesson.zeta", relations: {}, home: null, alternates: [] }} />);
+      expect(container.firstElementChild).toBeEmptyDOMElement();
+      expect(container.firstElementChild).toHaveClass("border-t", "empty:hidden");
+   });
+
    it("marks the current item in the module list by identity", () => {
       render(<ItemNavigation navigation={full} />);
       const moduleNav = screen.getByRole("navigation", { name: "Module: Module second" });

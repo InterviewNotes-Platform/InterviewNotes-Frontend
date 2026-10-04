@@ -13,7 +13,7 @@ export const TYPE_LABEL: Record<CatalogItemType, string> = {
 /** The API marks premium access; whether this reader holds it is decided only when the page loads. */
 export function PremiumMark() {
    return (
-      <Badge variant="secondary" className="bg-primary/10 text-primary border border-primary/20 font-semibold">
+      <Badge variant="outline" className="border-premium/40 bg-premium/10 font-semibold text-premium">
          <Lock aria-hidden="true" />
          Premium
       </Badge>
@@ -36,14 +36,14 @@ export function EntryRow({ entry, href, current = false }: EntryRowProps) {
                href={href}
                prefetch={entry.access === "premium" ? false : undefined}
                aria-current={current ? "page" : undefined}
-               className={cn("font-medium hover:text-primary", current ? "text-primary" : "text-foreground")}
+               className={cn("text-body font-medium transition-micro hover:text-primary", current ? "text-primary" : "text-foreground")}
             >
                {entry.title}
             </Link>
-            <span className="text-xs text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
+            <span className="text-supporting text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
             {entry.access === "premium" ? <PremiumMark /> : null}
          </div>
-         {entry.summary ? <p className="text-sm text-muted-foreground">{entry.summary}</p> : null}
+         {entry.summary ? <p className="mt-1 mb-0 text-supporting text-muted-foreground">{entry.summary}</p> : null}
       </li>
    );
 }
