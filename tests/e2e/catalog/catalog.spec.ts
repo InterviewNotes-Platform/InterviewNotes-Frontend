@@ -201,7 +201,7 @@ test.describe("related content", () => {
          const paths = () => traffic.requests.map((url) => new URL(url).pathname);
 
          await page.goto(canonical(PROBLEM.id));
-         const inView = page.locator('a[href^="/"]').filter({ visible: true });
+         const inView = main(page).locator('a[href^="/"]').filter({ visible: true }); // page content; header links are not under test
          await expect(inView.and(page.locator(`a[href="${premium}"]`))).toHaveCount(3);
          const targets = await inView.evaluateAll((links) => links.map((a) => new URL((a as HTMLAnchorElement).href).pathname));
          const free = [...new Set(targets)].filter((path) => path !== premium);

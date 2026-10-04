@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { HomeContent } from "@/app/HomeContent";
 import type { Course } from "@/lib/courses";
@@ -27,32 +27,36 @@ describe("mobile menu", () => {
         render(<Header />);
         const trigger = screen.getByRole("button", { name: "Menu" });
         expect(trigger).toHaveAttribute("aria-expanded", "false");
-        expect(screen.queryByRole("link", { name: "Login" })).toBeNull();
+        expect(screen.queryByRole("dialog")).toBeNull();
 
         fireEvent.click(trigger);
         expect(trigger).toHaveAttribute("aria-expanded", "true");
-        expect(screen.getByRole("link", { name: "Login" })).toBeInTheDocument();
+        const menu = screen.getByRole("dialog", { name: "Menu" });
+        expect(within(menu).getByRole("link", { name: "Sign in" })).toBeInTheDocument();
     });
 
-    it("closes on Escape and returns focus to the trigger", () => {
+    it("closes on Escape and returns focus to the trigger", async () => {
         render(<Header />);
         const trigger = screen.getByRole("button", { name: "Menu" });
         fireEvent.click(trigger);
-        const login = screen.getByRole("link", { name: "Login" });
-        login.focus();
+        const signIn = within(screen.getByRole("dialog")).getByRole("link", { name: "Sign in" });
+        signIn.focus();
 
-        fireEvent.keyDown(login, { key: "Escape" });
+        fireEvent.keyDown(signIn, { key: "Escape" });
+        await waitFor(() => expect(trigger).toHaveFocus());
         expect(trigger).toHaveAttribute("aria-expanded", "false");
-        expect(trigger).toHaveFocus();
+        expect(screen.queryByRole("dialog")).toBeNull();
     });
 });
 
 describe("interactive semantics", () => {
-    it("header and homepage nest no interactive controls", () => {
-        const { container } = render(<><Header /><HomeContent courses={[course]} /></>);
+    it("header, open menu and homepage nest no interactive controls", () => {
+        render(<><Header /><HomeContent courses={[course]} /></>);
+        expect(within(screen.getByRole("banner")).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
+
         fireEvent.click(screen.getByRole("button", { name: "Menu" }));
-        expect(container.querySelectorAll(NESTED_INTERACTIVE)).toHaveLength(0);
-        expect(screen.getByRole("link", { name: "Sign In" })).toHaveAttribute("href", "/login");
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+        expect(document.body.querySelectorAll(NESTED_INTERACTIVE)).toHaveLength(0);
     });
 
     it("chapter sidebar keeps the completion toggle outside the chapter link", () => {

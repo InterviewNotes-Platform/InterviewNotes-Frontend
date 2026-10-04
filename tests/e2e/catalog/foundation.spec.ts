@@ -34,10 +34,10 @@ test.describe("focus", () => {
 
    test("a Button keeps the same ring instead of a faint halo", async ({ page }) => {
       await page.goto("/login");
-      const signIn = page.getByRole("banner").getByRole("link", { name: "Sign In" });
-      await tabTo(page, signIn);
-      await expect(signIn).toHaveCSS("outline-style", "solid");
-      await expect(signIn).toHaveCSS("outline-width", "2px");
+      const toggle = page.getByRole("banner").getByRole("button", { name: "Toggle theme" });
+      await tabTo(page, toggle);
+      await expect(toggle).toHaveCSS("outline-style", "solid");
+      await expect(toggle).toHaveCSS("outline-width", "2px");
    });
 });
 
