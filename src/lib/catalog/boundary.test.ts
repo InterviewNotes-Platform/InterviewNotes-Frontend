@@ -22,13 +22,16 @@ describe("catalog browser/Git boundary", () => {
          "components/catalog/EntryRow.tsx",
          "components/catalog/ItemNavigation.tsx",
          "components/catalog/RelatedContent.tsx",
+         "components/catalog/TrackCard.tsx",
          "components/catalog/TrackContext.tsx",
+         "components/catalog/TrackCurriculum.tsx",
          "components/catalog/TrackOutline.tsx",
          "components/catalog/blocks.ts",
          "lib/catalog/client.ts",
          "lib/catalog/navigation.ts",
          "lib/catalog/preview.ts",
          "lib/catalog/routes.ts",
+         "lib/catalog/track.ts",
          "lib/catalog/types.ts",
       ]);
    });

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
@@ -147,9 +147,20 @@ describe("Track page outline", () => {
    it("renders the outline in backend order with canonical item links and premium marks", async () => {
       render(await TrackPage(params));
       expect(screen.getByRole("heading", { level: 1, name: "Home Track" })).toBeInTheDocument();
-      expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["First Module", "Second Module"]);
-      expect(hrefs()).toEqual(["/lessons/before", "/lessons/item", "/problems/after", "/lessons/later"]);
-      expect(screen.getByRole("link", { name: "Title after" }).parentElement).toHaveTextContent("Premium");
+      const outline = within(screen.getByRole("navigation", { name: "Home Track outline" }));
+      expect(outline.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["First Module 3 items", "Second Module 1 item"]);
+      expect(outline.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+         "/lessons/before",
+         "/lessons/item",
+         "/problems/after",
+         "/lessons/later",
+      ]);
+      expect(outline.getByRole("link", { name: /Title after/ })).toHaveTextContent("Premium");
+   });
+
+   it("starts at the first entry of the first module", async () => {
+      render(await TrackPage(params));
+      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/lessons/before");
    });
 
    it("loads no item bodies and no per-reader relationships", async () => {

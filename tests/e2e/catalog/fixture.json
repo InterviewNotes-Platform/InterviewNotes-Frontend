@@ -42,6 +42,21 @@
       "relations": { "prerequisite_of": ["problem.catalog-e2e-related"] }
     },
     {
+      "id": "lesson.catalog-e2e-second",
+      "type": "lesson",
+      "slug": "catalog-e2e-second",
+      "title": "Synthetic Second Lesson",
+      "summary": "Second free synthetic lesson in the Home Track's first module.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "catalog-e2e-home",
+      "body": "## Second lesson heading\n\nSecond lesson body marker.\n",
+      "headings": [{ "id": "second-lesson-heading", "level": 2, "text": "Second lesson heading" }],
+      "relations": {}
+    },
+    {
       "id": "knowledge.catalog-e2e-sections",
       "type": "knowledge",
       "slug": "catalog-e2e-sections",
@@ -51,7 +66,7 @@
       "difficulty": null,
       "level": "intermediate",
       "access": "free",
-      "home": "catalog-e2e-home",
+      "home": "",
       "kind": "concept",
       "sections": [
         { "id": "definition", "type": "definition", "title": "Public definition", "access": "free", "text": "Public section marker." },
@@ -174,6 +189,53 @@
         { "id": "deep-dive", "type": "deep_dive", "title": "Deep dive", "access": "premium", "text": "PREMIUM_DEEP_DIVE_CANARY_T24 premium deep dive body." }
       ],
       "relations": {}
+    },
+    {
+      "id": "lesson.p2-t4-foundations",
+      "type": "lesson",
+      "slug": "p2-t4-foundations",
+      "title": "Synthetic Foundations Lesson",
+      "summary": "Free synthetic lesson that opens the curriculum Track.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t4-curriculum",
+      "body": "## Foundations heading\n\nCurriculum foundations marker.\n",
+      "headings": [{ "id": "foundations-heading", "level": 2, "text": "Foundations heading" }],
+      "relations": {}
+    },
+    {
+      "id": "problem.p2-t4-practice",
+      "type": "problem",
+      "slug": "p2-t4-practice",
+      "title": "Synthetic Practice Step",
+      "summary": "Free synthetic problem placed in the curriculum Track.",
+      "tags": ["e2e"],
+      "difficulty": "medium",
+      "level": null,
+      "access": "free",
+      "home": "p2-t4-curriculum",
+      "kind": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Curriculum practice prompt marker." }
+      ],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p2-t4-premium-depth",
+      "type": "lesson",
+      "slug": "p2-t4-premium-depth",
+      "title": "Synthetic Premium Depth Lesson",
+      "summary": "Premium synthetic lesson in the curriculum Track; only its metadata is public.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "advanced",
+      "access": "premium",
+      "home": "p2-t4-curriculum",
+      "body": "## Premium depth heading\n\nCATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium depth body.\n",
+      "headings": [{ "id": "premium-depth-heading", "level": 2, "text": "Premium depth heading" }],
+      "relations": {}
     }
   ],
   "tracks": [
@@ -183,7 +245,7 @@
       "title": "E2E Home Track",
       "summary": "Home Track marker.",
       "modules": [
-        { "key": "orientation", "title": "Orientation", "items": ["lesson.catalog-e2e-free", "knowledge.catalog-e2e-sections"] },
+        { "key": "orientation", "title": "Orientation", "items": ["lesson.catalog-e2e-free", "lesson.catalog-e2e-second"] },
         { "key": "applied-practice", "title": "Applied Practice", "items": ["problem.catalog-e2e-related", "lesson.catalog-e2e-premium"] }
       ]
     },
@@ -195,6 +257,33 @@
       "modules": [
         { "key": "extras", "title": "Extras", "items": ["problem.catalog-e2e-related", "lesson.catalog-e2e-free"] }
       ]
+    },
+    {
+      "id": "track.p2-t4-curriculum",
+      "slug": "p2-t4-curriculum",
+      "title": "Synthetic Curriculum Track",
+      "summary": "Three modules with mixed Lesson and Problem placements, one premium entry and one empty module.",
+      "modules": [
+        { "key": "foundations", "title": "Foundations", "items": ["lesson.p2-t4-foundations", "problem.p2-t4-practice"] },
+        { "key": "depth", "title": "Going Deeper", "items": ["lesson.p2-t4-premium-depth"] },
+        { "key": "coming-next", "title": "Coming Next", "items": [] }
+      ]
+    },
+    {
+      "id": "track.p2-t4-premium-first",
+      "slug": "p2-t4-premium-first",
+      "title": "Synthetic Premium-First Track",
+      "summary": "A Track whose first entry in curriculum order is premium, followed by a free one.",
+      "modules": [
+        { "key": "opening", "title": "Opening", "items": ["lesson.p2-t4-premium-depth", "lesson.p2-t4-foundations"] }
+      ]
+    },
+    {
+      "id": "track.p2-t4-empty",
+      "slug": "p2-t4-empty",
+      "title": "Synthetic Empty Track",
+      "summary": "A Track with no published modules yet.",
+      "modules": []
     }
   ],
   "legacy": {

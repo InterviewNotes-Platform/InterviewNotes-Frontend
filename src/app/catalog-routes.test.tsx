@@ -122,6 +122,7 @@ describe("catalog route security boundary", () => {
          "lessons/[slug]/page.tsx",
          "problems/[slug]/page.tsx",
          "tracks/[slug]/page.tsx",
+         "tracks/page.tsx",
       ]);
    });
 

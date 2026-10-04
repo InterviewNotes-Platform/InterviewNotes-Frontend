@@ -225,12 +225,15 @@ test.describe("Track navigation", () => {
    test("the Track page renders the API outline in its order", async ({ page }) => {
       await page.goto(canonical(HOME.id));
       const outline = page.getByRole("navigation", { name: `${HOME.title} outline` });
-      await expect(outline.getByRole("heading", { level: 3 })).toHaveText(HOME.modules.map((m) => m.title));
+      await expect(outline.getByRole("heading", { level: 2 })).toContainText(HOME.modules.map((m) => m.title));
 
-      for (const [index, module] of HOME.modules.entries()) {
-         const rows = outline.locator("section").nth(index).getByRole("listitem");
-         await expect(rows.getByRole("link")).toHaveText(module.items.map((id) => item(id).title));
-         for (const [position, id] of module.items.entries()) {
+      // Every module is a collapsible section; open each one so that its rows can be read.
+      for (const group of HOME.modules) {
+         const control = outline.getByRole("button", { name: new RegExp(`^${group.title}`) });
+         if ((await control.getAttribute("aria-expanded")) === "false") await control.click();
+         const rows = page.locator(`[id="${await control.getAttribute("aria-controls")}"]`).getByRole("listitem");
+         await expect(rows.getByRole("link")).toContainText(group.items.map((id) => item(id).title));
+         for (const [position, id] of group.items.entries()) {
             await expect(rows.nth(position).getByRole("link")).toHaveAttribute("href", canonical(id));
             await expect(rows.nth(position).getByText(premiumMark.name, premiumMark)).toHaveCount(
                item(id).access === "premium" ? 1 : 0
@@ -296,6 +299,6 @@ test.describe("Track navigation", () => {
       await expect(page).toHaveURL(canonical(first.id));
       await expect(title(page)).toHaveText(first.title);
       const outline = page.getByRole("navigation", { name: `${first.title} outline` });
-      await expect(outline.getByRole("link")).toHaveText(first.modules.flatMap((m) => m.items.map((id) => item(id).title)));
+      await expect(outline.getByRole("link")).toContainText(first.modules.flatMap((m) => m.items.map((id) => item(id).title)));
    });
 });

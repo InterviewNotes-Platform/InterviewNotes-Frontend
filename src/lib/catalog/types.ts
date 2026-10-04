@@ -41,6 +41,40 @@ export interface CatalogTrack {
    modules: CatalogModule[];
 }
 
+/** A Track as `GET /catalog/tracks` lists it: no outline, so no module or item counts. */
+export interface CatalogTrackSummary {
+   id: string;
+   slug: string;
+   title: string;
+   summary: string;
+}
+
+/** Every published Track, ordered by id. The list is not paginated. */
+export interface CatalogTrackList {
+   tracks: CatalogTrackSummary[];
+}
+
+/** The filters `GET /catalog/items` supports. `kind` is Git-owned and is deliberately absent. */
+export interface CatalogItemListParams {
+   type?: CatalogItemType;
+   tag?: string;
+   difficulty?: NonNullable<CatalogMeta["difficulty"]>;
+   level?: NonNullable<CatalogMeta["level"]>;
+   access?: CatalogAccess;
+   /** A Track slug; `module` narrows it to one of that Track's module keys. */
+   track?: string;
+   module?: string;
+   limit?: number;
+   /** The `next_cursor` of the previous page, passed back untouched. */
+   cursor?: string;
+}
+
+/** One page of public metadata ordered by id; `next_cursor` is null on the last page. */
+export interface CatalogItemPage {
+   items: CatalogMeta[];
+   next_cursor: string | null;
+}
+
 /** Where an item sits in one Track; `primary` marks its home Track. */
 export interface CatalogPlacement {
    track: string;

@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 import {
+    EMPTY_ORIGIN,
+    EMPTY_PORT,
+    EMPTY_TOKEN,
     FAKE_API_ORIGIN,
     FAKE_API_PORT,
     FAKE_AUTH_ORIGIN,
@@ -56,7 +59,7 @@ export default defineConfig({
             command: `node tests/e2e/catalog/fake-api.mjs ${PREVIEW_API_PORT}`,
             url: `${PREVIEW_API_ORIGIN}/health`,
             reuseExistingServer: !process.env.CI,
-            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN },
+            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN, FAKE_API_EMPTY_TOKEN: EMPTY_TOKEN },
         },
         {
             // The preview deployment: its own build, with the synthetic credential present while it is built.
@@ -82,6 +85,20 @@ export default defineConfig({
                 NEXT_DIST_DIR: PREVIEW_DIST,
                 API_URL: PREVIEW_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: REJECTED_TOKEN,
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // The preview build once more, against a catalog that is reachable but has published nothing.
+            command: `npx next start -p ${EMPTY_PORT}`,
+            url: `${EMPTY_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                NEXT_DIST_DIR: PREVIEW_DIST,
+                API_URL: PREVIEW_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: EMPTY_TOKEN,
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
                 NEXT_TELEMETRY_DISABLED: "1",
