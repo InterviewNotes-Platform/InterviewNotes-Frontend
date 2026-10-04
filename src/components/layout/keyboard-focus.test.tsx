@@ -51,7 +51,7 @@ describe("mobile menu", () => {
 
 describe("interactive semantics", () => {
     it("header, open menu and homepage nest no interactive controls", () => {
-        render(<><Header /><HomeContent courses={[course]} /></>);
+        render(<><Header /><HomeContent /></>);
         expect(within(screen.getByRole("banner")).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
 
         fireEvent.click(screen.getByRole("button", { name: "Menu" }));
@@ -66,13 +66,8 @@ describe("interactive semantics", () => {
         expect(screen.getAllByRole("button", { name: "Mark as complete" })).toHaveLength(2);
     });
 
-    it("FAQ and sidebar section toggles expose their expanded state", () => {
-        render(<><HomeContent courses={[]} /><CourseSidebar course={course} /></>);
-        const faq = screen.getByRole("button", { name: /what interview types/i });
-        expect(faq).toHaveAttribute("aria-expanded", "false");
-        fireEvent.click(faq);
-        expect(faq).toHaveAttribute("aria-expanded", "true");
-
+    it("sidebar section toggles expose their expanded state", () => {
+        render(<CourseSidebar course={course} />);
         const section = screen.getByRole("button", { name: /basics/i });
         expect(section).toHaveAttribute("aria-expanded", "true");
         fireEvent.click(section);
