@@ -7,13 +7,13 @@ import { ModuleNavigation, TrackOutline } from "./TrackOutline";
 export function ItemNavigation({ navigation }: { navigation: ItemNavigationData }) {
    const { id, home, alternates, relations } = navigation;
    return (
-      <div className="mt-10 space-y-8">
+      <div className="mt-16 space-y-12 border-t border-border pt-12 empty:hidden">
          {home ? (
             <>
                <TrackPrevNext placement={home} />
                <ModuleNavigation module={home.module} currentId={id} />
-               <details className="border border-border p-4">
-                  <summary className="cursor-pointer font-semibold text-foreground">
+               <details className="rounded-lg border border-border p-4">
+                  <summary className="cursor-pointer font-semibold">
                      Full outline of {home.track.title}
                   </summary>
                   <div className="mt-4">

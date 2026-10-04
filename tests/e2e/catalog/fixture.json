@@ -110,6 +110,21 @@
       "relations": {}
     },
     {
+      "id": "lesson.p2-t1-technical",
+      "type": "lesson",
+      "slug": "p2-t1-technical",
+      "title": "Synthetic Technical Content Lesson",
+      "summary": "Free synthetic lesson with one wide code block and one wide table, for layout tests.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "body": "Technical content marker.\n\n```python\ndef synthetic_dynamic_batching_scheduler(request_queue, max_batch_size, max_wait_milliseconds, kv_cache_budget_tokens, prefill_chunk_tokens): return request_queue.drain(limit=max_batch_size, deadline_ms=max_wait_milliseconds)\n```\n\n| `synthetic_metric_name` | `synthetic_p50_latency_ms` | `synthetic_p99_latency_ms` | `synthetic_tokens_per_second` | `synthetic_gpu_memory_gib` | `synthetic_cost_per_million_tokens` |\n|---|---|---|---|---|---|\n| `value_synthetic_metric_name` | `value_synthetic_p50_latency_ms` | `value_synthetic_p99_latency_ms` | `value_synthetic_tokens_per_second` | `value_synthetic_gpu_memory_gib` | `value_synthetic_cost_per_million_tokens` |\n| `other_synthetic_metric_name` | `other_synthetic_p50_latency_ms` | `other_synthetic_p99_latency_ms` | `other_synthetic_tokens_per_second` | `other_synthetic_gpu_memory_gib` | `other_synthetic_cost_per_million_tokens` |\n",
+      "headings": [],
+      "relations": {}
+    },
+    {
       "id": "lesson.t24-premium-body",
       "type": "lesson",
       "slug": "t24-premium-body",

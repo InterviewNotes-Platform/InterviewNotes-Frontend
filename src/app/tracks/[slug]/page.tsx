@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CatalogStateNotice } from "@/app/_catalog/CatalogStateNotice";
 import { PreviewMarker, withPreviewRobots } from "@/app/_catalog/PreviewMarker";
 import { TrackOutline } from "@/components/catalog/TrackOutline";
+import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { getCatalogTrack } from "@/lib/catalog/client";
 
 interface PageProps {
@@ -23,19 +24,23 @@ export default async function TrackPage({ params }: PageProps) {
    return (
       <>
          <PreviewMarker />
-         <main className="max-w-3xl mx-auto px-6 py-8">
-            {result.status === "ok" ? (
-               <>
-                  <header className="mb-8">
-                     <h1 className="text-3xl font-bold text-foreground">{result.data.title}</h1>
-                     {result.data.summary ? <p className="mt-2 text-muted-foreground">{result.data.summary}</p> : null}
-                  </header>
-                  <TrackOutline track={result.data} />
-               </>
-            ) : (
-               <CatalogStateNotice state={result.status} />
-            )}
-         </main>
+         <PageContainer as="main" className="py-12 md:py-16">
+            <ReadingColumn>
+               {result.status === "ok" ? (
+                  <>
+                     <header className="mb-12">
+                        <h1 className="m-0 text-title text-balance">{result.data.title}</h1>
+                        {result.data.summary ? (
+                           <p className="mt-3 mb-0 text-body text-pretty text-muted-foreground">{result.data.summary}</p>
+                        ) : null}
+                     </header>
+                     <TrackOutline track={result.data} />
+                  </>
+               ) : (
+                  <CatalogStateNotice state={result.status} />
+               )}
+            </ReadingColumn>
+         </PageContainer>
       </>
    );
 }
