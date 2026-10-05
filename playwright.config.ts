@@ -7,6 +7,10 @@ import {
     FAKE_API_PORT,
     FAKE_AUTH_ORIGIN,
     FAKE_AUTH_PORT,
+    ISOLATED_API_ORIGIN,
+    ISOLATED_API_PORT,
+    ISOLATED_ORIGIN,
+    ISOLATED_PORT,
     PREVIEW_API_ORIGIN,
     PREVIEW_API_PORT,
     PREVIEW_DIST,
@@ -48,6 +52,25 @@ export default defineConfig({
             env: {
                 API_URL: FAKE_API_ORIGIN,
                 // Production holds no preview credential, whatever the machine's shell or .env.local carries.
+                CATALOG_PREVIEW_TOKEN: "",
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // A private API double: only home.spec.ts reads its /catalog log, so the log belongs to one test.
+            command: `node tests/e2e/catalog/fake-api.mjs ${ISOLATED_API_PORT}`,
+            url: `${ISOLATED_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            // The production build above, served again with `API_URL` pointing at that private double.
+            command: `npx next start -p ${ISOLATED_PORT}`,
+            url: `${ISOLATED_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                API_URL: ISOLATED_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: "",
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
