@@ -9,6 +9,11 @@ interface DisclosureProps {
    /** Quiet text beside the title, such as a count; part of the control's accessible name. */
    detail?: ReactNode;
    defaultOpen?: boolean;
+   /** Controlled state, for a caller that must close the panel itself; leave out and the control keeps its own. */
+   open?: boolean;
+   onOpenChange?: (open: boolean) => void;
+   /** A quieter title, for a control inside a reading flow rather than a section of its own. */
+   compact?: boolean;
    /** The heading level of the control, so it fits the page's outline. */
    level?: "h2" | "h3";
    className?: string;
@@ -20,9 +25,24 @@ interface DisclosureProps {
  * panel is `inert`: not focusable and not read out. It shows at once and hides when its size transition
  * ends; the global reduced-motion rule makes both instant.
  */
-export function Disclosure({ title, detail, defaultOpen = false, level: Heading = "h2", className, children }: DisclosureProps) {
-   const [open, setOpen] = useState(defaultOpen);
+export function Disclosure({
+   title,
+   detail,
+   defaultOpen = false,
+   open: controlled,
+   onOpenChange,
+   compact = false,
+   level: Heading = "h2",
+   className,
+   children,
+}: DisclosureProps) {
+   const [own, setOwn] = useState(defaultOpen);
+   const open = controlled ?? own;
    const panelId = `${useId()}-panel`;
+   const toggle = () => {
+      setOwn(!open);
+      onOpenChange?.(!open);
+   };
 
    return (
       <div data-slot="disclosure" data-state={open ? "open" : "closed"} className={className}>
@@ -31,10 +51,10 @@ export function Disclosure({ title, detail, defaultOpen = false, level: Heading 
                type="button"
                aria-expanded={open}
                aria-controls={panelId}
-               onClick={() => setOpen((current) => !current)}
+               onClick={toggle}
                className="flex min-h-11 w-full items-center gap-4 rounded-md px-2 py-3 text-left transition-micro -outline-offset-2 hover:text-primary"
             >
-               <span className="min-w-0 flex-1 text-subsection text-balance">{title}</span>
+               <span className={cn("min-w-0 flex-1 text-balance", compact ? "text-body font-semibold" : "text-subsection")}>{title}</span>
                {detail ? (
                   <>
                      {" "}

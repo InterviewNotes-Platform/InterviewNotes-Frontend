@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { TechnicalScroll } from "@/components/ui/technical-scroll";
 
 interface MermaidProps {
    /** The raw diagram source from a ```mermaid fence. */
    chart: string;
+   /**
+    * Lesson reading: draw the diagram at its natural size, plain while it fits its column and, only when it does
+    * not, in a framed box that scrolls sideways. Default: the shared box that scales a wide diagram down.
+    */
+   adaptive?: boolean;
 }
 
 type Theme = "light" | "dark";
@@ -54,6 +60,15 @@ const PALETTE: Record<Theme, Record<string, string>> = {
    },
 };
 
+/** Mermaid sets `width: 100%; max-width: <natural>`; pinning the natural width keeps text at its drawn size. */
+function pinNaturalSize(container: HTMLElement) {
+   const svg = container.querySelector("svg");
+   const width = Number(svg?.getAttribute("viewBox")?.trim().split(/[\s,]+/)[2]);
+   if (!svg || !(width > 0)) return;
+   svg.style.width = `${width}px`;
+   svg.style.maxWidth = "none";
+}
+
 function currentTheme(): Theme {
    return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
@@ -68,7 +83,7 @@ function currentTheme(): Theme {
  * Re-renders when the dark-mode class flips, because the palette is baked into
  * the generated SVG rather than read from CSS at paint time.
  */
-export function Mermaid({ chart }: MermaidProps) {
+export function Mermaid({ chart, adaptive = false }: MermaidProps) {
    const containerRef = useRef<HTMLDivElement>(null);
    const [error, setError] = useState<string | null>(null);
    const [theme, setTheme] = useState<Theme | null>(null);
@@ -107,10 +122,14 @@ export function Mermaid({ chart }: MermaidProps) {
                themeVariables: PALETTE[theme],
             });
 
-            const { svg } = await mermaid.render(diagramId, chart);
+            // Drawn in a scratch box that the reduced-motion rule leaves alone (see globals.css).
+            const scratch = document.body.appendChild(document.createElement("div"));
+            scratch.setAttribute("data-diagram-scratch", "");
+            const { svg } = await mermaid.render(diagramId, chart, scratch).finally(() => scratch.remove());
             if (cancelled || !containerRef.current) return;
 
             containerRef.current.innerHTML = svg;
+            if (adaptive) pinNaturalSize(containerRef.current);
             setError(null);
          } catch (err) {
             if (cancelled) return;
@@ -123,7 +142,7 @@ export function Mermaid({ chart }: MermaidProps) {
       return () => {
          cancelled = true;
       };
-   }, [chart, theme, diagramId]);
+   }, [chart, theme, diagramId, adaptive]);
 
    if (error) {
       return (
@@ -135,6 +154,19 @@ export function Mermaid({ chart }: MermaidProps) {
                {chart}
             </pre>
          </div>
+      );
+   }
+
+   if (adaptive) {
+      return (
+         <figure className="my-6">
+            <TechnicalScroll
+               label="Scrollable diagram"
+               className="rounded-lg data-[scrolls=true]:border data-[scrolls=true]:border-border data-[scrolls=true]:p-4"
+            >
+               <div ref={containerRef} role="img" aria-label="Diagram" className="[&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto" />
+            </TechnicalScroll>
+         </figure>
       );
    }
 

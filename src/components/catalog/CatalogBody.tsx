@@ -5,9 +5,11 @@ import remarkGfm from "remark-gfm";
 import { Mermaid } from "@/components/mdx/Mermaid";
 import { Tip, type TipType } from "@/components/mdx/Tip";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
+import { plainHeading } from "@/lib/catalog/lesson";
 import { catalogHref, firstPartyPath } from "@/lib/catalog/routes";
-import type { CatalogBody as CatalogBodyData } from "@/lib/catalog/types";
-import { parseBlocks, type Block, type CalloutKind } from "./blocks";
+import type { CatalogBody as CatalogBodyData, CatalogHeading } from "@/lib/catalog/types";
+import { cn } from "@/lib/utils";
+import { headingIds, parseBlocks, type Block, type CalloutKind } from "./blocks";
 
 type HastElement = NonNullable<ExtraProps["node"]>;
 
@@ -42,11 +44,40 @@ function styled<Tag extends keyof React.JSX.IntrinsicElements>(tag: Tag, classNa
    };
 }
 
+const HEADING_STYLE = {
+   h1: "mt-12 mb-4 text-title text-balance",
+   h2: "mt-12 mb-4 text-section text-balance",
+   h3: "mt-10 mb-3 text-subsection text-balance",
+   h4: "mt-8 mb-2 text-body font-semibold",
+} as const;
+
+/**
+ * A heading. When the API has a heading for its source line it carries that exact id and is a focus target for
+ * the contents (tabIndex -1 is no tab stop); h2/h3 also offer a quiet anchor. The name stays the heading's own text.
+ */
+function heading(Tag: keyof typeof HEADING_STYLE, ids?: Map<number, CatalogHeading>) {
+   const style = HEADING_STYLE[Tag];
+   return function Heading({ node, children, ...props }: ComponentPropsWithoutRef<"h2"> & ExtraProps) {
+      const found = ids?.get(node?.position?.start.line ?? 0);
+      if (!found) return <Tag className={style} {...props}>{children}</Tag>;
+      return (
+         <Tag id={found.id} tabIndex={-1} aria-labelledby={`${found.id}_text`} className={cn(style, "group w-fit max-w-full scroll-mt-28")} {...props}>
+            <span id={`${found.id}_text`}>{children}</span>
+            {Tag === "h2" || Tag === "h3" ? (
+               <a
+                  href={`#${found.id}`}
+                  aria-label={`Link to section: ${plainHeading(found.text)}`}
+                  className="ml-2 rounded-sm text-muted-foreground no-underline opacity-0 hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
+               >
+                  #
+               </a>
+            ) : null}
+         </Tag>
+      );
+   };
+}
+
 const components: Components = {
-   h1: styled("h1", "mt-12 mb-4 text-title text-balance"),
-   h2: styled("h2", "mt-12 mb-4 text-section text-balance"),
-   h3: styled("h3", "mt-10 mb-3 text-subsection text-balance"),
-   h4: styled("h4", "mt-8 mb-2 text-body font-semibold"),
    p: styled("p", "mb-5 text-body text-pretty"),
    ul: styled("ul", "mb-5 ml-6 list-disc space-y-2 text-body marker:text-muted-foreground"),
    ol: styled("ol", "mb-5 ml-6 list-decimal space-y-2 text-body marker:text-muted-foreground"),
@@ -66,10 +97,20 @@ const components: Components = {
       const style = className ?? "rounded-sm bg-code-surface px-1.5 py-0.5 font-mono text-[0.875em]";
       return <code className={style} {...props}>{children}</code>;
    },
-   // Intercepted at `pre`: <Mermaid /> emits a <div>, which is invalid inside <pre>.
-   pre: ({ node, children, ...props }) => {
+   // Assets are deferred (D-14); `markdown@1` has no images.
+   img: () => null,
+};
+
+const LINK_STYLE = "text-primary underline underline-offset-4 decoration-primary/40 transition-micro hover:decoration-primary";
+// A reference to Knowledge reads as a reference, not a link away: quiet, dotted, and distinct from LINK_STYLE.
+const KNOWLEDGE_REF_STYLE =
+   "text-foreground underline decoration-dotted decoration-muted-foreground underline-offset-4 transition-micro hover:text-primary hover:decoration-primary";
+
+/** Intercepted at `pre`: <Mermaid /> emits a <div>, which is invalid inside <pre>. */
+function codeBlock(adaptive: boolean): Components["pre"] {
+   return function Pre({ node, children, ...props }) {
       const chart = mermaidSource(node);
-      if (chart !== null) return <Mermaid chart={chart} />;
+      if (chart !== null) return <Mermaid chart={chart} adaptive={adaptive} />;
       return (
          <TechnicalScroll label="Code" className="my-6 rounded-lg bg-code-surface">
             <pre
@@ -80,15 +121,14 @@ const components: Components = {
             </pre>
          </TechnicalScroll>
       );
-   },
-   // Assets are deferred (D-14); `markdown@1` has no images.
-   img: () => null,
-};
+   };
+}
 
-const LINK_STYLE = "text-primary underline underline-offset-4 decoration-primary/40 transition-micro hover:decoration-primary";
-
-/** In a preview, a link to any InterviewNotes host stays on this deployment instead of reaching another one. */
-function anchor(stayOnDeployment: boolean): Components["a"] {
+/**
+ * In a preview, a link to any InterviewNotes host stays on this deployment instead of reaching another one.
+ * Reading mode never prefetches a catalog link: that makes the server read every target in view.
+ */
+function anchor(stayOnDeployment: boolean, reading: boolean): Components["a"] {
    return function Anchor({ node, href, children }) {
       void node;
       if (!href) return <span>{children}</span>;
@@ -97,13 +137,32 @@ function anchor(stayOnDeployment: boolean): Components["a"] {
          : stayOnDeployment
            ? firstPartyPath(href)
            : null;
-      if (internal) return <Link href={internal} className={LINK_STYLE}>{children}</Link>;
+      if (internal) {
+         const knowledge = reading && href.startsWith("ref:knowledge.");
+         return (
+            <Link
+               href={internal}
+               prefetch={reading ? false : undefined}
+               data-reference={knowledge ? "knowledge" : undefined}
+               className={knowledge ? KNOWLEDGE_REF_STYLE : LINK_STYLE}
+            >
+               {children}
+            </Link>
+         );
+      }
       if (href.startsWith("#")) return <a href={href} className={LINK_STYLE}>{children}</a>;
       return <a href={href} className={LINK_STYLE} target="_blank" rel="noopener noreferrer">{children}</a>;
    };
 }
 
-function Blocks({ blocks, stayOnDeployment }: { blocks: Block[]; stayOnDeployment: boolean }) {
+interface BlocksProps {
+   blocks: Block[];
+   stayOnDeployment: boolean;
+   reading: boolean;
+   ids: ReturnType<typeof headingIds>;
+}
+
+function Blocks({ blocks, stayOnDeployment, reading, ids }: BlocksProps) {
    return (
       <>
          {blocks.map((block, index) =>
@@ -111,7 +170,15 @@ function Blocks({ blocks, stayOnDeployment }: { blocks: Block[]; stayOnDeploymen
                <ReactMarkdown
                   key={index}
                   remarkPlugins={[remarkGfm]}
-                  components={{ ...components, a: anchor(stayOnDeployment) }}
+                  components={{
+                     ...components,
+                     h1: heading("h1", ids?.get(block)),
+                     h2: heading("h2", ids?.get(block)),
+                     h3: heading("h3", ids?.get(block)),
+                     h4: heading("h4", ids?.get(block)),
+                     pre: codeBlock(reading),
+                     a: anchor(stayOnDeployment, reading),
+                  }}
                   urlTransform={safeUrl}
                   skipHtml
                >
@@ -120,7 +187,7 @@ function Blocks({ blocks, stayOnDeployment }: { blocks: Block[]; stayOnDeploymen
             ) : (
                <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
                   <Tip type={CALLOUTS[block.kind].type} title={CALLOUTS[block.kind].title}>
-                     <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} />
+                     <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} />
                   </Tip>
                </div>
             )
@@ -129,15 +196,24 @@ function Blocks({ blocks, stayOnDeployment }: { blocks: Block[]; stayOnDeploymen
    );
 }
 
+interface CatalogBodyProps {
+   body: CatalogBodyData;
+   stayOnDeployment?: boolean;
+   /** Lesson reading: the API's headings give the rendered headings their ids; Knowledge refs and diagrams are set apart. */
+   reading?: { headings: readonly CatalogHeading[] };
+}
+
 /**
  * The one renderer for catalog bodies: a Lesson body and every Knowledge/Problem section.
  * It renders whatever the API already authorized and holds no access logic of its own.
  */
-export function CatalogBody({ body, stayOnDeployment = false }: { body: CatalogBodyData; stayOnDeployment?: boolean }) {
+export function CatalogBody({ body, stayOnDeployment = false, reading }: CatalogBodyProps) {
    if (body.format !== "markdown@1") return null;
+   const blocks = parseBlocks(body.text);
+   const ids = reading ? headingIds(blocks, reading.headings) : null;
    return (
       <div>
-         <Blocks blocks={parseBlocks(body.text)} stayOnDeployment={stayOnDeployment} />
+         <Blocks blocks={blocks} stayOnDeployment={stayOnDeployment} reading={Boolean(reading)} ids={ids} />
       </div>
    );
 }

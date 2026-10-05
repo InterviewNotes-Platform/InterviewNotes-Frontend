@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 /**
  * Wide code or tables scroll inside this box, never the page. Only while the content actually
  * overflows does it become a named, keyboard-focusable region, so short blocks add no tab stops.
+ * `data-scrolls` says which, so a caller can style the overflowing state alone.
  */
 export function TechnicalScroll({
    label,
@@ -30,6 +31,7 @@ export function TechnicalScroll({
       <div
          ref={box}
          data-slot="technical-scroll"
+         data-scrolls={scrolls}
          {...(scrolls ? { role: "region", "aria-label": label, tabIndex: 0 } : {})}
          className={cn("overflow-x-auto", className)}
          {...props}

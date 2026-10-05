@@ -20,7 +20,7 @@ test.describe("focus", () => {
    test("keyboard focus on a catalog page draws a solid 2px ring that differs from the dark page", async ({ page }) => {
       await page.goto(LESSON);
       await expect(page.locator("html")).toHaveClass(/dark/);
-      const breadcrumb = page.getByRole("navigation", { name: "Track context" }).getByRole("link");
+      const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Learn", exact: true });
       await tabTo(page, breadcrumb);
 
       const ring = await breadcrumb.evaluate((element) => {

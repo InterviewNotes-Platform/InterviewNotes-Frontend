@@ -158,4 +158,12 @@ describe("focus and reduced-motion foundation", () => {
       expect(reduced).toMatch(/transition-duration:\s*0\.01ms !important/);
       expect(reduced).toMatch(/scroll-behavior:\s*auto !important/);
    });
+
+   it("leaves Mermaid's scratch box out of that rule, because a transition makes it measure labels wrongly", () => {
+      const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+      const selector = reduced.slice(0, reduced.indexOf("{", reduced.indexOf("{") + 1));
+      for (const pseudo of ["", "::before", "::after"]) {
+         expect(selector).toContain(`*:not([data-diagram-scratch], [data-diagram-scratch] *)${pseudo}`);
+      }
+   });
 });

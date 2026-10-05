@@ -251,7 +251,7 @@ test.describe("Track page", () => {
       await start.click();
       await expect(page).toHaveURL(canonical(LESSON.id));
       await expect(h1(page)).toHaveText(LESSON.title);
-      await expect(page.getByRole("navigation", { name: "Track context" })).toHaveText(`${CURRICULUM.title} / ${FOUNDATIONS.title}`);
+      await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(`Learn/${CURRICULUM.title}/${FOUNDATIONS.title}`);
    });
 
    test("Start on another Track follows that Track's own order", async ({ page }) => {
@@ -604,9 +604,9 @@ test.describe("Learn flow", () => {
       await expect(page).toHaveURL(canonical(LESSON.id));
       await expect(h1(page)).toHaveText(LESSON.title);
 
-      const breadcrumb = page.getByRole("navigation", { name: "Track context" });
-      await expect(breadcrumb).toHaveText(`${CURRICULUM.title} / ${FOUNDATIONS.title}`);
-      await breadcrumb.getByRole("link").click();
+      const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+      await expect(breadcrumb).toHaveText(`Learn/${CURRICULUM.title}/${FOUNDATIONS.title}`);
+      await breadcrumb.getByRole("link", { name: CURRICULUM.title }).click();
       await expect(page).toHaveURL(canonical(CURRICULUM.id));
 
       await (await panelOf(page, moduleControl(page, CURRICULUM, FOUNDATIONS.key)))

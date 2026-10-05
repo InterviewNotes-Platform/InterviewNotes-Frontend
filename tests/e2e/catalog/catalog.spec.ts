@@ -27,6 +27,9 @@ const main = (page: Page) => page.getByRole("main");
 const title = (page: Page) => main(page).getByRole("heading", { level: 1 });
 const related = (page: Page) => page.getByRole("region", { name: "Related content" });
 const trackContext = (page: Page) => page.getByRole("navigation", { name: "Track context" });
+// Lessons carry their own breadcrumb (Learn / Track / Module); Knowledge and Problems keep the Track context.
+const breadcrumb = (page: Page) => page.getByRole("navigation", { name: "Breadcrumb" });
+const LESSON_RELATED = /^(Prerequisites|Related Knowledge|Related Lessons|Ready to apply this\?|Related Problems)$/;
 const steps = (page: Page) => page.getByRole("navigation", { name: `Previous and next in ${HOME.title}` });
 const premiumMark = { name: "Premium", exact: true } as const;
 
@@ -83,7 +86,9 @@ test.describe("premium lesson", () => {
             }
             // Track and related context are loaded only for a body the API released.
             await expect(trackContext(page)).toHaveCount(0);
+            await expect(breadcrumb(page)).toHaveCount(0);
             await expect(related(page)).toHaveCount(0);
+            await expect(main(page).getByRole("region", { name: LESSON_RELATED })).toHaveCount(0);
          });
 
          test("client navigation from a related link receives a locked RSC payload", async ({ page, traffic }) => {
@@ -110,7 +115,7 @@ test.describe("premium lesson", () => {
       }) => {
          await page.goto(route);
          await expect(main(page).getByText(CANARY)).toBeVisible();
-         await expect(trackContext(page)).toContainText(HOME.title);
+         await expect(breadcrumb(page)).toContainText(HOME.title);
          const channels = (await exposures(page, await traffic.responses(), CANARY)).map((e) => e.channel);
          expect(channels).toEqual(expect.arrayContaining(["HTML", "RSC", "DOM"]));
       });
@@ -246,8 +251,14 @@ test.describe("Track navigation", () => {
       const { entry, module } = sequence[index];
       await expect(page).toHaveURL(canonical(entry.id));
       await expect(title(page)).toHaveText(entry.title);
-      await expect(trackContext(page)).toHaveText(`${HOME.title} / ${module.title}`);
-      await expect(trackContext(page).getByRole("link")).toHaveAttribute("href", canonical(HOME.id));
+      if (entry.type === "lesson") {
+         await expect(breadcrumb(page)).toHaveText(`Learn/${HOME.title}/${module.title}`);
+         await expect(breadcrumb(page).getByRole("link", { name: HOME.title })).toHaveAttribute("href", canonical(HOME.id));
+         await expect(trackContext(page)).toHaveCount(0);
+      } else {
+         await expect(trackContext(page)).toHaveText(`${HOME.title} / ${module.title}`);
+         await expect(trackContext(page).getByRole("link")).toHaveAttribute("href", canonical(HOME.id));
+      }
       const moduleNav = page.getByRole("navigation", { name: `Module: ${module.title}` });
       await expect(moduleNav.locator('[aria-current="page"]')).toHaveText(entry.title);
 

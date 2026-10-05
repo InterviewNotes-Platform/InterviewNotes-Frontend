@@ -19,6 +19,7 @@ import TrackPage from "../tracks/[slug]/page";
 import { CatalogItemPage } from "./CatalogItemPage";
 
 const CANONICAL = /^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/;
+const LEARN_INDEX = "/tracks"; // the Learn crumb: the Track index, the one non-item link a Lesson carries
 const entry = (id: string, over = {}) => {
    const [type, slug] = id.split(".");
    return { id, type, slug, title: `Title ${slug}`, access: "free", primary: true, ...over };
@@ -62,7 +63,11 @@ describe("item page navigation", () => {
    it("shows the home Track, module, previous/next and related content around the body", async () => {
       await show();
       expect(screen.getByText("Synthetic free body.")).toBeInTheDocument();
-      expect(screen.getByRole("navigation", { name: "Track context" })).toHaveTextContent("Home Track / First Module");
+      const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
+      expect(crumbs).toHaveTextContent(/^Learn\s*\/\s*Home Track\s*\/\s*First Module$/);
+      expect(within(crumbs).getByRole("link", { name: "Learn" })).toHaveAttribute("href", "/tracks");
+      expect(within(crumbs).getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
+      expect(within(crumbs).queryByRole("link", { name: "First Module" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: /Previous/ })).toHaveAttribute("href", "/lessons/before");
       expect(screen.getByRole("link", { name: /Next/ })).toHaveAttribute("href", "/problems/after");
       expect(screen.getByRole("navigation", { name: "Module: First Module" })).toBeInTheDocument();
@@ -71,7 +76,7 @@ describe("item page navigation", () => {
 
    it("keeps one canonical identity: every link is a type-based route with no Track or query context", async () => {
       await show();
-      for (const href of hrefs()) expect(href).toMatch(CANONICAL);
+      for (const href of hrefs().filter((href) => href !== LEARN_INDEX)) expect(href).toMatch(CANONICAL);
    });
 
    it("presents an alternate Track as navigation only, without a second copy of the content", async () => {
@@ -79,7 +84,7 @@ describe("item page navigation", () => {
       expect(screen.getByRole("link", { name: "Other Track" })).toHaveAttribute("href", "/tracks/other");
       expect(screen.getByText(/one canonical address/)).toBeInTheDocument();
       expect(screen.getAllByText("Synthetic free body.")).toHaveLength(1);
-      expect(screen.getByRole("navigation", { name: "Track context" })).not.toHaveTextContent("Other Track");
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).not.toHaveTextContent("Other Track");
    });
 
    it("takes neighbours from the home Track, not from the alternate", async () => {
@@ -103,7 +108,7 @@ describe("item page navigation", () => {
    it("renders no Track context or fabricated link for an item the API places in no Track", async () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [] } });
       await show();
-      expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
       expect(hrefs().filter((href) => href?.startsWith("/tracks/"))).toEqual([]);
       expect(screen.getByRole("link", { name: "Base Knowledge" })).toBeInTheDocument();
    });
@@ -111,7 +116,7 @@ describe("item page navigation", () => {
    it("invents no home Track when the API marks none primary", async () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [RELATED.placements[0]] } });
       await show();
-      expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /Previous|Next/ })).not.toBeInTheDocument();
    });
 
