@@ -52,7 +52,7 @@
       "level": "intermediate",
       "access": "free",
       "home": "catalog-e2e-home",
-      "kind": "concept",
+      "category": "concept",
       "sections": [
         { "id": "definition", "type": "definition", "title": "Public definition", "access": "free", "text": "Public section marker." },
         { "id": "failure-modes", "type": "failure_modes", "title": "Deep failure analysis", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium section body." }
@@ -70,7 +70,7 @@
       "level": null,
       "access": "free",
       "home": "catalog-e2e-home",
-      "kind": "system_design",
+      "category": "system_design",
       "sections": [
         { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Problem prompt marker." }
       ],
@@ -150,7 +150,7 @@
       "level": null,
       "access": "free",
       "home": "",
-      "kind": "system_design",
+      "category": "system_design",
       "sections": [
         { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "T24 public prompt marker." },
         { "id": "solution", "type": "solution", "title": "Solution", "access": "premium", "text": "PREMIUM_SOLUTION_CANARY_T24 premium solution body." }
@@ -168,7 +168,7 @@
       "level": "intermediate",
       "access": "free",
       "home": "",
-      "kind": "concept",
+      "category": "concept",
       "sections": [
         { "id": "definition", "type": "definition", "title": "Public definition", "access": "free", "text": "T24 public definition marker." },
         { "id": "deep-dive", "type": "deep_dive", "title": "Deep dive", "access": "premium", "text": "PREMIUM_DEEP_DIVE_CANARY_T24 premium deep dive body." }
