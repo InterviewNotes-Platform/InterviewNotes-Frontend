@@ -54,6 +54,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const ITEM_TYPES = ["knowledge", "lesson", "problem"];
 const DIFFICULTIES = ["easy", "medium", "hard"];
 const LEVELS = ["foundational", "intermediate", "advanced"];
+const CATEGORIES = [
+   "concept",
+   "term",
+   "technology",
+   "research",
+   "pattern",
+   "quick_reference",
+   "system_design",
+   "ml_system_design",
+];
 
 function isString(value: unknown): value is string {
    return typeof value === "string";
@@ -74,6 +84,7 @@ function isMeta(value: unknown): value is CatalogMeta {
       isString(value.summary) &&
       Array.isArray(value.tags) &&
       value.tags.every(isString) &&
+      isOneOfOrNull(value.category, CATEGORIES) &&
       isOneOfOrNull(value.difficulty, DIFFICULTIES) &&
       isOneOfOrNull(value.level, LEVELS) &&
       (value.access === "free" || value.access === "premium")
@@ -180,7 +191,6 @@ function isItem(value: unknown): value is CatalogItem {
    if (!isMeta(value)) return false;
    const item = value as unknown as Record<string, unknown>;
    return (
-      (item.kind === null || isString(item.kind)) &&
       (item.body === null || isBody(item.body)) &&
       Array.isArray(item.headings) &&
       item.headings.every(isHeading) &&

@@ -2,6 +2,16 @@
 
 export type CatalogItemType = "knowledge" | "lesson" | "problem";
 export type CatalogAccess = "free" | "premium";
+/** Git-owned classification within a type: Knowledge or Problem values, `null` for a Lesson. */
+export type CatalogCategory =
+   | "concept"
+   | "term"
+   | "technology"
+   | "research"
+   | "pattern"
+   | "quick_reference"
+   | "system_design"
+   | "ml_system_design";
 
 export interface CatalogMeta {
    id: string;
@@ -10,6 +20,7 @@ export interface CatalogMeta {
    title: string;
    summary: string;
    tags: string[];
+   category: CatalogCategory | null;
    difficulty: "easy" | "medium" | "hard" | null;
    level: "foundational" | "intermediate" | "advanced" | null;
    access: CatalogAccess;
@@ -54,7 +65,7 @@ export interface CatalogTrackList {
    tracks: CatalogTrackSummary[];
 }
 
-/** The filters `GET /catalog/items` supports. `kind` is Git-owned and is deliberately absent. */
+/** The filters this client sends. The backend also accepts `category=` (P1-T27); it is not exposed here until P2-T6 consumes it. */
 export interface CatalogItemListParams {
    type?: CatalogItemType;
    tag?: string;
@@ -110,7 +121,6 @@ export interface CatalogSection {
 
 /** Metadata plus what this caller may read: a Lesson's body, or a Knowledge/Problem's sections. */
 export interface CatalogItem extends CatalogMeta {
-   kind: string | null;
    body: CatalogBody | null;
    headings: CatalogHeading[];
    sections: CatalogSection[];

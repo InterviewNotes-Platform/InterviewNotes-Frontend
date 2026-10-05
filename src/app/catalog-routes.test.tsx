@@ -33,7 +33,7 @@ const ITEM = {
    difficulty: null,
    level: null,
    access: "free",
-   kind: null,
+   category: null,
    body: { format: "markdown@1", text: "Synthetic body." },
    headings: [],
    sections: [],

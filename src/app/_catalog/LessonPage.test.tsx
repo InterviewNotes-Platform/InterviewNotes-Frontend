@@ -42,7 +42,7 @@ const HEADINGS = [
 ];
 const LESSON = {
    ...meta("lesson.item", { title: "Synthetic Lesson", summary: "Synthetic summary.", level: "intermediate", difficulty: "easy" }),
-   kind: null,
+   category: null,
    body: { format: "markdown@1", text: BODY },
    headings: HEADINGS,
    sections: [],
@@ -283,11 +283,11 @@ describe("a locked Lesson", () => {
 });
 
 describe("other item pages keep their own contract", () => {
-   const KNOWLEDGE = { ...meta("knowledge.rag"), kind: "concept", body: null, headings: [], sections: [{ id: "definition", type: "definition", title: "Definition", body: { format: "markdown@1", text: "A [Lesson](ref:lesson.x) ref and\n\n## Inner\n\ntext" } }], sections_withheld: false };
+   const KNOWLEDGE = { ...meta("knowledge.rag"), category: "concept", body: null, headings: [], sections: [{ id: "definition", type: "definition", title: "Definition", body: { format: "markdown@1", text: "A [Lesson](ref:lesson.x) ref and\n\n## Inner\n\ntext" } }], sections_withheld: false };
 
    it.each([
       ["knowledge", { ...KNOWLEDGE }],
-      ["problem", { ...KNOWLEDGE, ...meta("problem.rag"), kind: "system_design" }],
+      ["problem", { ...KNOWLEDGE, ...meta("problem.rag"), category: "system_design" }],
    ] as const)("a %s page has no Lesson breadcrumb, contents or Practice transition", async (type, item) => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: item });
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { id: item.id, relations: RELATIONS, placements: RELATED.placements } });

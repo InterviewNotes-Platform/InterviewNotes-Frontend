@@ -47,7 +47,7 @@ describe("plainHeading", () => {
 
 const meta = (id: string, over: Partial<CatalogMeta> = {}): CatalogMeta => {
    const [type, slug] = id.split(".");
-   return { id, type: type as CatalogMeta["type"], slug, title: `Title ${slug}`, summary: "", tags: [], difficulty: null, level: null, access: "free", ...over };
+   return { id, type: type as CatalogMeta["type"], slug, title: `Title ${slug}`, summary: "", tags: [], category: null, difficulty: null, level: null, access: "free", ...over };
 };
 const ids = (rows: { entry: CatalogMeta }[]) => rows.map(({ entry }) => entry.id);
 

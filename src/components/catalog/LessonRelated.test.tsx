@@ -19,7 +19,7 @@ import { LessonBreadcrumb, TrackPrevNext } from "./TrackContext";
 
 const meta = (id: string, over: Partial<CatalogMeta> = {}): CatalogMeta => {
    const [type, slug] = id.split(".");
-   return { id, type: type as CatalogMeta["type"], slug, title: `Title ${slug}`, summary: `Summary ${slug}`, tags: [], difficulty: null, level: null, access: "free", ...over };
+   return { id, type: type as CatalogMeta["type"], slug, title: `Title ${slug}`, summary: `Summary ${slug}`, tags: [], category: null, difficulty: null, level: null, access: "free", ...over };
 };
 const linked = (id: string, over: Partial<CatalogMeta> = {}): LinkedMeta => {
    const entry = meta(id, over);

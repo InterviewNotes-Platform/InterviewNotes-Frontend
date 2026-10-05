@@ -29,8 +29,8 @@ function identityOf(req) {
    return Object.values(fixture.identities).find((identity) => identity.token === token) ?? null;
 }
 
-function meta({ id, type, slug, title, summary, tags, difficulty, level, access }) {
-   return { id, type, slug, title, summary, tags, difficulty, level, access };
+function meta({ id, type, slug, title, summary, tags, category, difficulty, level, access }) {
+   return { id, type, slug, title, summary, tags, category: category ?? null, difficulty, level, access };
 }
 
 /** 401/402 for a premium item, else the premium section ids to withhold (backend `_authorize`). */
@@ -45,7 +45,6 @@ function itemOut(item, withheld) {
    const sections = item.sections ?? [];
    return {
       ...meta(item),
-      kind: item.kind ?? null,
       body: item.body ? { format: "markdown@1", text: item.body } : null,
       headings: item.headings ?? [],
       sections: sections

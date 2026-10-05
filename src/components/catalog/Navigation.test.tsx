@@ -26,7 +26,7 @@ const entry = (id: string, over: Partial<CatalogOutlineEntry> = {}): CatalogOutl
 };
 const meta = (id: string, over: Partial<CatalogMeta> = {}): CatalogMeta => {
    const [type, slug] = id.split(".");
-   return { id, type: type as CatalogMeta["type"], slug, title: `Title ${slug}`, summary: `Summary ${slug}`, tags: [], difficulty: null, level: null, access: "free", ...over };
+   return { id, type: type as CatalogMeta["type"], slug, title: `Title ${slug}`, summary: `Summary ${slug}`, tags: [], category: null, difficulty: null, level: null, access: "free", ...over };
 };
 const mod = (key: string, items: CatalogOutlineEntry[]): CatalogModule => ({ key, title: `Module ${key}`, position: 0, items });
 const track = (slug: string, modules: CatalogModule[]): CatalogTrack => ({ id: `track.${slug}`, slug, title: `Track ${slug}`, summary: "", modules });
