@@ -3,7 +3,7 @@ import { FAKE_API_ORIGIN, expect, test } from "./harness";
 
 // The list endpoints of the API double, held to the backend contract (`app/routers/catalog.py`), because
 // P2-T6 and P2-T7 will test their discovery pages against it.
-const META_FIELDS = ["access", "difficulty", "id", "level", "slug", "summary", "tags", "title", "type"];
+const META_FIELDS = ["access", "category", "difficulty", "id", "level", "slug", "summary", "tags", "title", "type"];
 const sortedIds = (rows: { id: string }[]) => rows.map((row) => row.id).sort();
 const ALL_ITEMS = sortedIds(fixture.items);
 
