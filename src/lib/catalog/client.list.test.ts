@@ -17,6 +17,7 @@ const META = (slug: string, over: object = {}) => ({
    title: `Title ${slug}`,
    summary: "Synthetic summary",
    tags: ["synthetic"],
+   category: null,
    difficulty: null,
    level: "foundational",
    access: "free",
