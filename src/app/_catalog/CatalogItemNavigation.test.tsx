@@ -24,7 +24,7 @@ const entry = (id: string, over = {}) => {
    return { id, type, slug, title: `Title ${slug}`, access: "free", primary: true, ...over };
 };
 const META = { id: "lesson.item", type: "lesson", slug: "item", title: "Synthetic Item", summary: "Synthetic summary", tags: [], difficulty: null, level: null, access: "free" };
-const ITEM = { ...META, kind: null, body: { format: "markdown@1", text: "Synthetic free body." }, headings: [], sections: [], sections_withheld: false };
+const ITEM = { ...META, category: null, body: { format: "markdown@1", text: "Synthetic free body." }, headings: [], sections: [], sections_withheld: false };
 const HOME = {
    id: "track.home",
    slug: "home",

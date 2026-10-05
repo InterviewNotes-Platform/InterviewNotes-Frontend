@@ -29,7 +29,7 @@ const META = {
 };
 const LESSON = {
    ...META,
-   kind: null,
+   category: null,
    body: { format: "markdown@1", text: "Synthetic premium prose." },
    headings: [],
    sections: [],
@@ -42,7 +42,7 @@ const KNOWLEDGE = {
    slug: "rag",
    title: "Synthetic Knowledge",
    access: "free",
-   kind: "concept",
+   category: "concept",
    body: null,
    sections: [{ id: "definition", type: "definition", title: "Definition", body: { format: "markdown@1", text: "Synthetic free section." } }],
    sections_withheld: true,
