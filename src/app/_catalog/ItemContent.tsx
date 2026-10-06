@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { CatalogBody } from "@/components/catalog/CatalogBody";
 import type { CatalogHeading, CatalogItem } from "@/lib/catalog/types";
 
@@ -9,10 +10,10 @@ interface ItemContentProps {
 }
 
 /** Says only that something was left out for this caller: never which sections, so nothing about them is exposed. */
-export function WithheldNote() {
+export function WithheldNote({ children = "Some sections of this content are premium and are not included in your access." }: { children?: ReactNode }) {
    return (
       <p role="note" className="mt-8 mb-0 rounded-lg bg-surface p-4 text-supporting text-muted-foreground">
-         Some sections of this content are premium and are not included in your access.
+         {children}
       </p>
    );
 }

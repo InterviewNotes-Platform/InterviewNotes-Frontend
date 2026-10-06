@@ -126,6 +126,22 @@ describe("desktop contents", () => {
    });
 });
 
+describe("a named list", () => {
+   it("names the control, both landmarks and the desktop heading, and keeps the same links", () => {
+      render(
+         <>
+            <LessonContents entries={ENTRIES} label="Phases" />
+            {ENTRIES.map(({ id, text }) => <h2 key={id} id={id} tabIndex={-1}>{text}</h2>)}
+         </>
+      );
+      expect(screen.getAllByRole("navigation", { name: "Phases" })).toHaveLength(2);
+      expect(screen.getByRole("button", { name: "Phases" })).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getAllByText("Phases")).toHaveLength(2); // the mobile control and the desktop heading
+      expect(screen.queryByRole("navigation", { name: "Contents" })).not.toBeInTheDocument();
+      expect(within(screen.getAllByRole("navigation", { name: "Phases" })[1]).getAllByRole("link")).toHaveLength(3);
+   });
+});
+
 describe("mobile contents", () => {
    it("is a Contents disclosure that starts collapsed, hidden from lg, with an inert panel", () => {
       show();

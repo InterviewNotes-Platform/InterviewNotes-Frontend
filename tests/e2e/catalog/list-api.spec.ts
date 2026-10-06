@@ -97,11 +97,19 @@ test.describe("fake catalog list endpoints", () => {
       for (const t of body.tracks) expect(Object.keys(t).sort()).toEqual(["id", "slug", "summary", "title"]);
    });
 
-   test("GET /catalog/items returns public metadata for every item, ordered by id, unpaginated by default", async ({ request }) => {
-      const body = await page(request, "");
+   test("GET /catalog/items returns public metadata for every item, ordered by id, at the largest page size", async ({ request }) => {
+      expect(ALL_ITEMS.length, "the fixture must fit one page of 100").toBeLessThanOrEqual(100);
+      const body = await page(request, "?limit=100");
       expect(body.items.map((i) => i.id)).toEqual(ALL_ITEMS);
       expect(body.next_cursor).toBeNull();
       for (const i of body.items) expect(Object.keys(i).sort()).toEqual(META_FIELDS);
+   });
+
+   test("a page is 50 items unless asked otherwise, with the cursor to the rest", async ({ request }) => {
+      expect(ALL_ITEMS.length, "the fixture must exceed one default page").toBeGreaterThan(50);
+      const body = await page(request, "");
+      expect(body.items.map((i) => i.id)).toEqual(ALL_ITEMS.slice(0, 50));
+      expect(body.next_cursor).toBe(ALL_ITEMS[49]);
    });
 
    test("combines filters with AND", async ({ request }) => {
@@ -161,10 +169,14 @@ test.describe("fake catalog list endpoints", () => {
          expect((await page(request, `?type=knowledge&category=${category}`)).items.map((i) => i.id), category).toEqual(expected(category));
          expect((await page(request, `?category=${category}`)).items.map((i) => i.id), `${category} needs no type`).toEqual(expected(category));
       }
-      const problems = (await page(request, "?category=system_design")).items;
-      expect(problems.length).toBeGreaterThan(0);
-      for (const i of problems) expect(i.type).toBe("problem");
-      expect((await page(request, "?category=ml_system_design")).items).toEqual([]);
+      const problems = fixture.items.filter((candidate) => candidate.type === "problem") as unknown as { id: string; category: string | null }[];
+      for (const category of ["system_design", "ml_system_design"]) {
+         const wanted = problems.filter((candidate) => candidate.category === category).map((candidate) => candidate.id).sort();
+         expect(wanted.length, `fixture has no ${category} Problem`).toBeGreaterThan(0);
+         const found = (await page(request, `?category=${category}`)).items;
+         expect(found.map((i) => i.id), category).toEqual(wanted);
+         for (const i of found) expect(i.type).toBe("problem");
+      }
    });
 
    test("combines category with the other filters and pages it like any other", async ({ request }) => {

@@ -113,16 +113,17 @@ test.describe("preview deployment", () => {
             expect(href).not.toMatch(/localhost:3100|127\.0\.0\.1|^https?:/);
          }
          // `/tracks` is the Learn index (a Lesson's first breadcrumb step); `/knowledge` and `/knowledge?group=<id>` are the
-         // Knowledge index and a category group (a topic's breadcrumb); `#id` is a heading anchor on this page.
+         // Knowledge index and a category group (a topic's breadcrumb); `/practice` is the Practice index (a Problem's breadcrumb);
+         // `#id` is a heading anchor on this page.
          for (const href of await hrefs(page, "main a[href]")) {
             expect(href, `${route}: ${href} is not a canonical catalog route`).toMatch(
-               /^(\/tracks|\/knowledge(\?group=[a-z-]+)?|#[a-z0-9_-]+|\/(lessons|problems|knowledge|tracks)\/[a-z0-9-]+|\/login\?redirect=%2F(lessons|problems|knowledge|tracks)%2F[a-z0-9-]+)$/
+               /^(\/tracks|\/practice|\/knowledge(\?group=[a-z-]+)?|#[a-z0-9_-]+|\/(lessons|problems|knowledge|tracks)\/[a-z0-9-]+|\/login\?redirect=%2F(lessons|problems|knowledge|tracks)%2F[a-z0-9-]+)$/
             );
          }
       }
 
       await page.goto(canonical(PROBLEM.id));
-      await page.getByRole("region", { name: "Related content" }).getByRole("link").first().click();
+      await page.getByRole("main").getByRole("region", { name: /^(Before you start|Related (Knowledge|Lessons|Problems))$/ }).getByRole("link").first().click();
       await page.waitForURL((url) => CANONICAL_ROUTE.test(url.pathname) && url.pathname !== canonical(PROBLEM.id));
       expect(new URL(page.url()).origin).toBe(PREVIEW_ORIGIN);
       await expect(marker(page)).toBeVisible();
@@ -178,7 +179,7 @@ test.describe("preview deployment", () => {
          await expect(heading(page)).toHaveText(title); // the credential was accepted, so this is not an error page
       }
       await page.goto(canonical(PROBLEM.id));
-      await page.getByRole("region", { name: "Related content" }).getByRole("link").first().click();
+      await page.getByRole("main").getByRole("region", { name: /^(Before you start|Related (Knowledge|Lessons|Problems))$/ }).getByRole("link").first().click();
       await page.waitForLoadState("networkidle");
 
       const received = await traffic.responses();

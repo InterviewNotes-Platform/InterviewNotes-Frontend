@@ -48,7 +48,18 @@ function Links({ entries, active, onJump, touch }: { entries: ContentsEntry[]; a
  * A Lesson's contents from its own headings: a sticky column from `lg`, a collapsed disclosure below it. Both jump
  * with real links; the disclosure closes first, so the page is never scrolled toward a heading that is about to move.
  */
-export function LessonContents({ entries, className, trackScroll = true }: { entries: ContentsEntry[]; className?: string; trackScroll?: boolean }) {
+export function LessonContents({
+   entries,
+   className,
+   trackScroll = true,
+   label = "Contents",
+}: {
+   entries: ContentsEntry[];
+   className?: string;
+   trackScroll?: boolean;
+   /** What the list is of: the name of the control, both landmarks and the desktop heading. */
+   label?: string;
+}) {
    // Off for a short list of bands: the last would never reach the top of a short page, so the wrong entry would stay current.
    const [tracked, choose] = useActiveHeading(trackScroll ? entries.map(({ id }) => id) : []);
    const active = trackScroll ? tracked : null;
@@ -66,14 +77,14 @@ export function LessonContents({ entries, className, trackScroll = true }: { ent
    return (
       <div className={className}>
          <div className="mb-10 border-y border-border lg:hidden">
-            <Disclosure compact title="Contents" open={open} onOpenChange={setOpen}>
-               <nav aria-label="Contents" className="pb-3">
+            <Disclosure compact title={label} open={open} onOpenChange={setOpen}>
+               <nav aria-label={label} className="pb-3">
                   <Links entries={entries} active={active} onJump={collapseThenJump} touch />
                </nav>
             </Disclosure>
          </div>
-         <nav aria-label="Contents" className="sticky top-28 hidden max-h-[calc(100vh-8rem)] overflow-y-auto lg:block">
-            <p className="m-0 mb-2 text-supporting font-semibold uppercase tracking-wide text-muted-foreground">Contents</p>
+         <nav aria-label={label} className="sticky top-28 hidden max-h-[calc(100vh-8rem)] overflow-y-auto lg:block">
+            <p className="m-0 mb-2 text-supporting font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
             <Links entries={entries} active={active} onJump={jump} />
          </nav>
       </div>
