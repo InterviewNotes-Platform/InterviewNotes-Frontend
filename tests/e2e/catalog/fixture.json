@@ -42,6 +42,21 @@
       "relations": { "prerequisite_of": ["problem.catalog-e2e-related"] }
     },
     {
+      "id": "lesson.catalog-e2e-second",
+      "type": "lesson",
+      "slug": "catalog-e2e-second",
+      "title": "Synthetic Second Lesson",
+      "summary": "Second free synthetic lesson in the Home Track's first module.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "catalog-e2e-home",
+      "body": "## Second lesson heading\n\nSecond lesson body marker.\n",
+      "headings": [{ "id": "second-lesson-heading", "level": 2, "text": "Second lesson heading" }],
+      "relations": {}
+    },
+    {
       "id": "knowledge.catalog-e2e-sections",
       "type": "knowledge",
       "slug": "catalog-e2e-sections",
@@ -51,8 +66,8 @@
       "difficulty": null,
       "level": "intermediate",
       "access": "free",
-      "home": "catalog-e2e-home",
-      "kind": "concept",
+      "home": "",
+      "category": "concept",
       "sections": [
         { "id": "definition", "type": "definition", "title": "Public definition", "access": "free", "text": "Public section marker." },
         { "id": "failure-modes", "type": "failure_modes", "title": "Deep failure analysis", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium section body." }
@@ -70,7 +85,7 @@
       "level": null,
       "access": "free",
       "home": "catalog-e2e-home",
-      "kind": "system_design",
+      "category": "system_design",
       "sections": [
         { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Problem prompt marker." }
       ],
@@ -110,6 +125,21 @@
       "relations": {}
     },
     {
+      "id": "lesson.p2-t1-technical",
+      "type": "lesson",
+      "slug": "p2-t1-technical",
+      "title": "Synthetic Technical Content Lesson",
+      "summary": "Free synthetic lesson with one wide code block and one wide table, for layout tests.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "body": "Technical content marker.\n\n```python\ndef synthetic_dynamic_batching_scheduler(request_queue, max_batch_size, max_wait_milliseconds, kv_cache_budget_tokens, prefill_chunk_tokens): return request_queue.drain(limit=max_batch_size, deadline_ms=max_wait_milliseconds)\n```\n\n| `synthetic_metric_name` | `synthetic_p50_latency_ms` | `synthetic_p99_latency_ms` | `synthetic_tokens_per_second` | `synthetic_gpu_memory_gib` | `synthetic_cost_per_million_tokens` |\n|---|---|---|---|---|---|\n| `value_synthetic_metric_name` | `value_synthetic_p50_latency_ms` | `value_synthetic_p99_latency_ms` | `value_synthetic_tokens_per_second` | `value_synthetic_gpu_memory_gib` | `value_synthetic_cost_per_million_tokens` |\n| `other_synthetic_metric_name` | `other_synthetic_p50_latency_ms` | `other_synthetic_p99_latency_ms` | `other_synthetic_tokens_per_second` | `other_synthetic_gpu_memory_gib` | `other_synthetic_cost_per_million_tokens` |\n",
+      "headings": [],
+      "relations": {}
+    },
+    {
       "id": "lesson.t24-premium-body",
       "type": "lesson",
       "slug": "t24-premium-body",
@@ -135,7 +165,7 @@
       "level": null,
       "access": "free",
       "home": "",
-      "kind": "system_design",
+      "category": "system_design",
       "sections": [
         { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "T24 public prompt marker." },
         { "id": "solution", "type": "solution", "title": "Solution", "access": "premium", "text": "PREMIUM_SOLUTION_CANARY_T24 premium solution body." }
@@ -153,12 +183,940 @@
       "level": "intermediate",
       "access": "free",
       "home": "",
-      "kind": "concept",
+      "category": "concept",
       "sections": [
         { "id": "definition", "type": "definition", "title": "Public definition", "access": "free", "text": "T24 public definition marker." },
         { "id": "deep-dive", "type": "deep_dive", "title": "Deep dive", "access": "premium", "text": "PREMIUM_DEEP_DIVE_CANARY_T24 premium deep dive body." }
       ],
       "relations": {}
+    },
+    {
+      "id": "lesson.p2-t4-foundations",
+      "type": "lesson",
+      "slug": "p2-t4-foundations",
+      "title": "Synthetic Foundations Lesson",
+      "summary": "Free synthetic lesson that opens the curriculum Track.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t4-curriculum",
+      "body": "## Foundations heading\n\nCurriculum foundations marker.\n",
+      "headings": [{ "id": "foundations-heading", "level": 2, "text": "Foundations heading" }],
+      "relations": {}
+    },
+    {
+      "id": "problem.p2-t4-practice",
+      "type": "problem",
+      "slug": "p2-t4-practice",
+      "title": "Synthetic Practice Step",
+      "summary": "Free synthetic problem placed in the curriculum Track.",
+      "tags": ["e2e"],
+      "difficulty": "medium",
+      "level": null,
+      "access": "free",
+      "home": "p2-t4-curriculum",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Curriculum practice prompt marker." }
+      ],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p2-t4-premium-depth",
+      "type": "lesson",
+      "slug": "p2-t4-premium-depth",
+      "title": "Synthetic Premium Depth Lesson",
+      "summary": "Premium synthetic lesson in the curriculum Track; only its metadata is public.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "advanced",
+      "access": "premium",
+      "home": "p2-t4-curriculum",
+      "body": "## Premium depth heading\n\nCATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium depth body.\n",
+      "headings": [{ "id": "premium-depth-heading", "level": 2, "text": "Premium depth heading" }],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p2-t5-primer",
+      "type": "lesson",
+      "slug": "p2-t5-primer",
+      "title": "Synthetic Reading Primer",
+      "summary": "Short free synthetic lesson that precedes the long reading lesson, with no relations.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t5-reading",
+      "body": "## Primer heading\n\nSynthetic reading primer marker.\n",
+      "headings": [{ "id": "primer-heading", "level": 2, "text": "Primer heading" }],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p2-t5-long",
+      "type": "lesson",
+      "slug": "p2-t5-long",
+      "title": "Synthetic Long-Form Lesson",
+      "summary": "Free synthetic lesson, several screens long, with every kind of technical block, for the reading layout.",
+      "tags": ["e2e"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "p2-t5-reading",
+      "body": "Synthetic long-form lesson marker. This lesson exists only to exercise the reading layout: it is long enough to need contents, and it carries every kind of technical block the renderer supports.\n\n## Why batching changes the economics\n\nA model server that handles one request at a time leaves most of the accelerator idle. Batching groups requests so one pass over the weights serves many of them, which is how a fixed hardware budget turns into more completed requests. The first idea to hold on to is that the weights are read once per pass, however many requests ride along. A reader who already knows [the failure modes](ref:knowledge.catalog-e2e-sections) of a cache can skim the next paragraph.\n\nMemory traffic, not arithmetic, usually sets the pace. Each decode step reads every weight to produce a single token for each request in the batch, so the cost of a step barely grows as the batch grows, until the batch becomes large enough that arithmetic starts to matter. That crossover is where throughput stops improving and latency starts to suffer.\n\n::: callout kind=note\nEverything in this lesson is synthetic and invented for layout testing. The numbers are placeholders, not measurements of any real system.\n:::\n\n### The latency budget\n\nInteractive use sets a latency budget before any batching decision is made. If a reader expects the first token within a fraction of a second and subsequent tokens at reading speed, then the scheduler may only wait so long to fill a batch. The longer it waits, the larger the batch, and the later the first request in that batch gets its answer.\n\nTwo numbers describe the budget. The queueing delay is how long a request waits before it joins a batch. The step time is how long one pass takes once it has. The sum of the first and a handful of the second is what a user feels.\n\n### Throughput versus tail latency\n\nRaising the batch size raises throughput and, past some point, raises the slowest requests' latency faster than the average. Tail latency is what breaks a service level objective, so tuning for the average hides the problem. The table below compares three synthetic operating points; the identifiers are deliberately long so the table is wider than a phone.\n\n| `synthetic_operating_point` | `synthetic_batch_size_limit` | `synthetic_p50_latency_ms` | `synthetic_p99_latency_ms` | `synthetic_tokens_per_second` | `synthetic_cost_per_million_tokens` |\n|---|---|---|---|---|---|\n| `value_conservative_operating_point` | `value_batch_size_limit_8` | `value_p50_latency_ms_120` | `value_p99_latency_ms_210` | `value_tokens_per_second_900` | `value_cost_per_million_tokens_high` |\n| `value_balanced_operating_point` | `value_batch_size_limit_32` | `value_p50_latency_ms_180` | `value_p99_latency_ms_420` | `value_tokens_per_second_2600` | `value_cost_per_million_tokens_medium` |\n| `value_aggressive_operating_point` | `value_batch_size_limit_128` | `value_p50_latency_ms_340` | `value_p99_latency_ms_1500` | `value_tokens_per_second_4100` | `value_cost_per_million_tokens_low` |\n\nRead down a column to see the trade. Read across a row to see what one setting costs elsewhere.\n\n## Sizing the `kv_cache` budget\n\nEach request in flight keeps a cache of the keys and values it has produced so far, so that a new token does not recompute the whole history. The cache grows with every token, and it lives in the same scarce memory as the weights. How many requests fit in a batch is therefore decided by memory long before arithmetic.\n\n::: callout kind=tip\nBudget the cache for the longest context you intend to serve, then check how many such requests fit. A scheduler that admits more than that will evict, and eviction is a latency spike nobody planned for.\n:::\n\n### A back-of-the-envelope estimate\n\nWork the estimate per token first, then multiply. The per-token cost is two tensors, for keys and for values, across every layer, at the numeric width in use. Multiply by the context length for one request, then by the batch size for the whole batch.\n\n```python\ndef synthetic_kv_cache_bytes(layers, kv_heads, head_dim, dtype_bytes, context_tokens, batch_size):\n    per_token = 2 * layers * kv_heads * head_dim * dtype_bytes  # keys and values for every layer\n    return per_token * context_tokens * batch_size\n\n\ndef synthetic_max_batch_for_budget(budget_bytes, layers, kv_heads, head_dim, dtype_bytes, context_tokens):\n    one_request = synthetic_kv_cache_bytes(layers, kv_heads, head_dim, dtype_bytes, context_tokens, batch_size=1)\n    return int(budget_bytes // one_request)\n\n\nclass SyntheticAdmissionController:\n    def __init__(self, budget_bytes, layers, kv_heads, head_dim, dtype_bytes, max_context_tokens, reserve_fraction=0.1):\n        self.budget_bytes = int(budget_bytes * (1.0 - reserve_fraction))\n        self.limit = synthetic_max_batch_for_budget(self.budget_bytes, layers, kv_heads, head_dim, dtype_bytes, max_context_tokens)\n        self.running = 0\n\n    def try_admit(self, request_id, prompt_tokens, requested_new_tokens):\n        if self.running >= self.limit:\n            return {\"admitted\": False, \"reason\": \"kv_cache_budget_exhausted\", \"request_id\": request_id, \"retry_after_ms\": 50}\n        self.running += 1\n        return {\"admitted\": True, \"request_id\": request_id, \"prompt_tokens\": prompt_tokens, \"reserved_new_tokens\": requested_new_tokens}\n\n    def release(self, request_id):\n        self.running = max(0, self.running - 1)\n        return {\"released\": request_id, \"running\": self.running}\n```\n\nThe estimate ignores paging overhead and fragmentation, which is why a real system reserves a margin. The reserve fraction above is that margin.\n\n### Example\n\nTake a deployment with a fixed cache budget and a target context length. Divide the budget by the cost of one request at that length. The result is the number of requests that can be in flight at once, and it is a ceiling, not a target.\n\n## Where the pipeline spends its time\n\nBefore a request reaches the accelerator it passes through several stages, and each can become the bottleneck. A diagram of the shortest useful path makes the ordering concrete.\n\n```mermaid\ngraph LR\n  Client[Client] --> Gateway[Gateway] --> Server[Model server]\n```\n\nReal deployments add stages, and the diagram grows with them. The next diagram shows a fuller path with long stage names, and it is wider than any column of text, so it must scroll instead of shrinking until the labels cannot be read.\n\n```mermaid\ngraph LR\n  A[Client request arrives at the edge gateway] --> B[Admission control and quota check]\n  B --> C[Prompt tokenization and prefix cache lookup]\n  C --> D[Scheduler assigns a continuous batch slot]\n  D --> E[Prefill on the prompt processing pool]\n  E --> F[Decode on the token generation pool]\n  F --> G[Streaming response assembly and filtering]\n  G --> H[Usage metering and audit logging]\n```\n\n### Prefill and decode\n\nPrefill processes the whole prompt at once and is limited by arithmetic. Decode produces one token at a time and is limited by memory traffic. Serving them on the same accelerator makes them interfere, which is why some systems split them across pools and ship the cache between them. Whether that split pays for itself depends on how long the prompts are and how much the transfer costs. A reader comparing designs can practise exactly this reasoning on [a design problem](ref:problem.p2-t4-practice), and the [earlier lesson](ref:lesson.catalog-e2e-second) covers the arithmetic.\n\n::: callout kind=warning\nDo not tune the batch size on average latency alone. A change that improves the average can quietly push the slowest requests past the objective.\n:::\n\n### Example\n\nA second worked case, kept short so the duplicate heading above gets its own anchor. Suppose prompts are long and answers are short. Prefill dominates, the decode pool idles, and splitting the two pools raises utilisation. Suppose instead that prompts are short and answers are long. Decode dominates and the split buys little.\n\n## Why [batching](ref:knowledge.t24-premium-deep-dive) is not the whole story\n\nBatching is one lever among several. Quantisation shrinks the weights and the cache, which raises the batch limit directly. Speculative decoding spends spare arithmetic to produce several tokens per pass. Prefix caching avoids recomputing a shared prompt. Each interacts with the others, and each moves the point where the trade-offs bite.\n\n### Putting it together\n\nChoose the latency budget first, because it is a requirement, then the cache budget, because it is a constraint, and only then the batch size, because it is a consequence. Reversing that order is the most common way to build a system that benchmarks well and serves badly.\n\n#### A short checklist\n\n- State the latency objective for the first token and for later tokens.\n- Compute the cache cost of one request at the longest supported context.\n- Divide the memory budget by that cost and keep a reserve.\n- Measure tail latency, not only the average, at the chosen limit.\n\n## Summary\n\nBatching trades latency for throughput, memory decides how far that trade can go, and the order in which you fix the budgets decides whether the result is a service or a benchmark. The practice problems that follow ask you to make exactly these choices.\n",
+      "headings": [
+        { "id": "why-batching-changes-the-economics", "level": 2, "text": "Why batching changes the economics" },
+        { "id": "the-latency-budget", "level": 3, "text": "The latency budget" },
+        { "id": "throughput-versus-tail-latency", "level": 3, "text": "Throughput versus tail latency" },
+        { "id": "sizing-the-kv-cache-budget", "level": 2, "text": "Sizing the `kv_cache` budget" },
+        { "id": "a-back-of-the-envelope-estimate", "level": 3, "text": "A back-of-the-envelope estimate" },
+        { "id": "example", "level": 3, "text": "Example" },
+        { "id": "where-the-pipeline-spends-its-time", "level": 2, "text": "Where the pipeline spends its time" },
+        { "id": "prefill-and-decode", "level": 3, "text": "Prefill and decode" },
+        { "id": "example-2", "level": 3, "text": "Example" },
+        { "id": "why-batching-ref-knowledge-t24-premium-deep-dive-is-not-the-whole-story", "level": 2, "text": "Why [batching](ref:knowledge.t24-premium-deep-dive) is not the whole story" },
+        { "id": "putting-it-together", "level": 3, "text": "Putting it together" },
+        { "id": "a-short-checklist", "level": 4, "text": "A short checklist" },
+        { "id": "summary", "level": 2, "text": "Summary" }
+      ],
+      "relations": {
+        "applies": ["knowledge.t24-premium-deep-dive", "knowledge.catalog-e2e-sections"],
+        "prerequisite": ["knowledge.catalog-e2e-sections", "lesson.p2-t5-primer"],
+        "prerequisite_of": ["problem.p2-t4-practice", "problem.p2-t5-premium-practice", "problem.catalog-e2e-related"],
+        "related": ["problem.t24-premium-solution", "lesson.catalog-e2e-second", "knowledge.t24-premium-deep-dive"]
+      }
+    },
+    {
+      "id": "lesson.p2-t5-premium",
+      "type": "lesson",
+      "slug": "p2-t5-premium",
+      "title": "Synthetic Premium Reading Lesson",
+      "summary": "Premium synthetic lesson in the reading Track; only its metadata is public.",
+      "tags": ["e2e"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "premium",
+      "home": "p2-t5-reading",
+      "body": "## Premium reading heading\n\nCATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium reading body.\n\n## Premium reading second heading\n\nMore premium synthetic prose.\n\n### Premium reading subsection\n\nEven more premium synthetic prose.\n",
+      "headings": [
+        { "id": "premium-reading-heading", "level": 2, "text": "Premium reading heading" },
+        { "id": "premium-reading-second-heading", "level": 2, "text": "Premium reading second heading" },
+        { "id": "premium-reading-subsection", "level": 3, "text": "Premium reading subsection" }
+      ],
+      "relations": {
+        "prerequisite": ["lesson.p2-t5-long"],
+        "prerequisite_of": ["problem.p2-t5-premium-practice"],
+        "related": ["knowledge.catalog-e2e-sections"]
+      }
+    },
+    {
+      "id": "problem.p2-t5-premium-practice",
+      "type": "problem",
+      "slug": "p2-t5-premium-practice",
+      "title": "Synthetic Premium Practice Problem",
+      "summary": "Premium synthetic problem that follows the long reading lesson; only its metadata is public.",
+      "tags": ["e2e"],
+      "difficulty": "hard",
+      "level": null,
+      "access": "premium",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium practice prompt." }
+      ],
+      "relations": {
+        "prerequisite": ["lesson.p2-t5-long"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-attention",
+      "type": "knowledge",
+      "slug": "p2-t6-attention",
+      "title": "Attention",
+      "summary": "How a model weighs which parts of its input matter for each output.",
+      "tags": ["attention", "transformers", "deep-learning"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "concept",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "Attention is a way for a model to decide, for the position it is producing, how much to draw on every other position in its input. The result is a weighted blend of the input, where the weights are learned from data rather than fixed in advance."},
+        {"id": "why-it-matters", "type": "why_it_matters", "title": "Why it matters", "access": "free", "text": "A fixed-size summary loses detail on long inputs. Attention lets the model look back at the part of the input that matters for the step it is on, which is why it sits underneath most modern language and retrieval systems."},
+        {"id": "how-it-works", "type": "how_it_works", "title": "How it works", "access": "free", "text": "Each position produces three vectors: a **query**, a **key** and a **value**. A query is compared with every key to give a score, the scores are normalised into weights, and the output is the weighted sum of the values.\n\n| Step | Operation | Shape per head |\n|---|---|---|\n| Score | query · key | sequence × sequence |\n| Normalise | softmax over keys | sequence × sequence |\n| Blend | weights × values | sequence × head_dim |\n\n```python\ndef synthetic_attention(query, key, value):\n    scores = query @ key.T / (key.shape[-1] ** 0.5)\n    weights = softmax(scores, axis=-1)\n    return weights @ value\n```\n\nThe score matrix is why cost grows with the square of the sequence length."},
+        {"id": "building-blocks", "type": "architecture", "title": "Building blocks", "access": "free", "text": "Three learned projections feed one scoring step. Several of these run side by side as heads, and their outputs are concatenated and projected once more.\n\n```mermaid\ngraph LR\n  Input --> Projections[Query, key and value projections] --> Scores --> Weights --> Output\n```"},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "free", "text": "Reach for attention when the output at one position depends on a few input-dependent positions elsewhere: translation, summarisation, re-ranking retrieved passages."},
+        {"id": "when-not-to-use", "type": "when_not_to_use", "title": "When not to use", "access": "free", "text": "Be cautious when sequences are so long that comparing every pair is the constraint, or when a fixed local window already captures the dependency."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "- Expressive: any position can influence any other.\n- Costly: time and memory grow with the square of the length.\n- Flexible: the same block serves text, images and audio."},
+        {"id": "failure-modes", "type": "failure_modes", "title": "Where it goes wrong", "access": "free", "text": "Attention weights are tempting to read as an explanation, but they show where the model looked, not why it answered as it did. Long inputs can also dilute the weights until nothing stands out."},
+        {"id": "example-scoring", "type": "example", "title": "Worked example", "access": "free", "text": "Take a three-token input. The query for the last token scores highest against the key of the first token, so most of the output is that token's value. Change the input and the same query attends elsewhere."},
+        {"id": "example-masking", "type": "example", "title": "Example: masking", "access": "free", "text": "When generating text, each position may attend only to earlier ones. A mask sets the scores for later positions to negative infinity before the softmax, so their weights become zero."},
+        {"id": "interview-considerations", "type": "interview_considerations", "title": "In an interview", "access": "free", "text": "Be ready to state the quadratic cost and name one way to reduce it. Expect a follow-up on why the scores are scaled before the softmax."}
+      ],
+      "relations": {
+        "prerequisite": ["knowledge.p2-t6-embedding"],
+        "applied_in": ["lesson.catalog-e2e-free", "problem.catalog-e2e-related", "problem.p2-t4-practice"],
+        "prerequisite_of": ["lesson.p2-t5-long"],
+        "related": ["knowledge.p2-t6-scaling-laws", "knowledge.p2-t6-tokenization", "problem.p2-t5-premium-practice"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-batching",
+      "type": "knowledge",
+      "slug": "p2-t6-batching",
+      "title": "Batching",
+      "summary": "Group requests so one pass over the model serves many of them.",
+      "tags": ["serving", "throughput", "batching"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "pattern",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "Batching holds requests briefly and runs them through the model together, so the cost of reading the weights is shared."},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "free", "text": "Use it when requests arrive faster than one accelerator can serve them one at a time and a little added waiting is acceptable."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "Larger batches raise throughput and raise the latency of the slowest request. The waiting time you allow is the dial between them."},
+        {"id": "failure-modes", "type": "failure_modes", "title": "Failure modes", "access": "free", "text": "A batch that waits for a slow request holds up every other request in it. Cap the wait, not only the size."}
+      ],
+      "relations": {
+        "applied_in": ["lesson.p2-t5-primer"],
+        "related": ["knowledge.p2-t6-latency-cheatsheet"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-embedding",
+      "type": "knowledge",
+      "slug": "p2-t6-embedding",
+      "title": "Embedding",
+      "summary": "A list of numbers that stands for the meaning of a piece of content.",
+      "tags": ["embeddings", "retrieval"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "term",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "An embedding maps a word, passage or image to a point in a space where nearby points have similar meaning."},
+        {"id": "why-it-matters", "type": "why_it_matters", "title": "Why it matters", "access": "free", "text": "Once content is a point, finding similar content is a distance calculation, which is what makes semantic search practical."}
+      ],
+      "relations": {
+        "prerequisite_of": ["knowledge.p2-t6-attention"],
+        "related": ["knowledge.p2-t6-vector-index"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-evaluation-metrics",
+      "type": "knowledge",
+      "slug": "p2-t6-evaluation-metrics",
+      "title": "Evaluation metrics",
+      "summary": "The numbers that say whether a model is doing its job.",
+      "tags": ["evaluation", "metrics"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "concept",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "An evaluation metric turns a model's outputs and the expected answers into one number you can compare across runs."},
+        {"id": "how-it-works", "type": "how_it_works", "title": "How it works", "access": "free", "text": "Choose the metric from the decision it supports. Ranking quality, classification accuracy and calibration answer different questions, and a model can lead on one and trail on another."},
+        {"id": "example", "type": "example", "title": "Example", "access": "free", "text": "A spam filter judged only on accuracy looks excellent when almost nothing is spam. Precision and recall show what accuracy hides."}
+      ],
+      "relations": {}
+    },
+    {
+      "id": "knowledge.p2-t6-feature-store",
+      "type": "knowledge",
+      "slug": "p2-t6-feature-store",
+      "title": "Feature store",
+      "summary": "Shared storage that serves the same features in training and in production.",
+      "tags": ["features", "infrastructure"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "premium",
+      "home": "",
+      "category": "technology",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium definition of a feature store."},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium guidance on when a feature store pays for itself."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-vector-index"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-latency-cheatsheet",
+      "type": "knowledge",
+      "slug": "p2-t6-latency-cheatsheet",
+      "title": "Latency cheat sheet",
+      "summary": "Round numbers worth having in your head. Illustrative values, not measurements.",
+      "tags": ["serving", "latency"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "quick_reference",
+      "sections": [
+        {"id": "quick-facts", "type": "quick_facts", "title": "Quick facts", "access": "free", "text": "| Operation | Order of magnitude |\n|---|---|\n| Read from memory | nanoseconds |\n| Read from a local disk | microseconds to milliseconds |\n| Call a service in the same region | milliseconds |\n| Call a service across regions | tens to hundreds of milliseconds |\n\n- Tail latency is set by the slowest dependency.\n- Fan-out multiplies the chance of hitting a slow one."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-batching"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-quantization",
+      "type": "knowledge",
+      "slug": "p2-t6-quantization",
+      "title": "Quantization",
+      "summary": "Store and compute with fewer bits to fit more model in less memory.",
+      "tags": ["serving", "quantization", "efficiency"],
+      "difficulty": null,
+      "level": "advanced",
+      "access": "free",
+      "home": "",
+      "category": "technology",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "Quantization represents a model's weights, and sometimes its activations, with lower-precision numbers than the ones it was trained with."},
+        {"id": "how-it-works", "type": "how_it_works", "title": "How it works", "access": "free", "text": "Values are mapped onto a smaller set of levels with a scale and an offset. The mapping is chosen to lose as little accuracy as the task allows."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium analysis of the accuracy and speed trade-off."},
+        {"id": "failure-modes", "type": "failure_modes", "title": "Failure modes", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium catalogue of how quantization fails."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-batching"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-rag-pattern",
+      "type": "knowledge",
+      "slug": "p2-t6-rag-pattern",
+      "title": "Retrieval-augmented generation",
+      "summary": "Fetch relevant passages first, then let the model answer from them.",
+      "tags": ["retrieval", "llm", "rag"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "pattern",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "The system retrieves passages related to the question and places them in the prompt, so the model answers from supplied evidence rather than memory alone."},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "free", "text": "Use it when answers must reflect content that changes, or that the model was never trained on."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "You gain freshness and traceability. You add a retrieval step that can fail silently and a longer prompt to pay for."}
+      ],
+      "relations": {
+        "applied_in": ["lesson.p2-t5-primer"],
+        "related": ["knowledge.p2-t6-vector-index", "knowledge.p2-t6-embedding"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-scaling-laws",
+      "type": "knowledge",
+      "slug": "p2-t6-scaling-laws",
+      "title": "Scaling laws",
+      "summary": "How model quality tends to change as size, data and compute grow.",
+      "tags": ["scaling", "deep-learning", "research"],
+      "difficulty": null,
+      "level": "advanced",
+      "access": "free",
+      "home": "",
+      "category": "research",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "A scaling law is an empirical relationship between a model's quality and the resources spent training it."},
+        {"id": "why-it-matters", "type": "why_it_matters", "title": "Why it matters", "access": "free", "text": "It lets a team predict what a larger run would buy before paying for it, and decide how to split a fixed budget."},
+        {"id": "example", "type": "example", "title": "Example", "access": "free", "text": "Doubling data while holding model size fixed improves quality by a shrinking amount each time, which is the pattern a fitted curve captures."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-attention"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-tokenization",
+      "type": "knowledge",
+      "slug": "p2-t6-tokenization",
+      "title": "Tokenization",
+      "summary": "Splitting text into the pieces a model actually reads.",
+      "tags": ["tokenization", "llm"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "term",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "Tokenization breaks text into units, often word fragments, and maps each to an integer the model can consume."}
+      ],
+      "relations": {}
+    },
+    {
+      "id": "knowledge.p2-t6-unlabelled",
+      "type": "knowledge",
+      "slug": "p2-t6-unlabelled",
+      "title": "Field notes",
+      "summary": "A topic whose classification has not been published yet.",
+      "tags": ["serving"],
+      "difficulty": null,
+      "level": null,
+      "access": "free",
+      "home": "",
+      "category": null,
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "This item carries no category, so it appears in the full topic list and in none of the category groups."},
+        {"id": "field-notes", "type": "field_notes", "title": "Field notes", "access": "free", "text": "A section type this page does not know about is kept, in the order the API gave it, under deeper reference."}
+      ],
+      "relations": {}
+    },
+    {
+      "id": "knowledge.p2-t6-vector-index",
+      "type": "knowledge",
+      "slug": "p2-t6-vector-index",
+      "title": "Vector index",
+      "summary": "A structure that finds the stored points nearest to a query point quickly.",
+      "tags": ["retrieval", "vector-search", "infrastructure"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "technology",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "A vector index organises embeddings so that a nearest-neighbour query does not have to compare against every stored point."},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "free", "text": "Use one once the collection is too large to scan, and approximate answers are acceptable."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "Faster search costs memory and some recall. Tuning the index moves the balance between the two."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-embedding"]
+      }
+    },
+    {
+      "id": "problem.p2-t7-01-feed-ranking",
+      "type": "problem",
+      "slug": "p2-t7-01-feed-ranking",
+      "title": "Synthetic Feed Ranking",
+      "summary": "Synthetic prompt: order a stream of candidate posts for one reader within a tight latency budget.",
+      "tags": ["ranking", "recommendation", "latency"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for feed-ranking. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-02-search-autocomplete",
+      "type": "problem",
+      "slug": "p2-t7-02-search-autocomplete",
+      "title": "Synthetic Search Autocomplete",
+      "summary": "Synthetic prompt: suggest completions for a partial query as the reader types.",
+      "tags": ["retrieval", "latency"],
+      "difficulty": "easy",
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for search-autocomplete. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-03-candidate-retrieval",
+      "type": "problem",
+      "slug": "p2-t7-03-candidate-retrieval",
+      "title": "Synthetic Multi-Stage Candidate Retrieval and Re-Ranking for a Very Large Catalog",
+      "summary": "Synthetic prompt: narrow millions of candidates to a short list in stages, balancing recall at each stage against the cost of scoring it, and explain how each stage is evaluated and rolled out.",
+      "tags": ["retrieval", "embeddings", "ranking"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "premium",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK synthetic premium prompt for candidate-retrieval." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-04-click-prediction",
+      "type": "problem",
+      "slug": "p2-t7-04-click-prediction",
+      "title": "Synthetic Click Prediction",
+      "summary": "Synthetic prompt: estimate the chance that a reader clicks, and keep the estimate calibrated.",
+      "tags": ["ranking", "feature-engineering", "evaluation"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for click-prediction. Original placeholder text, not curriculum." },
+        { "id": "solution", "type": "solution", "title": "Solution", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK synthetic premium solution for click-prediction." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-05-notification-timing",
+      "type": "problem",
+      "slug": "p2-t7-05-notification-timing",
+      "title": "Synthetic Notification Timing",
+      "summary": "Synthetic prompt: choose when, if at all, to send a reminder.",
+      "tags": ["recommendation", "evaluation"],
+      "difficulty": "easy",
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for notification-timing. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-06-related-items",
+      "type": "problem",
+      "slug": "p2-t7-06-related-items",
+      "title": "Synthetic Related Items",
+      "summary": "Synthetic prompt: suggest items similar to the one being viewed.",
+      "tags": ["recommendation", "embeddings"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for related-items. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-07-query-understanding",
+      "type": "problem",
+      "slug": "p2-t7-07-query-understanding",
+      "title": "Synthetic Query Understanding",
+      "summary": "Synthetic prompt: turn a free-text query into structured intent.",
+      "tags": ["retrieval", "llm"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "free",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for query-understanding. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-08-cold-start-creators",
+      "type": "problem",
+      "slug": "p2-t7-08-cold-start-creators",
+      "title": "Synthetic Cold-Start Creators",
+      "summary": "Synthetic prompt: give a brand-new creator a fair first audience.",
+      "tags": ["recommendation", "feature-engineering"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "premium",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK synthetic premium prompt for cold-start-creators." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-09-diversity-reranking",
+      "type": "problem",
+      "slug": "p2-t7-09-diversity-reranking",
+      "title": "Synthetic Diversity Re-Ranking",
+      "summary": "Synthetic prompt: trade a little relevance for a more varied result list.",
+      "tags": ["ranking", "evaluation"],
+      "difficulty": "medium",
+      "level": "advanced",
+      "access": "free",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for diversity-reranking. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-10-experiment-readout",
+      "type": "problem",
+      "slug": "p2-t7-10-experiment-readout",
+      "title": "Synthetic Experiment Readout",
+      "summary": "Synthetic prompt: decide whether a ranking change really helped.",
+      "tags": ["evaluation", "monitoring"],
+      "difficulty": "easy",
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t7-ranking",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for experiment-readout. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-11-model-gateway",
+      "type": "problem",
+      "slug": "p2-t7-11-model-gateway",
+      "title": "Synthetic Model Gateway",
+      "summary": "Synthetic prompt: put one front door in front of many model versions.",
+      "tags": ["serving", "latency"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "p2-t7-serving",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for model-gateway. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-12-batch-inference-pipeline",
+      "type": "problem",
+      "slug": "p2-t7-12-batch-inference-pipeline",
+      "title": "Synthetic Batch Inference Pipeline",
+      "summary": "Synthetic prompt: score a large table nightly and publish the results.",
+      "tags": ["serving", "data-pipelines"],
+      "difficulty": "easy",
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t7-serving",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for batch-inference-pipeline. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-13-feature-lookup-service",
+      "type": "problem",
+      "slug": "p2-t7-13-feature-lookup-service",
+      "title": "Synthetic Feature Lookup Service",
+      "summary": "Synthetic prompt: serve fresh features to a model in a few milliseconds.",
+      "tags": ["feature-engineering", "serving", "latency"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "premium",
+      "home": "p2-t7-serving",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK synthetic premium prompt for feature-lookup-service." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-14-canary-model-rollout",
+      "type": "problem",
+      "slug": "p2-t7-14-canary-model-rollout",
+      "title": "Synthetic Canary Model Rollout",
+      "summary": "Synthetic prompt: ship a new model to a small slice first, and know when to stop.",
+      "tags": ["serving", "monitoring"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "p2-t7-serving",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for canary-model-rollout. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-15-drift-monitoring",
+      "type": "problem",
+      "slug": "p2-t7-15-drift-monitoring",
+      "title": "Synthetic Drift Monitoring",
+      "summary": "Synthetic prompt: notice when production inputs stop resembling training data.",
+      "tags": ["monitoring", "data-pipelines"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "p2-t7-serving",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for drift-monitoring. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-16-embedding-refresh",
+      "type": "problem",
+      "slug": "p2-t7-16-embedding-refresh",
+      "title": "Synthetic Embedding Refresh",
+      "summary": "Synthetic prompt: re-embed a large corpus without taking search offline.",
+      "tags": ["embeddings", "data-pipelines"],
+      "difficulty": "hard",
+      "level": "intermediate",
+      "access": "premium",
+      "home": "p2-t7-serving",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK synthetic premium prompt for embedding-refresh." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-17-language-model-routing",
+      "type": "problem",
+      "slug": "p2-t7-17-language-model-routing",
+      "title": "Synthetic Language Model Routing",
+      "summary": "Synthetic prompt: send each request to the cheapest model that can answer it.",
+      "tags": ["llm", "serving", "latency"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "free",
+      "home": "p2-t7-serving",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for language-model-routing. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-18-rate-limited-inference",
+      "type": "problem",
+      "slug": "p2-t7-18-rate-limited-inference",
+      "title": "Synthetic Rate-Limited Inference",
+      "summary": "Synthetic prompt: keep one noisy caller from starving everyone else.",
+      "tags": ["serving", "latency"],
+      "difficulty": "easy",
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t7-serving",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for rate-limited-inference. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-19-fraud-scoring",
+      "type": "problem",
+      "slug": "p2-t7-19-fraud-scoring",
+      "title": "Synthetic Fraud Scoring",
+      "summary": "Synthetic prompt: score each transaction before it completes.",
+      "tags": ["fraud", "feature-engineering", "latency"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "premium",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK synthetic premium prompt for fraud-scoring." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-20-label-quality-loop",
+      "type": "problem",
+      "slug": "p2-t7-20-label-quality-loop",
+      "title": "Synthetic Label Quality Loop",
+      "summary": "Synthetic prompt: find and fix noisy training labels.",
+      "tags": ["data-pipelines", "evaluation"],
+      "difficulty": "easy",
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for label-quality-loop. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-21-semantic-deduplication",
+      "type": "problem",
+      "slug": "p2-t7-21-semantic-deduplication",
+      "title": "Synthetic Semantic Deduplication",
+      "summary": "Synthetic prompt: collapse near-duplicate documents at scale.",
+      "tags": ["embeddings", "retrieval"],
+      "difficulty": "medium",
+      "level": "advanced",
+      "access": "free",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for semantic-deduplication. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-22-document-question-answering",
+      "type": "problem",
+      "slug": "p2-t7-22-document-question-answering",
+      "title": "Synthetic Document Question Answering",
+      "summary": "Synthetic prompt: answer questions from a private document set, with sources.",
+      "tags": ["llm", "retrieval", "evaluation"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "premium",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK synthetic premium prompt for document-question-answering." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-23-anomaly-alerting",
+      "type": "problem",
+      "slug": "p2-t7-23-anomaly-alerting",
+      "title": "Synthetic Anomaly Alerting",
+      "summary": "Synthetic prompt: page someone only when it matters.",
+      "tags": ["monitoring", "fraud"],
+      "difficulty": "easy",
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for anomaly-alerting. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-24-abuse-triage-queue",
+      "type": "problem",
+      "slug": "p2-t7-24-abuse-triage-queue",
+      "title": "Synthetic Abuse Triage Queue",
+      "summary": "Synthetic prompt: order reports so reviewers see the worst first.",
+      "tags": ["fraud", "data-pipelines"],
+      "difficulty": "medium",
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for abuse-triage-queue. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-25-offline-evaluation-harness",
+      "type": "problem",
+      "slug": "p2-t7-25-offline-evaluation-harness",
+      "title": "Synthetic Offline Evaluation Harness",
+      "summary": "Synthetic prompt: compare candidate models on frozen data, repeatably.",
+      "tags": ["evaluation", "data-pipelines"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for offline-evaluation-harness. Original placeholder text, not curriculum." },
+        { "id": "solution", "type": "solution", "title": "Solution", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK synthetic premium solution for offline-evaluation-harness." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-26-real-time-features",
+      "type": "problem",
+      "slug": "p2-t7-26-real-time-features",
+      "title": "Synthetic Real-Time Features",
+      "summary": "Synthetic prompt: compute windowed counts from an event stream, correctly under late data.",
+      "tags": ["feature-engineering", "latency", "serving"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "free",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for real-time-features. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.p2-t7-27-unrated-warm-up",
+      "type": "problem",
+      "slug": "p2-t7-27-unrated-warm-up",
+      "title": "Synthetic Unrated Warm-Up",
+      "summary": "Synthetic prompt with no difficulty, level or topic, to show how a sparse card reads.",
+      "tags": [],
+      "difficulty": null,
+      "level": null,
+      "access": "free",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Synthetic public prompt marker for unrated-warm-up. Original placeholder text, not curriculum." }
+      ]
+    },
+    {
+      "id": "problem.catalog-t8-ml-walkthrough",
+      "type": "problem",
+      "slug": "catalog-t8-ml-walkthrough",
+      "title": "Synthetic ML Ranking Walkthrough",
+      "summary": "Synthetic ML system design walkthrough with every reasoning phase, wide and long technical blocks and repeated deep dives, for the Problem layout.",
+      "tags": ["walkthrough", "layout-check"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "free",
+      "home": "catalog-t8-walkthrough",
+      "category": "ml_system_design",
+      "sections": [
+        {"id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "T8 prompt marker. Design a synthetic system that orders items for a reader. Original placeholder text, not curriculum."},
+        {"id": "scope", "type": "scope_clarification", "title": "Scope", "access": "free", "text": "T8 scope marker. State what is in and out of scope before designing.\n\n- Which surfaces use the ordering?\n- How many items are scored per request?\n- Who owns the fallback?\n\n::: callout kind=note\nEvery number in this Problem is synthetic and exists only to exercise the layout.\n:::"},
+        {"id": "functional", "type": "functional_requirements", "title": "Functional requirements", "access": "free", "text": "T8 functional marker.\n\n1. Return an ordered list for a reader and a surface.\n2. Accept a candidate list from retrieval.\n3. Record each decision for later evaluation."},
+        {"id": "non-functional", "type": "non_functional_requirements", "title": "Non-functional requirements", "access": "free", "text": "T8 non-functional marker. The synthetic budget is a response within a fixed latency, with a safe fallback when a dependency is slow."},
+        {"id": "constraints", "type": "constraints", "title": "Constraints", "access": "free", "text": "T8 constraints marker. Candidate lists are bounded and features may be stale by a few minutes."},
+        {"id": "entities", "type": "core_entities", "title": "Core entities", "access": "free", "text": "T8 entities marker.\n\n| Entity | Role |\n|---|---|\n| Reader | Receives the ordering |\n| Candidate | One item that may be shown |\n| Decision | The recorded order and its inputs |"},
+        {"id": "interfaces", "type": "interfaces", "title": "Interfaces", "access": "free", "text": "T8 interfaces marker.\n\n```json\n{ \"reader\": \"r-synthetic\", \"surface\": \"home_feed\", \"candidates\": [\"c-1\", \"c-2\"] }\n```"},
+        {"id": "extension", "type": "synthetic_extension", "title": "Synthetic extension", "access": "free", "text": "T8 unknown-type marker. This section has a type outside the phase table and must still be shown."},
+        {"id": "high-level-design", "type": "high_level_design", "title": "High-level design", "access": "free", "text": "T8 design marker. Requests flow through retrieval, ranking and re-ranking.\n\n```mermaid\ngraph LR\n  Request[Request] --> Retrieve[Retrieve candidates] --> Rank[Rank] --> Rerank[Re-rank] --> Respond[Respond]\n  Rank --> Log[Log decisions]\n```"},
+        {"id": "objective", "type": "ml_objective", "title": "ML objective", "access": "free", "text": "T8 objective marker. Optimise a synthetic engagement proxy while holding a synthetic quality floor."},
+        {"id": "data", "type": "data", "title": "Data", "access": "free", "text": "T8 data marker. The synthetic signals and where they come from:\n\n| `synthetic_signal` | `synthetic_source` | `synthetic_freshness` | `synthetic_join_key` | `synthetic_null_rate` | `synthetic_leakage_risk` | `synthetic_owner_team` | `synthetic_backfill_cost` |\n|---|---|---|---|---|---|---|---|\n| `signal_1_placeholder` | `source_1_placeholder` | `freshness_1_seconds` | `join_key_1_identifier` | `null_rate_1_percent` | `leakage_risk_1_label` | `owner_team_1_name` | `backfill_cost_1_estimate` |\n| `signal_2_placeholder` | `source_2_placeholder` | `freshness_2_seconds` | `join_key_2_identifier` | `null_rate_2_percent` | `leakage_risk_2_label` | `owner_team_2_name` | `backfill_cost_2_estimate` |\n| `signal_3_placeholder` | `source_3_placeholder` | `freshness_3_seconds` | `join_key_3_identifier` | `null_rate_3_percent` | `leakage_risk_3_label` | `owner_team_3_name` | `backfill_cost_3_estimate` |\n| `signal_4_placeholder` | `source_4_placeholder` | `freshness_4_seconds` | `join_key_4_identifier` | `null_rate_4_percent` | `leakage_risk_4_label` | `owner_team_4_name` | `backfill_cost_4_estimate` |"},
+        {"id": "features", "type": "features", "title": "Features", "access": "free", "text": "T8 features marker.\n\n- Reader history aggregates\n- Candidate freshness\n- Context of the request"},
+        {"id": "labels", "type": "labels", "title": "Labels", "access": "free", "text": "T8 labels marker. Labels are delayed; say how a missing label is treated."},
+        {"id": "model", "type": "model", "title": "Model", "access": "free", "text": "T8 model marker. Start with a simple scorer and justify any added complexity."},
+        {"id": "training", "type": "training", "title": "Training", "access": "free", "text": "T8 training marker. A long synthetic loop:\n\n```python\ndef synthetic_train_ranker(batches, model, optimizer, loss_fn, metrics, config):\n    step = 0\n    best = None\n    for epoch in range(config.epochs):\n        for batch in batches(epoch):\n            features = batch.features\n            labels = batch.labels\n            weights = batch.weights\n            scores = model(features)\n            loss = loss_fn(scores, labels, weights)\n            loss.backward()\n            optimizer.step()\n            optimizer.zero_grad()\n            step += 1\n            if step % config.log_every == 0:\n                metrics.log(step, loss.item())\n        # synthetic checkpoint note 1: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 2: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 3: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 4: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 5: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 6: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 7: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 8: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 9: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 10: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 11: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 12: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 13: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 14: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 15: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 16: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 17: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 18: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 19: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 20: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 21: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 22: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 23: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 24: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 25: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 26: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 27: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 28: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 29: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 30: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 31: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 32: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 33: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 34: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 35: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 36: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 37: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 38: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 39: record the step, the loss and the evaluation slice for review\n        # synthetic checkpoint note 40: record the step, the loss and the evaluation slice for review\n        report = metrics.evaluate(model)\n        if best is None or report.primary > best.primary:\n            best = report\n            model.save(config.checkpoint_path)\n    return best\n```"},
+        {"id": "inference", "type": "inference", "title": "Inference", "access": "free", "text": "T8 inference marker. A wide synthetic request:\n\n```python\nsynthetic_request = {'user_id': 'u-synthetic-0001', 'candidate_ids': ['c-synthetic-%04d' % n for n in range(500)], 'context': {'surface': 'home_feed', 'locale': 'en-synthetic', 'device': 'mobile', 'session_depth': 7, 'time_bucket': 'evening'}, 'options': {'explain': False, 'timeout_ms': 80, 'fallback': 'popularity_by_surface', 'shadow_models': ['ranker-synthetic-v2', 'ranker-synthetic-v3']}}\n```"},
+        {"id": "evaluation", "type": "evaluation", "title": "Evaluation", "access": "free", "text": "T8 evaluation marker.\n\n::: callout kind=warning\nOffline gains do not always survive an experiment.\n:::\n\nCompare offline metrics with an online experiment."},
+        {"id": "integration", "type": "integration", "title": "Integration", "access": "free", "text": "T8 integration marker. How the ordering plugs into the surfaces that call it."},
+        {"id": "scaling", "type": "production_scaling", "title": "Production and scaling", "access": "free", "text": "T8 scaling marker. Cache what is stable, shed what is optional, and watch tail latency."},
+        {"id": "deep-dive-cache", "type": "deep_dive", "title": "Deep dive: caching", "access": "free", "text": "T8 deep-dive-one marker. What may be cached, and for how long."},
+        {"id": "deep-dive-skew", "type": "deep_dive", "title": "Deep dive: skew", "access": "free", "text": "T8 deep-dive-two marker. Training and serving can disagree; how to notice."},
+        {"id": "deep-dive-fallbacks", "type": "deep_dive", "title": "Deep dive: fallbacks", "access": "free", "text": "T8 deep-dive-three marker. What to serve when the ranker is unavailable."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "T8 trade-offs marker. Freshness against cost, and quality against latency."},
+        {"id": "reference", "type": "reference_design", "title": "Reference design", "access": "free", "text": "T8 reference marker. A free synthetic reference, shown under More."}
+      ],
+      "relations": {"prerequisite": ["lesson.p2-t5-primer", "knowledge.p2-t6-embedding"], "applies": ["knowledge.p2-t6-attention", "knowledge.p2-t6-feature-store"], "related": ["knowledge.p2-t6-vector-index", "problem.catalog-t8-sd-walkthrough", "lesson.p2-t5-long"]}
+    },
+    {
+      "id": "problem.catalog-t8-sd-walkthrough",
+      "type": "problem",
+      "slug": "catalog-t8-sd-walkthrough",
+      "title": "Synthetic Service Walkthrough",
+      "summary": "Synthetic system design walkthrough without an ML phase and without preparation links.",
+      "tags": ["walkthrough"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "catalog-t8-walkthrough",
+      "category": "system_design",
+      "sections": [
+        {"id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "T8 service prompt marker. Design a small synthetic service that stores and returns short records."},
+        {"id": "functional", "type": "functional_requirements", "title": "Functional requirements", "access": "free", "text": "T8 service functional marker.\n\n- Create a record\n- Read a record\n- Expire a record"},
+        {"id": "non-functional", "type": "non_functional_requirements", "title": "Non-functional requirements", "access": "free", "text": "T8 service non-functional marker. Reads dominate writes."},
+        {"id": "high-level-design", "type": "high_level_design", "title": "High-level design", "access": "free", "text": "T8 service design marker. A stateless API in front of a keyed store."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "T8 service trade-offs marker. Consistency against availability."}
+      ],
+      "relations": {"related": ["problem.catalog-t8-ml-walkthrough"]}
+    },
+    {
+      "id": "problem.catalog-t8-gated-walkthrough",
+      "type": "problem",
+      "slug": "catalog-t8-gated-walkthrough",
+      "title": "Synthetic Gated Walkthrough",
+      "summary": "Free synthetic walkthrough with some premium sections.",
+      "tags": ["walkthrough"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "catalog-t8-walkthrough",
+      "category": "system_design",
+      "sections": [
+        {"id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "T8 gated prompt marker. A free synthetic prompt whose reference material is premium."},
+        {"id": "functional", "type": "functional_requirements", "title": "Functional requirements", "access": "free", "text": "T8 gated functional marker. A free synthetic requirement."},
+        {"id": "high-level-design", "type": "high_level_design", "title": "High-level design", "access": "free", "text": "T8 gated design marker. A free synthetic design."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "T8 gated trade-offs marker. A free synthetic trade-off."},
+        {"id": "reference-design", "type": "reference_design", "title": "Reference design", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK T8 gated reference design."},
+        {"id": "follow-ups", "type": "follow_ups", "title": "Follow-ups", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK T8 gated follow-ups."}
+      ],
+      "relations": {"related": ["knowledge.p2-t6-embedding"]}
+    },
+    {
+      "id": "problem.catalog-t8-locked-walkthrough",
+      "type": "problem",
+      "slug": "catalog-t8-locked-walkthrough",
+      "title": "Synthetic Locked Walkthrough",
+      "summary": "Premium synthetic walkthrough; only its metadata is public.",
+      "tags": ["walkthrough"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "premium",
+      "home": "catalog-t8-walkthrough",
+      "category": "ml_system_design",
+      "sections": [
+        {"id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK T8 locked prompt."},
+        {"id": "high-level-design", "type": "high_level_design", "title": "High-level design", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK T8 locked design."}
+      ],
+      "relations": {"prerequisite": ["lesson.p2-t5-primer"], "related": ["knowledge.p2-t6-embedding"]}
     }
   ],
   "tracks": [
@@ -168,7 +1126,7 @@
       "title": "E2E Home Track",
       "summary": "Home Track marker.",
       "modules": [
-        { "key": "orientation", "title": "Orientation", "items": ["lesson.catalog-e2e-free", "knowledge.catalog-e2e-sections"] },
+        { "key": "orientation", "title": "Orientation", "items": ["lesson.catalog-e2e-free", "lesson.catalog-e2e-second"] },
         { "key": "applied-practice", "title": "Applied Practice", "items": ["problem.catalog-e2e-related", "lesson.catalog-e2e-premium"] }
       ]
     },
@@ -179,6 +1137,74 @@
       "summary": "Alternate Track marker.",
       "modules": [
         { "key": "extras", "title": "Extras", "items": ["problem.catalog-e2e-related", "lesson.catalog-e2e-free"] }
+      ]
+    },
+    {
+      "id": "track.p2-t4-curriculum",
+      "slug": "p2-t4-curriculum",
+      "title": "Synthetic Curriculum Track",
+      "summary": "Three modules with mixed Lesson and Problem placements, one premium entry and one empty module.",
+      "modules": [
+        { "key": "foundations", "title": "Foundations", "items": ["lesson.p2-t4-foundations", "problem.p2-t4-practice"] },
+        { "key": "depth", "title": "Going Deeper", "items": ["lesson.p2-t4-premium-depth"] },
+        { "key": "coming-next", "title": "Coming Next", "items": [] }
+      ]
+    },
+    {
+      "id": "track.p2-t4-premium-first",
+      "slug": "p2-t4-premium-first",
+      "title": "Synthetic Premium-First Track",
+      "summary": "A Track whose first entry in curriculum order is premium, followed by a free one.",
+      "modules": [
+        { "key": "opening", "title": "Opening", "items": ["lesson.p2-t4-premium-depth", "lesson.p2-t4-foundations"] }
+      ]
+    },
+    {
+      "id": "track.p2-t4-empty",
+      "slug": "p2-t4-empty",
+      "title": "Synthetic Empty Track",
+      "summary": "A Track with no published modules yet.",
+      "modules": []
+    },
+    {
+      "id": "track.p2-t5-reading",
+      "slug": "p2-t5-reading",
+      "title": "Synthetic Reading Track",
+      "summary": "Two modules of Lessons for the reading layout: a free primer and long lesson, then a premium one.",
+      "modules": [
+        { "key": "reading-foundations", "title": "Reading Foundations", "items": ["lesson.p2-t5-primer", "lesson.p2-t5-long"] },
+        { "key": "reading-deeper", "title": "Reading Deeper", "items": ["lesson.p2-t5-premium"] }
+      ]
+    },
+    {
+      "id": "track.p2-t7-ranking",
+      "slug": "p2-t7-ranking",
+      "title": "Synthetic Ranking Practice Track",
+      "summary": "Retrieval and ranking Problems in two modules, so the Practice Track filter has something to narrow.",
+      "modules": [
+        { "key": "retrieval", "title": "Retrieval", "items": ["problem.p2-t7-02-search-autocomplete", "problem.p2-t7-03-candidate-retrieval", "problem.p2-t7-06-related-items", "problem.p2-t7-07-query-understanding"] },
+        { "key": "ranking", "title": "Ranking", "items": ["problem.p2-t7-01-feed-ranking", "problem.p2-t7-04-click-prediction", "problem.p2-t7-05-notification-timing", "problem.p2-t7-08-cold-start-creators", "problem.p2-t7-09-diversity-reranking", "problem.p2-t7-10-experiment-readout"] }
+      ]
+    },
+    {
+      "id": "track.p2-t7-serving",
+      "slug": "p2-t7-serving",
+      "title": "Synthetic Serving Practice Track",
+      "summary": "Serving and reliability Problems in two modules; one Problem is placed here and in the ranking Track.",
+      "modules": [
+        { "key": "gateway", "title": "Gateway", "items": ["problem.p2-t7-03-candidate-retrieval", "problem.p2-t7-11-model-gateway", "problem.p2-t7-12-batch-inference-pipeline", "problem.p2-t7-18-rate-limited-inference"] },
+        { "key": "reliability", "title": "Reliability", "items": ["problem.p2-t7-13-feature-lookup-service", "problem.p2-t7-14-canary-model-rollout", "problem.p2-t7-15-drift-monitoring", "problem.p2-t7-16-embedding-refresh", "problem.p2-t7-17-language-model-routing"] }
+      ]
+    },
+    {
+      "id": "track.catalog-t8-walkthrough",
+      "slug": "catalog-t8-walkthrough",
+      "title": "Synthetic Walkthrough Track",
+      "summary": "Problem walkthroughs in three modules, to show previous and next across modules.",
+      "modules": [
+        { "key": "warm-up", "title": "Warm-up", "items": ["problem.catalog-t8-sd-walkthrough"] },
+        { "key": "walkthroughs", "title": "Walkthroughs", "items": ["problem.catalog-t8-ml-walkthrough", "problem.catalog-t8-gated-walkthrough"] },
+        { "key": "premium-depth", "title": "Premium depth", "items": ["problem.catalog-t8-locked-walkthrough"] }
       ]
     }
   ],

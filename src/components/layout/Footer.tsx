@@ -36,6 +36,11 @@ export function Footer() {
                                     ML Platform Design
                                 </Link>
                             </li>
+                            <li>
+                                <Link href="/learn" className="hover:text-[var(--gold)] transition-colors">
+                                    All courses
+                                </Link>
+                            </li>
                         </ul>
                     </div>
                 </div>

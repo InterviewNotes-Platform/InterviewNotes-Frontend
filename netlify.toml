@@ -1,8 +1,10 @@
 # Branches (set in the Netlify UI): `main` → production, `dev` → beta branch deploy.
 # Env vars (API_URL, NEXT_PUBLIC_SUPABASE_*) are set per deploy context in the
 # Netlify UI, never here. See README → Deployment.
+# Turbopack's build cache records secret env values and is never served; Netlify's secrets
+# scan fails the build on it, so drop it once the build is done.
 [build]
-  command = "npm run build"
+  command = "npm run build && rm -rf .next/cache/turbopack"
   publish = ".next"
 
 [build.environment]

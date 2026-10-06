@@ -29,7 +29,7 @@ const META = {
 };
 const LESSON = {
    ...META,
-   kind: null,
+   category: null,
    body: { format: "markdown@1", text: "Synthetic premium prose." },
    headings: [],
    sections: [],
@@ -42,7 +42,7 @@ const KNOWLEDGE = {
    slug: "rag",
    title: "Synthetic Knowledge",
    access: "free",
-   kind: "concept",
+   category: "concept",
    body: null,
    sections: [{ id: "definition", type: "definition", title: "Definition", body: { format: "markdown@1", text: "Synthetic free section." } }],
    sections_withheld: true,
@@ -77,7 +77,8 @@ describe("CatalogItemPage states", () => {
    it("renders authorized sections and flags withheld ones", async () => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: KNOWLEDGE });
       await show("knowledge", "rag");
-      expect(screen.getByRole("heading", { level: 2, name: "Definition" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Fast understanding" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 3, name: "Definition" })).toBeInTheDocument();
       expect(screen.getByText("Synthetic free section.")).toBeInTheDocument();
       expect(screen.getByRole("note")).toHaveTextContent(/premium/i);
    });

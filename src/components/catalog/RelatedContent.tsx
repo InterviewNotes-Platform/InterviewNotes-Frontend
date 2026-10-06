@@ -22,13 +22,13 @@ export function RelatedContent({ relations }: { relations: Record<string, Catalo
    if (groups.length === 0) return null;
    return (
       <section aria-labelledby="related-content">
-         <h2 id="related-content" className="mb-3 text-xl font-semibold text-foreground">
+         <h2 id="related-content" className="mt-0 mb-4 text-subsection">
             Related content
          </h2>
-         <div className="space-y-5">
+         <div className="space-y-8">
             {groups.map(({ relation, rows }) => (
                <div key={relation}>
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h3 className="mt-0 mb-2 text-supporting font-semibold uppercase tracking-wide text-muted-foreground">
                      {labelFor(relation)}
                   </h3>
                   <ul className="space-y-3">

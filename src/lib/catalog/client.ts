@@ -6,6 +6,8 @@ import type {
    CatalogBody,
    CatalogHeading,
    CatalogItem,
+   CatalogItemListParams,
+   CatalogItemPage,
    CatalogItemType,
    CatalogMeta,
    CatalogModule,
@@ -15,6 +17,8 @@ import type {
    CatalogResult,
    CatalogSection,
    CatalogTrack,
+   CatalogTrackList,
+   CatalogTrackSummary,
 } from "./types";
 
 /** How long a signed-out (or metadata) response may be cached at the edge. */
@@ -50,6 +54,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const ITEM_TYPES = ["knowledge", "lesson", "problem"];
 const DIFFICULTIES = ["easy", "medium", "hard"];
 const LEVELS = ["foundational", "intermediate", "advanced"];
+const CATEGORIES = [
+   "concept",
+   "term",
+   "technology",
+   "research",
+   "pattern",
+   "quick_reference",
+   "system_design",
+   "ml_system_design",
+];
 
 function isString(value: unknown): value is string {
    return typeof value === "string";
@@ -70,6 +84,7 @@ function isMeta(value: unknown): value is CatalogMeta {
       isString(value.summary) &&
       Array.isArray(value.tags) &&
       value.tags.every(isString) &&
+      isOneOfOrNull(value.category, CATEGORIES) &&
       isOneOfOrNull(value.difficulty, DIFFICULTIES) &&
       isOneOfOrNull(value.level, LEVELS) &&
       (value.access === "free" || value.access === "premium")
@@ -133,6 +148,23 @@ function isTrack(value: unknown): value is CatalogTrack {
    );
 }
 
+function isTrackSummary(value: unknown): value is CatalogTrackSummary {
+   return isRecord(value) && isString(value.id) && isString(value.slug) && isString(value.title) && isString(value.summary);
+}
+
+function isTrackList(value: unknown): value is CatalogTrackList {
+   return isRecord(value) && Array.isArray(value.tracks) && value.tracks.every(isTrackSummary);
+}
+
+function isItemPage(value: unknown): value is CatalogItemPage {
+   return (
+      isRecord(value) &&
+      Array.isArray(value.items) &&
+      value.items.every(isMeta) &&
+      (value.next_cursor === null || isString(value.next_cursor))
+   );
+}
+
 function isPlacement(value: unknown): value is CatalogPlacement {
    return (
       isRecord(value) &&
@@ -159,7 +191,6 @@ function isItem(value: unknown): value is CatalogItem {
    if (!isMeta(value)) return false;
    const item = value as unknown as Record<string, unknown>;
    return (
-      (item.kind === null || isString(item.kind)) &&
       (item.body === null || isBody(item.body)) &&
       Array.isArray(item.headings) &&
       item.headings.every(isHeading) &&
@@ -258,4 +289,28 @@ export function getCatalogRelated(
 /** A published Track and its outline. Tracks are never gated, so no session is sent and the response is shareable. */
 export function getCatalogTrack(slug: string): Promise<CatalogResult<CatalogTrack>> {
    return request(`/catalog/tracks/${encodeURIComponent(slug)}`, isTrack, false);
+}
+
+/** Every published Track by id, as identity and summary only. Public metadata: no session is sent. */
+export function listCatalogTracks(): Promise<CatalogResult<CatalogTrackList>> {
+   return request("/catalog/tracks", isTrackList, false);
+}
+
+// Exactly the query parameters the API accepts: it answers any other with 422.
+const LIST_PARAMS = ["type", "tag", "difficulty", "level", "access", "track", "module", "limit", "cursor"] as const;
+
+function itemListQuery(params: CatalogItemListParams): string {
+   const pairs = LIST_PARAMS.flatMap((name) => {
+      const value = params[name];
+      return value === undefined || value === "" ? [] : [`${name}=${encodeURIComponent(String(value))}`];
+   });
+   return pairs.length ? `?${pairs.join("&")}` : "";
+}
+
+/**
+ * One page of published item metadata, in the API's id order, narrowed by an AND of the given filters.
+ * The cursor is opaque: pass back the previous page's `next_cursor`. Public: no session is sent.
+ */
+export function listCatalogItems(params: CatalogItemListParams = {}): Promise<CatalogResult<CatalogItemPage>> {
+   return request(`/catalog/items${itemListQuery(params)}`, isItemPage, false);
 }

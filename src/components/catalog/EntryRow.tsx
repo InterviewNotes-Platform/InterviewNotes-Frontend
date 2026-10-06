@@ -10,10 +10,13 @@ export const TYPE_LABEL: Record<CatalogItemType, string> = {
    problem: "Problem",
 };
 
+export const DIFFICULTY_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard" } as const;
+export const LEVEL_LABEL = { foundational: "Foundational", intermediate: "Intermediate", advanced: "Advanced" } as const;
+
 /** The API marks premium access; whether this reader holds it is decided only when the page loads. */
 export function PremiumMark() {
    return (
-      <Badge variant="secondary" className="bg-primary/10 text-primary border border-primary/20 font-semibold">
+      <Badge variant="outline" className="border-premium/40 bg-premium/10 font-semibold text-premium">
          <Lock aria-hidden="true" />
          Premium
       </Badge>
@@ -25,25 +28,27 @@ interface EntryRowProps {
    /** A canonical route from `linkableEntries`. */
    href: string;
    current?: boolean;
+   /** `false` for a page that must not make the server read every target in view; free links otherwise prefetch. */
+   prefetch?: false;
 }
 
 /** One link to a catalog item. A premium target is marked and never prefetched. */
-export function EntryRow({ entry, href, current = false }: EntryRowProps) {
+export function EntryRow({ entry, href, current = false, prefetch }: EntryRowProps) {
    return (
       <li>
          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <Link
                href={href}
-               prefetch={entry.access === "premium" ? false : undefined}
+               prefetch={entry.access === "premium" ? false : prefetch}
                aria-current={current ? "page" : undefined}
-               className={cn("font-medium hover:text-primary", current ? "text-primary" : "text-foreground")}
+               className={cn("text-body font-medium transition-micro hover:text-primary", current ? "text-primary" : "text-foreground")}
             >
                {entry.title}
             </Link>
-            <span className="text-xs text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
+            <span className="text-supporting text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
             {entry.access === "premium" ? <PremiumMark /> : null}
          </div>
-         {entry.summary ? <p className="text-sm text-muted-foreground">{entry.summary}</p> : null}
+         {entry.summary ? <p className="mt-1 mb-0 text-supporting text-muted-foreground">{entry.summary}</p> : null}
       </li>
    );
 }

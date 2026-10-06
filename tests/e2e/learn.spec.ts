@@ -24,7 +24,7 @@ test("a legacy premium chapter keeps its legacy sign-in gate", async ({ page }) 
    await page.goto(path);
    await expect(page.getByRole("heading", { name: "Premium Content" })).toBeVisible();
    await expect(page.getByText("Sign in to read this chapter.")).toBeVisible();
-   await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute(
+   await expect(page.getByRole("main").getByRole("link", { name: "Sign in", exact: true })).toHaveAttribute(
       "href",
       `/login?redirect=${path}`
    );

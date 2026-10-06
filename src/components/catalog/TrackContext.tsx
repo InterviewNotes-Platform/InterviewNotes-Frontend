@@ -2,17 +2,21 @@ import Link from "next/link";
 import { catalogEntryHref } from "@/lib/catalog/routes";
 import type { TrackPlacement } from "@/lib/catalog/navigation";
 import type { CatalogOutlineEntry, CatalogTrack } from "@/lib/catalog/types";
+import { PRIMARY_NAV } from "@/lib/primary-navigation";
+import { cn } from "@/lib/utils";
 import { PremiumMark } from "./EntryRow";
 
 const trackHref = (track: CatalogTrack) => catalogEntryHref({ ...track, type: "track" });
+const LEARN_HREF = PRIMARY_NAV.find(({ area }) => area === "learn")!.href;
+const CRUMB_LINK = "min-w-0 truncate font-medium text-foreground transition-micro hover:text-primary";
 
 /** Home Track and module above the title: navigation context, not part of the item's URL. */
 export function TrackBreadcrumb({ placement }: { placement: TrackPlacement }) {
    const href = trackHref(placement.track);
    return (
-      <nav aria-label="Track context" className="mb-4 text-sm text-muted-foreground">
+      <nav aria-label="Track context" className="mb-6 text-supporting text-muted-foreground">
          {href ? (
-            <Link href={href} className="font-medium text-foreground hover:text-primary">
+            <Link href={href} className="font-medium text-foreground transition-micro hover:text-primary">
                {placement.track.title}
             </Link>
          ) : (
@@ -24,31 +28,82 @@ export function TrackBreadcrumb({ placement }: { placement: TrackPlacement }) {
    );
 }
 
-function Step({ label, entry }: { label: string; entry: CatalogOutlineEntry | null }) {
+/** A Lesson's place: Learn / Track / Module. The Module is context only, never a link; long names truncate. */
+export function LessonBreadcrumb({ placement }: { placement: TrackPlacement }) {
+   const href = trackHref(placement.track);
+   return (
+      <nav aria-label="Breadcrumb" className="mb-6 text-supporting text-muted-foreground">
+         <ol className="m-0 flex min-w-0 list-none items-center gap-2 p-0">
+            <li className="shrink-0">
+               <Link href={LEARN_HREF} prefetch={false} className="font-medium text-foreground transition-micro hover:text-primary">
+                  Learn
+               </Link>
+            </li>
+            <li className="flex min-w-0 items-center gap-2">
+               <span aria-hidden="true">/</span>
+               {href ? (
+                  <Link href={href} prefetch={false} className={CRUMB_LINK}>
+                     {placement.track.title}
+                  </Link>
+               ) : (
+                  <span className="min-w-0 truncate">{placement.track.title}</span>
+               )}
+            </li>
+            <li className="flex min-w-0 items-center gap-2">
+               <span aria-hidden="true">/</span>
+               <span className="min-w-0 truncate">{placement.module.title}</span>
+            </li>
+         </ol>
+      </nav>
+   );
+}
+
+interface StepProps {
+   label: string;
+   entry: CatalogOutlineEntry | null;
+   reading: boolean;
+   /** The step that leads onward (Next) sits at the end of the row in reading mode. */
+   onward?: boolean;
+}
+
+function Step({ label, entry, reading, onward = false }: StepProps) {
    const href = entry && catalogEntryHref(entry);
-   if (!entry || !href) return <span />;
+   if (!entry || !href) return <span className={reading ? "hidden sm:block" : undefined} />;
+   const premium = entry.access === "premium";
    return (
       <Link
          href={href}
-         prefetch={entry.access === "premium" ? false : undefined}
-         className="block border border-border p-4 hover:border-primary"
+         prefetch={reading || premium ? false : undefined}
+         className={
+            reading
+               ? cn("group block min-h-11", onward && "sm:text-right")
+               : "block rounded-lg border border-border p-4 transition-micro hover:border-primary"
+         }
       >
-         <span className="block text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="font-medium text-foreground">{entry.title}</span>
-            {entry.access === "premium" ? <PremiumMark /> : null}
+         <span className={cn("block text-supporting text-muted-foreground", !reading && "uppercase tracking-wide")}>{label}</span>
+         <span className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", reading && "mt-1", reading && onward && "sm:justify-end")}>
+            <span className={cn("font-medium text-foreground", reading && "text-body transition-micro group-hover:text-primary")}>
+               {entry.title}
+            </span>
+            {premium ? <PremiumMark /> : null}
          </span>
       </Link>
    );
 }
 
-/** Neighbours in the home Track's order; a missing side stays empty, never invented. */
-export function TrackPrevNext({ placement }: { placement: TrackPlacement }) {
+/**
+ * Neighbours in the home Track's order; a missing side stays empty, never invented. `reading` is the Lesson's
+ * open, typographic presentation of the same links, and it never prefetches them.
+ */
+export function TrackPrevNext({ placement, reading = false }: { placement: TrackPlacement; reading?: boolean }) {
    if (!placement.previous && !placement.next) return null;
    return (
-      <nav aria-label={`Previous and next in ${placement.track.title}`} className="grid grid-cols-2 gap-4">
-         <Step label="Previous" entry={placement.previous} />
-         <Step label="Next" entry={placement.next} />
+      <nav
+         aria-label={`Previous and next in ${placement.track.title}`}
+         className={reading ? "grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8" : "grid grid-cols-2 gap-4"}
+      >
+         <Step label="Previous" entry={placement.previous} reading={reading} />
+         <Step label="Next" entry={placement.next} reading={reading} onward />
       </nav>
    );
 }
@@ -62,19 +117,19 @@ export function AlternateTracks({ placements }: { placements: TrackPlacement[] }
    if (links.length === 0) return null;
    return (
       <section aria-labelledby="alternate-tracks">
-         <h2 id="alternate-tracks" className="mb-2 text-xl font-semibold text-foreground">
+         <h2 id="alternate-tracks" className="mt-0 mb-2 text-subsection">
             Also in these Tracks
          </h2>
-         <p className="mb-3 text-sm text-muted-foreground">
+         <p className="mb-3 text-supporting text-muted-foreground">
             Navigation only. This page remains the one canonical address of this content.
          </p>
          <ul className="space-y-1">
             {links.map(({ placement, href }) => (
                <li key={placement.track.id}>
-                  <Link href={href} className="font-medium text-foreground hover:text-primary">
+                  <Link href={href} prefetch={false} className="font-medium text-foreground transition-micro hover:text-primary">
                      {placement.track.title}
                   </Link>
-                  <span className="text-sm text-muted-foreground"> / {placement.module.title}</span>
+                  <span className="text-supporting text-muted-foreground"> / {placement.module.title}</span>
                </li>
             ))}
          </ul>

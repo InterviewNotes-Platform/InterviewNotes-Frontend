@@ -1,13 +1,10 @@
-import { getCourses } from "@/lib/courses";
+import type { Metadata } from "next";
 import { HomeContent } from "./HomeContent";
+import { HOME_METADATA } from "./home-copy";
 
-/**
- * Server shell for the landing page.
- *
- * The page body is interactive and stays a client component; it just needs the
- * course list, which now comes from the API rather than a hard-coded array.
- */
-export default async function HomePage() {
-    const courses = await getCourses();
-    return <HomeContent courses={courses} />;
+export const metadata: Metadata = HOME_METADATA;
+
+/** Static and presentation-only: it reads no catalog or course data, so it renders whatever the API is doing. */
+export default function HomePage() {
+   return <HomeContent />;
 }

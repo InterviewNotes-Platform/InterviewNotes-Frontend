@@ -36,6 +36,9 @@
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
   --color-gold-hover: var(--gold-hover);
+  --color-surface: var(--surface);
+  --color-code-surface: var(--code-surface);
+  --color-premium: var(--premium);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -49,45 +52,89 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-/* vLLM-Inspired Theme - Blue, Gold & Soft White */
+/* P2 foundation: type scale (size/line-height), widths and motion. Colours live in :root / .dark below. */
+@theme {
+  --text-display: clamp(2.25rem, 1.25rem + 4vw, 3rem);
+  --text-display--line-height: calc(56 / 48);
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 600;
+  --text-title: clamp(2rem, 1.5rem + 2vw, 2.5rem);
+  --text-title--line-height: calc(48 / 40);
+  --text-title--letter-spacing: -0.025em;
+  --text-title--font-weight: 600;
+  --text-section: 1.75rem;
+  --text-section--line-height: calc(36 / 28);
+  --text-section--letter-spacing: -0.02em;
+  --text-section--font-weight: 600;
+  --text-subsection: 1.375rem;
+  --text-subsection--line-height: calc(30 / 22);
+  --text-subsection--letter-spacing: -0.01em;
+  --text-subsection--font-weight: 600;
+  --text-body: 1.0625rem;
+  --text-body--line-height: calc(28 / 17);
+  --text-supporting: 0.875rem;
+  --text-supporting--line-height: calc(20 / 14);
+  --text-code: 0.875rem;
+  --text-code--line-height: calc(22 / 14);
+
+  --container-page: 80rem;
+  --container-reading: 46rem;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+}
+
+/* The one micro-interaction: a quick colour change on interactive text and boundaries. */
+@utility transition-micro {
+  transition-property: color, background-color, border-color, text-decoration-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-standard);
+}
+
+/* Neutral surfaces; brand blue is the interactive accent, gold signals premium/access only. */
 :root {
+  color-scheme: light;
   --radius: 0.5rem;
   --font-geist-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  /* Light Theme - Soft off-white with blue & gold accents */
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #ffffff;
+  --foreground: #1d1d1f;
 
-  --card: #ffffff;
-  --card-foreground: #0f172a;
+  --surface: #f5f5f7;
+  --code-surface: #f2f2f5;
+
+  --card: #f5f5f7;
+  --card-foreground: #1d1d1f;
 
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #1d1d1f;
 
-  --primary: #30a2ff;
+  --primary: #0a6ebd;
   --primary-foreground: #ffffff;
 
-  --secondary: #e2e8f0;
-  --secondary-foreground: #0f172a;
+  --secondary: #f0f0f3;
+  --secondary-foreground: #1d1d1f;
 
-  --muted: #e2e8f0;
-  --muted-foreground: #475569;
+  --muted: #f0f0f3;
+  --muted-foreground: #636366;
 
   --accent: #fef9e7;
   --accent-foreground: #92400e;
 
-  /* Golden Yellow - vLLM CTA style */
+  /* Gold fills (CTAs); --premium is the text/icon-safe tone for access signalling. */
   --gold: #fdb517;
   --gold-foreground: #1a1a1a;
   --gold-hover: #e5a315;
+  --premium: #8a5a00;
 
-  --destructive: #ef4444;
+  --destructive: #d70015;
   --destructive-foreground: #ffffff;
 
-  --border: #cbd5e1;
-  --input: #e2e8f0;
-  --ring: #30a2ff;
+  /* --border is a decorative hairline; --input is the 3:1 boundary of form controls. */
+  --border: #e3e3e8;
+  --input: #8a8a90;
+  --ring: #0a6ebd;
 
   --chart-1: #30a2ff;
   --chart-2: #5cb8ff;
@@ -95,50 +142,53 @@
   --chart-4: #fbbf24;
   --chart-5: #93c5fd;
 
-  --sidebar: #f1f5f9;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #30a2ff;
+  --sidebar: #f5f5f7;
+  --sidebar-foreground: #1d1d1f;
+  --sidebar-primary: #0a6ebd;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e0f2fe;
-  --sidebar-accent-foreground: #0369a1;
-  --sidebar-border: #cbd5e1;
-  --sidebar-ring: #30a2ff;
+  --sidebar-accent: #e8f1fa;
+  --sidebar-accent-foreground: #075a9c;
+  --sidebar-border: #e3e3e8;
+  --sidebar-ring: #0a6ebd;
 }
 
-/* Dark Theme - Deep navy with blue & golden accents */
 .dark {
-  --background: #0a0a0f;
-  --foreground: #f8fafc;
+  color-scheme: dark;
+  --background: #0f0f11;
+  --foreground: #f5f5f7;
 
-  --card: #111827;
-  --card-foreground: #f8fafc;
+  --surface: #1a1a1d;
+  --code-surface: #18181b;
 
-  --popover: #111827;
-  --popover-foreground: #f8fafc;
+  --card: #1a1a1d;
+  --card-foreground: #f5f5f7;
+
+  --popover: #1f1f23;
+  --popover-foreground: #f5f5f7;
 
   --primary: #5cb8ff;
-  --primary-foreground: #0a0a0f;
+  --primary-foreground: #0f0f11;
 
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
+  --secondary: #232326;
+  --secondary-foreground: #f5f5f7;
 
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
+  --muted: #232326;
+  --muted-foreground: #a1a1a8;
 
   --accent: #422006;
   --accent-foreground: #fbbf24;
 
-  /* Golden Yellow - vLLM CTA style */
   --gold: #fbbf24;
   --gold-foreground: #1c1917;
   --gold-hover: #f59e0b;
+  --premium: #fbbf24;
 
-  --destructive: #ef4444;
-  --destructive-foreground: #f8fafc;
+  --destructive: #ff453a;
+  --destructive-foreground: #0f0f11;
 
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #60a5fa;
+  --border: #2c2c30;
+  --input: #66666d;
+  --ring: #5cb8ff;
 
   --chart-1: #60a5fa;
   --chart-2: #3b82f6;
@@ -146,20 +196,19 @@
   --chart-4: #fbbf24;
   --chart-5: #1d4ed8;
 
-  --sidebar: #111827;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #60a5fa;
-  --sidebar-primary-foreground: #0a0a0f;
-  --sidebar-accent: #1e3a5f;
-  --sidebar-accent-foreground: #93c5fd;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #60a5fa;
+  --sidebar: #1a1a1d;
+  --sidebar-foreground: #f5f5f7;
+  --sidebar-primary: #5cb8ff;
+  --sidebar-primary-foreground: #0f0f11;
+  --sidebar-accent: #26262a;
+  --sidebar-accent-foreground: #9bd0ff;
+  --sidebar-border: #2c2c30;
+  --sidebar-ring: #5cb8ff;
 }
 
 @layer base {
   * {
     border-color: var(--border);
-    outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
   }
 
   body {
@@ -272,16 +321,36 @@
 }
 
 @layer base {
+  /* One global focus indicator (AA against --background/--surface/--code-surface in both themes). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
 
-  /* Smooth scrolling */
+@media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
   }
+}
 
-  /* Focus visible for better accessibility */
-  *:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
+/*
+ * Reduced motion: collapse non-essential motion; 0.01ms (not none) keeps animationend/transitionend firing.
+ * Mermaid draws in a scratch box (`data-diagram-scratch`) that is exempt: it restyles labels and measures them at
+ * once, and a transition of any length makes it read half-changed sizes and lay the diagram out wrongly.
+ */
+@layer base {
+  @media (prefers-reduced-motion: reduce) {
+    *:not([data-diagram-scratch], [data-diagram-scratch] *),
+    *:not([data-diagram-scratch], [data-diagram-scratch] *)::before,
+    *:not([data-diagram-scratch], [data-diagram-scratch] *)::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0s !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      transition-delay: 0s !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 

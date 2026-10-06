@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { mockOverflow } from "@/test/overflow";
 
 vi.mock("@/components/mdx/Mermaid", () => ({
    Mermaid: ({ chart }: { chart: string }) => <div data-testid="mermaid">{chart}</div>,
@@ -161,5 +162,46 @@ describe("CatalogBody raw HTML and images", () => {
    it("renders no image for image syntax", () => {
       const { container } = renderText("![alt](https://example.com/a.png)");
       expect(container.querySelector("img")).toBeNull();
+   });
+});
+
+describe("CatalogBody technical content", () => {
+   afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+   });
+
+   it("holds a code block in a scroll container instead of letting it widen the page", () => {
+      const { container } = renderText("```python\nprint('x')\n```");
+      expect(container.querySelector('[data-slot="technical-scroll"] > pre > code')).toHaveTextContent("print('x')");
+   });
+
+   it("holds a table in a scroll container", () => {
+      const { container } = renderText("| a | b |\n|---|---|\n| 1 | 2 |");
+      expect(container.querySelector('[data-slot="technical-scroll"] > table')).toBeInTheDocument();
+   });
+
+   it("makes an overflowing code block and table keyboard-reachable named regions", () => {
+      const measure = mockOverflow({ scrollWidth: 900, clientWidth: 300 });
+      renderText("```text\nvery long line\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |");
+      measure();
+
+      expect(screen.getByRole("region", { name: "Code" })).toHaveAttribute("tabindex", "0");
+      expect(screen.getByRole("region", { name: "Table" })).toHaveAttribute("tabindex", "0");
+   });
+
+   it("adds no tab stop for code and tables that fit", () => {
+      const measure = mockOverflow({ scrollWidth: 300, clientWidth: 300 });
+      renderText("```text\nshort\n```\n\n| a |\n|---|\n| 1 |");
+      measure();
+
+      expect(screen.queryByRole("region")).not.toBeInTheDocument();
+   });
+
+   it("styles inline code as a chip but leaves an unlabelled fenced block unchipped", () => {
+      renderText("Use `kv_cache` here.\n\n```\nplain fence\n```");
+      expect(screen.getByText("kv_cache")).toHaveClass("bg-code-surface");
+      const fenced = screen.getByText("plain fence");
+      expect(fenced.closest("pre")).toHaveClass("[&_code]:bg-transparent", "[&_code]:p-0");
    });
 });

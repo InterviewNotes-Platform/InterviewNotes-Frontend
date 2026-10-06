@@ -1,9 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 import {
+    EMPTY_ORIGIN,
+    EMPTY_PORT,
+    EMPTY_TOKEN,
     FAKE_API_ORIGIN,
     FAKE_API_PORT,
     FAKE_AUTH_ORIGIN,
     FAKE_AUTH_PORT,
+    ISOLATED_API_ORIGIN,
+    ISOLATED_API_PORT,
+    ISOLATED_ORIGIN,
+    ISOLATED_PORT,
     PREVIEW_API_ORIGIN,
     PREVIEW_API_PORT,
     PREVIEW_DIST,
@@ -52,11 +59,30 @@ export default defineConfig({
             },
         },
         {
+            // A private API double: only home.spec.ts reads its /catalog log, so the log belongs to one test.
+            command: `node tests/e2e/catalog/fake-api.mjs ${ISOLATED_API_PORT}`,
+            url: `${ISOLATED_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            // The production build above, served again with `API_URL` pointing at that private double.
+            command: `npx next start -p ${ISOLATED_PORT}`,
+            url: `${ISOLATED_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                API_URL: ISOLATED_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: "",
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
             // The preview API double: /catalog answers only the holder of the preview credential (backend D9).
             command: `node tests/e2e/catalog/fake-api.mjs ${PREVIEW_API_PORT}`,
             url: `${PREVIEW_API_ORIGIN}/health`,
             reuseExistingServer: !process.env.CI,
-            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN },
+            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN, FAKE_API_EMPTY_TOKEN: EMPTY_TOKEN },
         },
         {
             // The preview deployment: its own build, with the synthetic credential present while it is built.
@@ -82,6 +108,20 @@ export default defineConfig({
                 NEXT_DIST_DIR: PREVIEW_DIST,
                 API_URL: PREVIEW_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: REJECTED_TOKEN,
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // The preview build once more, against a catalog that is reachable but has published nothing.
+            command: `npx next start -p ${EMPTY_PORT}`,
+            url: `${EMPTY_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                NEXT_DIST_DIR: PREVIEW_DIST,
+                API_URL: PREVIEW_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: EMPTY_TOKEN,
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
                 NEXT_TELEMETRY_DISABLED: "1",

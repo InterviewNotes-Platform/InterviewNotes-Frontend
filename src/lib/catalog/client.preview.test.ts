@@ -15,11 +15,12 @@ const META = {
    title: "Synthetic Lesson",
    summary: "Synthetic summary",
    tags: [],
+   category: null,
    difficulty: null,
    level: null,
    access: "free",
 };
-const LESSON = { ...META, kind: null, body: { format: "markdown@1", text: "Synthetic." }, headings: [], sections: [], sections_withheld: false };
+const LESSON = { ...META, body: { format: "markdown@1", text: "Synthetic." }, headings: [], sections: [], sections_withheld: false };
 const TRACK = { id: "track.t", slug: "t", title: "Synthetic Track", summary: "", modules: [] };
 const RELATED = { id: META.id, relations: {}, placements: [] };
 

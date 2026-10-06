@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
@@ -19,12 +19,13 @@ import TrackPage from "../tracks/[slug]/page";
 import { CatalogItemPage } from "./CatalogItemPage";
 
 const CANONICAL = /^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/;
+const LEARN_INDEX = "/tracks"; // the Learn crumb: the Track index, the one non-item link a Lesson carries
 const entry = (id: string, over = {}) => {
    const [type, slug] = id.split(".");
    return { id, type, slug, title: `Title ${slug}`, access: "free", primary: true, ...over };
 };
 const META = { id: "lesson.item", type: "lesson", slug: "item", title: "Synthetic Item", summary: "Synthetic summary", tags: [], difficulty: null, level: null, access: "free" };
-const ITEM = { ...META, kind: null, body: { format: "markdown@1", text: "Synthetic free body." }, headings: [], sections: [], sections_withheld: false };
+const ITEM = { ...META, category: null, body: { format: "markdown@1", text: "Synthetic free body." }, headings: [], sections: [], sections_withheld: false };
 const HOME = {
    id: "track.home",
    slug: "home",
@@ -62,7 +63,11 @@ describe("item page navigation", () => {
    it("shows the home Track, module, previous/next and related content around the body", async () => {
       await show();
       expect(screen.getByText("Synthetic free body.")).toBeInTheDocument();
-      expect(screen.getByRole("navigation", { name: "Track context" })).toHaveTextContent("Home Track / First Module");
+      const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
+      expect(crumbs).toHaveTextContent(/^Learn\s*\/\s*Home Track\s*\/\s*First Module$/);
+      expect(within(crumbs).getByRole("link", { name: "Learn" })).toHaveAttribute("href", "/tracks");
+      expect(within(crumbs).getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
+      expect(within(crumbs).queryByRole("link", { name: "First Module" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: /Previous/ })).toHaveAttribute("href", "/lessons/before");
       expect(screen.getByRole("link", { name: /Next/ })).toHaveAttribute("href", "/problems/after");
       expect(screen.getByRole("navigation", { name: "Module: First Module" })).toBeInTheDocument();
@@ -71,7 +76,7 @@ describe("item page navigation", () => {
 
    it("keeps one canonical identity: every link is a type-based route with no Track or query context", async () => {
       await show();
-      for (const href of hrefs()) expect(href).toMatch(CANONICAL);
+      for (const href of hrefs().filter((href) => href !== LEARN_INDEX)) expect(href).toMatch(CANONICAL);
    });
 
    it("presents an alternate Track as navigation only, without a second copy of the content", async () => {
@@ -79,7 +84,7 @@ describe("item page navigation", () => {
       expect(screen.getByRole("link", { name: "Other Track" })).toHaveAttribute("href", "/tracks/other");
       expect(screen.getByText(/one canonical address/)).toBeInTheDocument();
       expect(screen.getAllByText("Synthetic free body.")).toHaveLength(1);
-      expect(screen.getByRole("navigation", { name: "Track context" })).not.toHaveTextContent("Other Track");
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).not.toHaveTextContent("Other Track");
    });
 
    it("takes neighbours from the home Track, not from the alternate", async () => {
@@ -103,7 +108,7 @@ describe("item page navigation", () => {
    it("renders no Track context or fabricated link for an item the API places in no Track", async () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [] } });
       await show();
-      expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
       expect(hrefs().filter((href) => href?.startsWith("/tracks/"))).toEqual([]);
       expect(screen.getByRole("link", { name: "Base Knowledge" })).toBeInTheDocument();
    });
@@ -111,7 +116,7 @@ describe("item page navigation", () => {
    it("invents no home Track when the API marks none primary", async () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [RELATED.placements[0]] } });
       await show();
-      expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /Previous|Next/ })).not.toBeInTheDocument();
    });
 
@@ -147,9 +152,20 @@ describe("Track page outline", () => {
    it("renders the outline in backend order with canonical item links and premium marks", async () => {
       render(await TrackPage(params));
       expect(screen.getByRole("heading", { level: 1, name: "Home Track" })).toBeInTheDocument();
-      expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["First Module", "Second Module"]);
-      expect(hrefs()).toEqual(["/lessons/before", "/lessons/item", "/problems/after", "/lessons/later"]);
-      expect(screen.getByRole("link", { name: "Title after" }).parentElement).toHaveTextContent("Premium");
+      const outline = within(screen.getByRole("navigation", { name: "Home Track outline" }));
+      expect(outline.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["First Module 3 items", "Second Module 1 item"]);
+      expect(outline.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+         "/lessons/before",
+         "/lessons/item",
+         "/problems/after",
+         "/lessons/later",
+      ]);
+      expect(outline.getByRole("link", { name: /Title after/ })).toHaveTextContent("Premium");
+   });
+
+   it("starts at the first entry of the first module", async () => {
+      render(await TrackPage(params));
+      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/lessons/before");
    });
 
    it("loads no item bodies and no per-reader relationships", async () => {

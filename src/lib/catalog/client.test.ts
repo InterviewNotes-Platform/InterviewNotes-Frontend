@@ -14,6 +14,7 @@ const META = {
    title: "Synthetic Lesson",
    summary: "Synthetic test fixture",
    tags: [],
+   category: null,
    difficulty: "medium",
    level: null,
    access: "premium",
@@ -21,7 +22,6 @@ const META = {
 
 const LESSON = {
    ...META,
-   kind: null,
    body: { format: "markdown@1", text: "Synthetic prose." },
    headings: [],
    sections: [],
@@ -34,7 +34,7 @@ const KNOWLEDGE = {
    type: "knowledge",
    slug: "rag",
    access: "free",
-   kind: "concept",
+   category: "concept",
    body: null,
    headings: [],
    sections: [
@@ -183,8 +183,10 @@ describe("malformed 2xx payloads are rejected", () => {
       ["tags not an array", { ...LESSON, tags: "ok" }],
       ["invalid difficulty", { ...LESSON, difficulty: "impossible" }],
       ["invalid level", { ...LESSON, level: "expert" }],
-      ["missing kind", without(LESSON, "kind")],
-      ["non-string kind", { ...LESSON, kind: 3 }],
+      ["missing category", without(LESSON, "category")],
+      ["non-string category", { ...LESSON, category: 3 }],
+      ["category outside the vocabulary", { ...LESSON, category: "gadget" }],
+      ["a type name is not a category", { ...LESSON, category: "knowledge" }],
       ["missing sections_withheld", NO_WITHHELD],
       ["non-boolean sections_withheld", { ...LESSON, sections_withheld: "no" }],
       ["heading without id", { ...LESSON, headings: [{ level: 2, text: "T" }] }],
@@ -237,6 +239,12 @@ describe("getCatalogItemMeta", () => {
       const [url, init] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.test/catalog/items/lesson/dynamic-batching/meta");
       expect(init.headers).toEqual({});
+   });
+
+   it("carries a Knowledge category in the metadata", async () => {
+      const meta = { ...META, id: "knowledge.rag", type: "knowledge", slug: "rag", category: "technology" };
+      fetchMock.mockResolvedValue(reply(200, meta));
+      expect(await getCatalogItemMeta("knowledge", "rag")).toEqual({ status: "ok", data: meta });
    });
 
    it("maps not found and retired", async () => {

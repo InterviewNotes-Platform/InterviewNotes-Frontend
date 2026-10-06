@@ -2,6 +2,16 @@
 
 export type CatalogItemType = "knowledge" | "lesson" | "problem";
 export type CatalogAccess = "free" | "premium";
+/** Git-owned classification within a type: Knowledge or Problem values, `null` for a Lesson. */
+export type CatalogCategory =
+   | "concept"
+   | "term"
+   | "technology"
+   | "research"
+   | "pattern"
+   | "quick_reference"
+   | "system_design"
+   | "ml_system_design";
 
 export interface CatalogMeta {
    id: string;
@@ -10,6 +20,7 @@ export interface CatalogMeta {
    title: string;
    summary: string;
    tags: string[];
+   category: CatalogCategory | null;
    difficulty: "easy" | "medium" | "hard" | null;
    level: "foundational" | "intermediate" | "advanced" | null;
    access: CatalogAccess;
@@ -39,6 +50,40 @@ export interface CatalogTrack {
    title: string;
    summary: string;
    modules: CatalogModule[];
+}
+
+/** A Track as `GET /catalog/tracks` lists it: no outline, so no module or item counts. */
+export interface CatalogTrackSummary {
+   id: string;
+   slug: string;
+   title: string;
+   summary: string;
+}
+
+/** Every published Track, ordered by id. The list is not paginated. */
+export interface CatalogTrackList {
+   tracks: CatalogTrackSummary[];
+}
+
+/** The filters this client sends. The backend also accepts `category=` (P1-T27); not exposed here, as the Knowledge explorer groups by `CatalogMeta.category` instead. */
+export interface CatalogItemListParams {
+   type?: CatalogItemType;
+   tag?: string;
+   difficulty?: NonNullable<CatalogMeta["difficulty"]>;
+   level?: NonNullable<CatalogMeta["level"]>;
+   access?: CatalogAccess;
+   /** A Track slug; `module` narrows it to one of that Track's module keys. */
+   track?: string;
+   module?: string;
+   limit?: number;
+   /** The `next_cursor` of the previous page, passed back untouched. */
+   cursor?: string;
+}
+
+/** One page of public metadata ordered by id; `next_cursor` is null on the last page. */
+export interface CatalogItemPage {
+   items: CatalogMeta[];
+   next_cursor: string | null;
 }
 
 /** Where an item sits in one Track; `primary` marks its home Track. */
@@ -76,7 +121,6 @@ export interface CatalogSection {
 
 /** Metadata plus what this caller may read: a Lesson's body, or a Knowledge/Problem's sections. */
 export interface CatalogItem extends CatalogMeta {
-   kind: string | null;
    body: CatalogBody | null;
    headings: CatalogHeading[];
    sections: CatalogSection[];

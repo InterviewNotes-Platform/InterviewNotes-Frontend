@@ -26,7 +26,7 @@ const entry = (id: string, over: Partial<CatalogOutlineEntry> = {}): CatalogOutl
 };
 const meta = (id: string, over: Partial<CatalogMeta> = {}): CatalogMeta => {
    const [type, slug] = id.split(".");
-   return { id, type: type as CatalogMeta["type"], slug, title: `Title ${slug}`, summary: `Summary ${slug}`, tags: [], difficulty: null, level: null, access: "free", ...over };
+   return { id, type: type as CatalogMeta["type"], slug, title: `Title ${slug}`, summary: `Summary ${slug}`, tags: [], category: null, difficulty: null, level: null, access: "free", ...over };
 };
 const mod = (key: string, items: CatalogOutlineEntry[]): CatalogModule => ({ key, title: `Module ${key}`, position: 0, items });
 const track = (slug: string, modules: CatalogModule[]): CatalogTrack => ({ id: `track.${slug}`, slug, title: `Track ${slug}`, summary: "", modules });
@@ -229,6 +229,12 @@ describe("ItemNavigation", () => {
       expect(screen.queryByRole("link", { name: /Next|Previous/ })).not.toBeInTheDocument();
       expect(screen.queryByText(/Full outline/)).not.toBeInTheDocument();
       expect(hrefs()).toEqual(["/lessons/rel"]);
+   });
+
+   it("renders an empty, hideable wrapper, so its separator never floats under a page with no navigation", () => {
+      const { container } = render(<ItemNavigation navigation={{ id: "lesson.zeta", relations: {}, home: null, alternates: [] }} />);
+      expect(container.firstElementChild).toBeEmptyDOMElement();
+      expect(container.firstElementChild).toHaveClass("border-t", "empty:hidden");
    });
 
    it("marks the current item in the module list by identity", () => {
