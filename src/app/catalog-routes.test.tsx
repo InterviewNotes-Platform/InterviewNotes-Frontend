@@ -118,9 +118,11 @@ describe("catalog route security boundary", () => {
          "_catalog/CatalogItemPage.tsx",
          "_catalog/CatalogStateNotice.tsx",
          "_catalog/ItemContent.tsx",
+         "_catalog/KnowledgePage.tsx",
          "_catalog/LessonPage.tsx",
          "_catalog/PreviewMarker.tsx",
          "knowledge/[slug]/page.tsx",
+         "knowledge/page.tsx",
          "lessons/[slug]/page.tsx",
          "problems/[slug]/page.tsx",
          "tracks/[slug]/page.tsx",
@@ -136,10 +138,19 @@ describe("catalog route security boundary", () => {
       for (const file of routeFiles) expect(read(file), file).not.toMatch(/github|gitlab|\.git\b|GIT_|NEXT_PUBLIC|process\.env/i);
    });
 
+   // The Knowledge explorer is the one route with URL state (group, tag, cursor), so it alone may name Next's `searchParams` prop.
+   const EXPLORER = "knowledge/page.tsx";
    it("accepts no branch, commit or other selector from the URL", () => {
       for (const file of routeFiles) {
-         expect(read(file), file).not.toMatch(/searchParams|useSearchParams|branch|commit|[?&](sha|rev|release|ref)=/i);
+         const banned = relative(APP, file) === EXPLORER ? /useSearchParams|branch|commit|[?&](sha|rev|release|ref)=/i : /searchParams|useSearchParams|branch|commit|[?&](sha|rev|release|ref)=/i;
+         expect(read(file), file).not.toMatch(banned);
       }
+   });
+
+   it("lets the explorer read its URL state only through parseExplorerQuery, never by key", () => {
+      const text = read(join(APP, EXPLORER));
+      expect(text).toContain("parseExplorerQuery(await searchParams)");
+      expect(text).not.toMatch(/searchParams\s*(\.|\[)/);
    });
 
    it("never materializes content at build time or opts into shared caching", () => {

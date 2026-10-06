@@ -81,12 +81,17 @@ function trackOut(track) {
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ITEM_ID = /^(?:knowledge|lesson|problem)\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const LIST_PARAMS = new Set(["type", "tag", "difficulty", "level", "access", "track", "module", "limit", "cursor"]);
+const LIST_PARAMS = new Set(["type", "category", "tag", "difficulty", "level", "access", "track", "module", "limit", "cursor"]);
 const ENUMS = {
    type: ["track", "knowledge", "lesson", "problem"],
    difficulty: ["easy", "medium", "hard"],
    level: ["foundational", "intermediate", "advanced"],
    access: ["free", "premium"],
+};
+// Backend vocab: a category belongs to exactly one type; Lesson and Track have none (P1 §6.1, §6.4).
+const CATEGORIES = {
+   knowledge: ["concept", "term", "technology", "research", "pattern", "quick_reference"],
+   problem: ["system_design", "ml_system_design"],
 };
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -108,6 +113,12 @@ function listItems(res, query) {
       if (query.has(name) && !allowed.includes(query.get(name))) return invalid(`Invalid ${name}`);
    }
    if (query.get("tag") === "") return invalid("Invalid tag");
+   const category = query.get("category");
+   if (category !== null) {
+      if (!Object.values(CATEGORIES).some((values) => values.includes(category))) return invalid("Invalid category");
+      const type = query.get("type");
+      if (type !== null && !CATEGORIES[type]?.includes(category)) return invalid(`category ${category} is not defined for type ${type}`);
+   }
    const limit = query.has("limit") ? Number(query.get("limit")) : DEFAULT_LIMIT;
    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) return invalid("Invalid limit");
    const unsupported = [...new Set(query.keys())].filter((name) => !LIST_PARAMS.has(name)).sort();
@@ -128,6 +139,7 @@ function listItems(res, query) {
       .filter(
          (item) =>
             (!query.has("type") || item.type === query.get("type")) &&
+            (category === null || item.category === category) &&
             (!query.has("access") || item.access === query.get("access")) &&
             (!query.has("difficulty") || item.difficulty === query.get("difficulty")) &&
             (!query.has("level") || item.level === query.get("level")) &&

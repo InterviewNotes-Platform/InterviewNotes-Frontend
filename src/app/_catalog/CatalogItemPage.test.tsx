@@ -77,7 +77,8 @@ describe("CatalogItemPage states", () => {
    it("renders authorized sections and flags withheld ones", async () => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: KNOWLEDGE });
       await show("knowledge", "rag");
-      expect(screen.getByRole("heading", { level: 2, name: "Definition" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Fast understanding" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 3, name: "Definition" })).toBeInTheDocument();
       expect(screen.getByText("Synthetic free section.")).toBeInTheDocument();
       expect(screen.getByRole("note")).toHaveTextContent(/premium/i);
    });

@@ -12,7 +12,8 @@ const difficultyOf = ({ entry }: LinkedMeta) => (entry.type === "problem" && ent
 interface GroupProps {
    id: string;
    label: string;
-   rows: LinkedMeta[];
+   /** A row may say how it relates ("Applied in"); it shows after the type and difficulty. */
+   rows: (LinkedMeta & { relation?: string | null })[];
    /** Name each target's type, for a group that mixes types. */
    withType?: boolean;
    /** One line of the target's own summary beneath its title. */
@@ -30,7 +31,7 @@ export function RelationGroup({ id, label, rows, withType = false, withSummary =
          <ul className="m-0 list-none space-y-4 p-0">
             {rows.map((row) => {
                const { entry, href } = row;
-               const detail = [withType ? TYPE_LABEL[entry.type] : null, difficultyOf(row)].filter(Boolean).join(" · ");
+               const detail = [withType ? TYPE_LABEL[entry.type] : null, difficultyOf(row), row.relation].filter(Boolean).join(" · ");
                return (
                   <li key={entry.id}>
                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

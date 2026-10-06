@@ -39,6 +39,51 @@ test.describe("the catalog fixture models P1", () => {
    });
 });
 
+test.describe("the Knowledge fixture models P1-T27 (P2-T6 discovery)", () => {
+   interface Topic {
+      id: string;
+      category: string | null;
+      access: string;
+      tags: string[];
+      sections?: { id: string; type: string; access: string }[];
+      relations?: Record<string, string[]>;
+   }
+   const topics = fixture.items.filter((candidate) => candidate.type === "knowledge") as unknown as Topic[];
+
+   test("holds at least eight Knowledge items, enough for a second page of twelve, in all six categories", () => {
+      expect(topics.length).toBeGreaterThanOrEqual(13);
+      const present = new Set(topics.map((topic) => topic.category));
+      for (const category of ["concept", "term", "technology", "research", "pattern", "quick_reference"]) expect(present, category).toContain(category);
+      expect(present, "an item with no category stays in the list and in no group").toContain(null);
+   });
+
+   test("has a rich-relations item, a quick reference, a premium item and a free item with premium sections", () => {
+      const relationCount = (topic: Topic) => Object.values(topic.relations ?? {}).flat().length;
+      expect(topics.some((topic) => relationCount(topic) >= 6 && Object.keys(topic.relations ?? {}).length >= 4)).toBe(true);
+      const quick = topics.filter((topic) => topic.category === "quick_reference");
+      expect(quick.length).toBeGreaterThan(0);
+      for (const topic of quick) expect(topic.sections!.map((section) => section.type)).toEqual(["quick_facts"]);
+      expect(topics.some((topic) => topic.access === "premium")).toBe(true);
+      expect(topics.some((topic) => topic.access === "free" && topic.sections!.some((section) => section.access === "premium"))).toBe(true);
+   });
+
+   test("carries diverse tags and a section type outside the Knowledge vocabulary", () => {
+      expect(new Set(topics.flatMap((topic) => topic.tags)).size).toBeGreaterThanOrEqual(8);
+      const known = ["definition", "why_it_matters", "how_it_works", "architecture", "when_to_use", "when_not_to_use", "trade_offs", "failure_modes", "example", "interview_considerations", "quick_facts"];
+      expect(topics.flatMap((topic) => topic.sections!.map((section) => section.type)).some((type) => !known.includes(type))).toBe(true);
+   });
+
+   test("names only items that exist as relation targets, and never itself", () => {
+      const ids = new Set(fixture.items.map((candidate) => candidate.id));
+      for (const topic of topics) {
+         for (const target of Object.values(topic.relations ?? {}).flat()) {
+            expect(ids.has(target), `${topic.id} relates to unknown ${target}`).toBe(true);
+            expect(target).not.toBe(topic.id);
+         }
+      }
+   });
+});
+
 test.describe("fake catalog list endpoints", () => {
    const get = (request: { get: (url: string) => Promise<{ status(): number; json(): Promise<unknown> }> }, path: string) =>
       request.get(`${FAKE_API_ORIGIN}${path}`);
@@ -106,6 +151,58 @@ test.describe("fake catalog list endpoints", () => {
       const body = await page(request, `?limit=${ALL_ITEMS.length}`);
       expect(body.items).toHaveLength(ALL_ITEMS.length);
       expect(body.next_cursor).toBeNull();
+   });
+
+   test("filters by category as the backend's D-18 contract does, with or without a type", async ({ request }) => {
+      const knowledge = fixture.items.filter((candidate) => candidate.type === "knowledge") as unknown as { id: string; category: string | null }[];
+      const expected = (category: string) => knowledge.filter((candidate) => candidate.category === category).map((candidate) => candidate.id).sort();
+      for (const category of ["concept", "term", "technology", "research", "pattern", "quick_reference"]) {
+         expect(expected(category).length, `fixture has no ${category}`).toBeGreaterThan(0);
+         expect((await page(request, `?type=knowledge&category=${category}`)).items.map((i) => i.id), category).toEqual(expected(category));
+         expect((await page(request, `?category=${category}`)).items.map((i) => i.id), `${category} needs no type`).toEqual(expected(category));
+      }
+      const problems = (await page(request, "?category=system_design")).items;
+      expect(problems.length).toBeGreaterThan(0);
+      for (const i of problems) expect(i.type).toBe("problem");
+      expect((await page(request, "?category=ml_system_design")).items).toEqual([]);
+   });
+
+   test("combines category with the other filters and pages it like any other", async ({ request }) => {
+      const premium = await page(request, "?type=knowledge&category=technology&access=premium");
+      expect(premium.items.length).toBeGreaterThan(0);
+      for (const i of premium.items) expect([i.type, i.access]).toEqual(["knowledge", "premium"]);
+      expect((await page(request, "?category=term&access=premium")).items).toEqual([]);
+
+      const first = await page(request, "?type=knowledge&category=concept&limit=1");
+      expect(first.items).toHaveLength(1);
+      expect(first.next_cursor).toBe(first.items[0].id);
+      const second = await page(request, `?type=knowledge&category=concept&limit=1&cursor=${encodeURIComponent(first.next_cursor!)}`);
+      expect(second.items[0].id > first.items[0].id).toBe(true);
+   });
+
+   test("never lists an item with no category under a category filter", async ({ request }) => {
+      const every = await page(request, "?type=knowledge&limit=100");
+      const unlabelled = every.items.filter((i) => (i as unknown as { category: unknown }).category === null);
+      expect(unlabelled.length).toBeGreaterThan(0);
+      for (const category of ["concept", "term", "technology", "research", "pattern", "quick_reference"]) {
+         const listed = (await page(request, `?type=knowledge&category=${category}`)).items.map((i) => i.id);
+         for (const i of unlabelled) expect(listed).not.toContain(i.id);
+      }
+   });
+
+   test("refuses a category the way the backend does: 422 for an undefined value or the wrong type, never 200 for either", async ({ request }) => {
+      const status = async (query: string) => (await get(request, `/catalog/items?${query}`)).status();
+      for (const query of [
+         "category=gadget",
+         "category=",
+         "type=knowledge&category=system_design",
+         "type=problem&category=technology",
+         "type=lesson&category=concept",
+         "type=track&category=concept",
+         "type=knowledge&category=gadget",
+      ]) {
+         expect(await status(query), query).toBe(422);
+      }
    });
 
    test("refuses what the API refuses: 422 for bad input, 404 for an unknown Track", async ({ request }) => {

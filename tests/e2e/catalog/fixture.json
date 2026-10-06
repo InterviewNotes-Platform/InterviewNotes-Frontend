@@ -327,6 +327,261 @@
       "relations": {
         "prerequisite": ["lesson.p2-t5-long"]
       }
+    },
+    {
+      "id": "knowledge.p2-t6-attention",
+      "type": "knowledge",
+      "slug": "p2-t6-attention",
+      "title": "Attention",
+      "summary": "How a model weighs which parts of its input matter for each output.",
+      "tags": ["attention", "transformers", "deep-learning"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "concept",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "Attention is a way for a model to decide, for the position it is producing, how much to draw on every other position in its input. The result is a weighted blend of the input, where the weights are learned from data rather than fixed in advance."},
+        {"id": "why-it-matters", "type": "why_it_matters", "title": "Why it matters", "access": "free", "text": "A fixed-size summary loses detail on long inputs. Attention lets the model look back at the part of the input that matters for the step it is on, which is why it sits underneath most modern language and retrieval systems."},
+        {"id": "how-it-works", "type": "how_it_works", "title": "How it works", "access": "free", "text": "Each position produces three vectors: a **query**, a **key** and a **value**. A query is compared with every key to give a score, the scores are normalised into weights, and the output is the weighted sum of the values.\n\n| Step | Operation | Shape per head |\n|---|---|---|\n| Score | query · key | sequence × sequence |\n| Normalise | softmax over keys | sequence × sequence |\n| Blend | weights × values | sequence × head_dim |\n\n```python\ndef synthetic_attention(query, key, value):\n    scores = query @ key.T / (key.shape[-1] ** 0.5)\n    weights = softmax(scores, axis=-1)\n    return weights @ value\n```\n\nThe score matrix is why cost grows with the square of the sequence length."},
+        {"id": "building-blocks", "type": "architecture", "title": "Building blocks", "access": "free", "text": "Three learned projections feed one scoring step. Several of these run side by side as heads, and their outputs are concatenated and projected once more.\n\n```mermaid\ngraph LR\n  Input --> Projections[Query, key and value projections] --> Scores --> Weights --> Output\n```"},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "free", "text": "Reach for attention when the output at one position depends on a few input-dependent positions elsewhere: translation, summarisation, re-ranking retrieved passages."},
+        {"id": "when-not-to-use", "type": "when_not_to_use", "title": "When not to use", "access": "free", "text": "Be cautious when sequences are so long that comparing every pair is the constraint, or when a fixed local window already captures the dependency."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "- Expressive: any position can influence any other.\n- Costly: time and memory grow with the square of the length.\n- Flexible: the same block serves text, images and audio."},
+        {"id": "failure-modes", "type": "failure_modes", "title": "Where it goes wrong", "access": "free", "text": "Attention weights are tempting to read as an explanation, but they show where the model looked, not why it answered as it did. Long inputs can also dilute the weights until nothing stands out."},
+        {"id": "example-scoring", "type": "example", "title": "Worked example", "access": "free", "text": "Take a three-token input. The query for the last token scores highest against the key of the first token, so most of the output is that token's value. Change the input and the same query attends elsewhere."},
+        {"id": "example-masking", "type": "example", "title": "Example: masking", "access": "free", "text": "When generating text, each position may attend only to earlier ones. A mask sets the scores for later positions to negative infinity before the softmax, so their weights become zero."},
+        {"id": "interview-considerations", "type": "interview_considerations", "title": "In an interview", "access": "free", "text": "Be ready to state the quadratic cost and name one way to reduce it. Expect a follow-up on why the scores are scaled before the softmax."}
+      ],
+      "relations": {
+        "prerequisite": ["knowledge.p2-t6-embedding"],
+        "applied_in": ["lesson.catalog-e2e-free", "problem.catalog-e2e-related", "problem.p2-t4-practice"],
+        "prerequisite_of": ["lesson.p2-t5-long"],
+        "related": ["knowledge.p2-t6-scaling-laws", "knowledge.p2-t6-tokenization", "problem.p2-t5-premium-practice"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-batching",
+      "type": "knowledge",
+      "slug": "p2-t6-batching",
+      "title": "Batching",
+      "summary": "Group requests so one pass over the model serves many of them.",
+      "tags": ["serving", "throughput", "batching"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "pattern",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "Batching holds requests briefly and runs them through the model together, so the cost of reading the weights is shared."},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "free", "text": "Use it when requests arrive faster than one accelerator can serve them one at a time and a little added waiting is acceptable."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "Larger batches raise throughput and raise the latency of the slowest request. The waiting time you allow is the dial between them."},
+        {"id": "failure-modes", "type": "failure_modes", "title": "Failure modes", "access": "free", "text": "A batch that waits for a slow request holds up every other request in it. Cap the wait, not only the size."}
+      ],
+      "relations": {
+        "applied_in": ["lesson.p2-t5-primer"],
+        "related": ["knowledge.p2-t6-latency-cheatsheet"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-embedding",
+      "type": "knowledge",
+      "slug": "p2-t6-embedding",
+      "title": "Embedding",
+      "summary": "A list of numbers that stands for the meaning of a piece of content.",
+      "tags": ["embeddings", "retrieval"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "term",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "An embedding maps a word, passage or image to a point in a space where nearby points have similar meaning."},
+        {"id": "why-it-matters", "type": "why_it_matters", "title": "Why it matters", "access": "free", "text": "Once content is a point, finding similar content is a distance calculation, which is what makes semantic search practical."}
+      ],
+      "relations": {
+        "prerequisite_of": ["knowledge.p2-t6-attention"],
+        "related": ["knowledge.p2-t6-vector-index"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-evaluation-metrics",
+      "type": "knowledge",
+      "slug": "p2-t6-evaluation-metrics",
+      "title": "Evaluation metrics",
+      "summary": "The numbers that say whether a model is doing its job.",
+      "tags": ["evaluation", "metrics"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "concept",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "An evaluation metric turns a model's outputs and the expected answers into one number you can compare across runs."},
+        {"id": "how-it-works", "type": "how_it_works", "title": "How it works", "access": "free", "text": "Choose the metric from the decision it supports. Ranking quality, classification accuracy and calibration answer different questions, and a model can lead on one and trail on another."},
+        {"id": "example", "type": "example", "title": "Example", "access": "free", "text": "A spam filter judged only on accuracy looks excellent when almost nothing is spam. Precision and recall show what accuracy hides."}
+      ],
+      "relations": {}
+    },
+    {
+      "id": "knowledge.p2-t6-feature-store",
+      "type": "knowledge",
+      "slug": "p2-t6-feature-store",
+      "title": "Feature store",
+      "summary": "Shared storage that serves the same features in training and in production.",
+      "tags": ["features", "infrastructure"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "premium",
+      "home": "",
+      "category": "technology",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium definition of a feature store."},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium guidance on when a feature store pays for itself."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-vector-index"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-latency-cheatsheet",
+      "type": "knowledge",
+      "slug": "p2-t6-latency-cheatsheet",
+      "title": "Latency cheat sheet",
+      "summary": "Round numbers worth having in your head. Illustrative values, not measurements.",
+      "tags": ["serving", "latency"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "quick_reference",
+      "sections": [
+        {"id": "quick-facts", "type": "quick_facts", "title": "Quick facts", "access": "free", "text": "| Operation | Order of magnitude |\n|---|---|\n| Read from memory | nanoseconds |\n| Read from a local disk | microseconds to milliseconds |\n| Call a service in the same region | milliseconds |\n| Call a service across regions | tens to hundreds of milliseconds |\n\n- Tail latency is set by the slowest dependency.\n- Fan-out multiplies the chance of hitting a slow one."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-batching"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-quantization",
+      "type": "knowledge",
+      "slug": "p2-t6-quantization",
+      "title": "Quantization",
+      "summary": "Store and compute with fewer bits to fit more model in less memory.",
+      "tags": ["serving", "quantization", "efficiency"],
+      "difficulty": null,
+      "level": "advanced",
+      "access": "free",
+      "home": "",
+      "category": "technology",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "Quantization represents a model's weights, and sometimes its activations, with lower-precision numbers than the ones it was trained with."},
+        {"id": "how-it-works", "type": "how_it_works", "title": "How it works", "access": "free", "text": "Values are mapped onto a smaller set of levels with a scale and an offset. The mapping is chosen to lose as little accuracy as the task allows."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium analysis of the accuracy and speed trade-off."},
+        {"id": "failure-modes", "type": "failure_modes", "title": "Failure modes", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium catalogue of how quantization fails."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-batching"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-rag-pattern",
+      "type": "knowledge",
+      "slug": "p2-t6-rag-pattern",
+      "title": "Retrieval-augmented generation",
+      "summary": "Fetch relevant passages first, then let the model answer from them.",
+      "tags": ["retrieval", "llm", "rag"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "pattern",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "The system retrieves passages related to the question and places them in the prompt, so the model answers from supplied evidence rather than memory alone."},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "free", "text": "Use it when answers must reflect content that changes, or that the model was never trained on."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "You gain freshness and traceability. You add a retrieval step that can fail silently and a longer prompt to pay for."}
+      ],
+      "relations": {
+        "applied_in": ["lesson.p2-t5-primer"],
+        "related": ["knowledge.p2-t6-vector-index", "knowledge.p2-t6-embedding"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-scaling-laws",
+      "type": "knowledge",
+      "slug": "p2-t6-scaling-laws",
+      "title": "Scaling laws",
+      "summary": "How model quality tends to change as size, data and compute grow.",
+      "tags": ["scaling", "deep-learning", "research"],
+      "difficulty": null,
+      "level": "advanced",
+      "access": "free",
+      "home": "",
+      "category": "research",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "A scaling law is an empirical relationship between a model's quality and the resources spent training it."},
+        {"id": "why-it-matters", "type": "why_it_matters", "title": "Why it matters", "access": "free", "text": "It lets a team predict what a larger run would buy before paying for it, and decide how to split a fixed budget."},
+        {"id": "example", "type": "example", "title": "Example", "access": "free", "text": "Doubling data while holding model size fixed improves quality by a shrinking amount each time, which is the pattern a fitted curve captures."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-attention"]
+      }
+    },
+    {
+      "id": "knowledge.p2-t6-tokenization",
+      "type": "knowledge",
+      "slug": "p2-t6-tokenization",
+      "title": "Tokenization",
+      "summary": "Splitting text into the pieces a model actually reads.",
+      "tags": ["tokenization", "llm"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "",
+      "category": "term",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "Tokenization breaks text into units, often word fragments, and maps each to an integer the model can consume."}
+      ],
+      "relations": {}
+    },
+    {
+      "id": "knowledge.p2-t6-unlabelled",
+      "type": "knowledge",
+      "slug": "p2-t6-unlabelled",
+      "title": "Field notes",
+      "summary": "A topic whose classification has not been published yet.",
+      "tags": ["serving"],
+      "difficulty": null,
+      "level": null,
+      "access": "free",
+      "home": "",
+      "category": null,
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "This item carries no category, so it appears in the full topic list and in none of the category groups."},
+        {"id": "field-notes", "type": "field_notes", "title": "Field notes", "access": "free", "text": "A section type this page does not know about is kept, in the order the API gave it, under deeper reference."}
+      ],
+      "relations": {}
+    },
+    {
+      "id": "knowledge.p2-t6-vector-index",
+      "type": "knowledge",
+      "slug": "p2-t6-vector-index",
+      "title": "Vector index",
+      "summary": "A structure that finds the stored points nearest to a query point quickly.",
+      "tags": ["retrieval", "vector-search", "infrastructure"],
+      "difficulty": null,
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "technology",
+      "sections": [
+        {"id": "definition", "type": "definition", "title": "Definition", "access": "free", "text": "A vector index organises embeddings so that a nearest-neighbour query does not have to compare against every stored point."},
+        {"id": "when-to-use", "type": "when_to_use", "title": "When to use", "access": "free", "text": "Use one once the collection is too large to scan, and approximate answers are acceptable."},
+        {"id": "trade-offs", "type": "trade_offs", "title": "Trade-offs", "access": "free", "text": "Faster search costs memory and some recall. Tuning the index moves the balance between the two."}
+      ],
+      "relations": {
+        "related": ["knowledge.p2-t6-embedding"]
+      }
     }
   ],
   "tracks": [

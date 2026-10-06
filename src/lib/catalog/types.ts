@@ -65,7 +65,7 @@ export interface CatalogTrackList {
    tracks: CatalogTrackSummary[];
 }
 
-/** The filters this client sends. The backend also accepts `category=` (P1-T27); it is not exposed here until P2-T6 consumes it. */
+/** The filters this client sends. The backend also accepts `category=` (P1-T27); not exposed here, as the Knowledge explorer groups by `CatalogMeta.category` instead. */
 export interface CatalogItemListParams {
    type?: CatalogItemType;
    tag?: string;

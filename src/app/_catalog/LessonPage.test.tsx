@@ -285,19 +285,31 @@ describe("a locked Lesson", () => {
 describe("other item pages keep their own contract", () => {
    const KNOWLEDGE = { ...meta("knowledge.rag"), category: "concept", body: null, headings: [], sections: [{ id: "definition", type: "definition", title: "Definition", body: { format: "markdown@1", text: "A [Lesson](ref:lesson.x) ref and\n\n## Inner\n\ntext" } }], sections_withheld: false };
 
-   it.each([
-      ["knowledge", { ...KNOWLEDGE }],
-      ["problem", { ...KNOWLEDGE, ...meta("problem.rag"), category: "system_design" }],
-   ] as const)("a %s page has no Lesson breadcrumb, contents or Practice transition", async (type, item) => {
+   const open = async (type: "knowledge" | "problem", item: typeof KNOWLEDGE) => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: item });
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { id: item.id, relations: RELATIONS, placements: RELATED.placements } });
       getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.before"), entry(item.id)] }] } });
       await show(item.slug, type);
+   };
+
+   it("a problem page has no Lesson breadcrumb, contents or Practice transition", async () => {
+      await open("problem", { ...KNOWLEDGE, ...meta("problem.rag"), category: "system_design" });
 
       expect(screen.getByRole("navigation", { name: "Track context" })).toBeInTheDocument();
       expect(screen.getByRole("region", { name: "Related content" })).toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Contents" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Ready to apply this?" })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Lesson" })).not.toHaveAttribute("data-reference");
+      expect(document.querySelector("section#definition")!.querySelectorAll("[id], [tabindex]")).toHaveLength(0);
+   });
+
+   it("a knowledge page has its own Knowledge breadcrumb and no Lesson or Track chrome, Practice transition or reading mode", async () => {
+      await open("knowledge", { ...KNOWLEDGE });
+
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Knowledge");
+      expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Related content" })).not.toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Ready to apply this?" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Lesson" })).not.toHaveAttribute("data-reference");
       expect(document.querySelector("section#definition")!.querySelectorAll("[id], [tabindex]")).toHaveLength(0);
