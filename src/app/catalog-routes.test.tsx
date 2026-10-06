@@ -108,7 +108,7 @@ const files = (dir: string): string[] =>
       const path = join(dir, name);
       return statSync(path).isDirectory() ? files(path) : /\.(ts|tsx)$/.test(name) && !/\.test\./.test(name) ? [path] : [];
    });
-const ROUTE_DIRS = ["lessons", "problems", "knowledge", "tracks", "_catalog"];
+const ROUTE_DIRS = ["lessons", "problems", "knowledge", "practice", "tracks", "_catalog"];
 const routeFiles = ROUTE_DIRS.flatMap((dir) => files(join(APP, dir)));
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -124,6 +124,7 @@ describe("catalog route security boundary", () => {
          "knowledge/[slug]/page.tsx",
          "knowledge/page.tsx",
          "lessons/[slug]/page.tsx",
+         "practice/page.tsx",
          "problems/[slug]/page.tsx",
          "tracks/[slug]/page.tsx",
          "tracks/page.tsx",
@@ -138,18 +139,18 @@ describe("catalog route security boundary", () => {
       for (const file of routeFiles) expect(read(file), file).not.toMatch(/github|gitlab|\.git\b|GIT_|NEXT_PUBLIC|process\.env/i);
    });
 
-   // The Knowledge explorer is the one route with URL state (group, tag, cursor), so it alone may name Next's `searchParams` prop.
-   const EXPLORER = "knowledge/page.tsx";
+   // The Knowledge explorer and Practice are the routes with URL state, so they alone may name Next's `searchParams` prop.
+   const URL_STATE = { "knowledge/page.tsx": "parseExplorerQuery", "practice/page.tsx": "parsePracticeQuery" };
    it("accepts no branch, commit or other selector from the URL", () => {
       for (const file of routeFiles) {
-         const banned = relative(APP, file) === EXPLORER ? /useSearchParams|branch|commit|[?&](sha|rev|release|ref)=/i : /searchParams|useSearchParams|branch|commit|[?&](sha|rev|release|ref)=/i;
+         const banned = relative(APP, file) in URL_STATE ? /useSearchParams|branch|commit|[?&](sha|rev|release|ref)=/i : /searchParams|useSearchParams|branch|commit|[?&](sha|rev|release|ref)=/i;
          expect(read(file), file).not.toMatch(banned);
       }
    });
 
-   it("lets the explorer read its URL state only through parseExplorerQuery, never by key", () => {
-      const text = read(join(APP, EXPLORER));
-      expect(text).toContain("parseExplorerQuery(await searchParams)");
+   it.each(Object.entries(URL_STATE))("lets %s read its URL state only through %s, never by key", (route, parser) => {
+      const text = read(join(APP, route));
+      expect(text).toContain(`${parser}(await searchParams)`);
       expect(text).not.toMatch(/searchParams\s*(\.|\[)/);
    });
 

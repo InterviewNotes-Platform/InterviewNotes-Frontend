@@ -97,11 +97,19 @@ test.describe("fake catalog list endpoints", () => {
       for (const t of body.tracks) expect(Object.keys(t).sort()).toEqual(["id", "slug", "summary", "title"]);
    });
 
-   test("GET /catalog/items returns public metadata for every item, ordered by id, unpaginated by default", async ({ request }) => {
-      const body = await page(request, "");
+   test("GET /catalog/items returns public metadata for every item, ordered by id, at the largest page size", async ({ request }) => {
+      expect(ALL_ITEMS.length, "the fixture must fit one page of 100").toBeLessThanOrEqual(100);
+      const body = await page(request, "?limit=100");
       expect(body.items.map((i) => i.id)).toEqual(ALL_ITEMS);
       expect(body.next_cursor).toBeNull();
       for (const i of body.items) expect(Object.keys(i).sort()).toEqual(META_FIELDS);
+   });
+
+   test("a page is 50 items unless asked otherwise, with the cursor to the rest", async ({ request }) => {
+      expect(ALL_ITEMS.length, "the fixture must exceed one default page").toBeGreaterThan(50);
+      const body = await page(request, "");
+      expect(body.items.map((i) => i.id)).toEqual(ALL_ITEMS.slice(0, 50));
+      expect(body.next_cursor).toBe(ALL_ITEMS[49]);
    });
 
    test("combines filters with AND", async ({ request }) => {

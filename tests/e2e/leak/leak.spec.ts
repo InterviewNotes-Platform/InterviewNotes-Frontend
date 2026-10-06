@@ -15,6 +15,8 @@ const ROUTES = [...fixture.items, ...fixture.tracks].map((record) => ({
    expected: holds(record),
    premium: "access" in record && record.access === "premium",
 }));
+const BROWSER_CHUNK = 16;
+const BROWSER_CHUNKS = Array.from({ length: Math.ceil(ROUTES.length / BROWSER_CHUNK) }, (_, index) => ROUTES.slice(index * BROWSER_CHUNK, (index + 1) * BROWSER_CHUNK));
 const PROBLEM = canonical("problem.t24-premium-solution");
 const NEIGHBOURS = ["lesson.t24-premium-body", "knowledge.t24-premium-deep-dive"].map((id) => ({
    route: canonical(id),
@@ -113,16 +115,19 @@ for (const { name, baseURL } of [
                }
             });
 
-            test("the browser receives no canary through HTML, RSC, DOM or the network", async ({ page, traffic }) => {
-               for (const { route } of ROUTES) {
-                  await page.goto(route);
-                  await page.waitForLoadState("networkidle");
-                  const received = await traffic.responses();
-                  expect(received.some((r) => r.kind === "document" && new URL(r.url).pathname === route), `${route}: no document captured`).toBe(true);
-                  for (const canary of PROTECTED_CANARIES) {
-                     expect(await exposures(page, received, canary), `${route} as ${identity}: ${canary}`).toEqual([]);
+            // Every route is loaded in a browser, a chunk per test, so the loop's cost stays inside one test's budget as the fixture grows.
+            BROWSER_CHUNKS.forEach((routes, index) => {
+               test(`the browser receives no canary through HTML, RSC, DOM or the network (routes ${index * BROWSER_CHUNK + 1}-${index * BROWSER_CHUNK + routes.length} of ${ROUTES.length})`, async ({ page, traffic }) => {
+                  for (const { route } of routes) {
+                     await page.goto(route);
+                     await page.waitForLoadState("networkidle");
+                     const received = await traffic.responses();
+                     expect(received.some((r) => r.kind === "document" && new URL(r.url).pathname === route), `${route}: no document captured`).toBe(true);
+                     for (const canary of PROTECTED_CANARIES) {
+                        expect(await exposures(page, received, canary), `${route} as ${identity}: ${canary}`).toEqual([]);
+                     }
                   }
-               }
+               });
             });
 
             test("client navigation to a premium neighbour fetches RSC that holds no canary", async ({ page, traffic }) => {
