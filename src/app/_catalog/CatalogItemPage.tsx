@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ItemNavigation } from "@/components/catalog/ItemNavigation";
+import { KnowledgeHeader } from "@/components/catalog/KnowledgeHeader";
 import { LessonHeader } from "@/components/catalog/LessonHeader";
 import { TrackBreadcrumb } from "@/components/catalog/TrackContext";
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
@@ -11,6 +12,7 @@ import { catalogHref } from "@/lib/catalog/routes";
 import type { CatalogItemType, CatalogMeta } from "@/lib/catalog/types";
 import { CatalogStateNotice } from "./CatalogStateNotice";
 import { ItemContent } from "./ItemContent";
+import { KnowledgePage } from "./KnowledgePage";
 import { LessonPage } from "./LessonPage";
 import { PreviewMarker, withPreviewRobots } from "./PreviewMarker";
 
@@ -29,11 +31,18 @@ function ItemHeader({ meta }: { meta: Pick<CatalogMeta, "title" | "summary"> }) 
    );
 }
 
+/** The public teaser for a locked item: metadata only, in the header its type uses when readable. */
+function TeaserHeader({ type, meta }: { type: CatalogItemType; meta: CatalogMeta }) {
+   if (type === "lesson") return <div className="mb-12"><LessonHeader meta={meta} /></div>;
+   if (type === "knowledge") return <div className="mb-12"><KnowledgeHeader meta={meta} /></div>;
+   return <ItemHeader meta={meta} />;
+}
+
 /**
  * One canonical page per catalog type + slug. The API decides what this caller may read;
  * the page only presents the result it is given. Relationships are loaded only for a body the
- * API has already released, so a locked page shows no Track or related context. A readable Lesson has its own
- * composition; a locked one keeps this page's public header and notice.
+ * API has already released, so a locked page shows no Track or related context. A readable Lesson or Knowledge topic
+ * has its own composition; a locked one keeps this page's public header and notice.
  */
 export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; slug: string }) {
    const result = await getCatalogItem(type, slug);
@@ -54,13 +63,21 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
             </>
          );
       }
+      if (type === "knowledge") {
+         return (
+            <>
+               <PreviewMarker />
+               <KnowledgePage item={result.data} navigation={navigation} stayOnDeployment={isPreview()} />
+            </>
+         );
+      }
       header = <ItemHeader meta={result.data} />;
       content = <ItemContent item={result.data} stayOnDeployment={isPreview()} />;
    } else {
       // Public metadata is a safe teaser; the body stays withheld.
       if (result.status === "unauthenticated" || result.status === "unentitled") {
          const meta = await getCatalogItemMeta(type, slug);
-         if (meta.status === "ok") header = type === "lesson" ? <div className="mb-12"><LessonHeader meta={meta.data} /></div> : <ItemHeader meta={meta.data} />;
+         if (meta.status === "ok") header = <TeaserHeader type={type} meta={meta.data} />;
       }
       content = <CatalogStateNotice state={result.status} signInPath={signInPath} />;
    }

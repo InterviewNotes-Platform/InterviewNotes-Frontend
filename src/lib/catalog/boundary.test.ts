@@ -19,8 +19,12 @@ describe("catalog browser/Git boundary", () => {
    it("finds the catalog sources it is guarding", () => {
       expect(catalogFiles.map((file) => relative(SRC, file)).sort()).toEqual([
          "components/catalog/CatalogBody.tsx",
+         "components/catalog/DiscoveryCard.tsx",
          "components/catalog/EntryRow.tsx",
          "components/catalog/ItemNavigation.tsx",
+         "components/catalog/KnowledgeBands.tsx",
+         "components/catalog/KnowledgeBrowse.tsx",
+         "components/catalog/KnowledgeHeader.tsx",
          "components/catalog/LessonHeader.tsx",
          "components/catalog/LessonRelated.tsx",
          "components/catalog/RelatedContent.tsx",
@@ -30,10 +34,12 @@ describe("catalog browser/Git boundary", () => {
          "components/catalog/TrackOutline.tsx",
          "components/catalog/blocks.ts",
          "lib/catalog/client.ts",
+         "lib/catalog/knowledge.ts",
          "lib/catalog/lesson.ts",
          "lib/catalog/navigation.ts",
          "lib/catalog/preview.ts",
          "lib/catalog/routes.ts",
+         "lib/catalog/topics.ts",
          "lib/catalog/track.ts",
          "lib/catalog/types.ts",
       ]);

@@ -87,6 +87,22 @@ describe("desktop contents", () => {
       expect(within(desktop()).getAllByRole("link").filter((link) => link.hasAttribute("aria-current"))).toHaveLength(1);
    });
 
+   it("can be a plain anchor list: nothing is observed and no entry is ever marked current", () => {
+      const observer = vi.fn();
+      vi.stubGlobal("IntersectionObserver", class { constructor() { observer(); } observe() {} disconnect() {} });
+      render(
+         <>
+            <LessonContents entries={ENTRIES} trackScroll={false} />
+            {ENTRIES.map(({ id, text }) => <h2 key={id} id={id} tabIndex={-1}>{text}</h2>)}
+         </>
+      );
+      expect(observer).not.toHaveBeenCalled();
+      fireEvent.click(within(desktop()).getByRole("link", { name: "Wrap up" }));
+      expect(heading("wrap-up")).toHaveFocus();
+      expect(document.querySelectorAll("[aria-current]")).toHaveLength(0);
+      expect(within(desktop()).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["#why", "#how", "#wrap-up"]);
+   });
+
    it("moves focus to the heading on click and scrolls to it, following the page's motion preference", () => {
       show();
       const replace = vi.spyOn(window.history, "replaceState");

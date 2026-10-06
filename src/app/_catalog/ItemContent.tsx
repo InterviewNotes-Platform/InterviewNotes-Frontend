@@ -8,6 +8,15 @@ interface ItemContentProps {
    reading?: { headings: readonly CatalogHeading[] };
 }
 
+/** Says only that something was left out for this caller: never which sections, so nothing about them is exposed. */
+export function WithheldNote() {
+   return (
+      <p role="note" className="mt-8 mb-0 rounded-lg bg-surface p-4 text-supporting text-muted-foreground">
+         Some sections of this content are premium and are not included in your access.
+      </p>
+   );
+}
+
 /** What the API released for this caller: the body, then each authorized section, and a note if some were withheld. */
 export function ItemContent({ item, stayOnDeployment, reading }: ItemContentProps) {
    return (
@@ -19,11 +28,7 @@ export function ItemContent({ item, stayOnDeployment, reading }: ItemContentProp
                <CatalogBody body={section.body} stayOnDeployment={stayOnDeployment} />
             </section>
          ))}
-         {item.sections_withheld ? (
-            <p role="note" className="mt-8 mb-0 rounded-lg bg-surface p-4 text-supporting text-muted-foreground">
-               Some sections of this content are premium and are not included in your access.
-            </p>
-         ) : null}
+         {item.sections_withheld ? <WithheldNote /> : null}
       </>
    );
 }

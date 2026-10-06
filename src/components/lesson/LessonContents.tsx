@@ -48,8 +48,10 @@ function Links({ entries, active, onJump, touch }: { entries: ContentsEntry[]; a
  * A Lesson's contents from its own headings: a sticky column from `lg`, a collapsed disclosure below it. Both jump
  * with real links; the disclosure closes first, so the page is never scrolled toward a heading that is about to move.
  */
-export function LessonContents({ entries, className }: { entries: ContentsEntry[]; className?: string }) {
-   const [active, choose] = useActiveHeading(entries.map(({ id }) => id));
+export function LessonContents({ entries, className, trackScroll = true }: { entries: ContentsEntry[]; className?: string; trackScroll?: boolean }) {
+   // Off for a short list of bands: the last would never reach the top of a short page, so the wrong entry would stay current.
+   const [tracked, choose] = useActiveHeading(trackScroll ? entries.map(({ id }) => id) : []);
+   const active = trackScroll ? tracked : null;
    const [open, setOpen] = useState(false);
 
    const jump = (id: string, delay = 0) => {
