@@ -117,11 +117,14 @@ describe("catalog route security boundary", () => {
       expect(routeFiles.map((f) => relative(APP, f)).sort()).toEqual([
          "_catalog/CatalogItemPage.tsx",
          "_catalog/CatalogStateNotice.tsx",
+         "_catalog/ItemContent.tsx",
+         "_catalog/LessonPage.tsx",
          "_catalog/PreviewMarker.tsx",
          "knowledge/[slug]/page.tsx",
          "lessons/[slug]/page.tsx",
          "problems/[slug]/page.tsx",
          "tracks/[slug]/page.tsx",
+         "tracks/page.tsx",
       ]);
    });
 

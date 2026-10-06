@@ -48,6 +48,7 @@ test.describe("desktop shell", () => {
 
 test.describe("active area", () => {
    const routes: [string, string | null][] = [
+      ["/tracks", "Learn"],
       [`/tracks/${track("catalog-e2e-home").slug}`, "Learn"],
       [LESSON, "Learn"],
       ["/learn", "Learn"],

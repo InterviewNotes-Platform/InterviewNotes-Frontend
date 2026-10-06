@@ -14,10 +14,13 @@ export const FAKE_AUTH_ORIGIN = `http://127.0.0.1:${FAKE_AUTH_PORT}`;
 export const PREVIEW_PORT = 3103;
 export const PREVIEW_API_PORT = 3104;
 export const REJECTED_PORT = 3105;
+export const EMPTY_PORT = 3108;
 export const PREVIEW_ORIGIN = `http://localhost:${PREVIEW_PORT}`;
 export const PREVIEW_API_ORIGIN = `http://127.0.0.1:${PREVIEW_API_PORT}`;
 /** Same build as the preview, but holding a credential the preview API does not recognise. */
 export const REJECTED_ORIGIN = `http://localhost:${REJECTED_PORT}`;
+/** Same build again, holding a credential the preview API accepts for a catalog with nothing published. */
+export const EMPTY_ORIGIN = `http://localhost:${EMPTY_PORT}`;
 /** The default `baseURL`: the production deployment, which holds no preview credential. */
 export const PRODUCTION_ORIGIN = "http://localhost:3100";
 export const PREVIEW_DIST = ".next-preview";
@@ -31,7 +34,8 @@ export const ISOLATED_ORIGIN = `http://localhost:${ISOLATED_PORT}`;
 /** Synthetic credentials only. Neither is the beta secret; each must never reach a browser. */
 export const PREVIEW_TOKEN = "e2e-synthetic-preview-token-0123456789abcdef";
 export const REJECTED_TOKEN = "e2e-synthetic-rejected-token-fedcba9876543210";
-const PREVIEW_TOKENS = [PREVIEW_TOKEN, REJECTED_TOKEN];
+export const EMPTY_TOKEN = "e2e-synthetic-empty-token-0f1e2d3c4b5a69788796";
+const PREVIEW_TOKENS = [PREVIEW_TOKEN, REJECTED_TOKEN, EMPTY_TOKEN];
 const SERVER_ONLY_ORIGINS = [FAKE_API_ORIGIN, PREVIEW_API_ORIGIN, ISOLATED_API_ORIGIN];
 
 /** Present only in premium bodies/sections of fixture.json; every canary is registered in tests/leak. */

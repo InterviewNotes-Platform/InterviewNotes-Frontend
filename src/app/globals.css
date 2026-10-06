@@ -334,12 +334,16 @@
   }
 }
 
-/* Reduced motion: collapse non-essential motion; 0.01ms (not none) keeps animationend/transitionend firing. */
+/*
+ * Reduced motion: collapse non-essential motion; 0.01ms (not none) keeps animationend/transitionend firing.
+ * Mermaid draws in a scratch box (`data-diagram-scratch`) that is exempt: it restyles labels and measures them at
+ * once, and a transition of any length makes it read half-changed sizes and lay the diagram out wrongly.
+ */
 @layer base {
   @media (prefers-reduced-motion: reduce) {
-    *,
-    ::before,
-    ::after {
+    *:not([data-diagram-scratch], [data-diagram-scratch] *),
+    *:not([data-diagram-scratch], [data-diagram-scratch] *)::before,
+    *:not([data-diagram-scratch], [data-diagram-scratch] *)::after {
       animation-duration: 0.01ms !important;
       animation-delay: 0s !important;
       animation-iteration-count: 1 !important;

@@ -42,6 +42,21 @@
       "relations": { "prerequisite_of": ["problem.catalog-e2e-related"] }
     },
     {
+      "id": "lesson.catalog-e2e-second",
+      "type": "lesson",
+      "slug": "catalog-e2e-second",
+      "title": "Synthetic Second Lesson",
+      "summary": "Second free synthetic lesson in the Home Track's first module.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "catalog-e2e-home",
+      "body": "## Second lesson heading\n\nSecond lesson body marker.\n",
+      "headings": [{ "id": "second-lesson-heading", "level": 2, "text": "Second lesson heading" }],
+      "relations": {}
+    },
+    {
       "id": "knowledge.catalog-e2e-sections",
       "type": "knowledge",
       "slug": "catalog-e2e-sections",
@@ -51,7 +66,7 @@
       "difficulty": null,
       "level": "intermediate",
       "access": "free",
-      "home": "catalog-e2e-home",
+      "home": "",
       "category": "concept",
       "sections": [
         { "id": "definition", "type": "definition", "title": "Public definition", "access": "free", "text": "Public section marker." },
@@ -174,6 +189,144 @@
         { "id": "deep-dive", "type": "deep_dive", "title": "Deep dive", "access": "premium", "text": "PREMIUM_DEEP_DIVE_CANARY_T24 premium deep dive body." }
       ],
       "relations": {}
+    },
+    {
+      "id": "lesson.p2-t4-foundations",
+      "type": "lesson",
+      "slug": "p2-t4-foundations",
+      "title": "Synthetic Foundations Lesson",
+      "summary": "Free synthetic lesson that opens the curriculum Track.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t4-curriculum",
+      "body": "## Foundations heading\n\nCurriculum foundations marker.\n",
+      "headings": [{ "id": "foundations-heading", "level": 2, "text": "Foundations heading" }],
+      "relations": {}
+    },
+    {
+      "id": "problem.p2-t4-practice",
+      "type": "problem",
+      "slug": "p2-t4-practice",
+      "title": "Synthetic Practice Step",
+      "summary": "Free synthetic problem placed in the curriculum Track.",
+      "tags": ["e2e"],
+      "difficulty": "medium",
+      "level": null,
+      "access": "free",
+      "home": "p2-t4-curriculum",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "Curriculum practice prompt marker." }
+      ],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p2-t4-premium-depth",
+      "type": "lesson",
+      "slug": "p2-t4-premium-depth",
+      "title": "Synthetic Premium Depth Lesson",
+      "summary": "Premium synthetic lesson in the curriculum Track; only its metadata is public.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "advanced",
+      "access": "premium",
+      "home": "p2-t4-curriculum",
+      "body": "## Premium depth heading\n\nCATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium depth body.\n",
+      "headings": [{ "id": "premium-depth-heading", "level": 2, "text": "Premium depth heading" }],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p2-t5-primer",
+      "type": "lesson",
+      "slug": "p2-t5-primer",
+      "title": "Synthetic Reading Primer",
+      "summary": "Short free synthetic lesson that precedes the long reading lesson, with no relations.",
+      "tags": ["e2e"],
+      "difficulty": null,
+      "level": "foundational",
+      "access": "free",
+      "home": "p2-t5-reading",
+      "body": "## Primer heading\n\nSynthetic reading primer marker.\n",
+      "headings": [{ "id": "primer-heading", "level": 2, "text": "Primer heading" }],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p2-t5-long",
+      "type": "lesson",
+      "slug": "p2-t5-long",
+      "title": "Synthetic Long-Form Lesson",
+      "summary": "Free synthetic lesson, several screens long, with every kind of technical block, for the reading layout.",
+      "tags": ["e2e"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "p2-t5-reading",
+      "body": "Synthetic long-form lesson marker. This lesson exists only to exercise the reading layout: it is long enough to need contents, and it carries every kind of technical block the renderer supports.\n\n## Why batching changes the economics\n\nA model server that handles one request at a time leaves most of the accelerator idle. Batching groups requests so one pass over the weights serves many of them, which is how a fixed hardware budget turns into more completed requests. The first idea to hold on to is that the weights are read once per pass, however many requests ride along. A reader who already knows [the failure modes](ref:knowledge.catalog-e2e-sections) of a cache can skim the next paragraph.\n\nMemory traffic, not arithmetic, usually sets the pace. Each decode step reads every weight to produce a single token for each request in the batch, so the cost of a step barely grows as the batch grows, until the batch becomes large enough that arithmetic starts to matter. That crossover is where throughput stops improving and latency starts to suffer.\n\n::: callout kind=note\nEverything in this lesson is synthetic and invented for layout testing. The numbers are placeholders, not measurements of any real system.\n:::\n\n### The latency budget\n\nInteractive use sets a latency budget before any batching decision is made. If a reader expects the first token within a fraction of a second and subsequent tokens at reading speed, then the scheduler may only wait so long to fill a batch. The longer it waits, the larger the batch, and the later the first request in that batch gets its answer.\n\nTwo numbers describe the budget. The queueing delay is how long a request waits before it joins a batch. The step time is how long one pass takes once it has. The sum of the first and a handful of the second is what a user feels.\n\n### Throughput versus tail latency\n\nRaising the batch size raises throughput and, past some point, raises the slowest requests' latency faster than the average. Tail latency is what breaks a service level objective, so tuning for the average hides the problem. The table below compares three synthetic operating points; the identifiers are deliberately long so the table is wider than a phone.\n\n| `synthetic_operating_point` | `synthetic_batch_size_limit` | `synthetic_p50_latency_ms` | `synthetic_p99_latency_ms` | `synthetic_tokens_per_second` | `synthetic_cost_per_million_tokens` |\n|---|---|---|---|---|---|\n| `value_conservative_operating_point` | `value_batch_size_limit_8` | `value_p50_latency_ms_120` | `value_p99_latency_ms_210` | `value_tokens_per_second_900` | `value_cost_per_million_tokens_high` |\n| `value_balanced_operating_point` | `value_batch_size_limit_32` | `value_p50_latency_ms_180` | `value_p99_latency_ms_420` | `value_tokens_per_second_2600` | `value_cost_per_million_tokens_medium` |\n| `value_aggressive_operating_point` | `value_batch_size_limit_128` | `value_p50_latency_ms_340` | `value_p99_latency_ms_1500` | `value_tokens_per_second_4100` | `value_cost_per_million_tokens_low` |\n\nRead down a column to see the trade. Read across a row to see what one setting costs elsewhere.\n\n## Sizing the `kv_cache` budget\n\nEach request in flight keeps a cache of the keys and values it has produced so far, so that a new token does not recompute the whole history. The cache grows with every token, and it lives in the same scarce memory as the weights. How many requests fit in a batch is therefore decided by memory long before arithmetic.\n\n::: callout kind=tip\nBudget the cache for the longest context you intend to serve, then check how many such requests fit. A scheduler that admits more than that will evict, and eviction is a latency spike nobody planned for.\n:::\n\n### A back-of-the-envelope estimate\n\nWork the estimate per token first, then multiply. The per-token cost is two tensors, for keys and for values, across every layer, at the numeric width in use. Multiply by the context length for one request, then by the batch size for the whole batch.\n\n```python\ndef synthetic_kv_cache_bytes(layers, kv_heads, head_dim, dtype_bytes, context_tokens, batch_size):\n    per_token = 2 * layers * kv_heads * head_dim * dtype_bytes  # keys and values for every layer\n    return per_token * context_tokens * batch_size\n\n\ndef synthetic_max_batch_for_budget(budget_bytes, layers, kv_heads, head_dim, dtype_bytes, context_tokens):\n    one_request = synthetic_kv_cache_bytes(layers, kv_heads, head_dim, dtype_bytes, context_tokens, batch_size=1)\n    return int(budget_bytes // one_request)\n\n\nclass SyntheticAdmissionController:\n    def __init__(self, budget_bytes, layers, kv_heads, head_dim, dtype_bytes, max_context_tokens, reserve_fraction=0.1):\n        self.budget_bytes = int(budget_bytes * (1.0 - reserve_fraction))\n        self.limit = synthetic_max_batch_for_budget(self.budget_bytes, layers, kv_heads, head_dim, dtype_bytes, max_context_tokens)\n        self.running = 0\n\n    def try_admit(self, request_id, prompt_tokens, requested_new_tokens):\n        if self.running >= self.limit:\n            return {\"admitted\": False, \"reason\": \"kv_cache_budget_exhausted\", \"request_id\": request_id, \"retry_after_ms\": 50}\n        self.running += 1\n        return {\"admitted\": True, \"request_id\": request_id, \"prompt_tokens\": prompt_tokens, \"reserved_new_tokens\": requested_new_tokens}\n\n    def release(self, request_id):\n        self.running = max(0, self.running - 1)\n        return {\"released\": request_id, \"running\": self.running}\n```\n\nThe estimate ignores paging overhead and fragmentation, which is why a real system reserves a margin. The reserve fraction above is that margin.\n\n### Example\n\nTake a deployment with a fixed cache budget and a target context length. Divide the budget by the cost of one request at that length. The result is the number of requests that can be in flight at once, and it is a ceiling, not a target.\n\n## Where the pipeline spends its time\n\nBefore a request reaches the accelerator it passes through several stages, and each can become the bottleneck. A diagram of the shortest useful path makes the ordering concrete.\n\n```mermaid\ngraph LR\n  Client[Client] --> Gateway[Gateway] --> Server[Model server]\n```\n\nReal deployments add stages, and the diagram grows with them. The next diagram shows a fuller path with long stage names, and it is wider than any column of text, so it must scroll instead of shrinking until the labels cannot be read.\n\n```mermaid\ngraph LR\n  A[Client request arrives at the edge gateway] --> B[Admission control and quota check]\n  B --> C[Prompt tokenization and prefix cache lookup]\n  C --> D[Scheduler assigns a continuous batch slot]\n  D --> E[Prefill on the prompt processing pool]\n  E --> F[Decode on the token generation pool]\n  F --> G[Streaming response assembly and filtering]\n  G --> H[Usage metering and audit logging]\n```\n\n### Prefill and decode\n\nPrefill processes the whole prompt at once and is limited by arithmetic. Decode produces one token at a time and is limited by memory traffic. Serving them on the same accelerator makes them interfere, which is why some systems split them across pools and ship the cache between them. Whether that split pays for itself depends on how long the prompts are and how much the transfer costs. A reader comparing designs can practise exactly this reasoning on [a design problem](ref:problem.p2-t4-practice), and the [earlier lesson](ref:lesson.catalog-e2e-second) covers the arithmetic.\n\n::: callout kind=warning\nDo not tune the batch size on average latency alone. A change that improves the average can quietly push the slowest requests past the objective.\n:::\n\n### Example\n\nA second worked case, kept short so the duplicate heading above gets its own anchor. Suppose prompts are long and answers are short. Prefill dominates, the decode pool idles, and splitting the two pools raises utilisation. Suppose instead that prompts are short and answers are long. Decode dominates and the split buys little.\n\n## Why [batching](ref:knowledge.t24-premium-deep-dive) is not the whole story\n\nBatching is one lever among several. Quantisation shrinks the weights and the cache, which raises the batch limit directly. Speculative decoding spends spare arithmetic to produce several tokens per pass. Prefix caching avoids recomputing a shared prompt. Each interacts with the others, and each moves the point where the trade-offs bite.\n\n### Putting it together\n\nChoose the latency budget first, because it is a requirement, then the cache budget, because it is a constraint, and only then the batch size, because it is a consequence. Reversing that order is the most common way to build a system that benchmarks well and serves badly.\n\n#### A short checklist\n\n- State the latency objective for the first token and for later tokens.\n- Compute the cache cost of one request at the longest supported context.\n- Divide the memory budget by that cost and keep a reserve.\n- Measure tail latency, not only the average, at the chosen limit.\n\n## Summary\n\nBatching trades latency for throughput, memory decides how far that trade can go, and the order in which you fix the budgets decides whether the result is a service or a benchmark. The practice problems that follow ask you to make exactly these choices.\n",
+      "headings": [
+        { "id": "why-batching-changes-the-economics", "level": 2, "text": "Why batching changes the economics" },
+        { "id": "the-latency-budget", "level": 3, "text": "The latency budget" },
+        { "id": "throughput-versus-tail-latency", "level": 3, "text": "Throughput versus tail latency" },
+        { "id": "sizing-the-kv-cache-budget", "level": 2, "text": "Sizing the `kv_cache` budget" },
+        { "id": "a-back-of-the-envelope-estimate", "level": 3, "text": "A back-of-the-envelope estimate" },
+        { "id": "example", "level": 3, "text": "Example" },
+        { "id": "where-the-pipeline-spends-its-time", "level": 2, "text": "Where the pipeline spends its time" },
+        { "id": "prefill-and-decode", "level": 3, "text": "Prefill and decode" },
+        { "id": "example-2", "level": 3, "text": "Example" },
+        { "id": "why-batching-ref-knowledge-t24-premium-deep-dive-is-not-the-whole-story", "level": 2, "text": "Why [batching](ref:knowledge.t24-premium-deep-dive) is not the whole story" },
+        { "id": "putting-it-together", "level": 3, "text": "Putting it together" },
+        { "id": "a-short-checklist", "level": 4, "text": "A short checklist" },
+        { "id": "summary", "level": 2, "text": "Summary" }
+      ],
+      "relations": {
+        "applies": ["knowledge.t24-premium-deep-dive", "knowledge.catalog-e2e-sections"],
+        "prerequisite": ["knowledge.catalog-e2e-sections", "lesson.p2-t5-primer"],
+        "prerequisite_of": ["problem.p2-t4-practice", "problem.p2-t5-premium-practice", "problem.catalog-e2e-related"],
+        "related": ["problem.t24-premium-solution", "lesson.catalog-e2e-second", "knowledge.t24-premium-deep-dive"]
+      }
+    },
+    {
+      "id": "lesson.p2-t5-premium",
+      "type": "lesson",
+      "slug": "p2-t5-premium",
+      "title": "Synthetic Premium Reading Lesson",
+      "summary": "Premium synthetic lesson in the reading Track; only its metadata is public.",
+      "tags": ["e2e"],
+      "difficulty": "hard",
+      "level": "advanced",
+      "access": "premium",
+      "home": "p2-t5-reading",
+      "body": "## Premium reading heading\n\nCATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium reading body.\n\n## Premium reading second heading\n\nMore premium synthetic prose.\n\n### Premium reading subsection\n\nEven more premium synthetic prose.\n",
+      "headings": [
+        { "id": "premium-reading-heading", "level": 2, "text": "Premium reading heading" },
+        { "id": "premium-reading-second-heading", "level": 2, "text": "Premium reading second heading" },
+        { "id": "premium-reading-subsection", "level": 3, "text": "Premium reading subsection" }
+      ],
+      "relations": {
+        "prerequisite": ["lesson.p2-t5-long"],
+        "prerequisite_of": ["problem.p2-t5-premium-practice"],
+        "related": ["knowledge.catalog-e2e-sections"]
+      }
+    },
+    {
+      "id": "problem.p2-t5-premium-practice",
+      "type": "problem",
+      "slug": "p2-t5-premium-practice",
+      "title": "Synthetic Premium Practice Problem",
+      "summary": "Premium synthetic problem that follows the long reading lesson; only its metadata is public.",
+      "tags": ["e2e"],
+      "difficulty": "hard",
+      "level": null,
+      "access": "premium",
+      "home": "",
+      "category": "system_design",
+      "sections": [
+        { "id": "prompt", "type": "prompt", "title": "Prompt", "access": "premium", "text": "CATALOG_PREMIUM_CANARY__DO_NOT_LEAK premium practice prompt." }
+      ],
+      "relations": {
+        "prerequisite": ["lesson.p2-t5-long"]
+      }
     }
   ],
   "tracks": [
@@ -183,7 +336,7 @@
       "title": "E2E Home Track",
       "summary": "Home Track marker.",
       "modules": [
-        { "key": "orientation", "title": "Orientation", "items": ["lesson.catalog-e2e-free", "knowledge.catalog-e2e-sections"] },
+        { "key": "orientation", "title": "Orientation", "items": ["lesson.catalog-e2e-free", "lesson.catalog-e2e-second"] },
         { "key": "applied-practice", "title": "Applied Practice", "items": ["problem.catalog-e2e-related", "lesson.catalog-e2e-premium"] }
       ]
     },
@@ -194,6 +347,43 @@
       "summary": "Alternate Track marker.",
       "modules": [
         { "key": "extras", "title": "Extras", "items": ["problem.catalog-e2e-related", "lesson.catalog-e2e-free"] }
+      ]
+    },
+    {
+      "id": "track.p2-t4-curriculum",
+      "slug": "p2-t4-curriculum",
+      "title": "Synthetic Curriculum Track",
+      "summary": "Three modules with mixed Lesson and Problem placements, one premium entry and one empty module.",
+      "modules": [
+        { "key": "foundations", "title": "Foundations", "items": ["lesson.p2-t4-foundations", "problem.p2-t4-practice"] },
+        { "key": "depth", "title": "Going Deeper", "items": ["lesson.p2-t4-premium-depth"] },
+        { "key": "coming-next", "title": "Coming Next", "items": [] }
+      ]
+    },
+    {
+      "id": "track.p2-t4-premium-first",
+      "slug": "p2-t4-premium-first",
+      "title": "Synthetic Premium-First Track",
+      "summary": "A Track whose first entry in curriculum order is premium, followed by a free one.",
+      "modules": [
+        { "key": "opening", "title": "Opening", "items": ["lesson.p2-t4-premium-depth", "lesson.p2-t4-foundations"] }
+      ]
+    },
+    {
+      "id": "track.p2-t4-empty",
+      "slug": "p2-t4-empty",
+      "title": "Synthetic Empty Track",
+      "summary": "A Track with no published modules yet.",
+      "modules": []
+    },
+    {
+      "id": "track.p2-t5-reading",
+      "slug": "p2-t5-reading",
+      "title": "Synthetic Reading Track",
+      "summary": "Two modules of Lessons for the reading layout: a free primer and long lesson, then a premium one.",
+      "modules": [
+        { "key": "reading-foundations", "title": "Reading Foundations", "items": ["lesson.p2-t5-primer", "lesson.p2-t5-long"] },
+        { "key": "reading-deeper", "title": "Reading Deeper", "items": ["lesson.p2-t5-premium"] }
       ]
     }
   ],

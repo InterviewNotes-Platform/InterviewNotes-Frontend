@@ -10,6 +10,9 @@ export const TYPE_LABEL: Record<CatalogItemType, string> = {
    problem: "Problem",
 };
 
+export const DIFFICULTY_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard" } as const;
+export const LEVEL_LABEL = { foundational: "Foundational", intermediate: "Intermediate", advanced: "Advanced" } as const;
+
 /** The API marks premium access; whether this reader holds it is decided only when the page loads. */
 export function PremiumMark() {
    return (
@@ -25,16 +28,18 @@ interface EntryRowProps {
    /** A canonical route from `linkableEntries`. */
    href: string;
    current?: boolean;
+   /** `false` for a page that must not make the server read every target in view; free links otherwise prefetch. */
+   prefetch?: false;
 }
 
 /** One link to a catalog item. A premium target is marked and never prefetched. */
-export function EntryRow({ entry, href, current = false }: EntryRowProps) {
+export function EntryRow({ entry, href, current = false, prefetch }: EntryRowProps) {
    return (
       <li>
          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <Link
                href={href}
-               prefetch={entry.access === "premium" ? false : undefined}
+               prefetch={entry.access === "premium" ? false : prefetch}
                aria-current={current ? "page" : undefined}
                className={cn("text-body font-medium transition-micro hover:text-primary", current ? "text-primary" : "text-foreground")}
             >

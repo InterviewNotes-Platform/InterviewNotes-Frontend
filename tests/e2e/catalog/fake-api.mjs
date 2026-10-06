@@ -8,8 +8,10 @@ const [apiPort, authPort] = process.argv.slice(2).map(Number);
 const HOST = "127.0.0.1";
 // Set: a preview API (backend D9), answering /catalog only to the holder of this secret. Unset: production.
 const previewToken = process.env.FAKE_API_PREVIEW_TOKEN;
+// Set: a second credential the preview API accepts, for a catalog with nothing published (empty states).
+const emptyToken = process.env.FAKE_API_EMPTY_TOKEN;
 const PRIVATE = "private, no-store";
-/** Every /catalog request and the preview credential it presented, served or refused. */
+/** Every /catalog request, with its query string and the preview credential it presented, served or refused. */
 const catalogLog = [];
 
 const items = new Map(fixture.items.map((item) => [item.id, item]));
@@ -77,7 +79,70 @@ function trackOut(track) {
    return { id, slug, title, summary, modules };
 }
 
-function catalog(req, res, path) {
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const ITEM_ID = /^(?:knowledge|lesson|problem)\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const LIST_PARAMS = new Set(["type", "tag", "difficulty", "level", "access", "track", "module", "limit", "cursor"]);
+const ENUMS = {
+   type: ["track", "knowledge", "lesson", "problem"],
+   difficulty: ["easy", "medium", "hard"],
+   level: ["foundational", "intermediate", "advanced"],
+   access: ["free", "premium"],
+};
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
+const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/** Backend `GET /catalog/tracks`: published Tracks by id, identity and summary only, never paginated. */
+function listTracks(res) {
+   const listed = [...tracks.values()].sort(byId).map(({ id, slug, title, summary }) => ({ id, slug, title, summary }));
+   return send(res, 200, { tracks: listed });
+}
+
+/**
+ * Backend `GET /catalog/items`: parameter validation (422), then the handler's checks, then an AND of the
+ * filters ordered by id with a keyset cursor. The cursor is the last item's id, as the backend issues it.
+ */
+function listItems(res, query) {
+   const invalid = (detail) => send(res, 422, { detail });
+   for (const [name, allowed] of Object.entries(ENUMS)) {
+      if (query.has(name) && !allowed.includes(query.get(name))) return invalid(`Invalid ${name}`);
+   }
+   if (query.get("tag") === "") return invalid("Invalid tag");
+   const limit = query.has("limit") ? Number(query.get("limit")) : DEFAULT_LIMIT;
+   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) return invalid("Invalid limit");
+   const unsupported = [...new Set(query.keys())].filter((name) => !LIST_PARAMS.has(name)).sort();
+   if (unsupported.length > 0) return invalid(`Unsupported query parameter: ${unsupported.join(", ")}`);
+
+   const slug = query.get("track");
+   const track = slug === null ? null : SLUG.test(slug) ? tracks.get(slug) : undefined;
+   if (track === undefined) return send(res, 404, { detail: "Track not found" });
+   if (query.get("type") === "track") return invalid("A Track is not an item");
+   const moduleKey = query.get("module");
+   if (moduleKey !== null && track === null) return invalid("module requires track");
+   if (moduleKey !== null && !SLUG.test(moduleKey)) return invalid("Malformed module key");
+   const cursor = query.get("cursor");
+   if (cursor !== null && !ITEM_ID.test(cursor)) return invalid("Malformed cursor");
+
+   const placed = track && new Set(track.modules.filter((m) => moduleKey === null || m.key === moduleKey).flatMap((m) => m.items));
+   const matches = [...items.values()]
+      .filter(
+         (item) =>
+            (!query.has("type") || item.type === query.get("type")) &&
+            (!query.has("access") || item.access === query.get("access")) &&
+            (!query.has("difficulty") || item.difficulty === query.get("difficulty")) &&
+            (!query.has("level") || item.level === query.get("level")) &&
+            (!query.has("tag") || item.tags.includes(query.get("tag"))) &&
+            (placed === null || placed.has(item.id)) &&
+            (cursor === null || item.id > cursor)
+      )
+      .sort(byId);
+   const page = matches.slice(0, limit);
+   return send(res, 200, { items: page.map(meta), next_cursor: matches.length > limit ? page.at(-1).id : null });
+}
+
+function catalog(req, res, path, query) {
+   if (path === "/catalog/tracks") return listTracks(res);
+   if (path === "/catalog/items") return listItems(res, query);
    const track = /^\/catalog\/tracks\/([^/]+)$/.exec(path);
    if (track) {
       const found = tracks.get(decodeURIComponent(track[1]));
@@ -102,14 +167,22 @@ function catalog(req, res, path) {
 }
 
 /** Backend `PreviewBoundary`: a preview API serves only its trusted server; production refuses any preview credential. */
-function guardedCatalog(req, res, path) {
+function guardedCatalog(req, res, path, query) {
    const presented = req.headers["x-preview-token"] ?? null;
-   catalogLog.push({ path, presented });
+   catalogLog.push({ path, query: query.toString(), presented });
    if (previewToken === undefined) {
-      return presented === null ? catalog(req, res, path) : send(res, 403, { detail: "Forbidden" });
+      return presented === null ? catalog(req, res, path, query) : send(res, 403, { detail: "Forbidden" });
    }
    res.setHeader("cache-control", PRIVATE);
-   return presented === previewToken ? catalog(req, res, path) : send(res, 403, { detail: "Forbidden" });
+   if (emptyToken !== undefined && presented === emptyToken) return emptyCatalog(res, path);
+   return presented === previewToken ? catalog(req, res, path, query) : send(res, 403, { detail: "Forbidden" });
+}
+
+/** A catalog that is enabled and reachable but has published nothing: the lists are empty, every item is unknown. */
+function emptyCatalog(res, path) {
+   if (path === "/catalog/tracks") return send(res, 200, { tracks: [] });
+   if (path === "/catalog/items") return send(res, 200, { items: [], next_cursor: null });
+   return send(res, 404, { detail: "Not found" });
 }
 
 /** The legacy `/content` endpoints read by `/learn/*`. */
@@ -149,11 +222,11 @@ function content(req, res, path) {
 }
 
 const api = createServer((req, res) => {
-   const path = new URL(req.url, `http://${HOST}`).pathname;
+   const { pathname: path, searchParams: query } = new URL(req.url, `http://${HOST}`);
    if (req.method !== "GET") return send(res, 405, { detail: "Method not allowed" });
    if (path === "/health") return send(res, 200, { status: "ok" });
    if (path === "/__catalog-log") return send(res, 200, catalogLog);
-   if (path.startsWith("/catalog/")) return guardedCatalog(req, res, path);
+   if (path.startsWith("/catalog/")) return guardedCatalog(req, res, path, query);
    if (path.startsWith("/content/")) return content(req, res, path);
    return send(res, 404, { detail: "Not found" });
 });

@@ -61,3 +61,16 @@ describe("TechnicalScroll", () => {
       expect(disconnect).toHaveBeenCalled();
    });
 });
+
+describe("TechnicalScroll state attribute", () => {
+   it("says whether the content scrolls, so a caller can style the overflowing state alone", () => {
+      const measure = mockOverflow({ scrollWidth: 300, clientWidth: 300 });
+      const { container } = show();
+      measure();
+      const box = container.querySelector('[data-slot="technical-scroll"]');
+      expect(box).toHaveAttribute("data-scrolls", "false");
+
+      measure({ scrollWidth: 900 });
+      expect(box).toHaveAttribute("data-scrolls", "true");
+   });
+});

@@ -112,9 +112,10 @@ test.describe("preview deployment", () => {
             expect(href, `${route}: ${href} leaves the deployment`).toMatch(/^(\/(?!\/)|#)/);
             expect(href).not.toMatch(/localhost:3100|127\.0\.0\.1|^https?:/);
          }
+         // `/tracks` is the Learn index (a Lesson's first breadcrumb step); `#id` is a Lesson heading anchor on this page.
          for (const href of await hrefs(page, "main a[href]")) {
             expect(href, `${route}: ${href} is not a canonical catalog route`).toMatch(
-               /^(\/(lessons|problems|knowledge|tracks)\/[a-z0-9-]+|\/login\?redirect=%2F(lessons|problems|knowledge|tracks)%2F[a-z0-9-]+)$/
+               /^(\/tracks|#[a-z0-9_-]+|\/(lessons|problems|knowledge|tracks)\/[a-z0-9-]+|\/login\?redirect=%2F(lessons|problems|knowledge|tracks)%2F[a-z0-9-]+)$/
             );
          }
       }
