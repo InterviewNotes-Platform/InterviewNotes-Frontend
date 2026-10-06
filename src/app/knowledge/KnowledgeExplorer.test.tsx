@@ -109,6 +109,52 @@ describe("/knowledge populated", () => {
       expect(screen.getAllByText("Premium")).toHaveLength(1);
    });
 
+   describe("quiet topics on a card", () => {
+      const card = (title: string) => screen.getByRole("heading", { name: title }).closest("article")! as HTMLElement;
+      const topicsLine = (title: string) => [...card(title).querySelectorAll("p")].find((line) => line.textContent?.startsWith("Topics:"));
+
+      it("shows a card's tags as one line of plain text under the summary, before the closing cue", async () => {
+         await view();
+         const line = topicsLine("Topic attention")!;
+         expect(line.textContent).toBe("Topics: transformers · deep-learning");
+         expect(within(line as HTMLElement).getByText("Topics:")).toHaveClass("sr-only");
+         const paragraphs = [...card("Topic attention").querySelectorAll("p")];
+         expect(paragraphs.map((p) => p.textContent?.slice(0, 12))).toEqual(["Concept", "Summary of a", "Topics: tran"]);
+         expect(card("Topic attention").lastElementChild).toHaveAttribute("aria-hidden", "true");
+      });
+
+      it("is not chips or links: the card keeps exactly one link and no control", async () => {
+         await view();
+         for (const article of document.querySelectorAll("main article")) {
+            expect(within(article as HTMLElement).getAllByRole("link")).toHaveLength(1);
+            expect(within(article as HTMLElement).queryByRole("button")).not.toBeInTheDocument();
+         }
+         const line = topicsLine("Topic attention")!;
+         expect(line.querySelectorAll("a, button, [class*='rounded'], [class*='border']")).toHaveLength(0);
+         expect(line.className).toMatch(/text-supporting.*text-muted-foreground/);
+      });
+
+      it("shows at most three, in the API's order, so cards stay calm", async () => {
+         listCatalogItems.mockResolvedValue(page([topic("many", "concept", { tags: ["a", "b", "c", "d", "e"] })]));
+         await view();
+         expect(topicsLine("Topic many")!.textContent).toBe("Topics: a · b · c");
+         expect(card("Topic many")).not.toHaveTextContent(/\bd\b|\be\b/);
+      });
+
+      it("shows no topics line for a topic with no tags, and keeps the summary spacing", async () => {
+         await view();
+         expect(topicsLine("Topic latency")).toBeUndefined();
+         expect(card("Topic latency").querySelector("p.mb-6")).toHaveTextContent("Summary of latency.");
+      });
+
+      it("still lists every tag in Browse by topic, including those a card does not show", async () => {
+         listCatalogItems.mockResolvedValue(page([topic("many", "concept", { tags: ["a", "b", "c", "d", "e"] })]));
+         await view();
+         const nav = within(screen.getByRole("navigation", { name: "Browse by topic" }));
+         expect(nav.getAllByRole("link").map((link) => link.textContent)).toEqual(["a", "b", "c", "d", "e"]);
+      });
+   });
+
    it("reserves the same eyebrow line on every card, so titles align across a row whatever the category", async () => {
       await view();
       const eyebrows = [...document.querySelectorAll("main article")].map((card) => card.firstElementChild as HTMLElement);

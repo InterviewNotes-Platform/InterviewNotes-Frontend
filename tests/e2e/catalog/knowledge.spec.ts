@@ -87,6 +87,11 @@ test.describe("the Knowledge explorer", () => {
       const attention = cards(page).filter({ hasText: RICH.title });
       await expect(attention.getByRole("link")).toHaveAttribute("href", canonical(RICH.id));
       await expect(attention).toContainText("Concept");
+      // Quiet topics: plain text under the summary, capped at three, never a link or a control of their own.
+      const topicsLine = attention.locator("p").filter({ hasText: /^Topics:/ });
+      await expect(topicsLine).toHaveText(`Topics: ${(TOPICS.find((topic) => topic.id === RICH.id)!.tags.slice(0, 3)).join(" · ")}`);
+      await expect(topicsLine.locator("a, button")).toHaveCount(0);
+      await expect(cards(page).filter({ hasText: item("knowledge.p2-t6-latency-cheatsheet").title }).locator("p").filter({ hasText: /^Topics:/ })).toHaveCount(1);
       await expect(cards(page).filter({ hasText: PREMIUM.title }).getByText("Premium", { exact: true })).toHaveCount(1);
       await expect(cards(page).filter({ hasText: UNLABELLED.title }).getByText(/^(Concept|Term|Technology|Research|Pattern|Quick reference)$/)).toHaveCount(0);
    });

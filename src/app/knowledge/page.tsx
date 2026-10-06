@@ -5,7 +5,7 @@ import { CatalogStateNotice } from "@/app/_catalog/CatalogStateNotice";
 import { PreviewMarker, withPreviewRobots } from "@/app/_catalog/PreviewMarker";
 import { DiscoveryCard } from "@/components/catalog/DiscoveryCard";
 import { PremiumMark } from "@/components/catalog/EntryRow";
-import { KnowledgeCategories, TopicPager, TopicTags } from "@/components/catalog/KnowledgeBrowse";
+import { CardTopics, KnowledgeCategories, TopicPager, TopicTags } from "@/components/catalog/KnowledgeBrowse";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { categoryLabel, explorerHref, parseExplorerQuery, topicsOf } from "@/lib/catalog/knowledge";
 import { linkableEntries } from "@/lib/catalog/routes";
@@ -87,6 +87,7 @@ export default async function KnowledgeExplorerPage({ searchParams }: PageProps)
                                     summary={entry.summary}
                                     href={href}
                                     cue="Read topic"
+                                    meta={entry.tags.length > 0 ? <CardTopics tags={entry.tags} /> : undefined}
                                     eyebrow={
                                        <>
                                           {label ? <span>{label}</span> : null}

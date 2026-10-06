@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Disclosure } from "@/components/ui/disclosure";
@@ -30,6 +31,23 @@ export function KnowledgeCategories({ current }: { current: KnowledgeGroup | nul
             })}
          </ul>
       </nav>
+   );
+}
+
+const CARD_TOPIC_LIMIT = 3;
+
+/** A card's topics as one quiet line of plain text, never chips or links; the rest stay reachable through "Browse by topic". */
+export function CardTopics({ tags }: { tags: readonly string[] }) {
+   return (
+      <>
+         <span className="sr-only">Topics: </span>
+         {tags.slice(0, CARD_TOPIC_LIMIT).map((tag, index) => (
+            <Fragment key={`${index}:${tag}`}>
+               {index > 0 ? <span aria-hidden="true"> · </span> : null}
+               {tag}
+            </Fragment>
+         ))}
+      </>
    );
 }
 
