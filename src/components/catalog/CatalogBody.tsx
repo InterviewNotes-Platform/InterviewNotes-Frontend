@@ -199,7 +199,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids }: BlocksProps) {
 interface CatalogBodyProps {
    body: CatalogBodyData;
    stayOnDeployment?: boolean;
-   /** Lesson reading: the API's headings give the rendered headings their ids; Knowledge refs and diagrams are set apart. */
+   /** Reading mode (Lesson, Problem): the API's headings give the rendered headings their ids; Knowledge refs and diagrams are set apart and links never prefetch. */
    reading?: { headings: readonly CatalogHeading[] };
 }
 

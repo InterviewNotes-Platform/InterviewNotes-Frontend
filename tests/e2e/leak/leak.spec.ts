@@ -133,7 +133,7 @@ for (const { name, baseURL } of [
             test("client navigation to a premium neighbour fetches RSC that holds no canary", async ({ page, traffic }) => {
                for (const { route, title } of NEIGHBOURS) {
                   await page.goto(PROBLEM);
-                  await page.getByRole("region", { name: "Related content" }).getByRole("link", { name: title }).click();
+                  await page.getByRole("main").getByRole("region", { name: /^Related (Knowledge|Lessons|Problems)$/ }).getByRole("link", { name: title }).click();
                   await expect(page).toHaveURL(`${baseURL}${route}`);
                   await page.waitForLoadState("networkidle");
                   const received = await traffic.responses();

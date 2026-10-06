@@ -169,10 +169,14 @@ test.describe("fake catalog list endpoints", () => {
          expect((await page(request, `?type=knowledge&category=${category}`)).items.map((i) => i.id), category).toEqual(expected(category));
          expect((await page(request, `?category=${category}`)).items.map((i) => i.id), `${category} needs no type`).toEqual(expected(category));
       }
-      const problems = (await page(request, "?category=system_design")).items;
-      expect(problems.length).toBeGreaterThan(0);
-      for (const i of problems) expect(i.type).toBe("problem");
-      expect((await page(request, "?category=ml_system_design")).items).toEqual([]);
+      const problems = fixture.items.filter((candidate) => candidate.type === "problem") as unknown as { id: string; category: string | null }[];
+      for (const category of ["system_design", "ml_system_design"]) {
+         const wanted = problems.filter((candidate) => candidate.category === category).map((candidate) => candidate.id).sort();
+         expect(wanted.length, `fixture has no ${category} Problem`).toBeGreaterThan(0);
+         const found = (await page(request, `?category=${category}`)).items;
+         expect(found.map((i) => i.id), category).toEqual(wanted);
+         for (const i of found) expect(i.type).toBe("problem");
+      }
    });
 
    test("combines category with the other filters and pages it like any other", async ({ request }) => {

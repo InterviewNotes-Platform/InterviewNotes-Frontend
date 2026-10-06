@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
    CANARY,
    canonical,
@@ -25,9 +25,10 @@ const LOCKED: { identity: Exclude<Identity, "entitled">; notice: string }[] = [
 
 const main = (page: Page) => page.getByRole("main");
 const title = (page: Page) => main(page).getByRole("heading", { level: 1 });
-const related = (page: Page) => page.getByRole("region", { name: "Related content" });
-const trackContext = (page: Page) => page.getByRole("navigation", { name: "Track context" });
-// Lessons carry their own breadcrumb (Learn / Track / Module); Knowledge and Problems keep the Track context.
+// What a Problem connects to: its preparation and its related Knowledge, Lessons and Problems (P2-T8; it was one "Related content" region).
+const related = (page: Page) => main(page).getByRole("region", { name: /^(Before you start|Related (Knowledge|Lessons|Problems))$/ });
+// A Problem's quiet Track context ("Part of Track / Module"); Lessons carry their own breadcrumb (Learn / Track / Module).
+const trackContext = (page: Page) => main(page).getByText(/^Part of/);
 const breadcrumb = (page: Page) => page.getByRole("navigation", { name: "Breadcrumb" });
 const LESSON_RELATED = /^(Prerequisites|Related Knowledge|Related Lessons|Ready to apply this\?|Related Problems)$/;
 const steps = (page: Page) => page.getByRole("navigation", { name: `Previous and next in ${HOME.title}` });
@@ -173,26 +174,28 @@ test.describe("section-level access", () => {
 });
 
 test.describe("related content", () => {
-   const LABEL: Record<string, string> = { prerequisite: "Read first", related: "Related" };
-   const groups = Object.entries(PROBLEM.relations ?? {}).map(([name, ids]) => ({ name, ids: ids ?? [] }));
+   const ids = (name: string) => PROBLEM.relations?.[name] ?? [];
+   const related_of = (type: string) => ids("related").filter((id) => id.startsWith(`${type}.`));
 
-   test("lists the API's relations in order, with canonical links and premium markers", async ({ page }) => {
-      await page.goto(canonical(PROBLEM.id));
-      await expect(related(page).getByRole("heading", { level: 3 })).toHaveText(groups.map(({ name }) => LABEL[name]));
-
-      const entries = groups.flatMap(({ ids }) => ids.map(item));
-      const rows = related(page).getByRole("listitem");
-      await expect(rows).toHaveCount(entries.length);
-      for (const [index, entry] of entries.entries()) {
+   async function expectRows(region: Locator, wanted: string[]) {
+      const rows = region.getByRole("listitem");
+      await expect(rows).toHaveCount(wanted.length);
+      for (const [index, id] of wanted.entries()) {
          const link = rows.nth(index).getByRole("link");
-         await expect(link).toHaveText(entry.title);
-         await expect(link).toHaveAttribute("href", canonical(entry.id));
-         await expect(rows.nth(index).getByText(premiumMark.name, premiumMark)).toHaveCount(
-            entry.access === "premium" ? 1 : 0
-         );
+         await expect(link).toHaveText(item(id).title);
+         await expect(link).toHaveAttribute("href", canonical(id));
+         await expect(rows.nth(index).getByText(premiumMark.name, premiumMark)).toHaveCount(item(id).access === "premium" ? 1 : 0);
       }
+   }
 
-      await related(page).getByRole("link", { name: SECTIONED.title }).click();
+   test("lists the API's relations in order, preparation first and the rest by type, with canonical links and premium markers", async ({ page }) => {
+      await page.goto(canonical(PROBLEM.id));
+      await expectRows(main(page).getByRole("region", { name: "Before you start" }), ids("prerequisite"));
+      await expectRows(main(page).getByRole("region", { name: "Related Knowledge" }), related_of("knowledge"));
+      await expectRows(main(page).getByRole("region", { name: "Related Lessons" }), related_of("lesson"));
+      await expect(main(page).getByRole("region", { name: "Related Problems" })).toHaveCount(related_of("problem").length ? 1 : 0);
+
+      await main(page).getByRole("region", { name: "Related Knowledge" }).getByRole("link", { name: SECTIONED.title }).click();
       await expect(page).toHaveURL(canonical(SECTIONED.id));
       await expect(title(page)).toHaveText(SECTIONED.title);
    });
@@ -201,7 +204,7 @@ test.describe("related content", () => {
       // Tall enough that every link is in view at once, so all of them are scheduled for prefetch together.
       test.use({ viewport: { width: 1280, height: 2400 } });
 
-      test("visible premium links are never prefetched; only a click requests them", async ({ page, traffic }) => {
+      test("no catalog link on a Problem is prefetched, free or premium; only a click requests the target", async ({ page, traffic }) => {
          const premium = canonical(PREMIUM_LESSON.id);
          const paths = () => traffic.requests.map((url) => new URL(url).pathname);
 
@@ -209,12 +212,10 @@ test.describe("related content", () => {
          const inView = main(page).locator('a[href^="/"]').filter({ visible: true }); // page content; header links are not under test
          await expect(inView.and(page.locator(`a[href="${premium}"]`))).toHaveCount(3);
          const targets = await inView.evaluateAll((links) => links.map((a) => new URL((a as HTMLAnchorElement).href).pathname));
-         const free = [...new Set(targets)].filter((path) => path !== premium);
-
-         // Once every free link in view has been prefetched, a premium link prefetch would have been issued too.
-         const pending = () => free.filter((path) => !paths().includes(path));
-         await expect.poll(pending, { message: "free links in view should be prefetched" }).toEqual([]);
-         expect(paths(), "a visible premium link was prefetched").not.toContain(premium);
+         await page.waitForLoadState("networkidle");
+         for (const path of new Set(targets)) {
+            if (path !== canonical(PROBLEM.id)) expect(paths(), `${path} was prefetched`).not.toContain(path);
+         }
 
          await steps(page).getByRole("link", { name: /^Next/ }).click();
          await expect(page).toHaveURL(premium);
@@ -256,7 +257,7 @@ test.describe("Track navigation", () => {
          await expect(breadcrumb(page).getByRole("link", { name: HOME.title })).toHaveAttribute("href", canonical(HOME.id));
          await expect(trackContext(page)).toHaveCount(0);
       } else {
-         await expect(trackContext(page)).toHaveText(`${HOME.title} / ${module.title}`);
+         await expect(trackContext(page)).toHaveText(`Part of ${HOME.title} / ${module.title}`);
          await expect(trackContext(page).getByRole("link")).toHaveAttribute("href", canonical(HOME.id));
       }
       const moduleNav = page.getByRole("navigation", { name: `Module: ${module.title}` });

@@ -292,12 +292,13 @@ describe("other item pages keep their own contract", () => {
       await show(item.slug, type);
    };
 
-   it("a problem page has no Lesson breadcrumb, contents or Practice transition", async () => {
+   it("a problem page has its own Practice breadcrumb and phases, and no Lesson breadcrumb, contents or Practice transition", async () => {
       await open("problem", { ...KNOWLEDGE, ...meta("problem.rag"), category: "system_design" });
 
-      expect(screen.getByRole("navigation", { name: "Track context" })).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "Related content" })).toBeInTheDocument();
-      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Practice");
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).not.toHaveTextContent("Learn");
+      expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Related content" })).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Contents" })).not.toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Ready to apply this?" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Lesson" })).not.toHaveAttribute("data-reference");

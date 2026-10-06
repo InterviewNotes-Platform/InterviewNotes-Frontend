@@ -126,7 +126,7 @@ export function AlternateTracks({ placements }: { placements: TrackPlacement[] }
          <ul className="space-y-1">
             {links.map(({ placement, href }) => (
                <li key={placement.track.id}>
-                  <Link href={href} className="font-medium text-foreground transition-micro hover:text-primary">
+                  <Link href={href} prefetch={false} className="font-medium text-foreground transition-micro hover:text-primary">
                      {placement.track.title}
                   </Link>
                   <span className="text-supporting text-muted-foreground"> / {placement.module.title}</span>

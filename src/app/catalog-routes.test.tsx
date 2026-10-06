@@ -121,6 +121,7 @@ describe("catalog route security boundary", () => {
          "_catalog/KnowledgePage.tsx",
          "_catalog/LessonPage.tsx",
          "_catalog/PreviewMarker.tsx",
+         "_catalog/ProblemPage.tsx",
          "knowledge/[slug]/page.tsx",
          "knowledge/page.tsx",
          "lessons/[slug]/page.tsx",
