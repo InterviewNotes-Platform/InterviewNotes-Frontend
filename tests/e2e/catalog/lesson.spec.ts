@@ -342,12 +342,12 @@ test.describe("technical content", () => {
    test("long code and a wide table scroll inside focusable regions, never the page", async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(route);
-      for (const name of ["Code", "Table"]) {
+      for (const name of ["Python code", "Table"]) {
          const region = page.getByRole("region", { name }).first();
          await expect(region).toHaveAttribute("tabindex", "0");
          expect(await region.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
       }
-      const code = page.getByRole("region", { name: "Code" }).first();
+      const code = page.getByRole("region", { name: "Python code" }).first();
       await tabTo(page, code);
       await page.keyboard.press("ArrowRight");
       await page.keyboard.press("ArrowRight");
@@ -365,7 +365,7 @@ test.describe("technical content", () => {
       await expect(fitting.locator("[data-slot=technical-scroll]")).toHaveAttribute("data-scrolls", "false");
       await expect(fitting.locator("[data-slot=technical-scroll]")).toHaveCSS("border-top-width", "0px");
 
-      const frame = wide.getByRole("region", { name: "Scrollable diagram" });
+      const frame = wide.getByRole("region", { name: "Diagram" });
       await expect(frame).toHaveAttribute("tabindex", "0");
       await expect(frame).toHaveCSS("border-top-width", "1px");
       const size = await wide.locator("svg").evaluate((svg) => ({ drawn: svg.getBoundingClientRect().width, natural: Number(svg.getAttribute("viewBox")!.split(/\s+/)[2]) }));
@@ -382,7 +382,7 @@ test.describe("technical content", () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(route);
       for (const figure of await (await diagrams(page)).all()) {
-         await expect(figure.getByRole("region", { name: "Scrollable diagram" })).toHaveAttribute("tabindex", "0");
+         await expect(figure.getByRole("region", { name: "Diagram" })).toHaveAttribute("tabindex", "0");
       }
       expect(await overflows(page)).toBe(false);
    });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { diagramName } from "./fence";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
 
 interface MermaidProps {
@@ -11,6 +12,11 @@ interface MermaidProps {
     * not, in a framed box that scrolls sideways. Default: the shared box that scales a wide diagram down.
     */
    adaptive?: boolean;
+   /**
+    * Catalog bodies: the diagram is a named figure with its authored caption and text alternative (plain text).
+    * Absent, the legacy `/learn` markup is unchanged. Adaptive (reading) diagrams are always catalog diagrams.
+    */
+   figure?: { caption?: string; alt?: string };
 }
 
 type Theme = "light" | "dark";
@@ -83,7 +89,9 @@ function currentTheme(): Theme {
  * Re-renders when the dark-mode class flips, because the palette is baked into
  * the generated SVG rather than read from CSS at paint time.
  */
-export function Mermaid({ chart, adaptive = false }: MermaidProps) {
+export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
+   const catalog = adaptive || figure !== undefined;
+   const name = diagramName(figure ?? {});
    const containerRef = useRef<HTMLDivElement>(null);
    const [error, setError] = useState<string | null>(null);
    const [theme, setTheme] = useState<Theme | null>(null);
@@ -130,6 +138,8 @@ export function Mermaid({ chart, adaptive = false }: MermaidProps) {
 
             containerRef.current.innerHTML = svg;
             if (adaptive) pinNaturalSize(containerRef.current);
+            // The container's name speaks for the diagram; the drawing is not announced a second time.
+            if (catalog) containerRef.current.querySelector("svg")?.setAttribute("aria-hidden", "true");
             setError(null);
          } catch (err) {
             if (cancelled) return;
@@ -142,11 +152,18 @@ export function Mermaid({ chart, adaptive = false }: MermaidProps) {
       return () => {
          cancelled = true;
       };
-   }, [chart, theme, diagramId, adaptive]);
+   }, [chart, theme, diagramId, adaptive, catalog]);
+
+   const caption = figure?.caption ? (
+      <figcaption className="mt-3 text-supporting text-pretty text-muted-foreground">{figure.caption}</figcaption>
+   ) : null;
 
    if (error) {
-      return (
-         <div className="my-6 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+      const failed = (
+         <div
+            {...(catalog ? { role: "img", "aria-label": name } : {})}
+            className={`${catalog ? "" : "my-6 "}rounded-lg border border-destructive/40 bg-destructive/5 p-4`}
+         >
             <p className="mb-2 text-sm font-semibold text-destructive">
                Diagram failed to render
             </p>
@@ -155,17 +172,40 @@ export function Mermaid({ chart, adaptive = false }: MermaidProps) {
             </pre>
          </div>
       );
+      return catalog ? (
+         <figure className="my-6">
+            {failed}
+            {caption}
+         </figure>
+      ) : (
+         failed
+      );
    }
 
    if (adaptive) {
       return (
          <figure className="my-6">
             <TechnicalScroll
-               label="Scrollable diagram"
+               label={name}
                className="rounded-lg data-[scrolls=true]:border data-[scrolls=true]:border-border data-[scrolls=true]:p-4"
             >
-               <div ref={containerRef} role="img" aria-label="Diagram" className="[&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto" />
+               <div ref={containerRef} role="img" aria-label={name} className="[&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto" />
             </TechnicalScroll>
+            {caption}
+         </figure>
+      );
+   }
+
+   if (catalog) {
+      return (
+         <figure className="my-6">
+            <div
+               ref={containerRef}
+               role="img"
+               aria-label={name}
+               className="flex justify-center overflow-x-auto rounded-lg border border-border bg-card/40 p-4 [&_svg]:max-w-full [&_svg]:h-auto"
+            />
+            {caption}
          </figure>
       );
    }

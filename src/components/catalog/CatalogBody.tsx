@@ -3,6 +3,8 @@ import Link from "next/link";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { KnowledgeAbout } from "@/components/lesson/KnowledgeAbout";
+import { CopyCode } from "@/components/mdx/CopyCode";
+import { codeName, languageLabel, parseFence, type FenceInfo } from "@/components/mdx/fence";
 import { Mermaid } from "@/components/mdx/Mermaid";
 import { Tip, type TipType } from "@/components/mdx/Tip";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
@@ -27,14 +29,15 @@ function safeUrl(url: string): string {
    return url.startsWith("ref:") && catalogHref(url.slice(4)) ? url : "";
 }
 
-/** The diagram source when a <pre> wraps a single ```mermaid fence, else null. */
-function mermaidSource(node?: HastElement): string | null {
+/** A fence as authored: its info string's language and metadata, and the exact text between the fence lines. */
+function fenceOf(node?: HastElement): (FenceInfo & { source: string }) | null {
    const code = node?.children[0];
    if (code?.type !== "element" || code.tagName !== "code") return null;
-   const classes = code.properties?.className;
-   if (!Array.isArray(classes) || !classes.includes("language-mermaid")) return null;
+   const classes = Array.isArray(code.properties?.className) ? code.properties.className : [];
+   const language = String(classes.find((name) => String(name).startsWith("language-")) ?? "").slice("language-".length);
+   // The parser ends fenced text with one added "\n"; the fence content is what precedes it.
    const text = code.children.map((child) => (child.type === "text" ? child.value : "")).join("");
-   return text.trim() ? text : null;
+   return { ...parseFence(language, code.data?.meta), source: text.endsWith("\n") ? text.slice(0, -1) : text };
 }
 
 /** Styles a standard element, dropping react-markdown's `node` prop so it never reaches the DOM. */
@@ -111,17 +114,28 @@ const KNOWLEDGE_REF_STYLE =
 /** Intercepted at `pre`: <Mermaid /> emits a <div>, which is invalid inside <pre>. */
 function codeBlock(adaptive: boolean): Components["pre"] {
    return function Pre({ node, children, ...props }) {
-      const chart = mermaidSource(node);
-      if (chart !== null) return <Mermaid chart={chart} adaptive={adaptive} />;
+      const fence = fenceOf(node);
+      if (fence?.language === "mermaid" && fence.source.trim()) {
+         return <Mermaid chart={fence.source} adaptive={adaptive} figure={{ caption: fence.caption, alt: fence.alt }} />;
+      }
+      const label = fence ? languageLabel(fence.language) : null;
+      const name = codeName(label, fence?.title);
       return (
-         <TechnicalScroll label="Code" className="my-6 rounded-lg bg-code-surface">
-            <pre
-               className="w-max min-w-full p-4 font-mono text-code [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-[1em]"
-               {...props}
-            >
-               {children}
-            </pre>
-         </TechnicalScroll>
+         <div role="group" aria-label={name} className="my-6">
+            <div className="flex items-center gap-3 rounded-t-lg border-b border-border bg-code-surface px-4 text-supporting text-muted-foreground">
+               {label ? <span className="shrink-0 font-mono">{label}</span> : null}
+               {fence?.title ? <span className="min-w-0 truncate">{fence.title}</span> : null}
+               <CopyCode source={fence?.source ?? ""} label={label} />
+            </div>
+            <TechnicalScroll label={name} className="rounded-b-lg bg-code-surface">
+               <pre
+                  className="w-max min-w-full p-4 font-mono text-code [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-[1em]"
+                  {...props}
+               >
+                  {children}
+               </pre>
+            </TechnicalScroll>
+         </div>
       );
    };
 }

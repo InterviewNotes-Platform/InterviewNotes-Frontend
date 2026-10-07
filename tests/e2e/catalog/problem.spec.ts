@@ -224,7 +224,7 @@ test.describe("on a phone", () => {
          expect(await region.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
          expect((await region.boundingBox())!.width).toBeLessThanOrEqual(390);
       }
-      await expect(main(page).getByRole("region", { name: "Code" }).first()).toBeVisible();
+      await expect(main(page).getByRole("region", { name: /^(JSON|Python) code$/ }).first()).toBeVisible();
       await expect(main(page).getByRole("region", { name: "Table" }).first()).toBeVisible();
       const diagram = (await main(page).locator("figure").boundingBox())!;
       expect(diagram.x + diagram.width).toBeLessThanOrEqual(390);

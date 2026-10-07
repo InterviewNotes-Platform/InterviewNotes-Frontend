@@ -46,7 +46,7 @@ test.describe("technical content at 390px", () => {
 
    test("wide code and tables scroll inside their own regions, never the page", async ({ page }) => {
       await page.goto(TECHNICAL);
-      const code = page.getByRole("region", { name: "Code" });
+      const code = page.getByRole("region", { name: "Python code" });
       const table = page.getByRole("region", { name: "Table" });
       await expect(code).toHaveAttribute("tabindex", "0");
       await expect(table).toHaveAttribute("tabindex", "0");
@@ -59,7 +59,7 @@ test.describe("technical content at 390px", () => {
 
    test("a code region is reachable by keyboard and scrolls itself", async ({ page }) => {
       await page.goto(TECHNICAL);
-      const code = page.getByRole("region", { name: "Code" });
+      const code = page.getByRole("region", { name: "Python code" });
       await expect(code).toHaveAttribute("tabindex", "0");
       await tabTo(page, code);
       await expect(code).toHaveCSS("outline-style", "solid");
