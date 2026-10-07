@@ -201,8 +201,8 @@ describe("a Lesson's relations", () => {
 describe("a Lesson's curriculum", () => {
    it("keeps previous/next in the home Track's order, ahead of the module list", async () => {
       await show();
-      expect(screen.getByRole("link", { name: /Previous/ })).toHaveAttribute("href", "/lessons/before");
-      const next = screen.getByRole("link", { name: /Next/ });
+      expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toHaveAttribute("href", "/lessons/before");
+      const next = screen.getByRole("link", { name: /^Next lesson: Title after/ });
       expect(next).toHaveAttribute("href", "/lessons/after");
       expect(next).toHaveTextContent("Premium");
       expect(within(screen.getByRole("navigation", { name: "Module: First Module" })).getByRole("link", { name: "Title item" })).toHaveAttribute("aria-current", "page");

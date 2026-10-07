@@ -227,6 +227,11 @@ test.describe("related content", () => {
 
 test.describe("Track navigation", () => {
    const sequence = HOME.modules.flatMap((module) => module.items.map((id) => ({ entry: item(id), module })));
+   /** The nearest Lesson in `step` direction: Problems are never Previous or Next (P3 S-CUR-5, S-CUR-6, S-CUR-14). */
+   const lessonFrom = (index: number, step: 1 | -1) => {
+      for (let at = index + step; at >= 0 && at < sequence.length; at += step) if (sequence[at].entry.type === "lesson") return sequence[at];
+      return undefined;
+   };
 
    test("the Track page renders the API outline in its order", async ({ page }) => {
       await page.goto(canonical(HOME.id));
@@ -264,8 +269,8 @@ test.describe("Track navigation", () => {
       await expect(moduleNav.locator('[aria-current="page"]')).toHaveText(entry.title);
 
       for (const [label, neighbour] of [
-         ["Previous", sequence[index - 1]],
-         ["Next", sequence[index + 1]],
+         ["Previous lesson", lessonFrom(index, -1)],
+         ["Next lesson", lessonFrom(index, 1)],
       ] as const) {
          const link = steps(page).getByRole("link", { name: new RegExp(`^${label}`) });
          if (!neighbour) {
@@ -280,16 +285,18 @@ test.describe("Track navigation", () => {
       }
    }
 
-   test("previous and next follow the API order across module boundaries", async ({ page }) => {
-      expect(sequence[1].module, "the walk must cross a module boundary").not.toBe(sequence[2].module);
+   test("previous and next lessons follow the API order across module boundaries, skipping Problems", async ({ page }) => {
+      expect(sequence[1].module, "the walk must cross a module boundary").not.toBe(sequence[3].module);
+      expect(sequence[2].entry.type, "a Problem must sit between the two Lessons").toBe("problem");
 
       await page.goto(canonical(sequence[0].entry.id));
       await expectPlacement(page, 0);
-      for (const index of [1, 2]) {
-         await steps(page).getByRole("link", { name: /^Next/ }).click();
-         await expectPlacement(page, index);
-      }
-      await steps(page).getByRole("link", { name: /^Previous/ }).click();
+      await steps(page).getByRole("link", { name: /^Next lesson/ }).click();
+      await expectPlacement(page, 1);
+
+      await page.goto(canonical(sequence[2].entry.id));
+      await expectPlacement(page, 2);
+      await steps(page).getByRole("link", { name: /^Previous lesson/ }).click();
       await expectPlacement(page, 1);
    });
 

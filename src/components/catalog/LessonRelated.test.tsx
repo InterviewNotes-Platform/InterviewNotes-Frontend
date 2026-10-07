@@ -148,8 +148,8 @@ const track = (): CatalogTrack => ({
 const placement = (previous: string | null, next: string | null): TrackPlacement => ({
    track: track(),
    module: track().modules[0],
-   previous: previous ? entry(previous) : null,
-   next: next ? entry(next, { access: "premium" }) : null,
+   previousLesson: previous ? entry(previous) : null,
+   nextLesson: next ? entry(next, { access: "premium" }) : null,
 });
 
 describe("LessonBreadcrumb", () => {
@@ -180,9 +180,10 @@ describe("TrackPrevNext, reading", () => {
       render(<TrackPrevNext placement={placement("lesson.before", "lesson.after")} reading />);
       const nav = screen.getByRole("navigation", { name: "Previous and next in A Rather Long Home Track Title" });
       const [previous, next] = within(nav).getAllByRole("link");
-      expect(previous).toHaveAccessibleName(/^Previous/);
+      expect(previous).toHaveAccessibleName("Previous lesson: Step before");
       expect(previous).toHaveAttribute("href", "/lessons/before");
-      expect(next).toHaveAccessibleName(/^Next/);
+      expect(next).toHaveAccessibleName("Next lesson: Step after, premium");
+      expect(next).toHaveTextContent("Next lesson");
       expect(next).toHaveTextContent("Premium");
       for (const link of [previous, next]) {
          expect(link).toHaveAttribute("data-prefetch", "false");
@@ -190,14 +191,15 @@ describe("TrackPrevNext, reading", () => {
       }
    });
 
-   it("leaves a missing side empty and hides that gap when stacked", () => {
+   it("renders nothing for a missing side, and keeps Next at the end of the row", () => {
       render(<TrackPrevNext placement={placement(null, "lesson.after")} reading />);
       expect(screen.getAllByRole("link")).toHaveLength(1);
-      expect(screen.getByRole("navigation").firstElementChild).toHaveClass("hidden", "sm:block");
+      expect(screen.getByRole("navigation").children).toHaveLength(1);
+      expect(screen.getByRole("link", { name: /^Next lesson/ })).toHaveClass("sm:col-start-2");
    });
 
-   it("still prefetches a free neighbour by default, as other pages do", () => {
-      render(<TrackPrevNext placement={placement("lesson.before", null)} />);
-      expect(screen.getByRole("link", { name: /Previous/ })).toHaveAttribute("data-prefetch", "undefined");
+   it("never prefetches a neighbour, free or premium, in either presentation", () => {
+      render(<TrackPrevNext placement={placement("lesson.before", "lesson.after")} />);
+      for (const link of screen.getAllByRole("link")) expect(link).toHaveAttribute("data-prefetch", "false");
    });
 });

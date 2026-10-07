@@ -62,23 +62,23 @@ interface StepProps {
    label: string;
    entry: CatalogOutlineEntry | null;
    reading: boolean;
-   /** The step that leads onward (Next) sits at the end of the row in reading mode. */
+   /** The step that leads onward (Next) sits at the end of the row. */
    onward?: boolean;
 }
 
 function Step({ label, entry, reading, onward = false }: StepProps) {
    const href = entry && catalogEntryHref(entry);
-   if (!entry || !href) return <span className={reading ? "hidden sm:block" : undefined} />;
+   if (!entry || !href) return null;
    const premium = entry.access === "premium";
    return (
       <Link
          href={href}
-         prefetch={reading || premium ? false : undefined}
-         className={
-            reading
-               ? cn("group block min-h-11", onward && "sm:text-right")
-               : "block rounded-lg border border-border p-4 transition-micro hover:border-primary"
-         }
+         prefetch={false}
+         aria-label={`${label}: ${entry.title}${premium ? ", premium" : ""}`}
+         className={cn(
+            reading ? "group block min-h-11" : "block rounded-lg border border-border p-4 transition-micro hover:border-primary",
+            onward && (reading ? "sm:col-start-2 sm:text-right" : "col-start-2")
+         )}
       >
          <span className={cn("block text-supporting text-muted-foreground", !reading && "uppercase tracking-wide")}>{label}</span>
          <span className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", reading && "mt-1", reading && onward && "sm:justify-end")}>
@@ -92,18 +92,18 @@ function Step({ label, entry, reading, onward = false }: StepProps) {
 }
 
 /**
- * Neighbours in the home Track's order; a missing side stays empty, never invented. `reading` is the Lesson's
- * open, typographic presentation of the same links, and it never prefetches them.
+ * The Lessons before and after in the home Track's order, never a Problem; a missing side renders nothing. `reading` is
+ * the Lesson's open, typographic presentation of the same links. No link prefetches.
  */
 export function TrackPrevNext({ placement, reading = false }: { placement: TrackPlacement; reading?: boolean }) {
-   if (!placement.previous && !placement.next) return null;
+   if (!placement.previousLesson && !placement.nextLesson) return null;
    return (
       <nav
          aria-label={`Previous and next in ${placement.track.title}`}
          className={reading ? "grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8" : "grid grid-cols-2 gap-4"}
       >
-         <Step label="Previous" entry={placement.previous} reading={reading} />
-         <Step label="Next" entry={placement.next} reading={reading} onward />
+         <Step label="Previous lesson" entry={placement.previousLesson} reading={reading} />
+         <Step label="Next lesson" entry={placement.nextLesson} reading={reading} onward />
       </nav>
    );
 }

@@ -23,23 +23,31 @@ describe("placeInTrack", () => {
 
    it("gives the first item no previous", () => {
       const placement = placeInTrack(t, "lesson.m");
-      expect([ids(placement?.previous ?? null), ids(placement?.next ?? null)]).toEqual([null, "lesson.a"]);
+      expect([ids(placement?.previousLesson ?? null), ids(placement?.nextLesson ?? null)]).toEqual([null, "lesson.a"]);
    });
 
    it("gives the last item no next", () => {
       const placement = placeInTrack(t, "lesson.b");
-      expect([ids(placement?.previous ?? null), ids(placement?.next ?? null)]).toEqual(["problem.z", null]);
+      expect([ids(placement?.previousLesson ?? null), ids(placement?.nextLesson ?? null)]).toEqual(["lesson.a", null]);
+   });
+
+   it("never names a Problem as a neighbour: Lesson A -> Problem P -> Lesson B", () => {
+      const lessonsAround = track("t", [mod("m", ["lesson.a", "problem.p", "lesson.b"])]);
+      const a = placeInTrack(lessonsAround, "lesson.a");
+      const p = placeInTrack(lessonsAround, "problem.p");
+      expect([ids(a?.previousLesson ?? null), ids(a?.nextLesson ?? null)]).toEqual([null, "lesson.b"]);
+      expect([ids(p?.previousLesson ?? null), ids(p?.nextLesson ?? null)]).toEqual(["lesson.a", "lesson.b"]);
    });
 
    it("gives a middle item both neighbours in backend order, across a module boundary", () => {
       const placement = placeInTrack(t, "lesson.a");
-      expect([ids(placement?.previous ?? null), ids(placement?.next ?? null)]).toEqual(["lesson.m", "problem.z"]);
+      expect([ids(placement?.previousLesson ?? null), ids(placement?.nextLesson ?? null)]).toEqual(["lesson.m", "lesson.b"]);
       expect(placement?.module.key).toBe("zz");
    });
 
    it("has no neighbours for the only item in a Track", () => {
       const placement = placeInTrack(track("solo", [mod("m", ["lesson.only"])]), "lesson.only");
-      expect([placement?.previous, placement?.next]).toEqual([null, null]);
+      expect([placement?.previousLesson, placement?.nextLesson]).toEqual([null, null]);
    });
 
    it("returns null when the Track does not contain the item", () => {
@@ -49,7 +57,7 @@ describe("placeInTrack", () => {
    it("skips entries that cannot map to a canonical route instead of linking them", () => {
       const bad = entry("lesson.bad", { type: "problem" });
       const placement = placeInTrack(track("t", [{ ...mod("m", ["lesson.a", "lesson.c"]), items: [entry("lesson.a"), bad, entry("lesson.c")] }]), "lesson.a");
-      expect(ids(placement?.next ?? null)).toBe("lesson.c");
+      expect(ids(placement?.nextLesson ?? null)).toBe("lesson.c");
    });
 });
 
@@ -79,13 +87,52 @@ describe("loadItemNavigation", () => {
    it("takes previous and next from the home Track only, never another Track", async () => {
       getCatalogRelated.mockResolvedValue(related([placement("home", true), placement("other", false)]));
       const navigation = await loadItemNavigation("lesson", "item");
-      expect([ids(navigation?.home?.previous ?? null), ids(navigation?.home?.next ?? null)]).toEqual(["lesson.prev", "lesson.next"]);
+      expect([ids(navigation?.home?.previousLesson ?? null), ids(navigation?.home?.nextLesson ?? null)]).toEqual(["lesson.prev", "lesson.next"]);
    });
 
-   it("invents no home Track when the API marks none primary", async () => {
-      getCatalogRelated.mockResolvedValue(related([placement("other", false)]));
+   it("invents no home Track when several placements and none is marked primary", async () => {
+      getCatalogRelated.mockResolvedValue(related([placement("home", false), placement("other", false)]));
       const navigation = await loadItemNavigation("lesson", "item");
       expect(navigation?.home).toBeNull();
+      expect(navigation?.alternates.map((p) => p.track.slug)).toEqual(["home", "other"]);
+   });
+
+   it("makes the lone placement the home Track even when it is not marked primary (F-2)", async () => {
+      getCatalogRelated.mockResolvedValue(related([placement("home", false)]));
+      const navigation = await loadItemNavigation("lesson", "item");
+      expect(navigation?.home?.track.slug).toBe("home");
+      expect(navigation?.alternates).toEqual([]);
+   });
+
+   it("gives no home Track when several placements are marked primary, and does not take the first", async () => {
+      getCatalogRelated.mockResolvedValue(related([placement("home", true), placement("other", true)]));
+      const navigation = await loadItemNavigation("lesson", "item");
+      expect(navigation?.home).toBeNull();
+      expect(navigation?.alternates.map((p) => p.track.slug)).toEqual(["home", "other"]);
+   });
+
+   it("promotes no other placement when the chosen home Track's outline fails to load", async () => {
+      getCatalogRelated.mockResolvedValue(related([placement("gone", true), placement("home", false)]));
+      const navigation = await loadItemNavigation("lesson", "item");
+      expect(navigation?.home).toBeNull();
+      expect(navigation?.alternates.map((p) => p.track.slug)).toEqual(["home"]);
+   });
+
+   it("promotes no other placement when the chosen home Track's outline omits the item", async () => {
+      const omitting = track("omits", [mod("m", ["lesson.unrelated"])]);
+      getCatalogTrack.mockImplementation(async (slug: string) => ({ status: "ok", data: slug === "omits" ? omitting : other }));
+      getCatalogRelated.mockResolvedValue(related([placement("omits", true), placement("other", false)]));
+      const navigation = await loadItemNavigation("lesson", "item");
+      expect(navigation?.home).toBeNull();
+      expect(navigation?.alternates.map((p) => p.track.slug)).toEqual(["other"]);
+   });
+
+   it("gives a Problem the neighbouring Lessons of its home Track", async () => {
+      const mixed = track("mixed", [mod("m", ["lesson.a", "problem.p", "problem.q", "lesson.b"])]);
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: mixed });
+      getCatalogRelated.mockResolvedValue(related([placement("mixed", true)], "problem.p"));
+      const navigation = await loadItemNavigation("problem", "p");
+      expect([ids(navigation?.home?.previousLesson ?? null), ids(navigation?.home?.nextLesson ?? null)]).toEqual(["lesson.a", "lesson.b"]);
    });
 
    it("returns empty Track context for an item placed in no Track", async () => {

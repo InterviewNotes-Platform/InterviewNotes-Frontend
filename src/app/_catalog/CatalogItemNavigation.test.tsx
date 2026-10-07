@@ -68,8 +68,9 @@ describe("item page navigation", () => {
       expect(within(crumbs).getByRole("link", { name: "Learn" })).toHaveAttribute("href", "/tracks");
       expect(within(crumbs).getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
       expect(within(crumbs).queryByRole("link", { name: "First Module" })).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /Previous/ })).toHaveAttribute("href", "/lessons/before");
-      expect(screen.getByRole("link", { name: /Next/ })).toHaveAttribute("href", "/problems/after");
+      expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toHaveAttribute("href", "/lessons/before");
+      expect(screen.getByRole("link", { name: "Next lesson: Title later" })).toHaveAttribute("href", "/lessons/later");
+      expect(within(screen.getByRole("navigation", { name: "Previous and next in Home Track" })).queryByRole("link", { name: /Title after/ })).not.toBeInTheDocument();
       expect(screen.getByRole("navigation", { name: "Module: First Module" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Base Knowledge" })).toHaveAttribute("href", "/knowledge/base");
    });
@@ -113,8 +114,23 @@ describe("item page navigation", () => {
       expect(screen.getByRole("link", { name: "Base Knowledge" })).toBeInTheDocument();
    });
 
-   it("invents no home Track when the API marks none primary", async () => {
-      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [RELATED.placements[0]] } });
+   it("makes the lone placement the home Track even when it is not marked primary (F-2)", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [{ track: "home", module: "m1", position: 1, primary: false }] } });
+      await show();
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(/Home Track/);
+      expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Next lesson: Title later" })).toBeInTheDocument();
+   });
+
+   it("invents no home Track when several placements are marked primary", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: RELATED.placements.map((p) => ({ ...p, primary: true })) } });
+      await show();
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Previous|Next/ })).not.toBeInTheDocument();
+   });
+
+   it("invents no home Track when several placements and none is marked primary", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: RELATED.placements.map((p) => ({ ...p, primary: false })) } });
       await show();
       expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /Previous|Next/ })).not.toBeInTheDocument();
