@@ -1,13 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
+const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack, listCatalogItems } = vi.hoisted(() => ({
    getCatalogItem: vi.fn(),
    getCatalogItemMeta: vi.fn(),
    getCatalogRelated: vi.fn(),
    getCatalogTrack: vi.fn(),
+   listCatalogItems: vi.fn(),
 }));
-vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack }));
+vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack, listCatalogItems }));
 vi.mock("next/navigation", () => ({
    notFound: () => {
       throw new Error("NEXT_NOT_FOUND");
@@ -18,6 +19,7 @@ vi.mock("@/components/mdx/Mermaid", () => ({ Mermaid: () => null }));
 import TrackPage from "../tracks/[slug]/page";
 import { CatalogItemPage } from "./CatalogItemPage";
 
+const MODULE_LOCATION = "/tracks/home#m1";
 const CANONICAL = /^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/;
 const LEARN_INDEX = "/tracks"; // the Learn crumb: the Track index, the one non-item link a Lesson carries
 const entry = (id: string, over = {}) => {
@@ -54,6 +56,7 @@ beforeEach(() => {
    getCatalogItem.mockResolvedValue({ status: "ok", data: ITEM });
    getCatalogItemMeta.mockResolvedValue({ status: "ok", data: META });
    getCatalogRelated.mockResolvedValue({ status: "ok", data: RELATED });
+   listCatalogItems.mockResolvedValue({ status: "ok", data: { items: [], next_cursor: null } });
    getCatalogTrack.mockImplementation(async (slug: string) =>
       slug === "home" ? { status: "ok", data: HOME } : slug === "other" ? { status: "ok", data: OTHER } : { status: "notFound" }
    );
@@ -67,16 +70,18 @@ describe("item page navigation", () => {
       expect(crumbs).toHaveTextContent(/^Learn\s*\/\s*Home Track\s*\/\s*First Module$/);
       expect(within(crumbs).getByRole("link", { name: "Learn" })).toHaveAttribute("href", "/tracks");
       expect(within(crumbs).getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
-      expect(within(crumbs).queryByRole("link", { name: "First Module" })).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /Previous/ })).toHaveAttribute("href", "/lessons/before");
-      expect(screen.getByRole("link", { name: /Next/ })).toHaveAttribute("href", "/problems/after");
-      expect(screen.getByRole("navigation", { name: "Module: First Module" })).toBeInTheDocument();
+      expect(within(crumbs).getByRole("link", { name: "First Module" })).toHaveAttribute("href", MODULE_LOCATION);
+      expect(screen.getByText("Module 1 of 2 · Lesson 2 of 2")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toHaveAttribute("href", "/lessons/before");
+      expect(screen.getByRole("link", { name: "Next lesson: Title later" })).toHaveAttribute("href", "/lessons/later");
+      expect(within(screen.getByRole("navigation", { name: "Next in Home Track" })).queryByRole("link", { name: /Title after/ })).not.toBeInTheDocument();
+      expect(within(screen.getByRole("navigation", { name: "Curriculum" })).getByRole("link", { name: "Back to module: First Module" })).toHaveAttribute("href", MODULE_LOCATION);
       expect(screen.getByRole("link", { name: "Base Knowledge" })).toHaveAttribute("href", "/knowledge/base");
    });
 
-   it("keeps one canonical identity: every link is a type-based route with no Track or query context", async () => {
+   it("keeps one canonical identity: every link is a type-based route, the Module location being the one fragment", async () => {
       await show();
-      for (const href of hrefs().filter((href) => href !== LEARN_INDEX)) expect(href).toMatch(CANONICAL);
+      for (const href of hrefs().filter((href) => href !== LEARN_INDEX && href !== MODULE_LOCATION)) expect(href).toMatch(CANONICAL);
    });
 
    it("presents an alternate Track as navigation only, without a second copy of the content", async () => {
@@ -97,6 +102,9 @@ describe("item page navigation", () => {
       expect(getCatalogItem).toHaveBeenCalledExactlyOnceWith("lesson", "item");
       expect(getCatalogRelated).toHaveBeenCalledExactlyOnceWith("lesson", "item");
       expect(getCatalogTrack.mock.calls.map(([slug]) => slug).sort()).toEqual(["home", "other"]);
+      // P3-T6: Next's public meta, plus the public meta of the one Interposed Problem the relations do not carry
+      expect(getCatalogItemMeta.mock.calls).toEqual(expect.arrayContaining([["lesson", "later"], ["problem", "after"]]));
+      expect(getCatalogItemMeta).toHaveBeenCalledTimes(2);
    });
 
    it("marks a gated target and links its canonical page without exposing any body", async () => {
@@ -113,8 +121,23 @@ describe("item page navigation", () => {
       expect(screen.getByRole("link", { name: "Base Knowledge" })).toBeInTheDocument();
    });
 
-   it("invents no home Track when the API marks none primary", async () => {
-      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [RELATED.placements[0]] } });
+   it("makes the lone placement the home Track even when it is not marked primary (F-2)", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [{ track: "home", module: "m1", position: 1, primary: false }] } });
+      await show();
+      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(/Home Track/);
+      expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Next lesson: Title later" })).toBeInTheDocument();
+   });
+
+   it("invents no home Track when several placements are marked primary", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: RELATED.placements.map((p) => ({ ...p, primary: true })) } });
+      await show();
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Previous|Next/ })).not.toBeInTheDocument();
+   });
+
+   it("invents no home Track when several placements and none is marked primary", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: RELATED.placements.map((p) => ({ ...p, primary: false })) } });
       await show();
       expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /Previous|Next/ })).not.toBeInTheDocument();
@@ -153,7 +176,10 @@ describe("Track page outline", () => {
       render(await TrackPage(params));
       expect(screen.getByRole("heading", { level: 1, name: "Home Track" })).toBeInTheDocument();
       const outline = within(screen.getByRole("navigation", { name: "Home Track outline" }));
-      expect(outline.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["First Module 3 items", "Second Module 1 item"]);
+      expect(outline.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+         "Module 1 First Module 2 lessons · 1 practice problem",
+         "Module 2 Second Module 1 lesson",
+      ]);
       expect(outline.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
          "/lessons/before",
          "/lessons/item",
@@ -163,15 +189,16 @@ describe("Track page outline", () => {
       expect(outline.getByRole("link", { name: /Title after/ })).toHaveTextContent("Premium");
    });
 
-   it("starts at the first entry of the first module", async () => {
+   it("starts at the first Lesson of the first module", async () => {
       render(await TrackPage(params));
-      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/lessons/before");
+      expect(screen.getByRole("link", { name: "Start with Title before" })).toHaveAttribute("href", "/lessons/before");
    });
 
-   it("loads no item bodies and no per-reader relationships", async () => {
+   it("loads no item bodies and no per-reader relationships, only the one Lesson list for summaries", async () => {
       render(await TrackPage(params));
       expect(getCatalogItem).not.toHaveBeenCalled();
       expect(getCatalogRelated).not.toHaveBeenCalled();
+      expect(listCatalogItems).toHaveBeenCalledExactlyOnceWith({ type: "lesson", track: "home", limit: 100, cursor: undefined });
    });
 
    it("marks no current item on the Track's own page", async () => {

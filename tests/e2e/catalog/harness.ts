@@ -53,6 +53,7 @@ export interface FixtureItem {
    type: string;
    slug: string;
    title: string;
+   summary: string;
    access: string;
    home: string;
    sections?: FixtureSection[];

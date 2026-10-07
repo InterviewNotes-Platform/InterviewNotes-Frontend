@@ -36,30 +36,26 @@ export type LinkedMeta = { entry: CatalogMeta; href: string };
 export interface LessonRelations {
    /** `prerequisite`: what to read before this Lesson (Knowledge or Lesson). */
    prerequisites: LinkedMeta[];
-   /** `prerequisite_of` Problems, at most PRACTICE_LIMIT: this Lesson's next step into Practice. */
-   practice: LinkedMeta[];
    knowledge: LinkedMeta[];
    lessons: LinkedMeta[];
    problems: LinkedMeta[];
 }
 
-export const PRACTICE_LIMIT = 2;
-
 // The closed P1 vocabulary (§6.5) minus `prerequisite`, which has its own place. Inline `mentions` are never returned.
 const RELATED_KEYS = new Set(["applied_in", "applies", "prerequisite_of", "related"]);
 
+/** The linkable `prerequisite` targets: what the Lesson builds on. */
+export const prerequisitesOf = (relations: Record<string, CatalogMeta[]>): LinkedMeta[] => linkableEntries(relations.prerequisite ?? []);
+
 /**
  * Sorts the relation payload by relation name AND target type, from metadata alone. Order is the API's. A target
- * appears once: a prerequisite or a Practice Problem is not repeated below, and Problems past the Practice limit
- * fall through to the quiet Problems group. Unlinkable targets and unknown relation names are dropped.
+ * appears once, at the first place it qualifies for (S-LSN-16): Builds on, then whatever the close already shows
+ * (`claimed`: the Next lesson and the Practice Problems), then these groups. Unlinkable targets and unknown
+ * relation names are dropped.
  */
-export function lessonRelations(relations: Record<string, CatalogMeta[]>): LessonRelations {
-   const prerequisites = linkableEntries(relations.prerequisite ?? []);
-   const practice = linkableEntries(relations.prerequisite_of ?? [])
-      .filter(({ entry }) => entry.type === "problem")
-      .slice(0, PRACTICE_LIMIT);
-
-   const placed = new Set([...prerequisites, ...practice].map(({ entry }) => entry.id));
+export function lessonRelations(relations: Record<string, CatalogMeta[]>, claimed: readonly string[] = []): LessonRelations {
+   const prerequisites = prerequisitesOf(relations);
+   const placed = new Set([...prerequisites.map(({ entry }) => entry.id), ...claimed]);
    const rest: Record<CatalogMeta["type"], LinkedMeta[]> = { knowledge: [], lesson: [], problem: [] };
    for (const [name, items] of Object.entries(relations)) {
       if (!RELATED_KEYS.has(name)) continue;
@@ -69,5 +65,5 @@ export function lessonRelations(relations: Record<string, CatalogMeta[]>): Lesso
          rest[link.entry.type].push(link);
       }
    }
-   return { prerequisites, practice, knowledge: rest.knowledge, lessons: rest.lesson, problems: rest.problem };
+   return { prerequisites, knowledge: rest.knowledge, lessons: rest.lesson, problems: rest.problem };
 }

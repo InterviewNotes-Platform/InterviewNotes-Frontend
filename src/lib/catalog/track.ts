@@ -1,3 +1,4 @@
+import { startLesson } from "./curriculum";
 import { linkableEntries } from "./routes";
 import type { CatalogModule, CatalogOutlineEntry, CatalogTrack } from "./types";
 
@@ -15,11 +16,12 @@ export interface PlacedEntry {
 }
 
 export interface Curriculum {
-   /** Every module in the API's order, each with the entries that can be linked, in the API's order. */
-   modules: { module: CatalogModule; rows: PlacedEntry[] }[];
+   /** Every module in the API's order, each with the entries that can be linked, in the API's order, and their counts. */
+   modules: { module: CatalogModule; rows: PlacedEntry[]; counts: Record<CurriculumType, number> }[];
    /**
-    * The first entry in curriculum order that maps to a canonical route, or null. "Linkable" means the route
-    * only: the outline is public and has no viewer, and the item page decides what that viewer may read.
+    * Start(T), the first Lesson in curriculum order (S-CUR-13), or null when there is none; never a Problem.
+    * "Linkable" means the route only: the outline is public and has no viewer, and the item page decides what
+    * that viewer may read.
     */
    start: PlacedEntry | null;
    /** Counts of linkable entries only, so they match what the outline renders. */
@@ -30,15 +32,17 @@ export interface Curriculum {
 
 /** Everything the Track page shows about the curriculum, computed from the one outline payload. */
 export function curriculumOf(track: CatalogTrack): Curriculum {
-   const modules = track.modules.map((module) => ({
-      module,
-      rows: linkableEntries(module.items.filter(isCurriculum)).map((row) => ({ ...row, module })),
-   }));
+   const modules = track.modules.map((module) => {
+      const rows = linkableEntries(module.items.filter(isCurriculum)).map((row) => ({ ...row, module }));
+      const problem = rows.filter(({ entry }) => entry.type === "problem").length;
+      return { module, rows, counts: { lesson: rows.length - problem, problem } };
+   });
    const placed = modules.flatMap(({ rows }) => rows);
    const practice = placed.filter(({ entry }) => entry.type === "problem");
+   const start = startLesson(track);
    return {
       modules,
-      start: placed[0] ?? null,
+      start: placed.find(({ entry }) => entry.id === start?.id) ?? null,
       counts: { lesson: placed.length - practice.length, problem: practice.length },
       practice,
    };

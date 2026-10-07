@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import fixture from "../../../tests/e2e/catalog/fixture.json";
 import { curriculumOf } from "@/lib/catalog/track";
 import type { CatalogModule, CatalogOutlineEntry, CatalogTrack } from "@/lib/catalog/types";
 
@@ -19,7 +20,7 @@ const entry = (id: string, over: Partial<CatalogOutlineEntry> = {}): CatalogOutl
    const [type, slug] = id.split(".");
    return { id, type: type as CatalogOutlineEntry["type"], slug, title: `Title ${slug}`, access: "free", primary: true, ...over };
 };
-const mod = (key: string, items: CatalogOutlineEntry[]): CatalogModule => ({ key, title: `Module ${key}`, position: 0, items });
+const mod = (key: string, items: CatalogOutlineEntry[]): CatalogModule => ({ key, title: `Part ${key}`, position: 0, items });
 const track = (modules: CatalogModule[], over: Partial<CatalogTrack> = {}): CatalogTrack => ({
    id: "track.home",
    slug: "home",
@@ -35,18 +36,22 @@ const TRACK = track([
    mod("later", []),
 ]);
 
-const view = (t: CatalogTrack = TRACK) => {
+const view = (t: CatalogTrack = TRACK, summaries?: ReadonlyMap<string, string> | null) => {
    const curriculum = curriculumOf(t);
    return render(
       <main>
          <TrackHeader track={t} curriculum={curriculum} />
-         <TrackCurriculum track={t} curriculum={curriculum} />
+         <TrackCurriculum track={t} curriculum={curriculum} summaries={summaries} />
          <TrackSupport curriculum={curriculum} />
       </main>
    );
 };
-const moduleButton = (title: string) => screen.getByRole("button", { name: new RegExp(`^Module ${title}`) });
+const moduleButton = (key: string) => screen.getByRole("button", { name: new RegExp(`^Module \\d+ Part ${key}`) });
 const panelOf = (button: HTMLElement) => document.getElementById(button.getAttribute("aria-controls")!)!;
+
+beforeAll(() => {
+   Element.prototype.scrollIntoView = vi.fn();
+});
 
 describe("TrackHeader", () => {
    it("shows one h1 with the title, the summary and counts derived from the outline", () => {
@@ -79,45 +84,69 @@ describe("curriculumSummary", () => {
 });
 
 describe("Start action", () => {
-   it("is one link to the first linkable entry in curriculum order, and says where it begins", () => {
+   it("is one link to the first Lesson, named for its destination, with the recommendation as its description", () => {
       view();
-      const start = screen.getByRole("link", { name: "Start" });
+      const start = screen.getByRole("link", { name: "Start with Title alpha" });
       expect(start).toHaveAttribute("href", "/lessons/alpha");
-      expect(screen.getAllByRole("link", { name: "Start" })).toHaveLength(1);
-      expect(start).toHaveAccessibleDescription("Begins with Title alpha");
+      expect(screen.getAllByRole("link", { name: /^Start/ })).toHaveLength(1);
+      expect(start).toHaveAccessibleDescription("Recommended starting point");
+      expect(screen.getByText("Recommended starting point")).toBeInTheDocument();
+   });
+
+   it("starts at the first Lesson when a Problem is placed first, in its Module or an earlier one", () => {
+      view(track([mod("m", [entry("problem.warmup"), entry("lesson.first")])]));
+      expect(screen.getByRole("link", { name: "Start with Title first" })).toHaveAttribute("href", "/lessons/first");
+      document.body.innerHTML = "";
+      view(track([mod("drills", [entry("problem.a")]), mod("real", [entry("lesson.next")])]));
+      expect(screen.getByRole("link", { name: "Start with Title next" })).toHaveAttribute("href", "/lessons/next");
    });
 
    it("skips empty modules and unlinkable entries", () => {
       const bad = entry("lesson.bad", { type: "problem" });
-      view(track([mod("empty", []), mod("broken", [bad]), mod("real", [entry("problem.first")])]));
-      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/problems/first");
+      view(track([mod("empty", []), mod("broken", [bad]), mod("real", [entry("lesson.first")])]));
+      expect(screen.getByRole("link", { name: "Start with Title first" })).toHaveAttribute("href", "/lessons/first");
    });
 
-   it("starts at a premium first entry, as curriculum order says, and says it is Premium before it is followed", () => {
+   it("starts at a premium first Lesson and says it is Premium before it is followed, outside the link name", () => {
       view(track([mod("m", [entry("lesson.paid", { access: "premium" }), entry("lesson.free")])]));
-      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/lessons/paid");
-      expect(screen.getByText("Begins with Title paid").parentElement).toHaveTextContent("Premium");
+      const start = screen.getByRole("link", { name: "Start with Title paid" });
+      expect(start).toHaveAttribute("href", "/lessons/paid");
+      expect(start).not.toHaveTextContent("Premium");
+      expect(screen.getByText("Recommended starting point").parentElement).toHaveTextContent("Premium");
    });
 
    it("does not call a free start Premium", () => {
       view(track([mod("m", [entry("lesson.free"), entry("lesson.paid", { access: "premium" })])]));
-      expect(screen.getByText("Begins with Title free").parentElement).not.toHaveTextContent("Premium");
+      expect(screen.getByText("Recommended starting point").parentElement).not.toHaveTextContent("Premium");
+   });
+
+   it("uses no progress or learner-state wording", () => {
+      view();
+      expect(document.body.textContent).not.toMatch(/continue|resume|progress|where you left/i);
    });
 
    it("is a calm empty state, with no destination invented, when nothing is linkable", () => {
       view(track([mod("empty", []), mod("broken", [entry("lesson.bad", { type: "problem" })])]));
-      expect(screen.queryByRole("link", { name: "Start" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^Start/ })).not.toBeInTheDocument();
       expect(screen.getByText("Nothing is published in this Track yet.")).toBeInTheDocument();
+   });
+
+   it("has no Start and no placeholder for a Track that places only Problems (S-TRK-6)", () => {
+      view(track([mod("drills", [entry("problem.a"), entry("problem.b")])]));
+      expect(screen.queryByRole("link", { name: /^Start/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Recommended starting point|Nothing is published/)).not.toBeInTheDocument();
+      const outline = screen.getByRole("navigation", { name: "Home Track outline" });
+      expect(within(outline).getByRole("link", { name: /Title a/ })).toHaveAttribute("href", "/problems/a");
    });
 });
 
 describe("TrackCurriculum modules", () => {
-   it("gives each module an h2 and opens only the first", () => {
+   it("gives each module an h2 with its number, title and Lesson and Problem counts, and opens only the first", () => {
       view();
-      expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
-         "Module basics 2 items",
-         "Module depth 2 items",
-         "Module later 0 items",
+      expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent?.replace(/\s+/g, " "))).toEqual([
+         "Module 1 Part basics 1 lesson · 1 practice problem",
+         "Module 2 Part depth 2 lessons",
+         "Module 3 Part later",
          "In this Track",
       ]);
       expect(moduleButton("basics")).toHaveAttribute("aria-expanded", "true");
@@ -125,9 +154,9 @@ describe("TrackCurriculum modules", () => {
       expect(moduleButton("later")).toHaveAttribute("aria-expanded", "false");
    });
 
-   it("shows a collapsed module as its title and entry count only", () => {
+   it("shows a collapsed module as its number, title and counts only", () => {
       view();
-      expect(moduleButton("depth")).toHaveAccessibleName("Module depth 2 items");
+      expect(moduleButton("depth")).toHaveAccessibleName("Module 2 Part depth 2 lessons");
       expect(panelOf(moduleButton("depth"))).toHaveAttribute("inert");
    });
 
@@ -162,6 +191,29 @@ describe("TrackCurriculum modules", () => {
       view();
       expect(within(panelOf(moduleButton("later"))).getByText("No published items in this Module yet.")).toBeInTheDocument();
       expect(within(panelOf(moduleButton("later"))).queryByRole("list")).not.toBeInTheDocument();
+   });
+
+   it("numbers a module by its place among all modules, empty ones included, and never says 'items'", () => {
+      view(track([mod("empty", []), mod("real", [entry("lesson.one")])]));
+      expect(moduleButton("empty")).toHaveAccessibleName("Module 1 Part empty");
+      expect(moduleButton("real")).toHaveAccessibleName("Module 2 Part real 1 lesson");
+      expect(document.body.textContent).not.toMatch(/\d+ items?/);
+   });
+
+   it("words each count with the right singular or plural and leaves a zero out", () => {
+      view(
+         track([
+            mod("both", [entry("lesson.a"), entry("problem.b")]),
+            mod("many", [entry("lesson.c"), entry("lesson.d"), entry("problem.e"), entry("problem.f"), entry("problem.g")]),
+            mod("lessons", [entry("lesson.h")]),
+            mod("problems", [entry("problem.i"), entry("problem.j"), entry("problem.k")]),
+         ])
+      );
+      expect(moduleButton("both")).toHaveAccessibleName("Module 1 Part both 1 lesson · 1 practice problem");
+      expect(moduleButton("many")).toHaveAccessibleName("Module 2 Part many 2 lessons · 3 practice problems");
+      expect(moduleButton("lessons")).toHaveAccessibleName("Module 3 Part lessons 1 lesson");
+      expect(moduleButton("problems")).toHaveAccessibleName("Module 4 Part problems 3 practice problems");
+      expect(document.body.textContent).not.toMatch(/\b0 (lessons?|practice problems?)/);
    });
 
    it("separates modules with rules, never cards", () => {
@@ -204,12 +256,51 @@ describe("curriculum entries", () => {
       expect(row).not.toHaveTextContent(/difficulty|level|tags?/i);
    });
 
+   it("shows a Lesson's summary under its title, whole, and none on a Problem", () => {
+      const long = "A long summary that must wrap naturally and never be clamped. ".repeat(6).trim();
+      view(TRACK, new Map([["lesson.alpha", long], ["problem.beta", "Must never appear."]]));
+      const [lesson, problem] = within(panelOf(moduleButton("basics"))).getAllByRole("listitem");
+      expect(within(lesson).getByText(long)).toBeInTheDocument();
+      expect(lesson.textContent!.indexOf("Title alpha")).toBeLessThan(lesson.textContent!.indexOf(long));
+      expect(within(lesson).getByText(long).className).not.toMatch(/line-clamp|truncate|overflow-hidden|text-ellipsis/);
+      expect(problem).toHaveTextContent("Practice problem");
+      expect(problem).not.toHaveTextContent("Must never appear.");
+   });
+
+   it("maps each summary to its own Lesson by id, across modules", () => {
+      view(TRACK, new Map([["lesson.alpha", "Alpha summary."], ["lesson.gamma", "Gamma summary."]]));
+      const outline = within(screen.getByRole("navigation", { name: "Home Track outline" }));
+      expect(within(outline.getByRole("link", { name: /Title alpha/ })).getByText("Alpha summary.")).toBeInTheDocument();
+      expect(within(outline.getByRole("link", { name: /Title gamma/ })).getByText("Gamma summary.")).toBeInTheDocument();
+      expect(outline.getByRole("link", { name: /Title delta/ })).not.toHaveTextContent("summary");
+      expect(screen.getAllByText(/summary\./)).toHaveLength(2);
+   });
+
+   it("shows no summary at all without a completed scan, and no empty summary line", () => {
+      for (const summaries of [undefined, null, new Map<string, string>()]) {
+         document.body.innerHTML = "";
+         view(TRACK, summaries);
+         for (const row of screen.getAllByRole("listitem")) expect(row.querySelectorAll("span.mt-1")).toHaveLength(0);
+      }
+      document.body.innerHTML = "";
+      view(TRACK, new Map([["lesson.alpha", ""]]));
+      expect(document.querySelectorAll("span.mt-1")).toHaveLength(0);
+   });
+
+   it("keeps a Lesson visibly different from a Problem by words and icon, not colour", () => {
+      view();
+      const [lesson, problem] = within(panelOf(moduleButton("basics"))).getAllByRole("listitem");
+      expect(lesson).toHaveTextContent("Lesson");
+      expect(problem).toHaveTextContent("Practice problem");
+      expect(lesson.querySelector("svg")!.getAttribute("class")).not.toBe(problem.querySelector("svg")!.getAttribute("class"));
+   });
+
    it("shows a Knowledge entry nowhere: a Track places Lessons and Problems only", () => {
       view(track([mod("m", [entry("lesson.one"), entry("knowledge.stray")])]));
       expect(screen.queryByText("Title stray")).not.toBeInTheDocument();
       expect(document.body.textContent).not.toMatch(/knowledge/i);
-      expect(moduleButton("m")).toHaveAccessibleName("Module m 1 item");
-      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/lessons/one");
+      expect(moduleButton("m")).toHaveAccessibleName("Module 1 Part m 1 lesson");
+      expect(screen.getByRole("link", { name: "Start with Title one" })).toHaveAttribute("href", "/lessons/one");
    });
 
    it("marks premium entries and keeps them linkable", () => {
@@ -231,7 +322,7 @@ describe("curriculum entries", () => {
    it("drops an entry that cannot map to a canonical route, and counts only what it shows", () => {
       view(track([mod("m", [entry("lesson.ok"), entry("lesson.bad", { type: "problem", title: "Unsafe" })])]));
       expect(screen.queryByText("Unsafe")).not.toBeInTheDocument();
-      expect(moduleButton("m")).toHaveAccessibleName("Module m 1 item");
+      expect(moduleButton("m")).toHaveAccessibleName("Module 1 Part m 1 lesson");
    });
 
    it("hides decorative icons from assistive technology, since the type is also text", () => {
@@ -255,7 +346,7 @@ describe("TrackSupport", () => {
       expect(within(support).getAllByRole("heading").map((h) => h.textContent)).toEqual(["In this Track", "Practice"]);
       expect(within(support).getByText("1 practice problem placed in the curriculum above.")).toBeInTheDocument();
       expect(within(support).getByRole("link", { name: "Title beta" })).toHaveAttribute("href", "/problems/beta");
-      expect(support).toHaveTextContent(/Title beta\s*\/ Module basics/);
+      expect(support).toHaveTextContent(/Title beta\s*\/ Part basics/);
    });
 
    it("has no Knowledge context, since Knowledge is not placed in a Track", () => {
@@ -267,5 +358,50 @@ describe("TrackSupport", () => {
    it("renders nothing for a Track with no Problem", () => {
       view(track([mod("m", [entry("lesson.one")])]));
       expect(screen.queryByRole("region", { name: "In this Track" })).not.toBeInTheDocument();
+   });
+});
+
+describe("Module fragments (S-MOD-4)", () => {
+   it("gives each Module section its key as id, and no Module a link of its own", () => {
+      view();
+      for (const key of ["basics", "depth", "later"]) {
+         expect(moduleButton(key).closest(`[id="${key}"]`)).not.toBeNull();
+      }
+   });
+
+   it("gives a Module keyed like a shell id no fragment", () => {
+      view(track([mod("main-content", [entry("lesson.a")]), mod("depth", [entry("lesson.b")])]));
+      expect(document.getElementById("main-content")).toBeNull();
+      expect(document.getElementById("depth")).not.toBeNull();
+   });
+
+   it("renames the Track page's own ids out of the key grammar, so a Module can be keyed track-start-note", () => {
+      view(track([mod("track-start-note", [entry("lesson.a")]), mod("track-support-heading", [entry("problem.p")])]));
+      expect([...document.querySelectorAll("#track-start-note, #track-support-heading")]).toHaveLength(2);
+      expect(document.getElementById("track_start_note")).not.toBeNull();
+      expect(document.getElementById("track_support_heading")).not.toBeNull();
+      expect(screen.getByRole("link", { name: /^Start with/ })).toHaveAccessibleDescription("Recommended starting point");
+   });
+
+   it("keeps every id on every fixture Track page unique, a Module key being the only id a slug could be", () => {
+      const items = new Map(fixture.items.map((item) => [item.id, item]));
+      for (const raw of fixture.tracks) {
+         const modules = raw.modules.map((m, position) => ({
+            key: m.key,
+            title: m.title,
+            position,
+            items: m.items.flatMap((id) => {
+               const item = items.get(id);
+               return item ? [{ id, type: item.type, slug: item.slug, title: item.title, access: item.access, primary: true }] : [];
+            }),
+         }));
+         const { unmount } = view(track(modules as CatalogModule[], { id: raw.id, slug: raw.slug, title: raw.title }));
+         const ids = [...document.querySelectorAll("[id]")].map((element) => element.id);
+         expect(new Set(ids).size, raw.slug).toBe(ids.length);
+         const keys = raw.modules.map((m) => m.key);
+         for (const id of ids.filter((id) => !keys.includes(id))) expect(id, raw.slug).not.toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+         expect(document.getElementById("main-content"), raw.slug).toBeNull();
+         unmount();
+      }
    });
 });

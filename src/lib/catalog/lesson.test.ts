@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contentsOf, lessonRelations, plainHeading, PRACTICE_LIMIT } from "./lesson";
+import { contentsOf, lessonRelations, plainHeading } from "./lesson";
 import type { CatalogHeading, CatalogMeta } from "./types";
 
 const heading = (id: string, level: number, text = id): CatalogHeading => ({ id, level, text });
@@ -60,10 +60,9 @@ describe("lessonRelations", () => {
          related: [meta("lesson.sibling"), meta("problem.other"), meta("knowledge.mid")],
       });
       expect(ids(grouped.prerequisites)).toEqual(["knowledge.base", "lesson.first"]);
-      expect(ids(grouped.practice)).toEqual(["problem.practice"]);
       expect(ids(grouped.knowledge)).toEqual(["knowledge.zeta", "knowledge.alpha", "knowledge.mid"]);
       expect(ids(grouped.lessons)).toEqual(["lesson.sibling"]);
-      expect(ids(grouped.problems)).toEqual(["problem.other"]);
+      expect(ids(grouped.problems)).toEqual(["problem.practice", "problem.other"]);
    });
 
    it("does not assume a related target is Knowledge: the target's own type decides", () => {
@@ -73,19 +72,28 @@ describe("lessonRelations", () => {
       expect(ids(grouped.lessons)).toEqual(["lesson.b"]);
    });
 
-   it("makes Practice only of Problems that name this Lesson as a prerequisite", () => {
+   it("sends every target to its type's group and leaves Practice selection to practiceStep", () => {
       const grouped = lessonRelations({ prerequisite_of: [meta("lesson.next"), meta("knowledge.builds-on"), meta("problem.p")], related: [meta("problem.q")] });
-      expect(ids(grouped.practice)).toEqual(["problem.p"]);
-      expect(ids(grouped.problems)).toEqual(["problem.q"]);
+      expect(ids(grouped.problems)).toEqual(["problem.p", "problem.q"]);
       expect(ids(grouped.lessons)).toEqual(["lesson.next"]);
       expect(ids(grouped.knowledge)).toEqual(["knowledge.builds-on"]);
    });
 
-   it("caps Practice at two in the API's order; the rest stay reachable as quiet Problems", () => {
-      expect(PRACTICE_LIMIT).toBe(2);
-      const grouped = lessonRelations({ prerequisite_of: [meta("problem.a"), meta("problem.b"), meta("problem.c")] });
-      expect(ids(grouped.practice)).toEqual(["problem.a", "problem.b"]);
-      expect(ids(grouped.problems)).toEqual(["problem.c"]);
+   it("renders a claimed target once, in its earlier place: the Next lesson and shown Practice leave the related groups (S-LSN-16)", () => {
+      const grouped = lessonRelations(
+         {
+            related: [meta("lesson.next"), meta("lesson.other"), meta("problem.shown"), meta("problem.rest")],
+            prerequisite_of: [meta("problem.shown"), meta("problem.overflow")],
+         },
+         ["lesson.next", "problem.shown"]
+      );
+      expect(ids(grouped.lessons)).toEqual(["lesson.other"]);
+      expect(ids(grouped.problems)).toEqual(["problem.rest", "problem.overflow"]);
+   });
+
+   it("matches a claimed target by id, never by title", () => {
+      const grouped = lessonRelations({ related: [meta("lesson.a", { title: "Same" }), meta("lesson.b", { title: "Same" })] }, ["lesson.a"]);
+      expect(ids(grouped.lessons)).toEqual(["lesson.b"]);
    });
 
    it("shows a target once: a prerequisite or Practice Problem is not repeated, and a repeat across relations collapses", () => {
@@ -97,19 +105,18 @@ describe("lessonRelations", () => {
       });
       expect(ids(grouped.prerequisites)).toEqual(["knowledge.base"]);
       expect(ids(grouped.knowledge)).toEqual(["knowledge.once"]);
-      expect(ids(grouped.practice)).toEqual(["problem.p"]);
-      expect(grouped.problems).toEqual([]);
+      expect(ids(grouped.problems)).toEqual(["problem.p"]);
    });
 
    it("returns empty groups for no relations, unknown names and unlinkable targets", () => {
-      const empty = { prerequisites: [], practice: [], knowledge: [], lessons: [], problems: [] };
+      const empty = { prerequisites: [], knowledge: [], lessons: [], problems: [] };
       expect(lessonRelations({})).toEqual(empty);
       expect(lessonRelations({ mentioned_in: [meta("lesson.x")], invented: [meta("knowledge.y")] })).toEqual(empty);
       expect(lessonRelations({ related: [{ ...meta("lesson.x"), slug: "other" }] })).toEqual(empty);
    });
 
    it("keeps premium targets as metadata and links each to its canonical route", () => {
-      const { practice } = lessonRelations({ prerequisite_of: [meta("problem.paid", { access: "premium" })] });
-      expect(practice).toEqual([{ entry: expect.objectContaining({ access: "premium" }), href: "/problems/paid" }]);
+      const { problems } = lessonRelations({ prerequisite_of: [meta("problem.paid", { access: "premium" })] });
+      expect(problems).toEqual([{ entry: expect.objectContaining({ access: "premium" }), href: "/problems/paid" }]);
    });
 });

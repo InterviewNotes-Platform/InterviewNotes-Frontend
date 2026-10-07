@@ -126,7 +126,7 @@ test.describe("the Practice home", () => {
    });
 
    test("a sparse Problem, with no difficulty, level or topic, is still a whole card", async ({ page }) => {
-      await page.goto(`/practice?cursor=${PROBLEMS[PROBLEMS.length - 3].id}`);
+      await page.goto(`/practice?cursor=${PROBLEMS[PROBLEMS.findIndex((problem) => problem.id === SPARSE.id) - 1].id}`);
       const sparse = cards(page).filter({ hasText: SPARSE.title });
       await expect(sparse).toHaveCount(1);
       await expect(sparse.getByRole("link")).toHaveAttribute("href", canonical(SPARSE.id));
@@ -275,7 +275,8 @@ test.describe("unrecognised URL state", () => {
 test.describe("Practice pagination", () => {
    test("walks the whole catalog by the API's cursor: every Problem once, in order, no gaps", async ({ page }) => {
       const pages = await walk(page, "/practice");
-      expect(pages.map((titlesOnPage) => titlesOnPage.length)).toEqual([12, 12, PROBLEMS.length - 24]);
+      const sizes = Array.from({ length: Math.ceil(PROBLEMS.length / PAGE_SIZE) }, (_, index) => Math.min(PAGE_SIZE, PROBLEMS.length - index * PAGE_SIZE));
+      expect(pages.map((titlesOnPage) => titlesOnPage.length)).toEqual(sizes);
       const walked = pages.flat();
       expect(new Set(walked).size, "a Problem was listed twice").toBe(walked.length);
       expect(walked).toEqual(titles(PROBLEMS));

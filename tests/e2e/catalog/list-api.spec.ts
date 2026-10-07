@@ -150,7 +150,7 @@ test.describe("fake catalog list endpoints", () => {
          walked.push(...body.items.map((i) => i.id));
          cursor = body.next_cursor;
          pages += 1;
-      } while (cursor && pages < 20);
+      } while (cursor && pages < Math.ceil(ALL_ITEMS.length / 4) + 5);
       expect(walked).toEqual(ALL_ITEMS);
       expect(pages).toBe(Math.ceil(ALL_ITEMS.length / 4));
    });
