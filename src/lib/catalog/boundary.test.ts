@@ -39,6 +39,7 @@ describe("catalog browser/Git boundary", () => {
          "components/catalog/TrackCurriculum.tsx",
          "components/catalog/TrackOutline.tsx",
          "components/catalog/blocks.ts",
+         "components/catalog/knowledgeRefs.ts",
          "lib/catalog/client.ts",
       "lib/catalog/curriculum.ts",
          "lib/catalog/knowledge.ts",

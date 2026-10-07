@@ -2,14 +2,16 @@ import type { ComponentPropsWithoutRef, ElementType } from "react";
 import Link from "next/link";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { KnowledgeAbout } from "@/components/lesson/KnowledgeAbout";
 import { Mermaid } from "@/components/mdx/Mermaid";
 import { Tip, type TipType } from "@/components/mdx/Tip";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
-import { plainHeading } from "@/lib/catalog/lesson";
+import { plainHeading, type KnowledgeSupport } from "@/lib/catalog/lesson";
 import { catalogHref, firstPartyPath } from "@/lib/catalog/routes";
 import type { CatalogBody as CatalogBodyData, CatalogHeading } from "@/lib/catalog/types";
 import { cn } from "@/lib/utils";
 import { headingIds, parseBlocks, type Block, type CalloutKind } from "./blocks";
+import { knowledgeCoverage, type KnowledgeCoverage } from "./knowledgeRefs";
 
 type HastElement = NonNullable<ExtraProps["node"]>;
 
@@ -128,7 +130,7 @@ function codeBlock(adaptive: boolean): Components["pre"] {
  * In a preview, a link to any InterviewNotes host stays on this deployment instead of reaching another one.
  * Reading mode never prefetches a catalog link: that makes the server read every target in view.
  */
-function anchor(stayOnDeployment: boolean, reading: boolean): Components["a"] {
+function anchor(stayOnDeployment: boolean, reading: boolean, aboutAt?: (offset: number) => KnowledgeSupport | undefined): Components["a"] {
    return function Anchor({ node, href, children }) {
       void node;
       if (!href) return <span>{children}</span>;
@@ -139,7 +141,9 @@ function anchor(stayOnDeployment: boolean, reading: boolean): Components["a"] {
            : null;
       if (internal) {
          const knowledge = reading && href.startsWith("ref:knowledge.");
-         return (
+         const offset = node?.position?.start.offset;
+         const about = knowledge && aboutAt && offset !== undefined ? aboutAt(offset) : undefined;
+         const link = (
             <Link
                href={internal}
                prefetch={reading ? false : undefined}
@@ -149,20 +153,38 @@ function anchor(stayOnDeployment: boolean, reading: boolean): Components["a"] {
                {children}
             </Link>
          );
+         return about ? (
+            <>
+               {link}
+               <KnowledgeAbout {...about} />
+            </>
+         ) : (
+            link
+         );
       }
       if (href.startsWith("#")) return <a href={href} className={LINK_STYLE}>{children}</a>;
       return <a href={href} className={LINK_STYLE} target="_blank" rel="noopener noreferrer">{children}</a>;
    };
 }
 
+type Knowledge = { coverage: KnowledgeCoverage; support: ReadonlyMap<string, KnowledgeSupport> };
+
 interface BlocksProps {
    blocks: Block[];
    stayOnDeployment: boolean;
    reading: boolean;
    ids: ReturnType<typeof headingIds>;
+   /** The Lesson's contextual Knowledge: which links carry a panel, and what each shows. */
+   knowledge: Knowledge | null;
 }
 
-function Blocks({ blocks, stayOnDeployment, reading, ids }: BlocksProps) {
+/** What a link at a source offset of this block shows in context, if the pre-pass marked it. */
+function aboutIn(block: Block, knowledge: Knowledge | null) {
+   const marked = block.type === "markdown" ? knowledge?.coverage.at.get(block) : undefined;
+   return marked && ((offset: number) => knowledge?.support.get(marked.get(offset) ?? ""));
+}
+
+function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge }: BlocksProps) {
    return (
       <>
          {blocks.map((block, index) =>
@@ -177,7 +199,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids }: BlocksProps) {
                      h3: heading("h3", ids?.get(block)),
                      h4: heading("h4", ids?.get(block)),
                      pre: codeBlock(reading),
-                     a: anchor(stayOnDeployment, reading),
+                     a: anchor(stayOnDeployment, reading, aboutIn(block, knowledge)),
                   }}
                   urlTransform={safeUrl}
                   skipHtml
@@ -187,7 +209,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids }: BlocksProps) {
             ) : (
                <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
                   <Tip type={CALLOUTS[block.kind].type} title={CALLOUTS[block.kind].title}>
-                     <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} />
+                     <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} />
                   </Tip>
                </div>
             )
@@ -196,11 +218,17 @@ function Blocks({ blocks, stayOnDeployment, reading, ids }: BlocksProps) {
    );
 }
 
+export interface ReadingMode {
+   headings: readonly CatalogHeading[];
+   /** A Lesson's related Knowledge by id: its first reference to each offers the summary in context (S-KNW-2). */
+   knowledge?: ReadonlyMap<string, KnowledgeSupport>;
+}
+
 interface CatalogBodyProps {
    body: CatalogBodyData;
    stayOnDeployment?: boolean;
    /** Reading mode (Lesson, Problem): the API's headings give the rendered headings their ids; Knowledge refs and diagrams are set apart and links never prefetch. */
-   reading?: { headings: readonly CatalogHeading[] };
+   reading?: ReadingMode;
 }
 
 /**
@@ -211,9 +239,10 @@ export function CatalogBody({ body, stayOnDeployment = false, reading }: Catalog
    if (body.format !== "markdown@1") return null;
    const blocks = parseBlocks(body.text);
    const ids = reading ? headingIds(blocks, reading.headings) : null;
+   const knowledge = reading?.knowledge ? { coverage: knowledgeCoverage(blocks, reading.knowledge), support: reading.knowledge } : null;
    return (
-      <div>
-         <Blocks blocks={blocks} stayOnDeployment={stayOnDeployment} reading={Boolean(reading)} ids={ids} />
+      <div data-catalog-body="">
+         <Blocks blocks={blocks} stayOnDeployment={stayOnDeployment} reading={Boolean(reading)} ids={ids} knowledge={knowledge} />
       </div>
    );
 }

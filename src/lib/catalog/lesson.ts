@@ -67,3 +67,26 @@ export function lessonRelations(relations: Record<string, CatalogMeta[]>, claime
    }
    return { prerequisites, knowledge: rest.knowledge, lessons: rest.lesson, problems: rest.problem };
 }
+
+/** What a contextual Knowledge panel shows: public metadata the Lesson's own relations already carry. */
+export interface KnowledgeSupport {
+   title: string;
+   summary: string;
+   href: string;
+}
+
+/**
+ * The Knowledge this Lesson relates to under any relation name it renders, keyed by id, that can offer a summary in
+ * context. A target without a releasable summary is absent: no panel, and nothing is fetched to fill one.
+ */
+export function knowledgeSupport(relations: Record<string, CatalogMeta[]>): Map<string, KnowledgeSupport> {
+   const support = new Map<string, KnowledgeSupport>();
+   for (const [name, items] of Object.entries(relations)) {
+      if (name !== "prerequisite" && !RELATED_KEYS.has(name)) continue;
+      for (const { entry, href } of linkableEntries(items)) {
+         if (entry.type !== "knowledge" || !entry.summary.trim() || support.has(entry.id)) continue;
+         support.set(entry.id, { title: entry.title, summary: entry.summary, href });
+      }
+   }
+   return support;
+}

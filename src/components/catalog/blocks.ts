@@ -65,9 +65,9 @@ export function parseBlocks(text: string): Block[] {
    return root;
 }
 
-type MarkdownBlock = Extract<Block, { type: "markdown" }>;
+export type MarkdownBlock = Extract<Block, { type: "markdown" }>;
 
-const markdownBlocks = (blocks: Block[]): MarkdownBlock[] =>
+export const markdownBlocks = (blocks: Block[]): MarkdownBlock[] =>
    blocks.flatMap((block) => (block.type === "markdown" ? [block] : markdownBlocks(block.children)));
 
 /** Heading lines of one markdown block, 1-based within it, found by the backend's rule. */

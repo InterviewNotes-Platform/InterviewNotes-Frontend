@@ -6,7 +6,7 @@
 //     [--base http://localhost:3100] [--api http://127.0.0.1:3101]
 //     [--viewports 390,768,1024,1440] [--themes light,dark] [--settle 500] [--body-selector <css>] [--strict]
 //
-// Modes: overflow, requests, offset, console. Add a mode by writing an async function in MODES; no new loop script.
+// Modes: overflow, requests, offset, console, panel. Add a mode by writing an async function in MODES; no new loop script.
 // `requests` reads the fake API's /__catalog-log. The production build caches catalog reads, so a route
 // whose count is 0 was served from that cache (`cached: true`); start from a cold cache for real counts.
 import { chromium } from "@playwright/test";
@@ -125,6 +125,84 @@ const MODES = {
       return rows;
    },
 
+   /** P3-T7: opens the first Knowledge toggle of each route and measures the panel against the viewport, the column and the reference. */
+   async panel({ browser, config, routes }) {
+      const GUTTER = 16;
+      const rows = [];
+      for (const width of list(config.viewports).map(Number)) {
+         for (const theme of list(config.themes)) {
+            const { page, close } = await open(browser, { width, height: 900, theme });
+            for (const route of routes) {
+               const { status, errors } = await visit(page, config, route);
+               const toggles = page.getByRole("button", { name: /^About / });
+               const row = { route, width, theme, status, toggles: await toggles.count(), errors: errors.length };
+               if (row.toggles === 0) {
+                  rows.push({ ...row, opened: false });
+                  continue;
+               }
+               const toggle = toggles.first();
+               for (let attempt = 0; attempt < 20 && (await toggle.getAttribute("aria-expanded")) !== "true"; attempt++) {
+                  await toggle.click();
+                  await page.waitForTimeout(150);
+               }
+               const m = await page.evaluate(() => {
+                  const toggle = document.querySelector('button[aria-label^="About "]');
+                  const wrapper = toggle.parentElement;
+                  const panel = wrapper.querySelector('[role="group"]');
+                  const link = wrapper.previousElementSibling;
+                  const box = (rect) => ({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom });
+                  const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+                  if (!panel) return { opened: false };
+                  const p = box(panel.getBoundingClientRect());
+                  const column = box(toggle.closest("[data-catalog-body]").getBoundingClientRect());
+                  const reference = [...link.getClientRects(), toggle.getBoundingClientRect()].map(box);
+                  const block = toggle.closest("p, li, td, blockquote");
+                  const withToggle = block.getBoundingClientRect().height;
+                  wrapper.style.display = "none";
+                  const without = block.getBoundingClientRect().height;
+                  wrapper.style.display = "";
+                  const style = getComputedStyle(panel);
+                  return {
+                     opened: true,
+                     panel: { left: p.left, right: p.right, top: p.top, width: p.right - p.left },
+                     viewportWidth: document.documentElement.clientWidth,
+                     overflowPx: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+                     coversReference: reference.some((r) => hit(p, r)),
+                     belowReference: p.top >= Math.max(...reference.map((r) => r.bottom)) - 0.5,
+                     column: { left: column.left, right: column.right },
+                     paragraphDeltaPx: Math.round((withToggle - without) * 100) / 100,
+                     insidePhrasing: !panel.closest("p") || ![...panel.querySelectorAll("*")].some((e) => /^(DIV|P|UL|OL|SECTION)$/.test(e.tagName)),
+                     transition: style.transitionDuration,
+                     animation: style.animationName,
+                  };
+               });
+               const fit = m.opened && {
+                  withinViewport: m.panel.left >= GUTTER - 0.5 && m.panel.right <= m.viewportWidth - GUTTER + 0.5,
+                  withinColumn: m.panel.left >= m.column.left - 0.5 && m.panel.right <= m.column.right + 0.5,
+               };
+               const oneOpen = row.toggles > 1 ? await (async () => {
+                  await toggles.nth(1).click();
+                  await page.waitForTimeout(150);
+                  return (await page.getByRole("group", { name: /^About / }).count()) === 1;
+               })() : null;
+               if (oneOpen !== null) await toggles.nth(0).click(); // reopen the first; the second closes
+               await page.keyboard.press("Escape");
+               await page.waitForTimeout(100);
+               const escapeClosed = (await page.getByRole("group", { name: /^About / }).count()) === 0;
+               const focusReturned = await page.evaluate(() => document.activeElement?.getAttribute("aria-label")?.startsWith("About ") ?? false);
+               await toggle.click();
+               await page.waitForTimeout(100);
+               await page.locator("main h1").click();
+               await page.waitForTimeout(100);
+               const outsideClosed = (await page.getByRole("group", { name: /^About / }).count()) === 0;
+               rows.push({ ...row, ...m, ...fit, oneOpen, escapeClosed, focusReturned, outsideClosed });
+            }
+            await close();
+         }
+      }
+      return rows;
+   },
+
    async console({ browser, config, routes }) {
       const { page, close } = await open(browser);
       const rows = [];
@@ -143,6 +221,10 @@ const FINDING = {
    requests: () => false,
    offset: (row) => !row.matched,
    console: (row) => row.errors.length > 0,
+   panel: (row) =>
+      row.errors > 0 ||
+      (row.toggles > 0 &&
+         !(row.opened && row.withinViewport && row.withinColumn && !row.coversReference && row.belowReference && row.overflowPx === 0 && row.insidePhrasing && row.escapeClosed && row.focusReturned && row.outsideClosed && row.oneOpen !== false)),
 };
 
 const { options: config, modes } = parseArgs(process.argv.slice(2));

@@ -1684,7 +1684,7 @@
       "level": "foundational",
       "access": "free",
       "home": "",
-      "body": "Knowledge reference marker.\n\n## Using [Related Knowledge](ref:knowledge.p3-ref-related) well\n\nA reference to [related knowledge](ref:knowledge.p3-ref-related) that the lesson declares.\n\nA reference to [outside knowledge](ref:knowledge.p3-prac-shared) that the lesson does not declare.\n\nA second mention of [related knowledge again](ref:knowledge.p3-ref-related) in a later paragraph.\n",
+      "body": "Knowledge reference marker.\n\n## Using [Related Knowledge](ref:knowledge.p3-ref-related) well\n\nOne paragraph, three references: [related knowledge](ref:knowledge.p3-ref-related) that the lesson declares, [outside knowledge](ref:knowledge.p3-prac-shared) that it does not, and [related knowledge again](ref:knowledge.p3-ref-related) as a second mention of the first.\n",
       "headings": [{"id": "using-related-knowledge-well", "level": 2, "text": "Using Related Knowledge well"}],
       "relations": { "related": ["knowledge.p3-ref-related"] }
     },
