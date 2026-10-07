@@ -29,20 +29,22 @@ export function curriculumSummary({ modules, counts }: Curriculum): string {
       .join(" · ");
 }
 
-function TrackStart({ start }: { start: PlacedEntry | null }) {
+/** The one recommendation: the first Lesson (S-CUR-13). With no Lesson there is no Start and no placeholder. */
+function TrackStart({ curriculum: { start, counts } }: { curriculum: Curriculum }) {
    if (!start) {
-      return <p className="mt-8 mb-0 text-body text-muted-foreground">Nothing is published in this Track yet.</p>;
+      const empty = counts.lesson + counts.problem === 0;
+      return empty ? <p className="mt-8 mb-0 text-body text-muted-foreground">Nothing is published in this Track yet.</p> : null;
    }
    return (
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-         <Button asChild size="lg" className="h-11 px-6 text-body">
+         <Button asChild size="lg" className="h-auto min-h-11 px-6 py-2 text-left text-body whitespace-normal">
             <Link href={start.href} prefetch={false} aria-describedby="track-start-note">
-               Start
+               Start with {start.entry.title}
                <ArrowRight aria-hidden="true" />
             </Link>
          </Button>
          <p id="track-start-note" className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">
-            <span>Begins with {start.entry.title}</span>
+            <span>Recommended starting point</span>
             {start.entry.access === "premium" ? <PremiumMark /> : null}
          </p>
       </div>
@@ -67,13 +69,13 @@ export function TrackHeader({ track, curriculum }: { track: CatalogTrack; curric
                ))}
             </p>
          ) : null}
-         <TrackStart start={curriculum.start} />
+         <TrackStart curriculum={curriculum} />
       </header>
    );
 }
 
 /** One ordered row. The leading slot has a fixed width so a progress mark can later take its place. */
-function CurriculumEntry({ entry, href }: PlacedEntry) {
+function CurriculumEntry({ entry, href, summary }: PlacedEntry & { summary?: string }) {
    const { label, Icon } = STEP[entry.type];
    return (
       <li>
@@ -88,6 +90,7 @@ function CurriculumEntry({ entry, href }: PlacedEntry) {
             <span className="min-w-0">
                <span className="block text-body font-medium text-foreground transition-micro group-hover:text-primary">{entry.title}</span>
                <span className="block text-supporting text-muted-foreground">{label}</span>
+               {summary ? <span className="mt-1 block text-supporting text-pretty text-muted-foreground">{summary}</span> : null}
             </span>
             {entry.access === "premium" ? <PremiumMark /> : null}
          </Link>
@@ -95,24 +98,39 @@ function CurriculumEntry({ entry, href }: PlacedEntry) {
    );
 }
 
+/** "3 lessons · 1 practice problem"; a zero count is left out. */
+const moduleCounts = ({ lesson, problem }: Curriculum["counts"]) =>
+   [lesson ? plural(lesson, "lesson") : "", problem ? plural(problem, "practice problem") : ""].filter(Boolean).join(" · ");
+
+interface TrackCurriculumProps {
+   track: CatalogTrack;
+   curriculum: Curriculum;
+   /** Lesson summaries by item id, from a scan that completed; null or absent shows none, never a partial set. */
+   summaries?: ReadonlyMap<string, string> | null;
+}
+
 /** Modules as separated sections, not cards. The first is open; the rest start collapsed. */
-export function TrackCurriculum({ track, curriculum }: { track: CatalogTrack; curriculum: Curriculum }) {
+export function TrackCurriculum({ track, curriculum, summaries }: TrackCurriculumProps) {
    // A Track with no modules has nothing to outline; the Start state in its header already says so.
    if (curriculum.modules.length === 0) return null;
    return (
       <nav aria-label={`${track.title} outline`} className="border-b border-border">
-         {curriculum.modules.map(({ module, rows }, index) => (
+         {curriculum.modules.map(({ module, rows, counts }, index) => (
             <Disclosure
                key={module.key}
-               title={module.title}
-               detail={plural(rows.length, "item")}
+               title={
+                  <>
+                     <span className="block text-supporting font-normal text-muted-foreground">Module {index + 1}</span> {module.title}
+                  </>
+               }
+               detail={moduleCounts(counts)}
                defaultOpen={index === 0}
                className="border-t border-border"
             >
                {rows.length ? (
                   <ol role="list" className="m-0 list-none p-0 pb-4">
                      {rows.map((row) => (
-                        <CurriculumEntry key={row.entry.id} {...row} />
+                        <CurriculumEntry key={row.entry.id} {...row} summary={row.entry.type === "lesson" ? summaries?.get(row.entry.id) : undefined} />
                      ))}
                   </ol>
                ) : (

@@ -40,9 +40,15 @@ const TRACK = {
 };
 const view = async () => render(await TrackPage({ params: Promise.resolve({ slug: "curriculum" }) }));
 
+const listed = (slugs: string[], next_cursor: string | null = null) => ({
+   status: "ok",
+   data: { items: slugs.map((slug) => ({ id: `lesson.${slug}`, summary: `About ${slug}.` })), next_cursor },
+});
+
 beforeEach(() => {
    vi.clearAllMocks();
    getCatalogTrack.mockResolvedValue({ status: "ok", data: TRACK });
+   listCatalogItems.mockResolvedValue(listed(["alpha", "gamma"]));
 });
 
 afterEach(() => {
@@ -56,7 +62,7 @@ describe("Track page", () => {
       const main = screen.getByRole("main");
       const order = [
          within(main).getByRole("heading", { level: 1 }),
-         within(main).getByRole("link", { name: "Start" }),
+         within(main).getByRole("link", { name: "Start with Title alpha" }),
          within(main).getByRole("navigation", { name: "Curriculum Track outline" }),
          within(main).getByRole("region", { name: "In this Track" }),
       ];
@@ -65,26 +71,69 @@ describe("Track page", () => {
       }
    });
 
-   it("never fetches an item, its meta, its relations or an item list for any entry", async () => {
+   it("reads the Lesson list once for summaries, public and Track-scoped, and never an item, meta or relations", async () => {
       await view();
-      for (const read of [getCatalogItem, getCatalogItemMeta, getCatalogRelated, listCatalogItems]) expect(read).not.toHaveBeenCalled();
+      expect(listCatalogItems).toHaveBeenCalledExactlyOnceWith({ type: "lesson", track: "curriculum", limit: 100, cursor: undefined });
+      for (const read of [getCatalogItem, getCatalogItemMeta, getCatalogRelated]) expect(read).not.toHaveBeenCalled();
    });
 
-   it("starts at the first entry, opens only the first module and keeps the premium entry linkable", async () => {
+   it("shows the scanned summaries on Lesson rows only", async () => {
       await view();
-      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/lessons/alpha");
+      const outline = within(screen.getByRole("navigation", { name: "Curriculum Track outline" }));
+      expect(outline.getByText("About alpha.")).toBeInTheDocument();
+      expect(outline.getByText("About gamma.")).toBeInTheDocument();
+      expect(outline.queryByText(/About beta/)).not.toBeInTheDocument();
+   });
+
+   it("follows next_cursor across pages and shows every page's summaries", async () => {
+      listCatalogItems.mockResolvedValueOnce(listed(["alpha"], "lesson.alpha")).mockResolvedValueOnce(listed(["gamma"]));
+      await view();
+      expect(listCatalogItems.mock.calls.map(([params]) => params.cursor)).toEqual([undefined, "lesson.alpha"]);
+      expect(screen.getByText("About alpha.")).toBeInTheDocument();
+      expect(screen.getByText("About gamma.")).toBeInTheDocument();
+   });
+
+   it("shows no summary at all, and still the whole curriculum, when a page fails after one succeeded", async () => {
+      listCatalogItems.mockResolvedValueOnce(listed(["alpha"], "lesson.alpha")).mockResolvedValueOnce({ status: "unavailable", cause: "upstream" });
+      await view();
+      expect(listCatalogItems).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText(/^About /)).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Start with Title alpha" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button")).toHaveLength(3);
+   });
+
+   it("shows no summary at all when the five-page cap is reached, and reads no sixth page", async () => {
+      listCatalogItems.mockImplementation(async ({ cursor }) => listed(["alpha"], `lesson.next-${cursor ?? "0"}`));
+      await view();
+      expect(listCatalogItems).toHaveBeenCalledTimes(5);
+      expect(screen.queryByText(/^About /)).not.toBeInTheDocument();
+   });
+
+   it("does not scan for a Track with no Lesson, nor for an unavailable Track", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...TRACK, modules: [{ key: "d", title: "Drills", position: 1, items: [entry("problem.only")] }] } });
+      await view();
+      expect(screen.queryByRole("link", { name: /^Start/ })).not.toBeInTheDocument();
+      getCatalogTrack.mockResolvedValue({ status: "unavailable", cause: "upstream" });
+      document.body.innerHTML = "";
+      await view();
+      expect(listCatalogItems).not.toHaveBeenCalled();
+   });
+
+   it("starts at the first Lesson, opens only the first module and keeps the premium entry linkable", async () => {
+      await view();
+      expect(screen.getByRole("link", { name: "Start with Title alpha" })).toHaveAttribute("href", "/lessons/alpha");
       expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]);
       expect(screen.getByRole("link", { name: /Title gamma/ })).toHaveAttribute("href", "/lessons/gamma");
    });
 
-   it("starts a premium-first curriculum at its premium entry, from the public outline alone", async () => {
+   it("starts a premium-first curriculum at its premium Lesson, from the public outline alone", async () => {
       getCatalogTrack.mockResolvedValue({
          status: "ok",
          data: { ...TRACK, modules: [{ key: "one", title: "First module", position: 1, items: [entry("lesson.paid", "premium"), entry("lesson.free")] }] },
       });
       await view();
-      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/lessons/paid");
-      expect(screen.getByText("Begins with Title paid").parentElement).toHaveTextContent("Premium");
+      expect(screen.getByRole("link", { name: "Start with Title paid" })).toHaveAttribute("href", "/lessons/paid");
+      expect(screen.getByText("Recommended starting point").parentElement).toHaveTextContent("Premium");
       for (const read of [getCatalogItem, getCatalogItemMeta, getCatalogRelated]) expect(read).not.toHaveBeenCalled();
    });
 
@@ -92,7 +141,7 @@ describe("Track page", () => {
       getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...TRACK, modules: [] } });
       await view();
       expect(screen.getByRole("heading", { level: 1, name: "Curriculum Track" })).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Start" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^Start/ })).not.toBeInTheDocument();
       expect(screen.getByText("Nothing is published in this Track yet.")).toBeInTheDocument();
    });
 

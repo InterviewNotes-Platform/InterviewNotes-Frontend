@@ -1,13 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
+const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack, listCatalogItems } = vi.hoisted(() => ({
    getCatalogItem: vi.fn(),
    getCatalogItemMeta: vi.fn(),
    getCatalogRelated: vi.fn(),
    getCatalogTrack: vi.fn(),
+   listCatalogItems: vi.fn(),
 }));
-vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack }));
+vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack, listCatalogItems }));
 vi.mock("next/navigation", () => ({
    notFound: () => {
       throw new Error("NEXT_NOT_FOUND");
@@ -54,6 +55,7 @@ beforeEach(() => {
    getCatalogItem.mockResolvedValue({ status: "ok", data: ITEM });
    getCatalogItemMeta.mockResolvedValue({ status: "ok", data: META });
    getCatalogRelated.mockResolvedValue({ status: "ok", data: RELATED });
+   listCatalogItems.mockResolvedValue({ status: "ok", data: { items: [], next_cursor: null } });
    getCatalogTrack.mockImplementation(async (slug: string) =>
       slug === "home" ? { status: "ok", data: HOME } : slug === "other" ? { status: "ok", data: OTHER } : { status: "notFound" }
    );
@@ -169,7 +171,10 @@ describe("Track page outline", () => {
       render(await TrackPage(params));
       expect(screen.getByRole("heading", { level: 1, name: "Home Track" })).toBeInTheDocument();
       const outline = within(screen.getByRole("navigation", { name: "Home Track outline" }));
-      expect(outline.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["First Module 3 items", "Second Module 1 item"]);
+      expect(outline.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+         "Module 1 First Module 2 lessons · 1 practice problem",
+         "Module 2 Second Module 1 lesson",
+      ]);
       expect(outline.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
          "/lessons/before",
          "/lessons/item",
@@ -179,15 +184,16 @@ describe("Track page outline", () => {
       expect(outline.getByRole("link", { name: /Title after/ })).toHaveTextContent("Premium");
    });
 
-   it("starts at the first entry of the first module", async () => {
+   it("starts at the first Lesson of the first module", async () => {
       render(await TrackPage(params));
-      expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/lessons/before");
+      expect(screen.getByRole("link", { name: "Start with Title before" })).toHaveAttribute("href", "/lessons/before");
    });
 
-   it("loads no item bodies and no per-reader relationships", async () => {
+   it("loads no item bodies and no per-reader relationships, only the one Lesson list for summaries", async () => {
       render(await TrackPage(params));
       expect(getCatalogItem).not.toHaveBeenCalled();
       expect(getCatalogRelated).not.toHaveBeenCalled();
+      expect(listCatalogItems).toHaveBeenCalledExactlyOnceWith({ type: "lesson", track: "home", limit: 100, cursor: undefined });
    });
 
    it("marks no current item on the Track's own page", async () => {

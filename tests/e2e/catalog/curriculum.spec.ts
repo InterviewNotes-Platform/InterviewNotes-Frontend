@@ -67,3 +67,18 @@ test.describe("home Track", () => {
       await expect(breadcrumb(page).getByRole("link", { name: track("p3-unmarked").title })).toHaveAttribute("href", canonical("track.p3-unmarked"));
    });
 });
+
+// AC-3: Start is the first Lesson, never the Problem that is placed before it.
+test("Start on a Track whose first placement is a Problem opens its first Lesson", async ({ page }) => {
+   const leading = track("p3-leading");
+   const [warmup, first] = leading.modules[0].items.map(item);
+   expect(warmup.type, "fixture no longer leads with a Problem").toBe("problem");
+   await page.goto(canonical(leading.id));
+   const start = page.getByRole("main").getByRole("link", { name: /^Start/ });
+   await expect(start).toHaveCount(1);
+   await expect(start).toHaveAccessibleName(`Start with ${first.title}`);
+   await expect(start).toHaveAttribute("href", canonical(first.id));
+   await start.click();
+   await expect(page).toHaveURL(canonical(first.id));
+   await expect(page.getByRole("heading", { level: 1 })).toHaveText(first.title);
+});

@@ -239,8 +239,8 @@ test.describe("Track navigation", () => {
       await expect(outline.getByRole("heading", { level: 2 })).toContainText(HOME.modules.map((m) => m.title));
 
       // Every module is a collapsible section; open each one so that its rows can be read.
-      for (const group of HOME.modules) {
-         const control = outline.getByRole("button", { name: new RegExp(`^${group.title}`) });
+      for (const [index, group] of HOME.modules.entries()) {
+         const control = outline.getByRole("button", { name: new RegExp(`^Module ${index + 1} ${group.title}`) });
          if ((await control.getAttribute("aria-expanded")) === "false") await control.click();
          const rows = page.locator(`[id="${await control.getAttribute("aria-controls")}"]`).getByRole("listitem");
          await expect(rows.getByRole("link")).toContainText(group.items.map((id) => item(id).title));
