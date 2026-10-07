@@ -115,7 +115,7 @@ describe("a readable Lesson", () => {
          heading("First section", 2),
          screen.getByRole("navigation", { name: "Next in Home Track" }),
          heading("Related Knowledge", 2),
-         heading("Ready to apply this?", 2),
+         heading("Practice", 2),
          heading("Related Problems", 2),
          screen.getByRole("navigation", { name: "Curriculum" }),
          heading("Related Lessons", 2),
@@ -187,10 +187,10 @@ describe("a Lesson's relations", () => {
 
    it("makes one strong Practice transition of at most two `prerequisite_of` Problems, in the API's order", async () => {
       await show();
-      const practice = screen.getByRole("region", { name: "Ready to apply this?" });
+      const practice = screen.getByRole("region", { name: "Practice" });
       expect(within(practice).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/problems/one", "/problems/two"]);
       expect(within(practice).getByText("Premium")).toBeInTheDocument();
-      expect(screen.getAllByRole("heading", { name: "Ready to apply this?" })).toHaveLength(1);
+      expect(screen.getAllByRole("heading", { name: "Practice" })).toHaveLength(1);
    });
 
    it("keeps other Problems quiet, below, and never in both places", async () => {
@@ -203,6 +203,70 @@ describe("a Lesson's relations", () => {
       }
    });
 
+   it("states why each Practice Problem is there, from its bases, and shows nothing from inside the Problem (S-PRC-5, S-PRC-7)", async () => {
+      await show();
+      const [one, two] = within(screen.getByRole("region", { name: "Practice" })).getAllByRole("listitem");
+      expect(one.textContent).toBe("ProblemTitle oneSummary oneMediumBuilds on this lesson");
+      expect(two).toHaveTextContent("Builds on this lesson");
+      expect(within(one).getByRole("link")).toHaveAccessibleName("Title one");
+   });
+
+   it("renders the Next lesson once: a Next that is also related stays in the Next block and leaves Related Lessons (S-LSN-16)", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: { related: [meta("lesson.after"), meta("lesson.sibling")] } } });
+      await show();
+      const outsideOutline = screen.getAllByRole("link").filter((link) => !link.closest("details"));
+      expect(outsideOutline.filter((link) => link.getAttribute("href") === "/lessons/after")).toHaveLength(1);
+      expect(within(screen.getByRole("navigation", { name: "Next in Home Track" })).getByRole("link")).toHaveAttribute("href", "/lessons/after");
+      expect(within(screen.getByRole("region", { name: "Related Lessons" })).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/lessons/sibling"]);
+   });
+
+   it("drops Related Lessons entirely when the Next lesson was its only member", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: { related: [meta("lesson.after")] } } });
+      await show();
+      expect(screen.queryByRole("heading", { name: "Related Lessons" })).not.toBeInTheDocument();
+   });
+
+   it("does not merge two different Lessons that share a title, only the same id", async () => {
+      getCatalogRelated.mockResolvedValue({
+         status: "ok",
+         data: { ...RELATED, relations: { related: [meta("lesson.after", { title: "Same title" }), meta("lesson.twin", { title: "Same title" })] } },
+      });
+      await show();
+      expect(within(screen.getByRole("region", { name: "Related Lessons" })).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/lessons/twin"]);
+   });
+
+   it("keeps a Builds on item out of Related Knowledge and Related Lessons (S-KNW-5)", async () => {
+      getCatalogRelated.mockResolvedValue({
+         status: "ok",
+         data: { ...RELATED, relations: { prerequisite: [meta("knowledge.base"), meta("lesson.first")], related: [meta("knowledge.base"), meta("lesson.first"), meta("knowledge.other")] } },
+      });
+      await show();
+      expect(within(screen.getByRole("region", { name: "Related Knowledge" })).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/knowledge/other"]);
+      expect(screen.queryByRole("heading", { name: "Related Lessons" })).not.toBeInTheDocument();
+   });
+
+   it("lists a Practice overflow Problem under Related Problems once, and a Problem shown in Practice never there (S-PRC-3, S-PRC-4)", async () => {
+      getCatalogRelated.mockResolvedValue({
+         status: "ok",
+         data: { ...RELATED, relations: { prerequisite_of: [meta("problem.one"), meta("problem.two"), meta("problem.three")], related: [meta("problem.one"), meta("problem.five")] } },
+      });
+      await show();
+      expect(within(screen.getByRole("region", { name: "Related Problems" })).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/problems/three", "/problems/five"]);
+   });
+
+   it("shows an Interposed Problem in Practice with its Placement basis, and neither repeats nor invents it under Related Problems", async () => {
+      getCatalogTrack.mockResolvedValue({
+         status: "ok",
+         data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.item"), entry("problem.interposed"), entry("problem.second"), entry("problem.third"), entry("lesson.after")] }] },
+      });
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: { related: [meta("problem.other")] } } });
+      await show();
+      const practice = within(screen.getByRole("region", { name: "Practice" }));
+      expect(practice.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/problems/interposed", "/problems/second"]);
+      expect(practice.getAllByRole("listitem")[0]).toHaveTextContent("Practice for this part of First Module");
+      expect(within(screen.getByRole("region", { name: "Related Problems" })).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/problems/other"]);
+   });
+
    it("never prefetches a catalog link outside the header, so the page reads nothing it did not render", async () => {
       await show();
       const links = within(document.querySelector("main")!).getAllByRole("link").filter((link) => link.getAttribute("href")!.startsWith("/") && !link.getAttribute("href")!.startsWith("#"));
@@ -213,7 +277,7 @@ describe("a Lesson's relations", () => {
    it("renders no group, heading or divider for a Lesson with no relations", async () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: {}, placements: [] } });
       await show();
-      for (const name of ["Builds on", "Related Knowledge", "Related Lessons", "Ready to apply this?", "Related Problems"]) {
+      for (const name of ["Builds on", "Related Knowledge", "Related Lessons", "Practice", "Related Problems"]) {
          expect(screen.queryByRole("heading", { name })).not.toBeInTheDocument();
       }
       expect(heading("First section", 2)).toBeInTheDocument();
@@ -225,7 +289,7 @@ describe("a Lesson's relations", () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: { related: [meta("problem.only")] } } });
       await show();
       expect(heading("Related Problems", 2)).toBeInTheDocument();
-      for (const name of ["Builds on", "Related Knowledge", "Ready to apply this?"]) {
+      for (const name of ["Builds on", "Related Knowledge", "Practice"]) {
          expect(screen.queryByRole("heading", { name })).not.toBeInTheDocument();
       }
    });
@@ -284,7 +348,7 @@ describe("a Lesson's close", () => {
       expect(within(end).getByRole("link", { name: "Back to Home Track" })).toHaveAttribute("href", "/tracks/home");
       expect(screen.queryByRole("navigation", { name: /^Next in/ })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /^Next lesson/ })).not.toBeInTheDocument();
-      expect(getCatalogItemMeta).not.toHaveBeenCalled();
+      expect(getCatalogItemMeta.mock.calls).toEqual([["problem", "trailing"]]); // no Next read; the trailing Problem's public meta
       expect(end.textContent).not.toMatch(/complet|finish|done|congratulat|well done|\d+\s?%|✓|✔/i);
    });
 
@@ -359,7 +423,7 @@ describe("a Lesson's close", () => {
       await show();
       expect(screen.getByRole("link", { name: /^Next lesson: Title after/ })).toBeInTheDocument();
       expect(screen.getByRole("navigation", { name: "Curriculum" })).toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: /Related|Ready to apply/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Related|Practice/ })).not.toBeInTheDocument();
    });
 
    it("is a type-based route for every link except the Learn index", async () => {
@@ -372,7 +436,8 @@ describe("a Lesson's close", () => {
    it("fetches the item once, its relations once and Tracks only; no other item's body", async () => {
       await show();
       expect(getCatalogItem).toHaveBeenCalledExactlyOnceWith("lesson", "item");
-      expect(getCatalogRelated).toHaveBeenCalledExactlyOnceWith("lesson", "item");
+      // P3-T6: one relation read per shown Practice Problem (the Lesson applies Knowledge); their metas came with the relations
+      expect(getCatalogRelated.mock.calls).toEqual([["lesson", "item"], ["problem", "one"], ["problem", "two"]]);
       expect(getCatalogItemMeta).toHaveBeenCalledExactlyOnceWith("lesson", "after");
       expect(getCatalogTrack.mock.calls.map(([slug]) => slug)).toEqual(["home"]);
    });
@@ -429,7 +494,7 @@ describe("a locked Lesson", () => {
       expect(screen.queryByText(/Intro prose/)).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Contents" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: /First section|Builds on|Related|Ready to apply/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /First section|Builds on|Related|Practice/ })).not.toBeInTheDocument();
       expect(document.querySelectorAll("[id]")).toHaveLength(0);
       expect(getCatalogRelated).not.toHaveBeenCalled();
       expect(getCatalogTrack).not.toHaveBeenCalled();
@@ -454,7 +519,7 @@ describe("other item pages keep their own contract", () => {
       expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Related content" })).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Contents" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "Ready to apply this?" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Practice" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Lesson" })).not.toHaveAttribute("data-reference");
       expect(document.querySelector("section#definition")!.querySelectorAll("[id], [tabindex]")).toHaveLength(0);
    });
@@ -465,7 +530,7 @@ describe("other item pages keep their own contract", () => {
       expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Knowledge");
       expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Related content" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "Ready to apply this?" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Practice" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Lesson" })).not.toHaveAttribute("data-reference");
       expect(document.querySelector("section#definition")!.querySelectorAll("[id], [tabindex]")).toHaveLength(0);
    });

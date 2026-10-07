@@ -1551,7 +1551,7 @@
       "home": "p3-practice",
       "body": "## P3 Practice Lesson heading\n\nP3 Practice Lesson body marker.\n",
       "headings": [{"id": "p3-practice-lesson-heading", "level": 2, "text": "P3 Practice Lesson heading"}],
-      "relations": { "prerequisite_of": ["problem.p3-prac-a", "problem.p3-prac-premium", "problem.p3-prac-extra-1"], "related": ["problem.p3-prac-related-only"], "applies": ["knowledge.p3-prac-shared"] }
+      "relations": { "prerequisite_of": ["problem.p3-prac-a", "problem.p3-prac-premium", "problem.p3-prac-extra-1"], "related": ["problem.p3-prac-related-only", "lesson.p3-prac-next"], "applies": ["knowledge.p3-prac-shared"] }
     },
     {
       "id": "problem.p3-prac-a",

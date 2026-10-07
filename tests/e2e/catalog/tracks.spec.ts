@@ -369,12 +369,14 @@ test.describe("Track page", () => {
    test.describe("request discipline", () => {
       // A preview never caches, so every render reaches the API double and its log shows exactly what was read.
       test.use({ baseURL: PREVIEW_ORIGIN });
-      // Other specs share this API double, so only requests naming this task's own records can be attributed.
+      // Other specs share this API double, so only requests naming this task's own records can be attributed. One
+      // is not the Track's: the preview Lesson specs show this Problem in Practice and read its relations (P3-T6).
+      const LESSON_PRACTICE_READ = `/catalog/items/problem/${PRACTICE.slug}/related`;
       const reads = async (request: APIRequestContext, since: number) =>
          ((await (await request.get(`${PREVIEW_API_ORIGIN}/__catalog-log`)).json()) as { path: string; query: string }[])
             .slice(since)
             .map(({ path, query }) => (query ? `${path}?${query}` : path))
-            .filter((path) => path.includes("p2-t4-"));
+            .filter((path) => path.includes("p2-t4-") && path !== LESSON_PRACTICE_READ);
       // P3 §17.2: the outline, then one Lesson list page (the fixture fits in one), and no item, meta or Git read.
       const TRACK_READS = [`/catalog/tracks/${CURRICULUM.slug}`, `/catalog/items?type=lesson&track=${CURRICULUM.slug}&limit=100`];
       const logged = async (request: APIRequestContext) =>

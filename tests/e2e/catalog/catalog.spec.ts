@@ -30,7 +30,7 @@ const related = (page: Page) => main(page).getByRole("region", { name: /^(Before
 // A Problem's quiet Track context ("Part of Track / Module"); Lessons carry their own breadcrumb (Learn / Track / Module).
 const trackContext = (page: Page) => main(page).getByText(/^Part of/);
 const breadcrumb = (page: Page) => page.getByRole("navigation", { name: "Breadcrumb" });
-const LESSON_RELATED = /^(Builds on|Related Knowledge|Related Lessons|Ready to apply this\?|Related Problems)$/;
+const LESSON_RELATED = /^(Builds on|Related Knowledge|Related Lessons|Practice|Related Problems)$/;
 const steps = (page: Page) => page.getByRole("navigation", { name: `Previous and next in ${HOME.title}` });
 /** Where a neighbour link lives: a Lesson closes with Next, then the Curriculum block; a Problem keeps the paired steps (P3 S-LSN-10, S-LSN-14). */
 const neighbours = (page: Page, type: string, label: "Previous lesson" | "Next lesson") =>

@@ -217,4 +217,86 @@ describe("loadItemNavigation", () => {
          expect(getCatalogItemMeta).not.toHaveBeenCalled();
       });
    });
+
+   describe("the Practice step reads (S-PRC-5, S-PRC-6, S-PRM-3)", () => {
+      const pmeta = (id: string, over: object = {}) => {
+         const [type, slug] = id.split(".");
+         return { id, type, slug, title: `Title ${slug}`, summary: `Summary ${slug}`, tags: [], category: null, difficulty: "easy", level: null, access: "free", ...over };
+      };
+      const shared = pmeta("knowledge.shared");
+      const practiceTrack = track("practice", [mod("m", ["lesson.item", "problem.a", "problem.b", "problem.c", "lesson.next"])]);
+      const lessonRelated = (relations: object) => ({ status: "ok", data: { id: "lesson.item", relations, placements: [placement("practice", true)] } });
+      const problemRelated = (slug: string, applies: unknown[]) => ({ status: "ok", data: { id: `problem.${slug}`, relations: { applies }, placements: [] } });
+      const calls = (mock: typeof getCatalogRelated | typeof getCatalogItemMeta, type: string) => mock.mock.calls.filter(([kind]) => kind === type).map(([, slug]) => slug);
+
+      beforeEach(() => {
+         getCatalogTrack.mockResolvedValue({ status: "ok", data: practiceTrack });
+         getCatalogItemMeta.mockImplementation(async (type: string, slug: string) => ({ status: "ok", data: pmeta(`${type}.${slug}`, { summary: `Fetched ${slug}` }) }));
+      });
+
+      it("reads at most two Problem metas and two Problem relations however many Problems the Track holds, plus Next's meta", async () => {
+         getCatalogRelated.mockImplementation(async (type: string, slug: string) =>
+            type === "lesson" ? lessonRelated({ applies: [shared] }) : problemRelated(slug, [shared])
+         );
+         const navigation = await loadItemNavigation("lesson", "item");
+         expect(navigation?.practice.map(({ id }) => id)).toEqual(["problem.a", "problem.b"]);
+         expect(calls(getCatalogItemMeta, "problem")).toEqual(["a", "b"]);
+         expect(calls(getCatalogItemMeta, "lesson")).toEqual(["next"]);
+         expect(calls(getCatalogRelated, "problem")).toEqual(["a", "b"]);
+         expect(getCatalogItemMeta.mock.calls.length + getCatalogRelated.mock.calls.length - 1).toBeLessThanOrEqual(5);
+      });
+
+      it("grounds each row: Placement, then the shared Knowledge from the Problem's own relations", async () => {
+         getCatalogRelated.mockImplementation(async (type: string, slug: string) =>
+            type === "lesson" ? lessonRelated({ applies: [shared] }) : problemRelated(slug, slug === "a" ? [shared] : [])
+         );
+         const [a, b] = (await loadItemNavigation("lesson", "item"))!.practice;
+         expect(a).toMatchObject({ summary: "Fetched a", difficulty: "easy", reason: "Practice for this part of Module m · Also applies Title shared" });
+         expect(b.reason).toBe("Practice for this part of Module m");
+      });
+
+      it("makes no meta read for a Problem the Lesson's relations carry, and no Problem relation read without Lesson Knowledge", async () => {
+         getCatalogRelated.mockResolvedValue(lessonRelated({ prerequisite_of: [pmeta("problem.a", { summary: "From relations" })] }));
+         const navigation = await loadItemNavigation("lesson", "item");
+         expect(navigation?.practice[0]).toMatchObject({ summary: "From relations", reason: "Practice for this part of Module m · Builds on this lesson" });
+         expect(calls(getCatalogItemMeta, "problem")).toEqual(["b"]);
+         expect(calls(getCatalogRelated, "problem")).toEqual([]);
+      });
+
+      it.each([
+         ["withheld", { status: "unentitled" }],
+         ["unauthenticated", { status: "unauthenticated" }],
+         ["failed", { status: "unavailable", cause: "upstream" }],
+         ["for another item", problemRelated("zzz", [shared])],
+      ])("omits the shared basis silently when the Problem's relations are %s, keeping the row and its other bases", async (_, result) => {
+         getCatalogRelated.mockImplementation(async (type: string) => (type === "lesson" ? lessonRelated({ applies: [shared] }) : result));
+         const navigation = await loadItemNavigation("lesson", "item");
+         expect(navigation?.practice.map(({ reason }) => reason)).toEqual(["Practice for this part of Module m", "Practice for this part of Module m"]);
+      });
+
+      it("keeps the row with its title when the Problem's meta read fails or answers for another item", async () => {
+         getCatalogRelated.mockResolvedValue(lessonRelated({}));
+         getCatalogItemMeta.mockImplementation(async (type: string, slug: string) =>
+            slug === "a" ? { status: "unavailable", cause: "upstream" } : slug === "b" ? { status: "ok", data: pmeta("problem.other") } : { status: "ok", data: pmeta(`${type}.${slug}`) }
+         );
+         const { practice } = (await loadItemNavigation("lesson", "item"))!;
+         expect(practice.map(({ title, summary, difficulty }) => [title, summary, difficulty])).toEqual([
+            ["Title a", null, null],
+            ["Title b", null, null],
+         ]);
+      });
+
+      it("does not offer Practice from a Problem or Knowledge page, and reads nothing for it", async () => {
+         getCatalogRelated.mockResolvedValue({ status: "ok", data: { id: "problem.a", relations: { prerequisite_of: [pmeta("problem.x")] }, placements: [placement("practice", true)] } });
+         expect((await loadItemNavigation("problem", "a"))?.practice).toEqual([]);
+         expect(getCatalogItemMeta).not.toHaveBeenCalled();
+      });
+
+      it("has no Practice for a Lesson whose Track places no Problem after it and which names none", async () => {
+         getCatalogTrack.mockResolvedValue({ status: "ok", data: home });
+         getCatalogRelated.mockResolvedValue(related([placement("home", true)]));
+         expect((await loadItemNavigation("lesson", "item"))?.practice).toEqual([]);
+         expect(calls(getCatalogItemMeta, "problem")).toEqual([]);
+      });
+   });
 });

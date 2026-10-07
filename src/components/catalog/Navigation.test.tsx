@@ -222,6 +222,7 @@ describe("ItemNavigation", () => {
       home: placement(TRACK, null, "lesson.alpha"),
       alternates: [placement(track("other", [mod("x", [])]), null, null)],
       nextSummary: null,
+      practice: [],
    };
 
    it("composes Track navigation, related content and alternates using canonical URLs only", () => {
@@ -242,7 +243,7 @@ describe("ItemNavigation", () => {
    });
 
    it("renders an empty, hideable wrapper, so its separator never floats under a page with no navigation", () => {
-      const { container } = render(<ItemNavigation navigation={{ id: "lesson.zeta", relations: {}, home: null, alternates: [], nextSummary: null }} />);
+      const { container } = render(<ItemNavigation navigation={{ id: "lesson.zeta", relations: {}, home: null, alternates: [], nextSummary: null, practice: [] }} />);
       expect(container.firstElementChild).toBeEmptyDOMElement();
       expect(container.firstElementChild).toHaveClass("border-t", "empty:hidden");
    });

@@ -113,7 +113,7 @@ test.describe("relations", () => {
 
    test("reads Next, Related Knowledge, the Practice transition, quiet Related Problems, the Curriculum block, then Related Lessons, after the body", async ({ page }) => {
       await page.goto(route);
-      const names = ["Related Knowledge", "Ready to apply this?", "Related Problems", "Related Lessons"];
+      const names = ["Related Knowledge", "Practice", "Related Problems", "Related Lessons"];
       const boxes: ({ y: number } | null)[] = [];
       for (const name of names) boxes.push(await page.getByRole("heading", { level: 2, name }).boundingBox());
       boxes.forEach((box, index) => expect(box, names[index]).not.toBeNull());
@@ -129,7 +129,7 @@ test.describe("relations", () => {
 
    test("the Practice transition holds at most two Problems in the API's order, the premium one marked", async ({ page }) => {
       await page.goto(route);
-      const practice = page.getByRole("region", { name: "Ready to apply this?" });
+      const practice = page.getByRole("region", { name: "Practice" });
       await expect(practice.getByRole("link")).toHaveText(["Synthetic Practice Step", "Synthetic Premium Practice Problem"]);
       await expect(practice.getByRole("listitem").nth(1).getByText("Premium", { exact: true })).toBeVisible();
       await expect(practice.getByRole("listitem").first().getByText("Premium", { exact: true })).toHaveCount(0);
@@ -145,7 +145,7 @@ test.describe("relations", () => {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
       // an authored inline reference may name a Problem the relations also list; the relation groups may not repeat one
-      const listed = [page.getByRole("region", { name: "Ready to apply this?" }), quiet].map((group) => group.getByRole("link"));
+      const listed = [page.getByRole("region", { name: "Practice" }), quiet].map((group) => group.getByRole("link"));
       const problems = (await Promise.all(listed.map((links) => links.evaluateAll((all) => all.map((link) => link.getAttribute("href")!))))).flat();
       expect(problems).toHaveLength(4);
       expect(new Set(problems).size, "a Problem is shown twice").toBe(problems.length);
@@ -154,7 +154,7 @@ test.describe("relations", () => {
    test("a Lesson with no relations has no relation groups and no stray gap", async ({ page }) => {
       await page.goto(canonical(PRIMER.id));
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(PRIMER.title);
-      for (const name of ["Builds on", "Related Knowledge", "Related Lessons", "Ready to apply this?", "Related Problems"]) {
+      for (const name of ["Builds on", "Related Knowledge", "Related Lessons", "Practice", "Related Problems"]) {
          await expect(main(page).getByRole("heading", { name })).toHaveCount(0);
       }
       await expect(page.getByRole("navigation", { name: "Contents" })).toHaveCount(0); // one heading: no contents
@@ -162,7 +162,7 @@ test.describe("relations", () => {
 
    test("following the Practice transition opens the Problem at its own canonical URL", async ({ page }) => {
       await page.goto(route);
-      await page.getByRole("region", { name: "Ready to apply this?" }).getByRole("link", { name: "Synthetic Practice Step" }).click();
+      await page.getByRole("region", { name: "Practice" }).getByRole("link", { name: "Synthetic Practice Step" }).click();
       await expect(page).toHaveURL(canonical("problem.p2-t4-practice"));
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText("Synthetic Practice Step");
    });
@@ -485,7 +485,7 @@ test.describe("access", () => {
             await expect(page.getByRole("button", { name: "Contents" })).toHaveCount(0);
             await expect(main(page).getByRole("heading", { level: 2 })).toHaveCount(0);
             await expect(page.locator("main [id]")).toHaveCount(0);
-            await expect(page.getByRole("heading", { name: "Ready to apply this?" })).toHaveCount(0);
+            await expect(page.getByRole("heading", { name: "Practice" })).toHaveCount(0);
          });
       });
    }
@@ -498,7 +498,7 @@ test.describe("access", () => {
          await expect(main(page).getByText(CANARY)).toBeVisible();
          await expect(contents(page).getByRole("link")).toHaveText(["Premium reading heading", "Premium reading second heading", "Premium reading subsection"]);
          await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText(DEEPER.title);
-         const practice = page.getByRole("region", { name: "Ready to apply this?" });
+         const practice = page.getByRole("region", { name: "Practice" });
          await expect(practice.getByRole("link")).toHaveText(["Synthetic Premium Practice Problem"]);
          await expect(practice.getByText("Premium", { exact: true })).toBeVisible();
       });
@@ -523,6 +523,8 @@ test.describe("preview deployment", () => {
       `/catalog/items/lesson/${LONG.slug}/related`,
       `/catalog/tracks/${READING.slug}`,
       `/catalog/items/lesson/${PREMIUM.slug}/meta`, // the Next lesson's public summary (P3 S-CUR-8): the one read P3-T5 adds
+      // P3-T6 (S-PRC-6): the shown premium Practice Problem's own relations, read with the caller's session; this signed-out read is withheld and never cached
+      `/catalog/items/problem/p2-t5-premium-practice/related`,
    ].sort();
 
    test("is marked and noindex, keeps every link on this deployment, and sits its contents and headings below the marker", async ({ page }) => {
@@ -539,7 +541,7 @@ test.describe("preview deployment", () => {
       expect(await top(contents(page))).toBeGreaterThanOrEqual(Math.round(bottom));
    });
 
-   test("rendering reads the item, its relations and its Track once each, plus the Next lesson's public meta, and nothing else", async ({ page, request }) => {
+   test("rendering reads the item, its relations and its Track once each, plus the Next lesson's public meta and the shown Practice Problems' relations, and nothing else", async ({ page, request }) => {
       const since = await logged(request);
       await page.goto(route);
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(LONG.title);

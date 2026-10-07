@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { LinkedMeta } from "@/lib/catalog/lesson";
+import type { PracticeRow } from "@/lib/catalog/practiceStep";
 import type { TrackPlacement } from "@/lib/catalog/navigation";
 import type { CatalogMeta, CatalogOutlineEntry, CatalogTrack } from "@/lib/catalog/types";
 
@@ -71,20 +72,37 @@ describe("RelationGroup", () => {
 });
 
 describe("PracticeTransition", () => {
-   const problems = [linked("problem.first", { difficulty: "medium" }), linked("problem.second", { access: "premium" })];
+   const row = (id: string, over: Partial<PracticeRow> = {}): PracticeRow => ({
+      id: `problem.${id}`,
+      title: `Title ${id}`,
+      href: `/problems/${id}`,
+      access: "free",
+      summary: `Summary ${id}`,
+      difficulty: null,
+      reason: `Reason ${id}`,
+      ...over,
+   });
+   const problems = [row("first", { difficulty: "medium" }), row("second", { access: "premium", summary: null, reason: "" })];
 
    it("renders nothing without Problems", () => {
       expect(render(<PracticeTransition problems={[]} />).container).toBeEmptyDOMElement();
    });
 
-   it("is one prominent 'Ready to apply this?' section with each Problem in the API's order", () => {
+   it("is one 'Practice' section with each Problem in the given order and a link named by its title", () => {
       render(<PracticeTransition problems={problems} />);
-      const section = screen.getByRole("region", { name: "Ready to apply this?" });
-      expect(within(section).getByRole("heading", { level: 2, name: "Ready to apply this?" })).toBeInTheDocument();
+      const section = screen.getByRole("region", { name: "Practice" });
+      expect(within(section).getByRole("heading", { level: 2, name: "Practice" })).toBeInTheDocument();
       expect(within(section).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
          ["Title first", "/problems/first"],
          ["Title second", "/problems/second"],
       ]);
+   });
+
+   it("reads the type label, then the title, summary, difficulty and the relevance line; nothing from inside the Problem", () => {
+      render(<PracticeTransition problems={problems} />);
+      const first = screen.getAllByRole("listitem")[0];
+      expect(first.textContent).toMatch(/^ProblemTitle firstSummary firstMediumReason first$/);
+      expect(screen.getAllByRole("listitem")[1]).not.toHaveTextContent("Summary");
    });
 
    it("has one link and one focus stop per Problem, stretched over its row, never prefetched", () => {

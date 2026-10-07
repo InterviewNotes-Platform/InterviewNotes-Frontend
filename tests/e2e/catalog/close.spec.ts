@@ -95,7 +95,7 @@ for (const width of [390, 1440]) {
          await page.goto(canonical(lesson));
          const body = page.getByText("P3 Practice Lesson body marker.");
          const next = nextNav(page, practice.title);
-         const groups = ["Related Knowledge", "Ready to apply this?", "Related Problems"].map((name) => page.getByRole("heading", { level: 2, name }));
+         const groups = ["Related Knowledge", "Practice", "Related Problems"].map((name) => page.getByRole("heading", { level: 2, name, exact: true }));
          const after = [next, ...groups, curriculum(page), page.getByText(`Full outline of ${practice.title}`)];
          const ys = [await top(body)];
          for (const locator of after) {

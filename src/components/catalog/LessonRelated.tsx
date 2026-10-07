@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { LinkedMeta } from "@/lib/catalog/lesson";
+import type { PracticeRow } from "@/lib/catalog/practiceStep";
 import { DIFFICULTY_LABEL, PremiumMark, TYPE_LABEL } from "./EntryRow";
 
 // Page-level ids use `_`, which a heading slug (`[a-z0-9-]`) can never contain, so they cannot collide with one.
@@ -74,44 +75,41 @@ export function BuildsOn({ rows }: { rows: LinkedMeta[] }) {
 }
 
 /**
- * The Lesson's one strong step into Practice: the Problems that name it as a prerequisite, in the API's order. Each
- * title link stretches over its row (one link, one focus stop), and none prefetches. Renders nothing when empty.
+ * The Lesson's step into Practice: at most two Problems, each saying why it is here in one plain line. The title is
+ * the row's single link (stretched over the row, never prefetched) and follows its "Problem" label in reading order.
+ * Public metadata only. Renders nothing when empty.
  */
-export function PracticeTransition({ problems }: { problems: LinkedMeta[] }) {
+export function PracticeTransition({ problems }: { problems: PracticeRow[] }) {
    if (problems.length === 0) return null;
    return (
       <section aria-labelledby="lesson_practice" className="rounded-xl bg-surface p-6 md:p-8">
-         <h2 id="lesson_practice" className="m-0 text-section text-balance">
-            Ready to apply this?
+         <h2 id="lesson_practice" className="m-0 text-subsection text-balance">
+            Practice
          </h2>
-         <ul className="m-0 mt-6 list-none divide-y divide-border p-0">
-            {problems.map((row) => {
-               const { entry, href } = row;
-               const difficulty = difficultyOf(row);
-               return (
-                  <li
-                     key={entry.id}
-                     className="group relative flex items-start gap-4 py-5 first:pt-0 last:pb-0 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-4 has-[a:focus-visible]:outline-ring"
-                  >
-                     <div className="min-w-0 flex-1">
-                        <Link href={href} prefetch={false} className="text-subsection text-balance outline-none after:absolute after:inset-0">
-                           {entry.title}
-                        </Link>
-                        {entry.summary ? <p className="mt-1 mb-0 text-body text-pretty text-muted-foreground">{entry.summary}</p> : null}
-                        {difficulty || entry.access === "premium" ? (
-                           <p className="m-0 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">
-                              {difficulty ? <span>{difficulty}</span> : null}
-                              {entry.access === "premium" ? <PremiumMark /> : null}
-                           </p>
-                        ) : null}
-                     </div>
-                     <ArrowRight
-                        aria-hidden="true"
-                        className="mt-1 size-5 shrink-0 text-muted-foreground transition-transform duration-200 ease-standard group-hover:translate-x-0.5 group-hover:text-primary"
-                     />
-                  </li>
-               );
-            })}
+         <ul className="m-0 mt-5 list-none divide-y divide-border p-0">
+            {problems.map(({ id, title, href, summary, difficulty, access, reason }) => (
+               <li
+                  key={id}
+                  className="group relative flex items-start gap-4 py-5 first:pt-0 last:pb-0 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-4 has-[a:focus-visible]:outline-ring"
+               >
+                  <div className="min-w-0 flex-1">
+                     <p className="m-0 mb-1 text-supporting text-muted-foreground">{TYPE_LABEL.problem}</p>
+                     <Link href={href} prefetch={false} className="text-subsection text-balance outline-none after:absolute after:inset-0">
+                        {title}
+                     </Link>
+                     {summary ? <p className="mt-1 mb-0 text-body text-pretty text-muted-foreground">{summary}</p> : null}
+                     <p className="m-0 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">
+                        {difficulty ? <span>{DIFFICULTY_LABEL[difficulty]}</span> : null}
+                        {access === "premium" ? <PremiumMark /> : null}
+                        {reason ? <span className="text-pretty">{reason}</span> : null}
+                     </p>
+                  </div>
+                  <ArrowRight
+                     aria-hidden="true"
+                     className="mt-1 size-5 shrink-0 text-muted-foreground transition-transform duration-200 ease-standard group-hover:translate-x-0.5 group-hover:text-primary"
+                  />
+               </li>
+            ))}
          </ul>
       </section>
    );

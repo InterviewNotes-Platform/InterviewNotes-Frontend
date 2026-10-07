@@ -19,8 +19,10 @@ import { ItemContent } from "./ItemContent";
  * released and its relations; nothing is fetched here and nothing on this page makes a request of its own.
  */
 export function LessonPage({ item, navigation, stayOnDeployment }: { item: CatalogItem; navigation: ItemNavigation | null; stayOnDeployment: boolean }) {
-   const related = navigation ? lessonRelations(navigation.relations) : null;
    const home = navigation?.home ?? null;
+   const related = navigation
+      ? lessonRelations(navigation.relations, [...(home?.nextLesson ? [home.nextLesson.id] : []), ...navigation.practice.map(({ id }) => id)])
+      : null;
    // Contents link to heading ids, so they exist only while the rendered headings carry the API's ids.
    const { body, headings } = item;
    const anchored = body?.format === "markdown@1" && headingIds(parseBlocks(body.text), headings) !== null;
@@ -51,7 +53,7 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
                         home.nextLesson ? <NextLesson placement={home} summary={navigation.nextSummary} /> : <EndOfTrack placement={home} />
                      ) : null}
                      <RelationGroup id="lesson_related_knowledge" label="Related Knowledge" rows={related.knowledge} withSummary />
-                     <PracticeTransition problems={related.practice} />
+                     <PracticeTransition problems={navigation.practice} />
                      <RelationGroup id="lesson_related_problems" label="Related Problems" rows={related.problems} />
                      {home ? <CurriculumBlock placement={home} position={lessonPosition(home.track, navigation.id)} /> : null}
                   </div>

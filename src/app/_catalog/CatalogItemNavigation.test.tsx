@@ -102,7 +102,9 @@ describe("item page navigation", () => {
       expect(getCatalogItem).toHaveBeenCalledExactlyOnceWith("lesson", "item");
       expect(getCatalogRelated).toHaveBeenCalledExactlyOnceWith("lesson", "item");
       expect(getCatalogTrack.mock.calls.map(([slug]) => slug).sort()).toEqual(["home", "other"]);
-      expect(getCatalogItemMeta).toHaveBeenCalledExactlyOnceWith("lesson", "later");
+      // P3-T6: Next's public meta, plus the public meta of the one Interposed Problem the relations do not carry
+      expect(getCatalogItemMeta.mock.calls).toEqual(expect.arrayContaining([["lesson", "later"], ["problem", "after"]]));
+      expect(getCatalogItemMeta).toHaveBeenCalledTimes(2);
    });
 
    it("marks a gated target and links its canonical page without exposing any body", async () => {
