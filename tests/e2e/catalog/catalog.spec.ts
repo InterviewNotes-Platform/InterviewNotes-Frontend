@@ -32,6 +32,9 @@ const trackContext = (page: Page) => main(page).getByText(/^Part of/);
 const breadcrumb = (page: Page) => page.getByRole("navigation", { name: "Breadcrumb" });
 const LESSON_RELATED = /^(Builds on|Related Knowledge|Related Lessons|Ready to apply this\?|Related Problems)$/;
 const steps = (page: Page) => page.getByRole("navigation", { name: `Previous and next in ${HOME.title}` });
+/** Where a neighbour link lives: a Lesson closes with Next, then the Curriculum block; a Problem keeps the paired steps (P3 S-LSN-10, S-LSN-14). */
+const neighbours = (page: Page, type: string, label: "Previous lesson" | "Next lesson") =>
+   type === "problem" ? steps(page) : page.getByRole("navigation", { name: label === "Next lesson" ? `Next in ${HOME.title}` : "Curriculum" });
 const premiumMark = { name: "Premium", exact: true } as const;
 
 test.describe("type-based routes", () => {
@@ -265,14 +268,21 @@ test.describe("Track navigation", () => {
          await expect(trackContext(page)).toHaveText(`Part of ${HOME.title} / ${module.title}`);
          await expect(trackContext(page).getByRole("link")).toHaveAttribute("href", canonical(HOME.id));
       }
-      const moduleNav = page.getByRole("navigation", { name: `Module: ${module.title}` });
-      await expect(moduleNav.locator('[aria-current="page"]')).toHaveText(entry.title);
+      if (entry.type === "lesson") {
+         await expect(page.getByRole("navigation", { name: `Module: ${module.title}` })).toHaveCount(0);
+         await expect(page.getByRole("navigation", { name: "Curriculum" }).getByRole("link", { name: `Back to module: ${module.title}` })).toHaveAttribute(
+            "href",
+            `${canonical(HOME.id)}#${module.key}`
+         );
+      } else {
+         await expect(page.getByRole("navigation", { name: `Module: ${module.title}` }).locator('[aria-current="page"]')).toHaveText(entry.title);
+      }
 
       for (const [label, neighbour] of [
          ["Previous lesson", lessonFrom(index, -1)],
          ["Next lesson", lessonFrom(index, 1)],
       ] as const) {
-         const link = steps(page).getByRole("link", { name: new RegExp(`^${label}`) });
+         const link = neighbours(page, entry.type, label).getByRole("link", { name: new RegExp(`^${label}`) });
          if (!neighbour) {
             await expect(link, `${entry.id}: unexpected ${label} link`).toHaveCount(0);
             continue;
@@ -291,7 +301,7 @@ test.describe("Track navigation", () => {
 
       await page.goto(canonical(sequence[0].entry.id));
       await expectPlacement(page, 0);
-      await steps(page).getByRole("link", { name: /^Next lesson/ }).click();
+      await neighbours(page, "lesson", "Next lesson").getByRole("link", { name: /^Next lesson/ }).click();
       await expectPlacement(page, 1);
 
       await page.goto(canonical(sequence[2].entry.id));

@@ -72,7 +72,7 @@ const before = (a: Element, b: Element) => expect(a.compareDocumentPosition(b) &
 beforeEach(() => {
    vi.clearAllMocks();
    getCatalogItem.mockResolvedValue({ status: "ok", data: LESSON });
-   getCatalogItemMeta.mockResolvedValue({ status: "ok", data: LESSON });
+   getCatalogItemMeta.mockImplementation(async (type: string, slug: string) => ({ status: "ok", data: slug === "item" ? LESSON : meta(`${type}.${slug}`) }));
    getCatalogRelated.mockResolvedValue({ status: "ok", data: RELATED });
    getCatalogTrack.mockImplementation(async (slug: string) => (slug === "home" ? { status: "ok", data: HOME } : { status: "notFound" }));
 });
@@ -104,7 +104,7 @@ describe("a readable Lesson", () => {
       expect(screen.getByRole("button", { name: "Contents" })).toHaveAttribute("aria-expanded", "false");
    });
 
-   it("reads in the intended order: orientation, Builds on, contents, body, Knowledge, Practice, Problems, steps", async () => {
+   it("reads in the intended order: orientation, Builds on, contents, body, Next, Knowledge, Practice, Problems, curriculum, secondary", async () => {
       await show();
       const sequence = [
          screen.getByRole("navigation", { name: "Breadcrumb" }),
@@ -113,11 +113,13 @@ describe("a readable Lesson", () => {
          heading("Builds on", 2),
          screen.getByRole("button", { name: "Contents" }),
          heading("First section", 2),
+         screen.getByRole("navigation", { name: "Next in Home Track" }),
          heading("Related Knowledge", 2),
          heading("Ready to apply this?", 2),
          heading("Related Problems", 2),
-         screen.getByRole("navigation", { name: "Previous and next in Home Track" }),
-         screen.getByRole("navigation", { name: "Module: First Module" }),
+         screen.getByRole("navigation", { name: "Curriculum" }),
+         heading("Related Lessons", 2),
+         screen.getByText("Full outline of Home Track"),
       ];
       for (const [a, b] of sequence.slice(1).map((el, i) => [sequence[i], el] as const)) before(a, b);
    });
@@ -229,14 +231,135 @@ describe("a Lesson's relations", () => {
    });
 });
 
-describe("a Lesson's curriculum", () => {
-   it("keeps previous/next in the home Track's order, ahead of the module list", async () => {
+describe("a Lesson's close", () => {
+   it("offers one Next lesson, the home Track's canonical next, with its public summary and premium marker", async () => {
       await show();
-      expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toHaveAttribute("href", "/lessons/before");
+      const nav = screen.getByRole("navigation", { name: "Next in Home Track" });
+      const next = within(nav).getByRole("link", { name: "Next lesson: Title after, premium" });
+      expect(within(nav).getAllByRole("link")).toEqual([next]);
+      expect(next).toHaveAttribute("href", "/lessons/after");
+      expect(next).toHaveAttribute("data-prefetch", "false");
+      expect(next).toHaveTextContent("Next lesson");
+      expect(next).toHaveTextContent("Title after");
+      expect(next).toHaveTextContent("Summary after");
+      expect(next).toHaveTextContent("Premium");
+      expect(nav).not.toHaveTextContent(/previous/i);
+   });
+
+   it("keeps the Next summary to the public meta, so a premium Next shows nothing from its body or relations", async () => {
+      await show();
+      expect(getCatalogItemMeta).toHaveBeenCalledExactlyOnceWith("lesson", "after");
+      expect(getCatalogItem).toHaveBeenCalledExactlyOnceWith("lesson", "item");
+   });
+
+   it("renders Next with its title alone when the summary read fails", async () => {
+      getCatalogItemMeta.mockResolvedValue({ status: "unavailable", cause: "upstream" });
+      await show();
       const next = screen.getByRole("link", { name: /^Next lesson: Title after/ });
       expect(next).toHaveAttribute("href", "/lessons/after");
-      expect(next).toHaveTextContent("Premium");
-      expect(within(screen.getByRole("navigation", { name: "Module: First Module" })).getByRole("link", { name: "Title item" })).toHaveAttribute("aria-current", "page");
+      expect(next).not.toHaveTextContent("Summary");
+      expect(document.body).not.toHaveTextContent(/upstream|unavailable/i);
+   });
+
+   it("makes Next the only primary-styled action of the close", async () => {
+      await show();
+      const primary = [...document.querySelectorAll("main a")].filter((link) => link.getAttribute("data-variant") === "default");
+      expect(primary.map((link) => link.getAttribute("href"))).toEqual(["/lessons/after"]);
+      expect(document.querySelector("main [class*='fixed'], main [class*='sticky'][class*='bottom']")).toBeNull();
+   });
+
+   it("never makes a Problem the Next lesson: Lesson, Problem, Lesson reads Lesson to Lesson", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.item"), entry("problem.between"), entry("lesson.after")] }] } });
+      await show();
+      expect(screen.getByRole("link", { name: /^Next lesson: Title after/ })).toHaveAttribute("href", "/lessons/after");
+      expect(within(screen.getByRole("navigation", { name: "Next in Home Track" })).queryByRole("link", { name: /between/ })).not.toBeInTheDocument();
+   });
+
+   it("replaces Next with End of Track for the last Lesson: position, not achievement, and a link to the Track", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.before"), entry("lesson.item"), entry("problem.trailing")] }] } });
+      await show();
+      const end = screen.getByRole("navigation", { name: "End of Home Track" });
+      expect(end).toHaveTextContent("End of Home Track");
+      expect(end).toHaveTextContent("This is the last lesson in this track.");
+      expect(within(end).getByRole("link", { name: "Back to Home Track" })).toHaveAttribute("href", "/tracks/home");
+      expect(screen.queryByRole("navigation", { name: /^Next in/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^Next lesson/ })).not.toBeInTheDocument();
+      expect(getCatalogItemMeta).not.toHaveBeenCalled();
+      expect(end.textContent).not.toMatch(/complet|finish|done|congratulat|well done|\d+\s?%|✓|✔/i);
+   });
+
+   it("ends the Track on its last Lesson even when the Track holds only that Lesson, and names no other Track", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [...RELATED.placements, { track: "other", module: "x", position: 0, primary: false }] } });
+      getCatalogTrack.mockImplementation(async (slug: string) => ({ status: "ok", data: slug === "home" ? { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.item")] }] } : { ...HOME, id: "track.other", slug: "other", title: "Other Track", modules: [{ ...HOME.modules[0], key: "x", items: [entry("lesson.item"), entry("lesson.elsewhere")] }] } }));
+      await show();
+      expect(screen.getByRole("navigation", { name: "End of Home Track" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /elsewhere/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Other Track" })).toHaveAttribute("href", "/tracks/other");
+   });
+
+   it("closes with the Curriculum block: Module m of M, Back to module at its location, and a quiet Previous lesson", async () => {
+      await show();
+      const block = screen.getByRole("navigation", { name: "Curriculum" });
+      expect(block).toHaveTextContent("Module 1 of 1");
+      const back = within(block).getByRole("link", { name: "Back to module: First Module" });
+      expect(back).toHaveAttribute("href", "/tracks/home#m1");
+      expect(back).toHaveAttribute("data-prefetch", "false");
+      const previous = within(block).getByRole("link", { name: "Previous lesson: Title before" });
+      expect(previous).toHaveAttribute("href", "/lessons/before");
+      expect(previous).not.toHaveAttribute("data-variant");
+   });
+
+   it("leaves out Previous when there is none, and keeps Back to module", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.item"), entry("lesson.after")] }] } });
+      await show();
+      expect(screen.queryByRole("link", { name: /^Previous lesson/ })).not.toBeInTheDocument();
+      expect(within(screen.getByRole("navigation", { name: "Curriculum" })).getByRole("link", { name: /^Back to module/ })).toBeInTheDocument();
+   });
+
+   it("drops the per-Module item list from the Lesson page and keeps the collapsed full outline", async () => {
+      await show();
+      expect(screen.queryByRole("navigation", { name: "Module: First Module" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/In this module/)).not.toBeInTheDocument();
+      const outline = screen.getByText("Full outline of Home Track").closest("details")!;
+      expect(outline).not.toHaveAttribute("open");
+      expect(within(outline).getByRole("link", { name: "Title item" })).toHaveAttribute("aria-current", "page");
+   });
+
+   it("moves Related Lessons, with their summaries, into the secondary group after the Curriculum block", async () => {
+      await show();
+      const related = screen.getByRole("region", { name: "Related Lessons" });
+      expect(related).toHaveTextContent("Summary sibling");
+      before(screen.getByRole("navigation", { name: "Curriculum" }), related);
+   });
+
+   it("gives a Lesson with no home Track no Next, End of Track, Curriculum or position, and starts its close at Related Knowledge", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [] } });
+      await show();
+      for (const name of [/^Next in/, /^End of/, "Curriculum", "Breadcrumb"]) expect(screen.queryByRole("navigation", { name })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Full outline/)).not.toBeInTheDocument();
+      expect(getCatalogItemMeta).not.toHaveBeenCalled();
+      expect(heading("Related Knowledge", 2)).toBeInTheDocument();
+      for (const empty of document.querySelectorAll("main div:empty")) expect(empty).toHaveClass("empty:hidden");
+   });
+
+   it("follows the home Track for Next, and keeps the other Track as navigation only", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, placements: [{ track: "other", module: "x", position: 0, primary: false }, ...RELATED.placements] } });
+      getCatalogTrack.mockImplementation(async (slug: string) => ({
+         status: "ok",
+         data: slug === "home" ? HOME : { ...HOME, id: "track.other", slug: "other", title: "Other Track", modules: [{ ...HOME.modules[0], key: "x", items: [entry("lesson.item"), entry("lesson.elsewhere")] }] },
+      }));
+      await show();
+      expect(screen.getByRole("link", { name: /^Next lesson: Title after/ })).toHaveAttribute("href", "/lessons/after");
+      expect(screen.queryByRole("link", { name: /elsewhere/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Other Track" })).toBeInTheDocument();
+   });
+
+   it("renders the Next lesson even when the Lesson has no relations at all", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: {} } });
+      await show();
+      expect(screen.getByRole("link", { name: /^Next lesson: Title after/ })).toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "Curriculum" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Related|Ready to apply/ })).not.toBeInTheDocument();
    });
 
    it("is a type-based route for every link except the Learn index", async () => {
@@ -250,7 +373,7 @@ describe("a Lesson's curriculum", () => {
       await show();
       expect(getCatalogItem).toHaveBeenCalledExactlyOnceWith("lesson", "item");
       expect(getCatalogRelated).toHaveBeenCalledExactlyOnceWith("lesson", "item");
-      expect(getCatalogItemMeta).not.toHaveBeenCalled();
+      expect(getCatalogItemMeta).toHaveBeenCalledExactlyOnceWith("lesson", "after");
       expect(getCatalogTrack.mock.calls.map(([slug]) => slug)).toEqual(["home"]);
    });
 

@@ -111,14 +111,20 @@ test.describe("relations", () => {
       await expect(group).toContainText("Lesson");
    });
 
-   test("reads Related Knowledge, then the Practice transition, then quiet Related Problems, after the body", async ({ page }) => {
+   test("reads Next, Related Knowledge, the Practice transition, quiet Related Problems, the Curriculum block, then Related Lessons, after the body", async ({ page }) => {
       await page.goto(route);
-      const names = ["Related Knowledge", "Related Lessons", "Ready to apply this?", "Related Problems"];
+      const names = ["Related Knowledge", "Ready to apply this?", "Related Problems", "Related Lessons"];
       const boxes: ({ y: number } | null)[] = [];
       for (const name of names) boxes.push(await page.getByRole("heading", { level: 2, name }).boundingBox());
       boxes.forEach((box, index) => expect(box, names[index]).not.toBeNull());
       boxes.slice(1).forEach((box, index) => expect(box!.y).toBeGreaterThan(boxes[index]!.y));
       expect((await heading(page, "summary").boundingBox())!.y).toBeLessThan(boxes[0]!.y);
+      // P3-T5: Next lesson follows the body and leads the close; the Curriculum block closes its primary groups
+      const next = (await page.getByRole("navigation", { name: `Next in ${READING.title}` }).boundingBox())!.y;
+      const curriculum = (await page.getByRole("navigation", { name: "Curriculum" }).boundingBox())!.y;
+      expect(next).toBeLessThan(boxes[0]!.y);
+      expect(curriculum).toBeGreaterThan(boxes[2]!.y);
+      expect(curriculum).toBeLessThan(boxes[3]!.y);
    });
 
    test("the Practice transition holds at most two Problems in the API's order, the premium one marked", async ({ page }) => {
@@ -163,14 +169,16 @@ test.describe("relations", () => {
 });
 
 test.describe("curriculum", () => {
-   test("previous and next follow the home Track's order, across the module boundary", async ({ page }) => {
+   test("Next follows the home Track's order across the module boundary; Previous is the quiet link in the Curriculum block", async ({ page }) => {
       await page.goto(route);
-      const steps = page.getByRole("navigation", { name: `Previous and next in ${READING.title}` });
-      await expect(steps.getByRole("link", { name: /^Previous/ })).toHaveAttribute("href", canonical(PRIMER.id));
-      const next = steps.getByRole("link", { name: /^Next/ });
+      const next = page.getByRole("navigation", { name: `Next in ${READING.title}` }).getByRole("link");
       await expect(next).toHaveAttribute("href", canonical(PREMIUM.id));
+      await expect(next).toHaveAccessibleName(`Next lesson: ${PREMIUM.title}, premium`);
       await expect(next.getByText("Premium", { exact: true })).toBeVisible();
-      await expect(page.getByRole("navigation", { name: `Module: ${FOUNDATIONS.title}` }).locator('[aria-current="page"]')).toHaveText(LONG.title);
+      const curriculum = page.getByRole("navigation", { name: "Curriculum" });
+      await expect(curriculum.getByRole("link", { name: /^Previous lesson/ })).toHaveAttribute("href", canonical(PRIMER.id));
+      await expect(curriculum.getByRole("link", { name: `Back to module: ${FOUNDATIONS.title}` })).toHaveAttribute("href", `${canonical(READING.id)}#${FOUNDATIONS.key}`);
+      await expect(page.getByRole("navigation", { name: `Module: ${FOUNDATIONS.title}` })).toHaveCount(0); // the per-Module list is gone from Lessons
       expect(DEEPER.items).toEqual([PREMIUM.id]);
    });
 });
@@ -471,7 +479,7 @@ test.describe("access", () => {
             await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(PREMIUM.title);
             await expect(page.getByText("Level: Advanced")).toBeVisible();
             await expect(main(page).getByRole("status")).toBeVisible();
-            for (const name of ["Breadcrumb", "Contents", `Previous and next in ${READING.title}`, `Module: ${DEEPER.title}`]) {
+            for (const name of ["Breadcrumb", "Contents", `Next in ${READING.title}`, "Curriculum", `Module: ${DEEPER.title}`]) {
                await expect(page.getByRole("navigation", { name }), name).toHaveCount(0);
             }
             await expect(page.getByRole("button", { name: "Contents" })).toHaveCount(0);
@@ -514,6 +522,7 @@ test.describe("preview deployment", () => {
       `/catalog/items/lesson/${LONG.slug}/meta`,
       `/catalog/items/lesson/${LONG.slug}/related`,
       `/catalog/tracks/${READING.slug}`,
+      `/catalog/items/lesson/${PREMIUM.slug}/meta`, // the Next lesson's public summary (P3 S-CUR-8): the one read P3-T5 adds
    ].sort();
 
    test("is marked and noindex, keeps every link on this deployment, and sits its contents and headings below the marker", async ({ page }) => {
@@ -530,7 +539,7 @@ test.describe("preview deployment", () => {
       expect(await top(contents(page))).toBeGreaterThanOrEqual(Math.round(bottom));
    });
 
-   test("rendering reads the item, its relations and its Track once each, and nothing about any other record", async ({ page, request }) => {
+   test("rendering reads the item, its relations and its Track once each, plus the Next lesson's public meta, and nothing else", async ({ page, request }) => {
       const since = await logged(request);
       await page.goto(route);
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(LONG.title);
@@ -565,9 +574,18 @@ test.describe("preview deployment", () => {
    test("following previous/next reads only the page followed to", async ({ page, request }) => {
       await page.goto(route);
       const since = await logged(request);
-      await page.getByRole("navigation", { name: `Previous and next in ${READING.title}` }).getByRole("link", { name: /^Previous/ }).click();
+      await page.getByRole("navigation", { name: "Curriculum" }).getByRole("link", { name: /^Previous lesson/ }).click();
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(PRIMER.title);
       const paths = await reads(request, since);
-      expect(paths.every((path) => path.includes(PRIMER.slug) || path.includes(READING.slug)), paths.join(", ")).toBe(true);
+      // the followed page's own reads, and the public meta of its own Next lesson (P3 S-CUR-8): nothing else
+      expect(paths).toEqual(
+         [
+            `/catalog/items/lesson/${PRIMER.slug}`,
+            `/catalog/items/lesson/${PRIMER.slug}/meta`,
+            `/catalog/items/lesson/${PRIMER.slug}/related`,
+            `/catalog/tracks/${READING.slug}`,
+            `/catalog/items/lesson/${LONG.slug}/meta`,
+         ].sort()
+      );
    });
 });

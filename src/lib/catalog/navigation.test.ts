@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CatalogModule, CatalogOutlineEntry, CatalogTrack } from "./types";
 
-const { getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
+const { getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
+   getCatalogItemMeta: vi.fn(),
    getCatalogRelated: vi.fn(),
    getCatalogTrack: vi.fn(),
 }));
-vi.mock("./client", () => ({ getCatalogRelated, getCatalogTrack }));
+vi.mock("./client", () => ({ getCatalogItemMeta, getCatalogRelated, getCatalogTrack }));
 
 import { loadItemNavigation, placeInTrack } from "./navigation";
 
@@ -70,6 +71,7 @@ describe("loadItemNavigation", () => {
 
    beforeEach(() => {
       vi.clearAllMocks();
+      getCatalogItemMeta.mockResolvedValue({ status: "ok", data: { id: "lesson.next", summary: "Next summary." } });
       getCatalogTrack.mockImplementation(async (slug: string) => {
          const found = [home, other].find((candidate) => candidate.slug === slug);
          return found ? { status: "ok", data: found } : { status: "notFound" };
@@ -181,5 +183,38 @@ describe("loadItemNavigation", () => {
       getCatalogRelated.mockResolvedValue(related([]));
       await loadItemNavigation("lesson", "item");
       expect(getCatalogRelated).toHaveBeenCalledExactlyOnceWith("lesson", "item");
+   });
+
+   describe("the Next Lesson summary (S-CUR-8)", () => {
+      it("reads the public meta of the home Track's Next Lesson once, and only that", async () => {
+         getCatalogRelated.mockResolvedValue(related([placement("home", true), placement("other", false)]));
+         const navigation = await loadItemNavigation("lesson", "item");
+         expect(navigation?.nextSummary).toBe("Next summary.");
+         expect(getCatalogItemMeta).toHaveBeenCalledExactlyOnceWith("lesson", "next");
+      });
+
+      it.each([
+         ["a failed read", { status: "unavailable", cause: "upstream" }],
+         ["another item's meta", { status: "ok", data: { id: "lesson.elsewhere", summary: "Wrong." } }],
+         ["an empty summary", { status: "ok", data: { id: "lesson.next", summary: "" } }],
+      ])("leaves the summary out, never the link, after %s", async (_, result) => {
+         getCatalogItemMeta.mockResolvedValue(result);
+         getCatalogRelated.mockResolvedValue(related([placement("home", true)]));
+         const navigation = await loadItemNavigation("lesson", "item");
+         expect(navigation?.nextSummary).toBeNull();
+         expect(ids(navigation?.home?.nextLesson ?? null)).toBe("lesson.next");
+      });
+
+      it("makes no read for the last Lesson, an unplaced Lesson or a Problem page", async () => {
+         getCatalogRelated.mockResolvedValue(related([placement("home", true)], "lesson.next"));
+         expect((await loadItemNavigation("lesson", "next"))?.nextSummary).toBeNull();
+         getCatalogRelated.mockResolvedValue(related([]));
+         expect((await loadItemNavigation("lesson", "item"))?.nextSummary).toBeNull();
+         const mixed = track("mixed", [mod("m", ["lesson.a", "problem.p", "lesson.b"])]);
+         getCatalogTrack.mockResolvedValue({ status: "ok", data: mixed });
+         getCatalogRelated.mockResolvedValue(related([placement("mixed", true)], "problem.p"));
+         expect((await loadItemNavigation("problem", "p"))?.nextSummary).toBeNull();
+         expect(getCatalogItemMeta).not.toHaveBeenCalled();
+      });
    });
 });

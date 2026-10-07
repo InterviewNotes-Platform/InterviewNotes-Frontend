@@ -25,16 +25,17 @@ const cases: { name: string; id: string; previous: Side; next: Side; premiumNext
    { name: "a premium Next lesson is linked and marked", id: "lesson.p3-gate-open", previous: null, next: "lesson.p3-locked-premium", premiumNext: true },
 ];
 
+// A Problem keeps the paired steps; a Lesson has Next in its close and a quiet Previous in the Curriculum block (P3-T5).
+const scopeOf = (page: Page, id: string, label: "Previous lesson" | "Next lesson") =>
+   id.startsWith("problem.") ? steps(page) : page.getByRole("navigation", { name: label === "Next lesson" ? /^Next in / : "Curriculum" });
+
 for (const { name, id, previous, next, premiumNext } of cases) {
    test(name, async ({ page }) => {
       await page.goto(canonical(id));
-      const nav = steps(page);
-      if (!previous && !next) {
-         await expect(nav).toHaveCount(0);
-         return;
-      }
+      const isProblem = id.startsWith("problem.");
+      if (isProblem && !previous && !next) await expect(steps(page)).toHaveCount(0);
       for (const [label, target] of [["Previous lesson", previous], ["Next lesson", next]] as const) {
-         const link = nav.getByRole("link", { name: new RegExp(`^${label}`) });
+         const link = scopeOf(page, id, label).getByRole("link", { name: new RegExp(`^${label}`) });
          if (!target) {
             await expect(link).toHaveCount(0);
             continue;
@@ -42,8 +43,8 @@ for (const { name, id, previous, next, premiumNext } of cases) {
          await expect(link).toHaveAttribute("href", canonical(target));
          await expect(link).toHaveAccessibleName(new RegExp(`^${label}: ${item(target).title}`));
       }
-      if (premiumNext) await expect(nav.getByRole("link", { name: /^Next lesson/ }).getByText("Premium", { exact: true })).toBeVisible();
-      await expect(nav.getByRole("link")).toHaveCount((previous ? 1 : 0) + (next ? 1 : 0));
+      if (premiumNext) await expect(scopeOf(page, id, "Next lesson").getByRole("link", { name: /^Next lesson/ }).getByText("Premium", { exact: true })).toBeVisible();
+      if (isProblem) await expect(steps(page).getByRole("link")).toHaveCount((previous ? 1 : 0) + (next ? 1 : 0));
    });
 }
 
@@ -51,14 +52,14 @@ test.describe("home Track", () => {
    test("two Tracks and no primary placement: no home Track, no Lesson navigation, both Tracks as alternates", async ({ page }) => {
       await page.goto(canonical("lesson.p3-nohome-shared"));
       await expect(breadcrumb(page)).toHaveCount(0);
-      await expect(steps(page)).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /^(Previous|Next) lesson/ })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: "Also in these Tracks" })).toBeVisible();
    });
 
    test("an unplaced Lesson has no Track context at all", async ({ page }) => {
       await page.goto(canonical("lesson.p3-unplaced"));
       await expect(breadcrumb(page)).toHaveCount(0);
-      await expect(steps(page)).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /^(Previous|Next) lesson/ })).toHaveCount(0);
    });
 
    test("the lone unmarked placement gets its Track breadcrumb", async ({ page }) => {

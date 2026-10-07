@@ -74,8 +74,8 @@ describe("item page navigation", () => {
       expect(screen.getByText("Module 1 of 2 · Lesson 2 of 2")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toHaveAttribute("href", "/lessons/before");
       expect(screen.getByRole("link", { name: "Next lesson: Title later" })).toHaveAttribute("href", "/lessons/later");
-      expect(within(screen.getByRole("navigation", { name: "Previous and next in Home Track" })).queryByRole("link", { name: /Title after/ })).not.toBeInTheDocument();
-      expect(screen.getByRole("navigation", { name: "Module: First Module" })).toBeInTheDocument();
+      expect(within(screen.getByRole("navigation", { name: "Next in Home Track" })).queryByRole("link", { name: /Title after/ })).not.toBeInTheDocument();
+      expect(within(screen.getByRole("navigation", { name: "Curriculum" })).getByRole("link", { name: "Back to module: First Module" })).toHaveAttribute("href", MODULE_LOCATION);
       expect(screen.getByRole("link", { name: "Base Knowledge" })).toHaveAttribute("href", "/knowledge/base");
    });
 
@@ -102,6 +102,7 @@ describe("item page navigation", () => {
       expect(getCatalogItem).toHaveBeenCalledExactlyOnceWith("lesson", "item");
       expect(getCatalogRelated).toHaveBeenCalledExactlyOnceWith("lesson", "item");
       expect(getCatalogTrack.mock.calls.map(([slug]) => slug).sort()).toEqual(["home", "other"]);
+      expect(getCatalogItemMeta).toHaveBeenCalledExactlyOnceWith("lesson", "later");
    });
 
    it("marks a gated target and links its canonical page without exposing any body", async () => {

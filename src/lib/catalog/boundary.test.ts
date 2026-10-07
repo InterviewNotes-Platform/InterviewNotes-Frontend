@@ -25,6 +25,7 @@ describe("catalog browser/Git boundary", () => {
          "components/catalog/KnowledgeBands.tsx",
          "components/catalog/KnowledgeBrowse.tsx",
          "components/catalog/KnowledgeHeader.tsx",
+         "components/catalog/LessonClose.tsx",
          "components/catalog/LessonHeader.tsx",
          "components/catalog/LessonRelated.tsx",
          "components/catalog/PracticeFilters.tsx",
@@ -90,7 +91,7 @@ describe("catalog browser/Git boundary", () => {
       }
    });
 
-   it("loads relationships without ever fetching an item body", () => {
-      expect(read(join(SRC, "lib", "catalog", "navigation.ts"))).not.toMatch(/getCatalogItem/);
+   it("loads relationships without ever fetching an item body (public metadata only)", () => {
+      expect(read(join(SRC, "lib", "catalog", "navigation.ts"))).not.toMatch(/getCatalogItem(?!Meta)/);
    });
 });
