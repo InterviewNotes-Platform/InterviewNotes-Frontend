@@ -6,7 +6,7 @@
 //     [--base http://localhost:3100] [--api http://127.0.0.1:3101]
 //     [--viewports 390,768,1024,1440] [--themes light,dark] [--settle 500] [--body-selector <css>] [--strict]
 //
-// Modes: overflow, requests, offset, console, panel. Add a mode by writing an async function in MODES; no new loop script.
+// Modes: overflow, requests, offset, console, panel, syntax. Add a mode by writing an async function in MODES; no new loop script.
 // `requests` reads the fake API's /__catalog-log. The production build caches catalog reads, so a route
 // whose count is 0 was served from that cache (`cached: true`); start from a cold cache for real counts.
 import { chromium } from "@playwright/test";
@@ -203,6 +203,67 @@ const MODES = {
       return rows;
    },
 
+   /** P3-T9: contrast of every --syntax-* token, and of each token colour actually rendered, against the code surface. */
+   async syntax({ browser, config, routes }) {
+      const rows = [];
+      for (const theme of list(config.themes)) {
+         const { page, close } = await open(browser, { theme });
+         for (const route of routes) {
+            const { status, errors } = await visit(page, config, route);
+            const m = await page.evaluate(() => {
+               const rgb = (css) => {
+                  const probe = document.createElement("span");
+                  probe.style.color = css;
+                  document.body.append(probe);
+                  const channels = getComputedStyle(probe).color.match(/[\d.]+/g).slice(0, 3).map(Number);
+                  probe.remove();
+                  return channels;
+               };
+               const luminance = (channels) => {
+                  const [r, g, b] = channels.map((value) => ((value /= 255) <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4));
+                  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+               };
+               const contrast = (a, b) => {
+                  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+                  return Math.round(((high + 0.05) / (low + 0.05)) * 100) / 100;
+               };
+               const surface = rgb(getComputedStyle(document.documentElement).getPropertyValue("--code-surface"));
+               const names = new Set();
+               for (const sheet of document.styleSheets) {
+                  for (const rule of sheet.cssRules) {
+                     for (const name of rule.style ?? []) if (name.startsWith("--syntax-")) names.add(name);
+                  }
+               }
+               const tokens = [...names].sort().map((name) => {
+                  const color = rgb(`var(${name})`);
+                  return { name, color: color.join(","), contrast: contrast(color, surface) };
+               });
+               const rendered = new Map();
+               for (const span of document.querySelectorAll("code.hljs span[class^='hljs-']")) {
+                  const color = rgb(getComputedStyle(span).color);
+                  const entry = rendered.get(span.className) ?? { class: span.className, count: 0, color: color.join(","), contrast: contrast(color, surface) };
+                  entry.count++;
+                  rendered.set(span.className, entry);
+               }
+               const text = (selector) => [...document.querySelectorAll(selector)].map((code) => contrast(rgb(getComputedStyle(code).color), surface));
+               return {
+                  dark: document.documentElement.classList.contains("dark"),
+                  surface: surface.join(","),
+                  tokens,
+                  rendered: [...rendered.values()],
+                  highlightedBlocks: document.querySelectorAll("code.hljs").length,
+                  plainBlocksWithTokens: [...document.querySelectorAll("pre code:not(.hljs)")].filter((code) => code.querySelector("span")).length,
+                  plainTextContrast: Math.min(...text("pre code"), 21),
+               };
+            });
+            const all = [...m.tokens, ...m.rendered].map((entry) => entry.contrast);
+            rows.push({ route, theme, status, errors: errors.length, themeApplied: m.dark === (theme === "dark"), ...m, minContrast: Math.min(...all, m.plainTextContrast) });
+         }
+         await close();
+      }
+      return rows;
+   },
+
    async console({ browser, config, routes }) {
       const { page, close } = await open(browser);
       const rows = [];
@@ -221,6 +282,8 @@ const FINDING = {
    requests: () => false,
    offset: (row) => !row.matched,
    console: (row) => row.errors.length > 0,
+   // P2 contrast standard: 4.5:1 for text.
+   syntax: (row) => row.errors > 0 || !row.themeApplied || row.minContrast < 4.5 || row.plainBlocksWithTokens > 0 || row.tokens.length === 0,
    panel: (row) =>
       row.errors > 0 ||
       (row.toggles > 0 &&

@@ -1,10 +1,12 @@
 import type { ComponentPropsWithoutRef, ElementType } from "react";
 import Link from "next/link";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { KnowledgeAbout } from "@/components/lesson/KnowledgeAbout";
 import { CopyCode } from "@/components/mdx/CopyCode";
 import { codeName, languageLabel, parseFence, type FenceInfo } from "@/components/mdx/fence";
+import { HIGHLIGHT } from "@/components/mdx/highlight";
 import { Mermaid } from "@/components/mdx/Mermaid";
 import { Tip, type TipType } from "@/components/mdx/Tip";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
@@ -29,6 +31,12 @@ function safeUrl(url: string): string {
    return url.startsWith("ref:") && catalogHref(url.slice(4)) ? url : "";
 }
 
+/** The text of a node and everything inside it: highlighting wraps tokens in elements but never changes the text. */
+function textOf(node: HastElement["children"][number]): string {
+   if (node.type === "text") return node.value;
+   return node.type === "element" ? node.children.map(textOf).join("") : "";
+}
+
 /** A fence as authored: its info string's language and metadata, and the exact text between the fence lines. */
 function fenceOf(node?: HastElement): (FenceInfo & { source: string }) | null {
    const code = node?.children[0];
@@ -36,7 +44,7 @@ function fenceOf(node?: HastElement): (FenceInfo & { source: string }) | null {
    const classes = Array.isArray(code.properties?.className) ? code.properties.className : [];
    const language = String(classes.find((name) => String(name).startsWith("language-")) ?? "").slice("language-".length);
    // The parser ends fenced text with one added "\n"; the fence content is what precedes it.
-   const text = code.children.map((child) => (child.type === "text" ? child.value : "")).join("");
+   const text = code.children.map(textOf).join("");
    return { ...parseFence(language, code.data?.meta), source: text.endsWith("\n") ? text.slice(0, -1) : text };
 }
 
@@ -206,6 +214,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge }: BlocksPro
                <ReactMarkdown
                   key={index}
                   remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[[rehypeHighlight, HIGHLIGHT]]}
                   components={{
                      ...components,
                      h1: heading("h1", ids?.get(block)),
