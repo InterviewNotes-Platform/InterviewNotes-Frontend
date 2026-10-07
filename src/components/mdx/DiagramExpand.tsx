@@ -20,14 +20,35 @@ interface DiagramExpandProps {
 }
 
 /**
+ * Makes the page inert and returns the undo, which clears only what this call set. Radix's own `aria-hidden` spares
+ * every live region and its ancestors (Copy's status), so those would stay reachable behind the modal.
+ */
+function inertPage() {
+   const page = Array.from(document.body.children).filter((element) => element.tagName !== "SCRIPT" && !element.hasAttribute("inert"));
+   page.forEach((element) => element.setAttribute("inert", ""));
+   return () => page.forEach((element) => element.removeAttribute("inert"));
+}
+
+/**
  * S-DGM-6 / S-DGM-7: an "Expand diagram" button in the figure footer, only while the diagram overflows, and the
  * modal dialog it opens. The dialog is Radix's (as `sheet.tsx`): focus trap, Escape, backdrop, scroll lock, hidden
- * background and focus return to the trigger all come from it. The button stays while the dialog is open.
+ * background and focus return to the trigger all come from it, and the page behind is made inert for as long as it
+ * is open. The button stays while the dialog is open.
  */
 export function DiagramExpand({ overflows, name, caption, captionId, draw, renderId }: DiagramExpandProps) {
    const [open, setOpen] = useState(false);
    const region = useRef<HTMLDivElement>(null);
    const diagram = useRef<HTMLDivElement>(null);
+   const releasePage = useRef<() => void>(undefined);
+
+   // Taken before the dialog's own layers are in the document, so they are never part of the page. Released
+   // before Radix returns focus to the button, and if the diagram unmounts (navigation) while the dialog is open.
+   function changeOpen(next: boolean) {
+      releasePage.current?.();
+      releasePage.current = next ? inertPage() : undefined;
+      setOpen(next);
+   }
+   useEffect(() => () => releasePage.current?.(), []);
 
    // The dialog copy is its own Mermaid render, so none of its generated ids repeat the inline diagram's.
    const expandedId = `${renderId}-expanded`;
@@ -46,7 +67,7 @@ export function DiagramExpand({ overflows, name, caption, captionId, draw, rende
    }, [open, draw, expandedId]);
 
    return (
-      <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Root open={open} onOpenChange={changeOpen}>
          {(overflows || open) && (
             <div className="mt-3">
                <Dialog.Trigger asChild>

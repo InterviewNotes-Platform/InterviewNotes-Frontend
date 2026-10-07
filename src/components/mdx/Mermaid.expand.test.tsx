@@ -9,6 +9,7 @@ const render_ = vi.fn();
 const initialize = vi.fn();
 vi.mock("mermaid", () => ({ default: { initialize: (...args: unknown[]) => initialize(...args), render: (...args: unknown[]) => render_(...args) } }));
 
+import { CopyCode } from "./CopyCode";
 import { DiagramExpand } from "./DiagramExpand";
 import { Mermaid } from "./Mermaid";
 
@@ -185,6 +186,97 @@ describe("Focus", () => {
       fireEvent.pointerDown(backdrop);
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       await waitFor(() => expect(expand()).toHaveFocus());
+   });
+});
+
+describe("Page behind", () => {
+   const writeText = vi.fn();
+   beforeEach(() => {
+      writeText.mockReset().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+   });
+   afterEach(() => document.querySelectorAll("body > header").forEach((element) => element.remove()));
+
+   /** A Lesson diagram beside a Copy button (its status is a live region), and a page element outside the React root. */
+   async function pageBehind() {
+      const measure = mockOverflow(WIDE);
+      const header = document.body.appendChild(document.createElement("header"));
+      const { container, unmount } = render(
+         <>
+            <CopyCode source="const a = 1;" label="TypeScript" />
+            <Mermaid chart="graph LR" adaptive figure={figure} />
+         </>,
+      );
+      await waitFor(() => expect(container.querySelector("svg")).not.toBeNull());
+      measure();
+      return { container, header, unmount };
+   }
+   const status = () => screen.getByRole("status", { hidden: true });
+   const backdrop = () => document.querySelector("[data-state=open].fixed.inset-0")!;
+   const closed = () => waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+   it("is inert while the dialog is open, the dialog and its backdrop are not, and the Copy status shell is behind it", async () => {
+      const { container, header } = await pageBehind();
+      expect(status().closest("[inert]")).toBeNull();
+
+      const dialog = await open();
+      expect(container).toHaveAttribute("inert");
+      expect(header).toHaveAttribute("inert");
+      expect(status().closest("[inert]")).toBe(container);
+      expect(dialog.closest("[inert]")).toBeNull();
+      expect(backdrop().closest("[inert]")).toBeNull();
+   });
+
+   it.each([
+      ["Escape", () => fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" })],
+      ["Close", () => fireEvent.click(screen.getByRole("button", { name: "Close" }))],
+      ["the backdrop", () => fireEvent.pointerDown(backdrop())],
+   ])("is restored exactly when the dialog closes with %s", async (_, close) => {
+      await pageBehind();
+      const before = document.body.innerHTML;
+      await open();
+      close();
+      await closed();
+      expect(document.body.innerHTML).toBe(before);
+      expect(document.querySelectorAll("[inert]")).toHaveLength(0);
+      await waitFor(() => expect(expand()).toHaveFocus());
+   });
+
+   it("leaves an element that was already inert as it found it", async () => {
+      const { container, header } = await pageBehind();
+      header.setAttribute("inert", "");
+      await open();
+      expect(container).toHaveAttribute("inert");
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await closed();
+      expect(header).toHaveAttribute("inert");
+      expect(container).not.toHaveAttribute("inert");
+   });
+
+   it("is released if the diagram unmounts while the dialog is open", async () => {
+      const { header, unmount } = await pageBehind();
+      await open();
+      expect(header).toHaveAttribute("inert");
+      unmount();
+      expect(header).not.toHaveAttribute("inert");
+   });
+
+   it("keeps Copy's live region and announcement as they are before and after the dialog", async () => {
+      await pageBehind();
+      const press = () => fireEvent.click(screen.getByRole("button", { name: "Copy TypeScript code" }));
+      expect(status()).toHaveAttribute("aria-live", "polite");
+      expect(status()).toBeEmptyDOMElement();
+
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await closed();
+      expect(status()).toHaveAttribute("role", "status");
+      expect(status()).toHaveAttribute("aria-live", "polite");
+      expect(status().closest("[inert]")).toBeNull();
+
+      press();
+      await waitFor(() => expect(status()).toHaveTextContent("Copied"));
+      expect(writeText).toHaveBeenCalledExactlyOnceWith("const a = 1;");
    });
 });
 

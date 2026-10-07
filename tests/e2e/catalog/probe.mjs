@@ -294,6 +294,7 @@ const MODES = {
                page.on("pageerror", (error) => interactionErrors.push(error.message));
                await trigger.scrollIntoViewIfNeeded();
                await trigger.focus();
+               const inertBefore = await page.evaluate(() => document.querySelectorAll("[inert]").length);
                await page.keyboard.press("Enter");
                const dialog = page.getByRole("dialog");
                await dialog.waitFor();
@@ -326,12 +327,25 @@ const MODES = {
                      userScalingDisabled: /user-scalable\s*=\s*(no|0)|maximum-scale\s*=\s*1(\.0)?\b/.test(viewport),
                      bodyLocked: getComputedStyle(document.body).overflow === "hidden",
                      overflowX: root.scrollWidth > root.clientWidth,
+                     // T10.5: every top-level page element is inert; the dialog, its backdrop and Radix's focus guards are not.
+                     page: {
+                        notInert: [...document.body.children]
+                           .filter((e) => e.tagName !== "SCRIPT" && !e.hasAttribute("inert") && !e.contains(dialog) && !e.matches("[data-state=open].fixed.inset-0") && !e.hasAttribute("data-radix-focus-guard"))
+                           .map((e) => e.tagName.toLowerCase()),
+                        inertCount: document.querySelectorAll("body > [inert]").length,
+                        dialogInert: !!dialog.closest("[inert]"),
+                        backdropInert: !!document.querySelector("[data-state=open].fixed.inset-0")?.closest("[inert]"),
+                     },
                   };
                });
-               // The page behind, as assistive technology sees it. Radix keeps every aria-live region's ancestor chain
-               // (the Copy status), so empty code groups remain; anything with content or a control would be a finding.
-               const behind = (await page.locator("body").ariaSnapshot()).split(/^- dialog/m)[0];
-               const exposed = { lines: behind.split("\n").filter(Boolean).length, withContentOrControl: behind.split("\n").filter((line) => /\b(heading|link|button|textbox|paragraph|listitem|img|text)\b/.test(line)).length };
+               // The page behind, in Chromium's own accessibility tree: nothing, not even the empty Copy status shells.
+               // (Playwright's ariaSnapshot is built from the DOM and ignores `inert`, so it cannot answer this.)
+               const session = await context.newCDPSession(page);
+               const { nodes } = await session.send("Accessibility.getFullAXTree");
+               const byId = new Map(nodes.map((node) => [node.nodeId, node]));
+               const inDialog = (node) => { for (let n = node; n; n = byId.get(n.parentId)) if (n.role?.value === "dialog") return true; return false; };
+               const behind = nodes.filter((node) => !node.ignored && !inDialog(node) && !["RootWebArea", "generic", "none"].includes(node.role?.value));
+               const exposed = { nodes: behind.length, roles: behind.map((node) => node.role?.value) };
                // The page must not scroll behind the dialog, by wheel or by keyboard.
                await page.mouse.move(2, 2);
                await page.mouse.wheel(0, 600);
@@ -354,7 +368,6 @@ const MODES = {
                await page.waitForTimeout(300);
 
                if (width === 390) {
-                  const session = await context.newCDPSession(page);
                   const region = await page.locator("[role=dialog] [role=region]").boundingBox();
                   await session.send("Input.synthesizeScrollGesture", { x: region.x + region.width / 2, y: region.y + region.height / 2, xDistance: -150, yDistance: 0, gestureSourceType: "touch", speed: 800 });
                   await page.waitForTimeout(300);
@@ -363,27 +376,33 @@ const MODES = {
 
                // Each way of closing returns focus to the Expand button.
                const closers = {};
+               const restored = {};
                const refocused = async () => (await page.waitForTimeout(150), trigger.evaluate((e) => e === document.activeElement));
+               // The page is back as it was: the same inert elements as before opening, none of them top-level.
+               const restoredPage = async () => page.evaluate((count) => document.querySelectorAll("[inert]").length === count && document.querySelectorAll("body > [inert]").length === 0, inertBefore);
                await page.keyboard.press("Escape");
                await dialog.waitFor({ state: "detached" });
                closers.escape = await refocused();
+               restored.escape = await restoredPage();
                await trigger.click();
                await dialog.waitFor();
                await page.getByRole("button", { name: "Close" }).click();
                await dialog.waitFor({ state: "detached" });
                closers.close = await refocused();
+               restored.close = await restoredPage();
                await trigger.click();
                await dialog.waitFor();
                await page.mouse.click(2, 2);
                await dialog.waitFor({ state: "detached" });
                closers.backdrop = await refocused();
+               restored.backdrop = await restoredPage();
                page.off("request", onRequest);
                page.off("console", onConsole);
                rows.push({
                   ...row, fittingTabStops: fitting, opened: true, errors: errors.length + interactionErrors.length, errorTexts: [...errors, ...interactionErrors], ...open, exposed, afterTab, trapped,
                   pageScrolledBehind: after.y !== before.y, documentGrew: after.w > before.w || after.h > before.h,
                   themeFlip: { before: first, flipped, stillOpen: stillOpen === 1 },
-                  touchScrollLeft, closers,
+                  touchScrollLeft, closers, restored,
                   requestsWhileOpen: requests.length, requests,
                   catalogRequests: (await catalogLog(config)).length - logBefore,
                });
@@ -422,7 +441,8 @@ const FINDING = {
          d.left >= GUTTER_EXPAND - 0.5 && d.right <= v.width - GUTTER_EXPAND + 0.5 && d.top >= GUTTER_EXPAND - 0.5 && d.bottom <= v.height - GUTTER_EXPAND + 0.5 &&
          !row.overflowX && !row.documentGrew && !row.pageScrolledBehind && row.bodyLocked && row.regionFocused && row.trapped && row.afterTab.inside &&
          row.svgWidth === row.viewBoxWidth && row.duplicateIds.length === 0 && row.touchActions.length === 0 && !row.userScalingDisabled &&
-         row.exposed.withContentOrControl === 0 && row.closers.escape && row.closers.close && row.closers.backdrop && row.requestsWhileOpen === 0 && row.catalogRequests === 0 &&
+         row.exposed.nodes === 0 && row.page.notInert.length === 0 && row.page.inertCount > 0 && !row.page.dialogInert && !row.page.backdropInert &&
+         row.closers.escape && row.closers.close && row.closers.backdrop && row.restored.escape && row.restored.close && row.restored.backdrop && row.requestsWhileOpen === 0 && row.catalogRequests === 0 &&
          row.themeFlip.before.dialog && row.themeFlip.flipped.dialog && row.themeFlip.flipped.inline && row.themeFlip.stillOpen
       );
    },
