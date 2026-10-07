@@ -1,8 +1,9 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, PencilRuler, type LucideIcon } from "lucide-react";
+import { ModuleSection } from "@/components/track/ModuleSection";
 import { Button } from "@/components/ui/button";
-import { Disclosure } from "@/components/ui/disclosure";
+import { moduleFragmentId } from "@/lib/catalog/moduleLocation";
 import type { Curriculum, PlacedEntry } from "@/lib/catalog/track";
 import type { CatalogTrack } from "@/lib/catalog/types";
 import { PremiumMark } from "./EntryRow";
@@ -38,12 +39,12 @@ function TrackStart({ curriculum: { start, counts } }: { curriculum: Curriculum 
    return (
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
          <Button asChild size="lg" className="h-auto min-h-11 px-6 py-2 text-left text-body whitespace-normal">
-            <Link href={start.href} prefetch={false} aria-describedby="track-start-note">
+            <Link href={start.href} prefetch={false} aria-describedby="track_start_note">
                Start with {start.entry.title}
                <ArrowRight aria-hidden="true" />
             </Link>
          </Button>
-         <p id="track-start-note" className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">
+         <p id="track_start_note" className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">
             <span>Recommended starting point</span>
             {start.entry.access === "premium" ? <PremiumMark /> : null}
          </p>
@@ -109,15 +110,16 @@ interface TrackCurriculumProps {
    summaries?: ReadonlyMap<string, string> | null;
 }
 
-/** Modules as separated sections, not cards. The first is open; the rest start collapsed. */
+/** Modules as separated sections, not cards. The first is open; the rest start collapsed. Ids with `_` never equal a Module key. */
 export function TrackCurriculum({ track, curriculum, summaries }: TrackCurriculumProps) {
    // A Track with no modules has nothing to outline; the Start state in its header already says so.
    if (curriculum.modules.length === 0) return null;
    return (
       <nav aria-label={`${track.title} outline`} className="border-b border-border">
          {curriculum.modules.map(({ module, rows, counts }, index) => (
-            <Disclosure
+            <ModuleSection
                key={module.key}
+               id={moduleFragmentId(module)}
                title={
                   <>
                      <span className="block text-supporting font-normal text-muted-foreground">Module {index + 1}</span> {module.title}
@@ -125,7 +127,6 @@ export function TrackCurriculum({ track, curriculum, summaries }: TrackCurriculu
                }
                detail={moduleCounts(counts)}
                defaultOpen={index === 0}
-               className="border-t border-border"
             >
                {rows.length ? (
                   <ol role="list" className="m-0 list-none p-0 pb-4">
@@ -136,7 +137,7 @@ export function TrackCurriculum({ track, curriculum, summaries }: TrackCurriculu
                ) : (
                   <p className="m-0 pb-5 text-supporting text-muted-foreground">No published items in this Module yet.</p>
                )}
-            </Disclosure>
+            </ModuleSection>
          ))}
       </nav>
    );
@@ -147,8 +148,8 @@ export function TrackSupport({ curriculum }: { curriculum: Curriculum }) {
    const { practice } = curriculum;
    if (practice.length === 0) return null;
    return (
-      <section aria-labelledby="track-support-heading" className="mt-12">
-         <h2 id="track-support-heading" className="m-0 mb-6 text-subsection">
+      <section aria-labelledby="track_support_heading" className="mt-12">
+         <h2 id="track_support_heading" className="m-0 mb-6 text-subsection">
             In this Track
          </h2>
          <h3 className="m-0 text-body font-semibold">Practice</h3>

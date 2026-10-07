@@ -60,7 +60,8 @@ test.describe("the long Lesson", () => {
       await expect(crumbs).toHaveText(new RegExp(`^Learn\\s*/\\s*${READING.title}\\s*/\\s*${FOUNDATIONS.title}$`));
       await expect(crumbs.getByRole("link", { name: "Learn" })).toHaveAttribute("href", "/tracks");
       await expect(crumbs.getByRole("link", { name: READING.title })).toHaveAttribute("href", canonical(READING.id));
-      await expect(crumbs.getByRole("link")).toHaveCount(2); // the Module is context, never a link
+      await expect(crumbs.getByRole("link", { name: FOUNDATIONS.title })).toHaveAttribute("href", `${canonical(READING.id)}#${FOUNDATIONS.key}`);
+      await expect(crumbs.getByRole("link")).toHaveCount(3);
       await expect(page.getByText("Level: Intermediate")).toBeVisible();
    });
 
@@ -100,9 +101,9 @@ test.describe("the long Lesson", () => {
 });
 
 test.describe("relations", () => {
-   test("prerequisites lead the page, with each target's type", async ({ page }) => {
+   test("Builds on leads the page, with each target's type", async ({ page }) => {
       await page.goto(route);
-      const group = page.getByRole("region", { name: "Prerequisites" });
+      const group = page.getByRole("region", { name: "Builds on" });
       await expect(group.getByRole("link")).toHaveText(["Mixed Access Knowledge", PRIMER.title]);
       await expect(group.getByRole("link").first()).toHaveAttribute("href", "/knowledge/catalog-e2e-sections");
       await expect(group.getByRole("link").last()).toHaveAttribute("href", canonical(PRIMER.id));
@@ -133,7 +134,8 @@ test.describe("relations", () => {
       const quiet = page.getByRole("region", { name: "Related Problems" });
       await expect(quiet.getByRole("link")).toHaveText(["Related Practice Problem", "T24 Premium Solution Problem"]);
       const hrefs = await main(page).locator('a[href^="/"]').evaluateAll((links) => links.map((link) => link.getAttribute("href")!));
-      for (const href of hrefs.filter((candidate) => candidate !== "/tracks")) {
+      // the breadcrumb's Module location is the one fragment link (S-MOD-4)
+      for (const href of hrefs.filter((candidate) => candidate !== "/tracks" && candidate !== `${canonical(READING.id)}#${FOUNDATIONS.key}`)) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
       // an authored inline reference may name a Problem the relations also list; the relation groups may not repeat one
@@ -146,7 +148,7 @@ test.describe("relations", () => {
    test("a Lesson with no relations has no relation groups and no stray gap", async ({ page }) => {
       await page.goto(canonical(PRIMER.id));
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(PRIMER.title);
-      for (const name of ["Prerequisites", "Related Knowledge", "Related Lessons", "Ready to apply this?", "Related Problems"]) {
+      for (const name of ["Builds on", "Related Knowledge", "Related Lessons", "Ready to apply this?", "Related Problems"]) {
          await expect(main(page).getByRole("heading", { name })).toHaveCount(0);
       }
       await expect(page.getByRole("navigation", { name: "Contents" })).toHaveCount(0); // one heading: no contents

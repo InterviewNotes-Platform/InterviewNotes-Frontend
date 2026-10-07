@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import fixture from "../../../tests/e2e/catalog/fixture.json";
 import { curriculumOf } from "@/lib/catalog/track";
 import type { CatalogModule, CatalogOutlineEntry, CatalogTrack } from "@/lib/catalog/types";
 
@@ -47,6 +48,10 @@ const view = (t: CatalogTrack = TRACK, summaries?: ReadonlyMap<string, string> |
 };
 const moduleButton = (key: string) => screen.getByRole("button", { name: new RegExp(`^Module \\d+ Part ${key}`) });
 const panelOf = (button: HTMLElement) => document.getElementById(button.getAttribute("aria-controls")!)!;
+
+beforeAll(() => {
+   Element.prototype.scrollIntoView = vi.fn();
+});
 
 describe("TrackHeader", () => {
    it("shows one h1 with the title, the summary and counts derived from the outline", () => {
@@ -353,5 +358,50 @@ describe("TrackSupport", () => {
    it("renders nothing for a Track with no Problem", () => {
       view(track([mod("m", [entry("lesson.one")])]));
       expect(screen.queryByRole("region", { name: "In this Track" })).not.toBeInTheDocument();
+   });
+});
+
+describe("Module fragments (S-MOD-4)", () => {
+   it("gives each Module section its key as id, and no Module a link of its own", () => {
+      view();
+      for (const key of ["basics", "depth", "later"]) {
+         expect(moduleButton(key).closest(`[id="${key}"]`)).not.toBeNull();
+      }
+   });
+
+   it("gives a Module keyed like a shell id no fragment", () => {
+      view(track([mod("main-content", [entry("lesson.a")]), mod("depth", [entry("lesson.b")])]));
+      expect(document.getElementById("main-content")).toBeNull();
+      expect(document.getElementById("depth")).not.toBeNull();
+   });
+
+   it("renames the Track page's own ids out of the key grammar, so a Module can be keyed track-start-note", () => {
+      view(track([mod("track-start-note", [entry("lesson.a")]), mod("track-support-heading", [entry("problem.p")])]));
+      expect([...document.querySelectorAll("#track-start-note, #track-support-heading")]).toHaveLength(2);
+      expect(document.getElementById("track_start_note")).not.toBeNull();
+      expect(document.getElementById("track_support_heading")).not.toBeNull();
+      expect(screen.getByRole("link", { name: /^Start with/ })).toHaveAccessibleDescription("Recommended starting point");
+   });
+
+   it("keeps every id on every fixture Track page unique, a Module key being the only id a slug could be", () => {
+      const items = new Map(fixture.items.map((item) => [item.id, item]));
+      for (const raw of fixture.tracks) {
+         const modules = raw.modules.map((m, position) => ({
+            key: m.key,
+            title: m.title,
+            position,
+            items: m.items.flatMap((id) => {
+               const item = items.get(id);
+               return item ? [{ id, type: item.type, slug: item.slug, title: item.title, access: item.access, primary: true }] : [];
+            }),
+         }));
+         const { unmount } = view(track(modules as CatalogModule[], { id: raw.id, slug: raw.slug, title: raw.title }));
+         const ids = [...document.querySelectorAll("[id]")].map((element) => element.id);
+         expect(new Set(ids).size, raw.slug).toBe(ids.length);
+         const keys = raw.modules.map((m) => m.key);
+         for (const id of ids.filter((id) => !keys.includes(id))) expect(id, raw.slug).not.toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+         expect(document.getElementById("main-content"), raw.slug).toBeNull();
+         unmount();
+      }
    });
 });

@@ -30,7 +30,7 @@ const related = (page: Page) => main(page).getByRole("region", { name: /^(Before
 // A Problem's quiet Track context ("Part of Track / Module"); Lessons carry their own breadcrumb (Learn / Track / Module).
 const trackContext = (page: Page) => main(page).getByText(/^Part of/);
 const breadcrumb = (page: Page) => page.getByRole("navigation", { name: "Breadcrumb" });
-const LESSON_RELATED = /^(Prerequisites|Related Knowledge|Related Lessons|Ready to apply this\?|Related Problems)$/;
+const LESSON_RELATED = /^(Builds on|Related Knowledge|Related Lessons|Ready to apply this\?|Related Problems)$/;
 const steps = (page: Page) => page.getByRole("navigation", { name: `Previous and next in ${HOME.title}` });
 const premiumMark = { name: "Premium", exact: true } as const;
 

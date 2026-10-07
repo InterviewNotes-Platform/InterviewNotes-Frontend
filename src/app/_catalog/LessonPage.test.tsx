@@ -104,11 +104,13 @@ describe("a readable Lesson", () => {
       expect(screen.getByRole("button", { name: "Contents" })).toHaveAttribute("aria-expanded", "false");
    });
 
-   it("reads in the intended order: prerequisites, contents, body, Knowledge, Practice, Problems, steps", async () => {
+   it("reads in the intended order: orientation, Builds on, contents, body, Knowledge, Practice, Problems, steps", async () => {
       await show();
       const sequence = [
+         screen.getByRole("navigation", { name: "Breadcrumb" }),
+         screen.getByText("Module 1 of 1 · Lesson 2 of 3"),
          heading("Synthetic Lesson", 1),
-         heading("Prerequisites", 2),
+         heading("Builds on", 2),
          screen.getByRole("button", { name: "Contents" }),
          heading("First section", 2),
          heading("Related Knowledge", 2),
@@ -134,14 +136,43 @@ describe("a readable Lesson", () => {
    });
 });
 
-describe("a Lesson's relations", () => {
-   it("shows prerequisites near the top, type-aware, in the API's order", async () => {
+describe("a Lesson's orientation", () => {
+   it("links the Module to its location on the Track page and states the position within the home Track", async () => {
       await show();
-      const group = screen.getByRole("region", { name: "Prerequisites" });
+      const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
+      expect(within(crumbs).getByRole("link", { name: "First Module" })).toHaveAttribute("href", "/tracks/home#m1");
+      expect(within(crumbs).getByRole("link", { name: "First Module" })).toHaveAttribute("data-prefetch", "false");
+      const position = screen.getByText("Module 1 of 1 · Lesson 2 of 3");
+      expect(position).not.toHaveTextContent(/complet|continue|resume|progress/i);
+      expect(position.previousElementSibling).toBe(crumbs);
+   });
+
+   it("shows no Module location, position or invented metadata when the Track does not place the Lesson", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.other")] }] } });
+      await show();
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Module \d+ of/)).not.toBeInTheDocument();
+      expect(heading("Synthetic Lesson", 1)).toBeInTheDocument();
+   });
+
+   it("renders no Builds on when there are no prerequisites", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: {} } });
+      await show();
+      expect(screen.queryByRole("region", { name: "Builds on" })).not.toBeInTheDocument();
+   });
+});
+
+describe("a Lesson's relations", () => {
+   it("shows what it builds on near the top as one inline line, naming each type, in the API's order", async () => {
+      await show();
+      const group = screen.getByRole("region", { name: "Builds on" });
       expect(within(group).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
          ["Title base", "/knowledge/base"],
          ["Title first", "/lessons/first"],
       ]);
+      expect(within(group).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Title baseKnowledge", "Title firstLesson"]);
+      expect(group).not.toHaveTextContent(/Summary|require|must|locked|warning/i);
+      expect(screen.queryByText("Prerequisites")).not.toBeInTheDocument();
    });
 
    it("shows Related Knowledge from `applies` and `related`, once each, with no prerequisite repeated", async () => {
@@ -180,7 +211,7 @@ describe("a Lesson's relations", () => {
    it("renders no group, heading or divider for a Lesson with no relations", async () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: {}, placements: [] } });
       await show();
-      for (const name of ["Prerequisites", "Related Knowledge", "Related Lessons", "Ready to apply this?", "Related Problems"]) {
+      for (const name of ["Builds on", "Related Knowledge", "Related Lessons", "Ready to apply this?", "Related Problems"]) {
          expect(screen.queryByRole("heading", { name })).not.toBeInTheDocument();
       }
       expect(heading("First section", 2)).toBeInTheDocument();
@@ -192,7 +223,7 @@ describe("a Lesson's relations", () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: { related: [meta("problem.only")] } } });
       await show();
       expect(heading("Related Problems", 2)).toBeInTheDocument();
-      for (const name of ["Prerequisites", "Related Knowledge", "Ready to apply this?"]) {
+      for (const name of ["Builds on", "Related Knowledge", "Ready to apply this?"]) {
          expect(screen.queryByRole("heading", { name })).not.toBeInTheDocument();
       }
    });
@@ -210,7 +241,7 @@ describe("a Lesson's curriculum", () => {
 
    it("is a type-based route for every link except the Learn index", async () => {
       await show();
-      for (const href of screen.getAllByRole("link").map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/tracks")) {
+      for (const href of screen.getAllByRole("link").map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/tracks" && href !== "/tracks/home#m1")) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
    });
@@ -275,7 +306,7 @@ describe("a locked Lesson", () => {
       expect(screen.queryByText(/Intro prose/)).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Contents" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: /First section|Prerequisites|Related|Ready to apply/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /First section|Builds on|Related|Ready to apply/ })).not.toBeInTheDocument();
       expect(document.querySelectorAll("[id]")).toHaveLength(0);
       expect(getCatalogRelated).not.toHaveBeenCalled();
       expect(getCatalogTrack).not.toHaveBeenCalled();

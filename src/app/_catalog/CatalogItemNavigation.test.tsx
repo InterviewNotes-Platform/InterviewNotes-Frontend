@@ -19,6 +19,7 @@ vi.mock("@/components/mdx/Mermaid", () => ({ Mermaid: () => null }));
 import TrackPage from "../tracks/[slug]/page";
 import { CatalogItemPage } from "./CatalogItemPage";
 
+const MODULE_LOCATION = "/tracks/home#m1";
 const CANONICAL = /^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/;
 const LEARN_INDEX = "/tracks"; // the Learn crumb: the Track index, the one non-item link a Lesson carries
 const entry = (id: string, over = {}) => {
@@ -69,7 +70,8 @@ describe("item page navigation", () => {
       expect(crumbs).toHaveTextContent(/^Learn\s*\/\s*Home Track\s*\/\s*First Module$/);
       expect(within(crumbs).getByRole("link", { name: "Learn" })).toHaveAttribute("href", "/tracks");
       expect(within(crumbs).getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
-      expect(within(crumbs).queryByRole("link", { name: "First Module" })).not.toBeInTheDocument();
+      expect(within(crumbs).getByRole("link", { name: "First Module" })).toHaveAttribute("href", MODULE_LOCATION);
+      expect(screen.getByText("Module 1 of 2 · Lesson 2 of 2")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toHaveAttribute("href", "/lessons/before");
       expect(screen.getByRole("link", { name: "Next lesson: Title later" })).toHaveAttribute("href", "/lessons/later");
       expect(within(screen.getByRole("navigation", { name: "Previous and next in Home Track" })).queryByRole("link", { name: /Title after/ })).not.toBeInTheDocument();
@@ -77,9 +79,9 @@ describe("item page navigation", () => {
       expect(screen.getByRole("link", { name: "Base Knowledge" })).toHaveAttribute("href", "/knowledge/base");
    });
 
-   it("keeps one canonical identity: every link is a type-based route with no Track or query context", async () => {
+   it("keeps one canonical identity: every link is a type-based route, the Module location being the one fragment", async () => {
       await show();
-      for (const href of hrefs().filter((href) => href !== LEARN_INDEX)) expect(href).toMatch(CANONICAL);
+      for (const href of hrefs().filter((href) => href !== LEARN_INDEX && href !== MODULE_LOCATION)) expect(href).toMatch(CANONICAL);
    });
 
    it("presents an alternate Track as navigation only, without a second copy of the content", async () => {

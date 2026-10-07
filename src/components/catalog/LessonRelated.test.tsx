@@ -14,7 +14,7 @@ vi.mock("next/link", async () => {
 });
 
 import { LessonHeader } from "./LessonHeader";
-import { PracticeTransition, RelationGroup } from "./LessonRelated";
+import { BuildsOn, PracticeTransition, RelationGroup } from "./LessonRelated";
 import { LessonBreadcrumb, TrackPrevNext } from "./TrackContext";
 
 const meta = (id: string, over: Partial<CatalogMeta> = {}): CatalogMeta => {
@@ -46,11 +46,9 @@ describe("RelationGroup", () => {
       expect(document.querySelector("[id]")!.id).not.toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
    });
 
-   it("names the type only where a group mixes types, and shows a summary only when asked", () => {
+   it("shows a summary only when asked, and never names the type", () => {
       const rows = [linked("knowledge.base"), linked("lesson.first")];
-      const { rerender } = render(<RelationGroup id="g" label="Prerequisites" rows={rows} withType />);
-      expect(screen.getByText("Knowledge")).toBeInTheDocument();
-      expect(screen.getByText("Lesson")).toBeInTheDocument();
+      const { rerender } = render(<RelationGroup id="g" label="Related Knowledge" rows={rows} />);
       expect(screen.queryByText("Summary base")).not.toBeInTheDocument();
 
       rerender(<RelationGroup id="g" label="Related Knowledge" rows={rows} withSummary />);
@@ -152,16 +150,33 @@ const placement = (previous: string | null, next: string | null): TrackPlacement
    nextLesson: next ? entry(next, { access: "premium" }) : null,
 });
 
+describe("BuildsOn", () => {
+   it("renders nothing for no rows, heading included", () => {
+      const { container } = render(<BuildsOn rows={[]} />);
+      expect(container).toBeEmptyDOMElement();
+   });
+
+   it("is one labelled wrapping line of never-prefetched links, each naming its type, with no summary", () => {
+      render(<BuildsOn rows={[linked("knowledge.base", { access: "premium" }), linked("lesson.first")]} />);
+      const region = screen.getByRole("region", { name: "Builds on" });
+      expect(within(region).getByRole("heading", { level: 2, name: "Builds on" })).toHaveAttribute("id", "lesson_builds_on");
+      expect(region).toHaveClass("flex-wrap");
+      expect(within(region).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Title baseKnowledgePremium", "Title firstLesson"]);
+      expect(region).not.toHaveTextContent("Summary");
+      for (const link of within(region).getAllByRole("link")) expect(link).toHaveAttribute("data-prefetch", "false");
+   });
+});
+
 describe("LessonBreadcrumb", () => {
-   it("reads Learn / Track / Module, linking Learn and the Track but never the Module", () => {
+   it("reads Learn / Track / Module, linking all three to their locations", () => {
       render(<LessonBreadcrumb placement={placement(null, null)} />);
       const nav = screen.getByRole("navigation", { name: "Breadcrumb" });
       expect(within(nav).getAllByRole("listitem")).toHaveLength(3);
       expect(within(nav).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
          ["Learn", "/tracks"],
          ["A Rather Long Home Track Title", "/tracks/home"],
+         ["A Rather Long Module Title", "/tracks/home#m"],
       ]);
-      expect(within(nav).getByText("A Rather Long Module Title").closest("a")).toBeNull();
       for (const link of within(nav).getAllByRole("link")) expect(link).toHaveAttribute("data-prefetch", "false");
    });
 
@@ -170,8 +185,25 @@ describe("LessonBreadcrumb", () => {
       const nav = screen.getByRole("navigation", { name: "Breadcrumb" });
       expect([...nav.querySelectorAll("[aria-hidden='true']")].map((separator) => separator.textContent)).toEqual(["/", "/"]);
       expect(within(nav).getByRole("link", { name: "A Rather Long Home Track Title" })).toHaveClass("truncate", "min-w-0");
-      expect(within(nav).getByText("A Rather Long Module Title")).toHaveClass("truncate", "min-w-0");
+      expect(within(nav).getByRole("link", { name: "A Rather Long Module Title" })).toHaveClass("truncate", "min-w-0");
       expect(nav.querySelector("ol")).toHaveClass("min-w-0");
+   });
+
+   it("links a Module whose key is a shell id to the Track page without a fragment", () => {
+      const home = placement(null, null);
+      render(<LessonBreadcrumb placement={{ ...home, module: { ...home.module, key: "main-content" } }} />);
+      expect(screen.getByRole("link", { name: "A Rather Long Module Title" })).toHaveAttribute("href", "/tracks/home");
+   });
+
+   it("puts the structural position directly beneath the breadcrumb, and omits it without one", () => {
+      const { rerender } = render(
+         <LessonBreadcrumb placement={placement(null, null)} position={{ module: { index: 2, count: 4 }, lesson: { index: 3, count: 7 } }} />
+      );
+      const line = screen.getByText("Module 2 of 4 · Lesson 3 of 7");
+      expect(line.previousElementSibling).toBe(screen.getByRole("navigation", { name: "Breadcrumb" }));
+      expect(line).toHaveClass("m-0");
+      rerender(<LessonBreadcrumb placement={placement(null, null)} />);
+      expect(screen.queryByText(/Module \d+ of/)).not.toBeInTheDocument();
    });
 });
 

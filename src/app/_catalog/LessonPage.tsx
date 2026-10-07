@@ -1,10 +1,11 @@
 import { headingIds, parseBlocks } from "@/components/catalog/blocks";
 import { CurriculumNavigation } from "@/components/catalog/ItemNavigation";
 import { LessonHeader } from "@/components/catalog/LessonHeader";
-import { PracticeTransition, RelationGroup } from "@/components/catalog/LessonRelated";
+import { BuildsOn, PracticeTransition, RelationGroup } from "@/components/catalog/LessonRelated";
 import { AlternateTracks, LessonBreadcrumb } from "@/components/catalog/TrackContext";
 import { LessonContents } from "@/components/lesson/LessonContents";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { lessonPosition } from "@/lib/catalog/curriculum";
 import { contentsOf, lessonRelations } from "@/lib/catalog/lesson";
 import type { ItemNavigation } from "@/lib/catalog/navigation";
 import type { CatalogItem } from "@/lib/catalog/types";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { ItemContent } from "./ItemContent";
 
 /**
- * A readable Lesson, in the order a reader needs it: where it sits, what it is, what to read first, the body, then
+ * A readable Lesson, in the order a reader needs it: where it sits, what it is, what it builds on, the body, then
  * related Knowledge, the step into Practice, and the curriculum around it. Everything comes from the item the API
  * released and its relations; nothing is fetched here and nothing on this page makes a request of its own.
  */
@@ -33,13 +34,11 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
             )}
          >
             <div className="mb-10 min-w-0 lg:col-start-1 lg:row-start-1 lg:mb-12">
-               {navigation?.home ? <LessonBreadcrumb placement={navigation.home} /> : null}
-               <LessonHeader meta={item} />
-               {related ? (
-                  <div className="mt-8 empty:hidden">
-                     <RelationGroup id="lesson_prerequisites" label="Prerequisites" rows={related.prerequisites} withType />
-                  </div>
+               {navigation?.home ? (
+                  <LessonBreadcrumb placement={navigation.home} position={lessonPosition(navigation.home.track, navigation.id)} />
                ) : null}
+               <LessonHeader meta={item} />
+               {related ? <BuildsOn rows={related.prerequisites} /> : null}
             </div>
             {contents.length > 0 ? <LessonContents entries={contents} className="lg:col-start-2 lg:row-span-2 lg:row-start-1" /> : null}
             <div className="min-w-0 lg:col-start-1 lg:row-start-2">

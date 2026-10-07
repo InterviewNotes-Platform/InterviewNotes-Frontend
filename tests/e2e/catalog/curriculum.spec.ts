@@ -82,3 +82,56 @@ test("Start on a Track whose first placement is a Problem opens its first Lesson
    await expect(page).toHaveURL(canonical(first.id));
    await expect(page.getByRole("heading", { level: 1 })).toHaveText(first.title);
 });
+
+// S-MOD-4, S-MOD-5, AC-7 (orientation half): a Lesson's Module link lands on the Track page with that Module open and in view.
+const sequence = track("p3-sequence");
+const moduleOf = (key: string) => sequence.modules.findIndex((m) => m.key === key);
+const controlOf = (page: Page, key: string) =>
+   page.getByRole("navigation", { name: `${sequence.title} outline` }).getByRole("button", { name: new RegExp(`^Module ${moduleOf(key) + 1} `) });
+
+for (const width of [390, 1440]) {
+   test.describe(`Module location at ${width}`, () => {
+      test.use({ viewport: { width, height: 900 } });
+
+      test("the breadcrumb Module link opens that Module below the sticky header", async ({ page }) => {
+         await page.goto(canonical("lesson.p3-seq-last"));
+         await expect(page.getByText("Module 3 of 3 · Lesson 1 of 1")).toBeVisible();
+         await breadcrumb(page).getByRole("link", { name: "Tail" }).click();
+         await expect(page).toHaveURL(`${canonical(sequence.id)}#tail`);
+         await expect(controlOf(page, "tail")).toHaveAttribute("aria-expanded", "true");
+         await expect(controlOf(page, "basics")).toHaveAttribute("aria-expanded", "true");
+         await expect(controlOf(page, "crossing")).toHaveAttribute("aria-expanded", "false");
+         const section = page.locator("#tail");
+         await expect(section).toBeInViewport({ ratio: 1 });
+         const header = await page.locator("body > header, header").first().boundingBox();
+         expect((await section.boundingBox())!.y).toBeGreaterThanOrEqual(header!.y + header!.height);
+         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      });
+
+      test("arriving on a fragment, or changing it, opens that Module; an unknown fragment does nothing", async ({ page }) => {
+         await page.goto(`${canonical(sequence.id)}#crossing`);
+         await expect(controlOf(page, "crossing")).toHaveAttribute("aria-expanded", "true");
+         await expect(page.locator("#crossing")).toBeInViewport({ ratio: 1 });
+         await page.evaluate(() => (window.location.hash = "#tail"));
+         await expect(controlOf(page, "tail")).toHaveAttribute("aria-expanded", "true");
+         await page.evaluate(() => (window.location.hash = "#nowhere"));
+         await page.waitForTimeout(100);
+         await expect(controlOf(page, "tail")).toHaveAttribute("aria-expanded", "true");
+         await expect(controlOf(page, "crossing")).toHaveAttribute("aria-expanded", "true");
+      });
+   });
+}
+
+test("a Module keyed like the app shell has no fragment: its link is the plain Track URL", async ({ page }) => {
+   await page.goto(canonical("lesson.p3-edge-shell"));
+   await expect(breadcrumb(page).getByRole("link", { name: "Shell id" })).toHaveAttribute("href", canonical("track.p3-module-edges"));
+   await page.goto(canonical("track.p3-module-edges"));
+   await expect(page.locator("#main-content")).toHaveCount(1);
+});
+
+test("a deep-linked later Lesson shows its orientation, nothing locked or warned (AC-5)", async ({ page }) => {
+   await page.goto(canonical("lesson.p3-seq-four"));
+   await expect(breadcrumb(page)).toBeVisible();
+   await expect(page.getByText("Module 2 of 3 · Lesson 2 of 2")).toBeVisible();
+   await expect(page.getByRole("main")).not.toContainText(/locked|premium required|continue|resume/i);
+});

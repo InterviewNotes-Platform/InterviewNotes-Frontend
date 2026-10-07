@@ -14,14 +14,12 @@ interface GroupProps {
    label: string;
    /** A row may say how it relates ("Applied in"); it shows after the type and difficulty. */
    rows: (LinkedMeta & { relation?: string | null })[];
-   /** Name each target's type, for a group that mixes types. */
-   withType?: boolean;
    /** One line of the target's own summary beneath its title. */
    withSummary?: boolean;
 }
 
 /** A quiet list of neighbours: public metadata only, never prefetched. Renders nothing when empty. */
-export function RelationGroup({ id, label, rows, withType = false, withSummary = false }: GroupProps) {
+export function RelationGroup({ id, label, rows, withSummary = false }: GroupProps) {
    if (rows.length === 0) return null;
    return (
       <section aria-labelledby={id}>
@@ -31,7 +29,7 @@ export function RelationGroup({ id, label, rows, withType = false, withSummary =
          <ul className="m-0 list-none space-y-4 p-0">
             {rows.map((row) => {
                const { entry, href } = row;
-               const detail = [withType ? TYPE_LABEL[entry.type] : null, difficultyOf(row), row.relation].filter(Boolean).join(" · ");
+               const detail = [difficultyOf(row), row.relation].filter(Boolean).join(" · ");
                return (
                   <li key={entry.id}>
                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -47,6 +45,29 @@ export function RelationGroup({ id, label, rows, withType = false, withSummary =
                   </li>
                );
             })}
+         </ul>
+      </section>
+   );
+}
+
+/** What the Lesson builds on: one wrapping line of links, each naming its type. A pointer, never a requirement. */
+export function BuildsOn({ rows }: { rows: LinkedMeta[] }) {
+   if (rows.length === 0) return null;
+   return (
+      <section aria-labelledby="lesson_builds_on" className="mt-6 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+         <h2 id="lesson_builds_on" className="m-0 text-supporting font-semibold text-muted-foreground">
+            Builds on
+         </h2>
+         <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-1 p-0">
+            {rows.map(({ entry, href }) => (
+               <li key={entry.id} className="flex flex-wrap items-baseline gap-x-2">
+                  <Link href={href} prefetch={false} className="text-body font-medium text-foreground transition-micro hover:text-primary">
+                     {entry.title}
+                  </Link>
+                  <span className="text-supporting text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
+                  {entry.access === "premium" ? <PremiumMark /> : null}
+               </li>
+            ))}
          </ul>
       </section>
    );
