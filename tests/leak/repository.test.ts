@@ -3,7 +3,19 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import fixture from "../e2e/catalog/fixture.json";
-import { BODY_CANARY, DEEP_DIVE_CANARY, PROTECTED_CANARIES, SOLUTION_CANARY } from "./canaries";
+import {
+   BODY_CANARY,
+   DEEP_DIVE_CANARY,
+   P3_ALT_CANARY,
+   P3_CAPTION_CANARY,
+   P3_CODE_TITLE_CANARY,
+   P3_OBJECTIVES_CANARY,
+   P3_PRACTICE_PROMPT_CANARY,
+   P3_PROSE_CANARY,
+   P3_TAKEAWAYS_CANARY,
+   PROTECTED_CANARIES,
+   SOLUTION_CANARY,
+} from "./canaries";
 import { FIXTURE_ALLOWLIST, findRouteConfigViolations, format, scanFrontendTree, scanPublic, trackedFiles } from "./scanner";
 
 const ROOT = join(__dirname, "..", "..");
@@ -85,6 +97,19 @@ describe("synthetic canary fixture", () => {
       expect(items.find((i) => i.body?.includes(BODY_CANARY))?.id).toBe("lesson.t24-premium-body");
       expect(sectionOf(SOLUTION_CANARY)?.type).toBe("solution");
       expect(sectionOf(DEEP_DIVE_CANARY)?.type).toBe("deep_dive");
+   });
+
+   it("places the P3 sentinels in the locked Lesson's prose, objectives, code title, diagram caption and alt, takeaways, and in a premium Problem's prompt", () => {
+      const body = items.find((i) => i.id === "lesson.p3-locked-premium")?.body ?? "";
+      expect(body).toContain(P3_PROSE_CANARY);
+      expect(body).toMatch(new RegExp(`^Objectives: ${P3_OBJECTIVES_CANARY}`, "m"));
+      expect(body).toContain(`title="${P3_CODE_TITLE_CANARY}`);
+      expect(body).toContain(`caption="${P3_CAPTION_CANARY}"`);
+      expect(body).toContain(`alt="${P3_ALT_CANARY}"`);
+      expect(body).toMatch(new RegExp(`^Takeaways: ${P3_TAKEAWAYS_CANARY}`, "m"));
+      const prompt = items.find((i) => i.id === "problem.p3-prac-premium")?.sections?.find((s) => s.type === "prompt");
+      expect(prompt?.text).toContain(P3_PRACTICE_PROMPT_CANARY);
+      expect(prompt?.access).toBe("premium");
    });
 
    it("keeps canaries out of every identity, Track and legacy record", () => {

@@ -38,7 +38,7 @@ function TrackStart({ curriculum: { start, counts } }: { curriculum: Curriculum 
    }
    return (
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-         <Button asChild size="lg" className="h-auto min-h-11 px-6 py-2 text-left text-body whitespace-normal">
+         <Button asChild size="lg" className="h-auto min-h-11 max-w-full px-6 py-2 text-left text-body whitespace-normal">
             <Link href={start.href} prefetch={false} aria-describedby="track_start_note">
                Start with {start.entry.title}
                <ArrowRight aria-hidden="true" />

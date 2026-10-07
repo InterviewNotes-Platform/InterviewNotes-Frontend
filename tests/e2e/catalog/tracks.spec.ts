@@ -585,6 +585,20 @@ test.describe("Track page responsive", () => {
       });
    }
 
+   test("wraps the Start label inside the content column whatever the font, at 320px", async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 568 });
+      await page.goto(canonical(CURRICULUM.id));
+      const start = main(page).getByRole("link", { name: "Start" });
+      const column = await main(page).evaluate((el) => {
+         const { right } = el.getBoundingClientRect();
+         return right - parseFloat(getComputedStyle(el).paddingRight);
+      });
+      const box = (await start.boundingBox())!;
+      expect(box.x + box.width, "Start runs past the content column").toBeLessThanOrEqual(column + 0.5);
+      expect(box.height, "Start label did not wrap").toBeGreaterThan(44);
+      expect(await overflows(page)).toBe(false);
+   });
+
    test.describe("on a phone", () => {
       test.use({ viewport: { width: 390, height: 844 } });
 

@@ -74,3 +74,18 @@ describe("TechnicalScroll state attribute", () => {
       expect(box).toHaveAttribute("data-scrolls", "true");
    });
 });
+
+describe("TechnicalScroll onScrollsChange", () => {
+   it("tells the caller when the content starts and stops overflowing", () => {
+      const measure = mockOverflow({ scrollWidth: 300, clientWidth: 300 });
+      const seen = vi.fn();
+      render(<TechnicalScroll label="Code" onScrollsChange={seen}>wide</TechnicalScroll>);
+      measure();
+      expect(seen).toHaveBeenLastCalledWith(false);
+
+      measure({ scrollWidth: 900 });
+      expect(seen).toHaveBeenLastCalledWith(true);
+      measure({ scrollWidth: 300 });
+      expect(seen).toHaveBeenLastCalledWith(false);
+   });
+});

@@ -17,10 +17,12 @@ interface GroupProps {
    rows: (LinkedMeta & { relation?: string | null })[];
    /** One line of the target's own summary beneath its title. */
    withSummary?: boolean;
+   /** Rows whose summary is already offered in the body (S-KNW-6): still listed, without it. */
+   summaryOffered?: ReadonlySet<string>;
 }
 
 /** A quiet list of neighbours: public metadata only, never prefetched. Renders nothing when empty. */
-export function RelationGroup({ id, label, rows, withSummary = false }: GroupProps) {
+export function RelationGroup({ id, label, rows, withSummary = false, summaryOffered }: GroupProps) {
    if (rows.length === 0) return null;
    return (
       <section aria-labelledby={id}>
@@ -40,7 +42,7 @@ export function RelationGroup({ id, label, rows, withSummary = false }: GroupPro
                         {detail ? <span className="text-supporting text-muted-foreground">{detail}</span> : null}
                         {entry.access === "premium" ? <PremiumMark /> : null}
                      </div>
-                     {withSummary && entry.summary ? (
+                     {withSummary && entry.summary && !summaryOffered?.has(entry.id) ? (
                         <p className="mt-1 mb-0 text-supporting text-pretty text-muted-foreground">{entry.summary}</p>
                      ) : null}
                   </li>

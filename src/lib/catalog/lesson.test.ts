@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contentsOf, lessonRelations, plainHeading } from "./lesson";
+import { contentsOf, knowledgeSupport, lessonRelations, plainHeading } from "./lesson";
 import type { CatalogHeading, CatalogMeta } from "./types";
 
 const heading = (id: string, level: number, text = id): CatalogHeading => ({ id, level, text });
@@ -118,5 +118,23 @@ describe("lessonRelations", () => {
    it("keeps premium targets as metadata and links each to its canonical route", () => {
       const { problems } = lessonRelations({ prerequisite_of: [meta("problem.paid", { access: "premium" })] });
       expect(problems).toEqual([{ entry: expect.objectContaining({ access: "premium" }), href: "/problems/paid" }]);
+   });
+});
+
+describe("knowledgeSupport (S-KNW-2)", () => {
+   const k = (slug: string, over: Partial<CatalogMeta> = {}) => meta(`knowledge.${slug}`, { title: `Title ${slug}`, summary: `Summary ${slug}`, ...over });
+
+   it.each(["prerequisite", "applies", "applied_in", "prerequisite_of", "related"])("offers Knowledge supplied under the relation `%s`", (name) => {
+      expect([...knowledgeSupport({ [name]: [k("x")] })]).toEqual([["knowledge.x", { title: "Title x", summary: "Summary x", href: "/knowledge/x" }]]);
+   });
+
+   it("keeps one entry per target across relation names, and leaves out what cannot be offered", () => {
+      const support = knowledgeSupport({
+         applies: [k("a"), k("blank", { summary: "  " })],
+         related: [k("a", { summary: "Later" }), meta("lesson.l"), meta("problem.p"), { ...k("bad"), slug: "other" } as CatalogMeta],
+         mentioned_in: [k("unknown")],
+      });
+      expect([...support.keys()]).toEqual(["knowledge.a"]);
+      expect(support.get("knowledge.a")?.summary).toBe("Summary a");
    });
 });

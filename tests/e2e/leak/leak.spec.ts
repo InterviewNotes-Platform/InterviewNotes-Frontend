@@ -1,10 +1,10 @@
 import { appendFileSync, cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PROTECTED_CANARIES } from "../../leak/canaries";
+import { P3_CANARIES, PROTECTED_CANARIES } from "../../leak/canaries";
 import { findMaterializedRoutes, format, prerendered, scanNextBuild, scanResponse, walk } from "../../leak/scanner";
 import fixture from "../catalog/fixture.json";
-import { PREVIEW_DIST, PREVIEW_ORIGIN, PRODUCTION_ORIGIN, canonical, expect, exposures, inlinedRsc, item, test } from "../catalog/harness";
+import { PREVIEW_DIST, PREVIEW_ORIGIN, PRODUCTION_ORIGIN, canonical, expect, exposures, inlinedRsc, item, test, track } from "../catalog/harness";
 
 const sorted = (values: string[]) => [...values].sort();
 const holds = (record: object) => PROTECTED_CANARIES.filter((canary) => JSON.stringify(record).includes(canary));
@@ -22,6 +22,15 @@ const NEIGHBOURS = ["lesson.t24-premium-body", "knowledge.t24-premium-deep-dive"
    route: canonical(id),
    title: item(id).title,
 }));
+
+// P3: a readable Lesson whose Next is the locked premium Lesson, inside a Track that lists both.
+const GATED = {
+   track: track("p3-gated"),
+   open: canonical("lesson.p3-gate-open"),
+   locked: canonical("lesson.p3-locked-premium"),
+   lockedItem: item("lesson.p3-locked-premium"),
+};
+const GATED_TRACK = canonical("track.p3-gated");
 
 const BUILDS = [
    { name: "production", dist: ".next" },
@@ -130,6 +139,48 @@ for (const { name, baseURL } of [
                });
             });
 
+            test("a readable Lesson offers its premium Next from public fields, and following it reaches the locked page with none of the body", async ({ page, traffic }) => {
+               await page.goto(GATED.open);
+               const nav = page.getByRole("navigation", { name: `Next in ${GATED.track.title}` });
+               await expect(nav.getByRole("link")).toHaveAccessibleName(`Next lesson: ${GATED.lockedItem.title}, premium`);
+               await expect(nav.getByRole("link")).toHaveAttribute("href", GATED.locked);
+               await expect(nav).toContainText(GATED.lockedItem.summary);
+               await nav.getByRole("link").click();
+               await expect(page).toHaveURL(`${baseURL}${GATED.locked}`);
+               await expect(page.getByRole("main").getByRole("status")).toContainText(NOTICE[identity]);
+               await page.waitForLoadState("networkidle");
+               const received = await traffic.responses();
+               expect(received.filter((r) => r.kind === "rsc" && new URL(r.url).pathname === GATED.locked).length, "client navigation fetched no RSC").toBeGreaterThan(0);
+               for (const canary of P3_CANARIES) {
+                  expect(await exposures(page, received, canary), `${GATED.locked} as ${identity}: ${canary}`).toEqual([]);
+               }
+            });
+
+            test("the Track lists and links the premium Lesson and carries none of its body", async ({ page, traffic }) => {
+               await page.goto(GATED_TRACK);
+               await page.waitForLoadState("networkidle");
+               const row = page.getByRole("navigation", { name: `${GATED.track.title} outline` }).getByRole("link", { name: GATED.lockedItem.title });
+               await expect(row).toHaveAttribute("href", GATED.locked);
+               await expect(row).toContainText("Premium");
+               const received = await traffic.responses();
+               for (const canary of P3_CANARIES) {
+                  expect(await exposures(page, received, canary), `${GATED_TRACK} as ${identity}: ${canary}`).toEqual([]);
+               }
+            });
+
+            test("the locked Lesson page is the P2 locked composition: public metadata and a notice, nothing from the body", async ({ page }) => {
+               expect((await page.goto(GATED.locked))?.status()).toBe(200);
+               const main = page.getByRole("main");
+               await expect(main.getByRole("heading", { level: 1 })).toHaveText(GATED.lockedItem.title);
+               await expect(main.getByRole("status")).toContainText(NOTICE[identity]);
+               for (const name of ["Breadcrumb", "Contents", `Next in ${GATED.track.title}`, "Curriculum"]) {
+                  await expect(page.getByRole("navigation", { name }), name).toHaveCount(0);
+               }
+               await expect(main.getByRole("heading", { level: 2 })).toHaveCount(0);
+               await expect(main.getByRole("button")).toHaveCount(0);
+               await expect(main.locator("pre, figure, [data-catalog-body], [id]")).toHaveCount(0);
+            });
+
             test("client navigation to a premium neighbour fetches RSC that holds no canary", async ({ page, traffic }) => {
                for (const { route, title } of NEIGHBOURS) {
                   await page.goto(PROBLEM);
@@ -167,6 +218,13 @@ test.describe("positive control: an entitled reader of the production deployment
          expected.forEach((canary) => reached.add(canary));
       }
       expect(sorted([...reached]), "every protected canary is reachable by someone").toEqual(sorted(PROTECTED_CANARIES));
+   });
+
+   test("lists and links the premium Lesson in its Track, as every other reader does", async ({ page }) => {
+      await page.goto(GATED_TRACK);
+      const row = page.getByRole("navigation", { name: `${GATED.track.title} outline` }).getByRole("link", { name: GATED.lockedItem.title });
+      await expect(row).toHaveAttribute("href", GATED.locked);
+      await expect(row).toContainText("Premium");
    });
 
    test("renders the T24 canaries only inside the premium content the fixture places them in", async ({ page }) => {

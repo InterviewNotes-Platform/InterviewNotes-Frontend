@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
@@ -181,8 +181,16 @@ describe("a Lesson's relations", () => {
       await show();
       const group = screen.getByRole("region", { name: "Related Knowledge" });
       expect(within(group).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/knowledge/rag"]);
-      expect(within(group).getByText("RAG summary")).toBeInTheDocument();
+      // BODY references RAG, so its summary is offered at that reference instead (S-KNW-6)
+      expect(within(group).queryByText("RAG summary")).not.toBeInTheDocument();
       expect(screen.getByRole("region", { name: "Related Lessons" })).toHaveTextContent("Title sibling");
+   });
+
+   it("keeps a Related Knowledge summary when the body offers none in context", async () => {
+      getCatalogItem.mockResolvedValue({ status: "ok", data: { ...LESSON, body: { format: "markdown@1", text: "Plain body." }, headings: [] } });
+      await show();
+      expect(within(screen.getByRole("region", { name: "Related Knowledge" })).getByText("RAG summary")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^About / })).not.toBeInTheDocument();
    });
 
    it("makes one strong Practice transition of at most two `prerequisite_of` Problems, in the API's order", async () => {
@@ -533,5 +541,52 @@ describe("other item pages keep their own contract", () => {
       expect(screen.queryByRole("heading", { name: "Practice" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Lesson" })).not.toHaveAttribute("data-reference");
       expect(document.querySelector("section#definition")!.querySelectorAll("[id], [tabindex]")).toHaveLength(0);
+   });
+});
+
+describe("Knowledge in context (P3-T7)", () => {
+   const toggle = () => screen.getByRole("button", { name: "About Title rag" });
+
+   it("offers the first reference's Knowledge summary there, and lists the item in Related Knowledge without its summary", async () => {
+      await show();
+      fireEvent.click(toggle());
+      expect(screen.getByRole("group", { name: "About Title rag" })).toHaveTextContent("RAG summary");
+      expect(screen.getAllByText("RAG summary")).toHaveLength(1);
+      const group = screen.getByRole("region", { name: "Related Knowledge" });
+      expect(within(group).getByRole("link", { name: "Title rag" })).toHaveAttribute("href", "/knowledge/rag");
+      expect(group).not.toHaveTextContent("RAG summary");
+   });
+
+   it("offers a prerequisite Knowledge item too (any relation name) and leaves it in Builds on", async () => {
+      getCatalogItem.mockResolvedValue({ status: "ok", data: { ...LESSON, body: { format: "markdown@1", text: "Needs [the base](ref:knowledge.base).\n" }, headings: [] } });
+      await show();
+      expect(screen.getByRole("button", { name: "About Title base" })).toBeInTheDocument();
+      expect(within(screen.getByRole("region", { name: "Builds on" })).getByRole("link", { name: "Title base" })).toBeInTheDocument();
+   });
+
+   it("makes no toggle for a reference to Knowledge the relations do not include", async () => {
+      getCatalogItem.mockResolvedValue({ status: "ok", data: { ...LESSON, body: { format: "markdown@1", text: "See [it](ref:knowledge.unrelated).\n" }, headings: [] } });
+      await show();
+      expect(screen.queryByRole("button", { name: /^About / })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "it" })).toHaveAttribute("href", "/knowledge/unrelated");
+   });
+
+   it("makes no toggle for Knowledge with no releasable summary and does not fetch one", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: { ...RELATIONS, applies: [meta("knowledge.rag", { summary: "" })], related: [] } } });
+      await show();
+      expect(screen.queryByRole("button", { name: /^About / })).not.toBeInTheDocument();
+      expect(getCatalogItemMeta).not.toHaveBeenCalledWith("knowledge", expect.anything());
+   });
+
+   it("adds no request: opening and closing panels reads nothing, and Knowledge is never read at all", async () => {
+      await show();
+      const reads = () => [getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack].map((mock) => mock.mock.calls.length);
+      const before = reads();
+      fireEvent.click(toggle());
+      fireEvent.click(toggle());
+      expect(reads()).toEqual(before);
+      for (const mock of [getCatalogItem, getCatalogItemMeta, getCatalogRelated]) {
+         expect(mock.mock.calls.some(([type]) => type === "knowledge")).toBe(false);
+      }
    });
 });

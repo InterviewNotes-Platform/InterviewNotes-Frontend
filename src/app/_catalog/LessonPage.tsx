@@ -1,4 +1,5 @@
 import { headingIds, parseBlocks } from "@/components/catalog/blocks";
+import { knowledgeCoverage } from "@/components/catalog/knowledgeRefs";
 import { FullOutline } from "@/components/catalog/ItemNavigation";
 import { CurriculumBlock, EndOfTrack, NextLesson } from "@/components/catalog/LessonClose";
 import { LessonHeader } from "@/components/catalog/LessonHeader";
@@ -7,7 +8,7 @@ import { AlternateTracks, LessonBreadcrumb } from "@/components/catalog/TrackCon
 import { LessonContents } from "@/components/lesson/LessonContents";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { lessonPosition } from "@/lib/catalog/curriculum";
-import { contentsOf, lessonRelations } from "@/lib/catalog/lesson";
+import { contentsOf, knowledgeSupport, lessonRelations } from "@/lib/catalog/lesson";
 import type { ItemNavigation } from "@/lib/catalog/navigation";
 import type { CatalogItem } from "@/lib/catalog/types";
 import { cn } from "@/lib/utils";
@@ -25,8 +26,12 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
       : null;
    // Contents link to heading ids, so they exist only while the rendered headings carry the API's ids.
    const { body, headings } = item;
-   const anchored = body?.format === "markdown@1" && headingIds(parseBlocks(body.text), headings) !== null;
+   const blocks = body?.format === "markdown@1" ? parseBlocks(body.text) : null;
+   const anchored = blocks !== null && headingIds(blocks, headings) !== null;
    const contents = anchored ? contentsOf(headings) : [];
+   // The summaries the body offers in context are not repeated in Related Knowledge (S-KNW-6).
+   const support = navigation ? knowledgeSupport(navigation.relations) : undefined;
+   const offered = new Set(blocks && support ? knowledgeCoverage(blocks, support).offered : []);
 
    return (
       <PageContainer as="main" className="py-12 md:py-16">
@@ -46,13 +51,13 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
             </div>
             {contents.length > 0 ? <LessonContents entries={contents} className="lg:col-start-2 lg:row-span-2 lg:row-start-1" /> : null}
             <div className="min-w-0 lg:col-start-1 lg:row-start-2">
-               <ItemContent item={item} stayOnDeployment={stayOnDeployment} reading={{ headings }} />
+               <ItemContent item={item} stayOnDeployment={stayOnDeployment} reading={{ headings, knowledge: support }} />
                {navigation && related ? (
                   <div className="mt-16 space-y-12 empty:hidden">
                      {home ? (
                         home.nextLesson ? <NextLesson placement={home} summary={navigation.nextSummary} /> : <EndOfTrack placement={home} />
                      ) : null}
-                     <RelationGroup id="lesson_related_knowledge" label="Related Knowledge" rows={related.knowledge} withSummary />
+                     <RelationGroup id="lesson_related_knowledge" label="Related Knowledge" rows={related.knowledge} withSummary summaryOffered={offered} />
                      <PracticeTransition problems={navigation.practice} />
                      <RelationGroup id="lesson_related_problems" label="Related Problems" rows={related.problems} />
                      {home ? <CurriculumBlock placement={home} position={lessonPosition(home.track, navigation.id)} /> : null}

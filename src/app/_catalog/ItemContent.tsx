@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import { CatalogBody } from "@/components/catalog/CatalogBody";
-import type { CatalogHeading, CatalogItem } from "@/lib/catalog/types";
+import { CatalogBody, type ReadingMode } from "@/components/catalog/CatalogBody";
+import type { CatalogItem } from "@/lib/catalog/types";
 
 interface ItemContentProps {
    item: CatalogItem;
    stayOnDeployment: boolean;
    /** A Lesson's reading mode, applied to its body only: sections carry no headings of their own. */
-   reading?: { headings: readonly CatalogHeading[] };
+   reading?: ReadingMode;
 }
 
 /** Says only that something was left out for this caller: never which sections, so nothing about them is exposed. */
