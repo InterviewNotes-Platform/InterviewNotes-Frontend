@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { DiagramExpand } from "./DiagramExpand";
 import { diagramName } from "./fence";
+import { showDiagram } from "./diagram-svg";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
 
 interface MermaidProps {
@@ -66,17 +68,38 @@ const PALETTE: Record<Theme, Record<string, string>> = {
    },
 };
 
-/** Mermaid sets `width: 100%; max-width: <natural>`; pinning the natural width keeps text at its drawn size. */
-function pinNaturalSize(container: HTMLElement) {
-   const svg = container.querySelector("svg");
-   const width = Number(svg?.getAttribute("viewBox")?.trim().split(/[\s,]+/)[2]);
-   if (!svg || !(width > 0)) return;
-   svg.style.width = `${width}px`;
-   svg.style.maxWidth = "none";
+let draws = 0;
+
+/**
+ * Draws `chart` in a scratch box that the reduced-motion rule leaves alone (see globals.css). Mermaid draws nothing
+ * into an id the document already holds, so a redraw (theme change) must not reuse the previous drawing's id.
+ */
+async function drawDiagram(id: string, chart: string, theme: Theme): Promise<string> {
+   const mermaid = (await import("mermaid")).default;
+
+   mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "base",
+      fontFamily: "var(--font-sans, ui-sans-serif, system-ui, sans-serif)",
+      themeVariables: PALETTE[theme],
+   });
+
+   const scratch = document.body.appendChild(document.createElement("div"));
+   scratch.setAttribute("data-diagram-scratch", "");
+   const { svg } = await mermaid.render(`${id}-${++draws}`, chart, scratch).finally(() => scratch.remove());
+   return svg;
 }
 
 function currentTheme(): Theme {
    return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
+
+/** Tracks the dark-mode class on <html>. */
+function subscribeToTheme(onChange: () => void) {
+   const observer = new MutationObserver(onChange);
+   observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+   return () => observer.disconnect();
 }
 
 /**
@@ -94,24 +117,17 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
    const name = diagramName(figure ?? {});
    const containerRef = useRef<HTMLDivElement>(null);
    const [error, setError] = useState<string | null>(null);
-   const [theme, setTheme] = useState<Theme | null>(null);
+   const [overflows, setOverflows] = useState(false);
 
-   // Track the dark-mode class on <html>.
-   useEffect(() => {
-      setTheme(currentTheme());
-
-      const observer = new MutationObserver(() => setTheme(currentTheme()));
-      observer.observe(document.documentElement, {
-         attributes: true,
-         attributeFilter: ["class"],
-      });
-      return () => observer.disconnect();
-   }, []);
+   // Null on the server and until hydrated, so the first client render matches the server HTML.
+   const theme = useSyncExternalStore<Theme | null>(subscribeToTheme, currentTheme, () => null);
 
    // `useId` returns a value containing colons, which are invalid in the CSS
    // selectors Mermaid builds from the id.
    const rawId = useId();
    const diagramId = `mermaid-${rawId.replace(/[^a-zA-Z0-9]/g, "")}`;
+   const captionId = `${diagramId}-caption`;
+   const drawExpanded = useCallback((id: string) => drawDiagram(id, chart, theme ?? "light"), [chart, theme]);
 
    useEffect(() => {
       if (theme === null) return;
@@ -120,26 +136,11 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
 
       (async () => {
          try {
-            const mermaid = (await import("mermaid")).default;
-
-            mermaid.initialize({
-               startOnLoad: false,
-               securityLevel: "strict",
-               theme: "base",
-               fontFamily: "var(--font-sans, ui-sans-serif, system-ui, sans-serif)",
-               themeVariables: PALETTE[theme],
-            });
-
-            // Drawn in a scratch box that the reduced-motion rule leaves alone (see globals.css).
-            const scratch = document.body.appendChild(document.createElement("div"));
-            scratch.setAttribute("data-diagram-scratch", "");
-            const { svg } = await mermaid.render(diagramId, chart, scratch).finally(() => scratch.remove());
+            const svg = await drawDiagram(diagramId, chart, theme);
             if (cancelled || !containerRef.current) return;
 
-            containerRef.current.innerHTML = svg;
-            if (adaptive) pinNaturalSize(containerRef.current);
             // The container's name speaks for the diagram; the drawing is not announced a second time.
-            if (catalog) containerRef.current.querySelector("svg")?.setAttribute("aria-hidden", "true");
+            showDiagram(containerRef.current, svg, { natural: adaptive, hidden: catalog });
             setError(null);
          } catch (err) {
             if (cancelled) return;
@@ -155,7 +156,9 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
    }, [chart, theme, diagramId, adaptive, catalog]);
 
    const caption = figure?.caption ? (
-      <figcaption className="mt-3 text-supporting text-pretty text-muted-foreground">{figure.caption}</figcaption>
+      <figcaption id={adaptive ? captionId : undefined} className="mt-3 text-supporting text-pretty text-muted-foreground">
+         {figure.caption}
+      </figcaption>
    ) : null;
 
    if (error) {
@@ -187,10 +190,19 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
          <figure className="my-6">
             <TechnicalScroll
                label={name}
+               onScrollsChange={setOverflows}
                className="rounded-lg data-[scrolls=true]:border data-[scrolls=true]:border-border data-[scrolls=true]:p-4"
             >
                <div ref={containerRef} role="img" aria-label={name} className="[&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto" />
             </TechnicalScroll>
+            <DiagramExpand
+               overflows={overflows}
+               name={name}
+               caption={figure?.caption}
+               captionId={figure?.caption ? captionId : undefined}
+               draw={drawExpanded}
+               renderId={diagramId}
+            />
             {caption}
          </figure>
       );

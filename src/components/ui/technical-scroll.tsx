@@ -6,14 +6,15 @@ import { cn } from "@/lib/utils";
 /**
  * Wide code or tables scroll inside this box, never the page. Only while the content actually
  * overflows does it become a named, keyboard-focusable region, so short blocks add no tab stops.
- * `data-scrolls` says which, so a caller can style the overflowing state alone.
+ * `data-scrolls` says which, so a caller can style the overflowing state alone; `onScrollsChange` tells the caller.
  */
 export function TechnicalScroll({
    label,
+   onScrollsChange,
    className,
    children,
    ...props
-}: Omit<ComponentProps<"div">, "ref"> & { label: string }) {
+}: Omit<ComponentProps<"div">, "ref"> & { label: string; onScrollsChange?: (scrolls: boolean) => void }) {
    const box = useRef<HTMLDivElement>(null);
    const [scrolls, setScrolls] = useState(false);
 
@@ -26,6 +27,8 @@ export function TechnicalScroll({
       for (const child of element.children) observer.observe(child);
       return () => observer.disconnect();
    }, []);
+
+   useEffect(() => onScrollsChange?.(scrolls), [scrolls, onScrollsChange]);
 
    return (
       <div

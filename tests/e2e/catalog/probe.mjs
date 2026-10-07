@@ -6,7 +6,7 @@
 //     [--base http://localhost:3100] [--api http://127.0.0.1:3101]
 //     [--viewports 390,768,1024,1440] [--themes light,dark] [--settle 500] [--body-selector <css>] [--strict]
 //
-// Modes: overflow, requests, offset, console, panel, syntax. Add a mode by writing an async function in MODES; no new loop script.
+// Modes: overflow, requests, offset, console, panel, syntax, expand. Add a mode by writing an async function in MODES; no new loop script.
 // `requests` reads the fake API's /__catalog-log. The production build caches catalog reads, so a route
 // whose count is 0 was served from that cache (`cached: true`); start from a cold cache for real counts.
 import { chromium } from "@playwright/test";
@@ -20,6 +20,7 @@ const DEFAULTS = {
    // Lesson layout: main > grid > body column > CatalogBody wrapper > first body element.
    "body-selector": "main > div > div:last-child > div > :first-child",
 };
+const GUTTER_EXPAND = 16;
 const HYDRATION = /minified react error #(?:418|419|422|423|425)|hydrat/i;
 const list = (value) => value.split(",").map((part) => part.trim()).filter(Boolean);
 
@@ -264,6 +265,135 @@ const MODES = {
       return rows;
    },
 
+   /** P3-T10: expands the first overflowing diagram of each route and measures the dialog, its focus, ids, theme and requests. */
+   async expand({ browser, config, routes }) {
+      const rows = [];
+      for (const width of list(config.viewports).map(Number)) {
+         for (const theme of list(config.themes)) {
+            // No stored theme: next-themes follows the emulated colour scheme, so it can flip while the dialog is open.
+            const context = await browser.newContext({ viewport: { width, height: 800 }, colorScheme: theme });
+            const page = await context.newPage();
+            for (const route of routes) {
+               const { status, errors } = await visit(page, config, route);
+               const expandButtons = page.getByRole("button", { name: "Expand diagram" });
+               const figures = await page.locator("figure:has(svg)").count();
+               const row = { route, width, theme, status, figures, expandButtons: await expandButtons.count() };
+               const fitting = await page.locator("figure:has(svg):not(:has(button))").evaluateAll((all) => all.map((f) => f.querySelectorAll("button, [tabindex]").length));
+               if (row.expandButtons === 0) {
+                  rows.push({ ...row, fittingTabStops: fitting, opened: false, errors: errors.length });
+                  continue;
+               }
+               const trigger = page.locator("button", { hasText: "Expand diagram" }).first();
+               const logBefore = (await catalogLog(config)).length;
+               const requests = [];
+               const interactionErrors = [];
+               const onRequest = (request) => void requests.push(request.url());
+               const onConsole = (message) => void (message.type() === "error" && interactionErrors.push(message.text()));
+               page.on("request", onRequest);
+               page.on("console", onConsole);
+               page.on("pageerror", (error) => interactionErrors.push(error.message));
+               await trigger.scrollIntoViewIfNeeded();
+               await trigger.focus();
+               await page.keyboard.press("Enter");
+               const dialog = page.getByRole("dialog");
+               await dialog.waitFor();
+               await page.waitForFunction(() => document.querySelector("[role=dialog] svg"));
+               const before = await page.evaluate(() => ({ w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight, y: window.scrollY }));
+
+               const open = await page.evaluate(() => {
+                  const dialog = document.querySelector("[role=dialog]");
+                  const region = dialog.querySelector("[role=region]");
+                  const svg = dialog.querySelector("svg");
+                  const box = dialog.getBoundingClientRect();
+                  const ids = [...document.querySelectorAll("[id]")].map((e) => e.id);
+                  const touch = [dialog, ...dialog.querySelectorAll("*")].map((e) => getComputedStyle(e).touchAction).filter((v) => v !== "auto");
+                  const root = document.documentElement;
+                  const viewport = document.querySelector('meta[name="viewport"]')?.getAttribute("content") ?? "";
+                  return {
+                     viewport: { width: root.clientWidth, height: window.innerHeight },
+                     dialog: { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height },
+                     title: dialog.getAttribute("aria-labelledby") && document.getElementById(dialog.getAttribute("aria-labelledby"))?.textContent,
+                     regionName: region.getAttribute("aria-label"),
+                     regionFocused: document.activeElement === region,
+                     regionScrolls: { x: region.scrollWidth > region.clientWidth, y: region.scrollHeight > region.clientHeight },
+                     svgWidth: Math.round(svg.getBoundingClientRect().width),
+                     viewBoxWidth: Number(svg.getAttribute("viewBox").split(/\s+/)[2]),
+                     duplicateIds: ids.filter((id, index) => ids.indexOf(id) !== index),
+                     idCount: ids.length,
+                     svgCount: document.querySelectorAll("svg[id^=mermaid]").length,
+                     touchActions: touch,
+                     viewportMeta: viewport,
+                     userScalingDisabled: /user-scalable\s*=\s*(no|0)|maximum-scale\s*=\s*1(\.0)?\b/.test(viewport),
+                     bodyLocked: getComputedStyle(document.body).overflow === "hidden",
+                     overflowX: root.scrollWidth > root.clientWidth,
+                  };
+               });
+               // The page behind, as assistive technology sees it. Radix keeps every aria-live region's ancestor chain
+               // (the Copy status), so empty code groups remain; anything with content or a control would be a finding.
+               const behind = (await page.locator("body").ariaSnapshot()).split(/^- dialog/m)[0];
+               const exposed = { lines: behind.split("\n").filter(Boolean).length, withContentOrControl: behind.split("\n").filter((line) => /\b(heading|link|button|textbox|paragraph|listitem|img|text)\b/.test(line)).length };
+               // The page must not scroll behind the dialog, by wheel or by keyboard.
+               await page.mouse.move(2, 2);
+               await page.mouse.wheel(0, 600);
+               await page.keyboard.press("Tab");
+               const afterTab = await page.evaluate(() => ({ inside: !!document.activeElement?.closest("[role=dialog]"), name: document.activeElement?.textContent?.trim() }));
+               for (let i = 0; i < 6; i++) await page.keyboard.press("Tab");
+               const trapped = await page.evaluate(() => !!document.activeElement?.closest("[role=dialog]"));
+               const after = await page.evaluate(() => ({ w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight, y: window.scrollY }));
+
+               // Theme change while open (system preference): the dialog and the inline diagram both redraw.
+               const mark = (dark) => page.evaluate((hex) => ({ dialog: document.querySelector("[role=dialog] svg").outerHTML.toLowerCase().includes(hex), inline: [...document.querySelectorAll("main svg")].some((s) => !s.closest("[role=dialog]") && s.outerHTML.toLowerCase().includes(hex)) }), dark ? "#1e3a5f" : "#dbeafe");
+               const first = await mark(theme === "dark");
+               await page.emulateMedia({ colorScheme: theme === "dark" ? "light" : "dark" });
+               await page.waitForFunction((dark) => document.documentElement.classList.contains("dark") === dark, theme !== "dark");
+               await page.waitForFunction((hex) => document.querySelector("[role=dialog] svg")?.outerHTML.toLowerCase().includes(hex), theme === "dark" ? "#dbeafe" : "#1e3a5f", { timeout: 5000 }).catch(() => {});
+               await page.waitForTimeout(300);
+               const flipped = await mark(theme !== "dark");
+               const stillOpen = await dialog.count();
+               await page.emulateMedia({ colorScheme: theme });
+               await page.waitForTimeout(300);
+
+               if (width === 390) {
+                  const session = await context.newCDPSession(page);
+                  const region = await page.locator("[role=dialog] [role=region]").boundingBox();
+                  await session.send("Input.synthesizeScrollGesture", { x: region.x + region.width / 2, y: region.y + region.height / 2, xDistance: -150, yDistance: 0, gestureSourceType: "touch", speed: 800 });
+                  await page.waitForTimeout(300);
+               }
+               const touchScrollLeft = await page.locator("[role=dialog] [role=region]").evaluate((e) => e.scrollLeft);
+
+               // Each way of closing returns focus to the Expand button.
+               const closers = {};
+               const refocused = async () => (await page.waitForTimeout(150), trigger.evaluate((e) => e === document.activeElement));
+               await page.keyboard.press("Escape");
+               await dialog.waitFor({ state: "detached" });
+               closers.escape = await refocused();
+               await trigger.click();
+               await dialog.waitFor();
+               await page.getByRole("button", { name: "Close" }).click();
+               await dialog.waitFor({ state: "detached" });
+               closers.close = await refocused();
+               await trigger.click();
+               await dialog.waitFor();
+               await page.mouse.click(2, 2);
+               await dialog.waitFor({ state: "detached" });
+               closers.backdrop = await refocused();
+               page.off("request", onRequest);
+               page.off("console", onConsole);
+               rows.push({
+                  ...row, fittingTabStops: fitting, opened: true, errors: errors.length + interactionErrors.length, errorTexts: [...errors, ...interactionErrors], ...open, exposed, afterTab, trapped,
+                  pageScrolledBehind: after.y !== before.y, documentGrew: after.w > before.w || after.h > before.h,
+                  themeFlip: { before: first, flipped, stillOpen: stillOpen === 1 },
+                  touchScrollLeft, closers,
+                  requestsWhileOpen: requests.length, requests,
+                  catalogRequests: (await catalogLog(config)).length - logBefore,
+               });
+            }
+            await context.close();
+         }
+      }
+      return rows;
+   },
+
    async console({ browser, config, routes }) {
       const { page, close } = await open(browser);
       const rows = [];
@@ -284,6 +414,18 @@ const FINDING = {
    console: (row) => row.errors.length > 0,
    // P2 contrast standard: 4.5:1 for text.
    syntax: (row) => row.errors > 0 || !row.themeApplied || row.minContrast < 4.5 || row.plainBlocksWithTokens > 0 || row.tokens.length === 0,
+   expand: (row) => {
+      if (row.errors > 0) return true;
+      if (!row.opened) return row.fittingTabStops.some((stops) => stops > 0);
+      const { dialog: d, viewport: v } = row;
+      return !(
+         d.left >= GUTTER_EXPAND - 0.5 && d.right <= v.width - GUTTER_EXPAND + 0.5 && d.top >= GUTTER_EXPAND - 0.5 && d.bottom <= v.height - GUTTER_EXPAND + 0.5 &&
+         !row.overflowX && !row.documentGrew && !row.pageScrolledBehind && row.bodyLocked && row.regionFocused && row.trapped && row.afterTab.inside &&
+         row.svgWidth === row.viewBoxWidth && row.duplicateIds.length === 0 && row.touchActions.length === 0 && !row.userScalingDisabled &&
+         row.exposed.withContentOrControl === 0 && row.closers.escape && row.closers.close && row.closers.backdrop && row.requestsWhileOpen === 0 && row.catalogRequests === 0 &&
+         row.themeFlip.before.dialog && row.themeFlip.flipped.dialog && row.themeFlip.flipped.inline && row.themeFlip.stillOpen
+      );
+   },
    panel: (row) =>
       row.errors > 0 ||
       (row.toggles > 0 &&

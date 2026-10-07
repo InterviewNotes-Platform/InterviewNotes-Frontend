@@ -378,6 +378,24 @@ test.describe("technical content", () => {
       expect(await overflows(page)).toBe(false);
    });
 
+   test("a diagram too wide for the column expands from its Expand button and Escape returns to it; one that fits has none", async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(route);
+      const [fitting, wide] = await (await diagrams(page)).all();
+      await expect(fitting.getByRole("button", { name: "Expand diagram" })).toHaveCount(0);
+
+      const expand = wide.getByRole("button", { name: "Expand diagram" });
+      await tabTo(page, expand);
+      await page.keyboard.press("Enter");
+      const dialog = page.getByRole("dialog", { name: "Diagram" });
+      await expect(dialog.getByRole("region", { name: "Diagram" })).toBeFocused();
+      await expect(dialog.locator("svg")).toHaveCount(1);
+
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(expand).toBeFocused();
+   });
+
    test("on a phone every diagram is natural size, and none stretches the page", async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(route);
