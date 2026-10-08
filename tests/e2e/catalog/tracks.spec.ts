@@ -29,8 +29,16 @@ const ALL_TRACKS: FixtureTrack[] = [...fixture.tracks].sort((a, b) => (a.id < b.
 const main = (page: Page) => page.getByRole("main");
 const h1 = (page: Page) => main(page).getByRole("heading", { level: 1 });
 const outline = (page: Page, t: FixtureTrack) => page.getByRole("navigation", { name: `${t.title} outline` });
+// The control reads "Module <n> <title> <counts>", n being the Module's place among all of the Track's Modules.
 const moduleControl = (page: Page, t: FixtureTrack, key: string) =>
-   outline(page, t).getByRole("button", { name: new RegExp(`^${t.modules.find((m) => m.key === key)!.title}`) });
+   outline(page, t).getByRole("button", {
+      name: new RegExp(`^Module ${t.modules.findIndex((m) => m.key === key) + 1} ${t.modules.find((m) => m.key === key)!.title}`),
+   });
+const countsOf = (ids: string[]) => {
+   const lessons = ids.filter((id) => item(id).type === "lesson").length;
+   const problems = ids.length - lessons;
+   return [lessons ? plural(lessons, "lesson") : "", problems ? plural(problems, "practice problem") : ""].filter(Boolean).join(" · ");
+};
 const panelOf = async (page: Page, control: Locator) => page.locator(`[id="${await control.getAttribute("aria-controls")}"]`);
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 const marker = (page: Page) => page.getByRole("complementary", { name: "Preview" });
@@ -244,9 +252,9 @@ test.describe("Track page", () => {
 
    test("Start points at the first linkable entry in curriculum order and begins the Track", async ({ page }) => {
       await page.goto(canonical(CURRICULUM.id));
-      const start = main(page).getByRole("link", { name: "Start" });
+      const start = main(page).getByRole("link", { name: `Start with ${LESSON.title}`, exact: true });
       await expect(start).toHaveAttribute("href", canonical(LESSON.id));
-      await expect(main(page).getByText(`Begins with ${LESSON.title}`)).toBeVisible();
+      await expect(main(page).getByText("Recommended starting point")).toBeVisible();
 
       await start.click();
       await expect(page).toHaveURL(canonical(LESSON.id));
@@ -268,15 +276,15 @@ test.describe("Track page", () => {
       await expect(outline(page, EMPTY_TRACK)).toHaveCount(0);
    });
 
-   test("modules are h2 sections: the first open, the rest collapsed, each with its entry count", async ({ page }) => {
+   test("modules are h2 sections: the first open, the rest collapsed, each numbered with its Lesson and Problem counts", async ({ page }) => {
       await page.goto(canonical(CURRICULUM.id));
       const nav = outline(page, CURRICULUM);
       await expect(nav.getByRole("heading", { level: 2 })).toHaveCount(CURRICULUM.modules.length);
       for (const [index, module] of CURRICULUM.modules.entries()) {
          const control = moduleControl(page, CURRICULUM, module.key);
-         await expect(control).toHaveText(new RegExp(`${module.title}\\s*${plural(module.items.length, "item")}`));
+         const name = `Module ${index + 1} ${module.title} ${countsOf(module.items)}`.trim();
+         await expect(control).toHaveAccessibleName(name);
          await expect(control).toHaveAttribute("aria-expanded", index === 0 ? "true" : "false");
-         await expect(control).toHaveAccessibleName(`${module.title} ${plural(module.items.length, "item")}`);
          await expect(await panelOf(page, control)).toHaveCount(1);
       }
       await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
@@ -288,8 +296,10 @@ test.describe("Track page", () => {
       await expect(rows).toHaveCount(FOUNDATIONS.items.length);
       await expect(rows.nth(0).getByRole("link")).toContainText(LESSON.title);
       await expect(rows.nth(0).getByText("Lesson", { exact: true })).toBeVisible();
+      await expect(rows.nth(0)).toContainText(LESSON.summary);
       await expect(rows.nth(1).getByRole("link")).toContainText(PRACTICE.title);
       await expect(rows.nth(1).getByText("Practice problem", { exact: true })).toBeVisible();
+      await expect(rows.nth(1)).not.toContainText(PRACTICE.summary);
       await expect(rows.getByText("Premium", { exact: true })).toHaveCount(0);
 
       const slots = rows.locator('[data-slot="entry-leading"]');
@@ -323,7 +333,7 @@ test.describe("Track page", () => {
    test("an empty module is a real section that says so", async ({ page }) => {
       await page.goto(canonical(CURRICULUM.id));
       const control = moduleControl(page, CURRICULUM, NEXT.key);
-      await expect(control).toHaveAccessibleName(`${NEXT.title} 0 items`);
+      await expect(control).toHaveAccessibleName(`Module ${CURRICULUM.modules.length} ${NEXT.title}`);
       await control.click();
       await expect(main(page).getByText("No published items in this Module yet.")).toBeVisible();
       await expect((await panelOf(page, control)).locator("a")).toHaveCount(0);
@@ -359,19 +369,23 @@ test.describe("Track page", () => {
    test.describe("request discipline", () => {
       // A preview never caches, so every render reaches the API double and its log shows exactly what was read.
       test.use({ baseURL: PREVIEW_ORIGIN });
-      // Other specs share this API double, so only requests naming this task's own records can be attributed.
+      // Other specs share this API double, so only requests naming this task's own records can be attributed. One
+      // is not the Track's: the preview Lesson specs show this Problem in Practice and read its relations (P3-T6).
+      const LESSON_PRACTICE_READ = `/catalog/items/problem/${PRACTICE.slug}/related`;
       const reads = async (request: APIRequestContext, since: number) =>
-         ((await (await request.get(`${PREVIEW_API_ORIGIN}/__catalog-log`)).json()) as { path: string }[])
+         ((await (await request.get(`${PREVIEW_API_ORIGIN}/__catalog-log`)).json()) as { path: string; query: string }[])
             .slice(since)
-            .map(({ path }) => path)
-            .filter((path) => path.includes("p2-t4-"));
+            .map(({ path, query }) => (query ? `${path}?${query}` : path))
+            .filter((path) => path.includes("p2-t4-") && path !== LESSON_PRACTICE_READ);
+      // P3 §17.2: the outline, then one Lesson list page (the fixture fits in one), and no item, meta or Git read.
+      const TRACK_READS = [`/catalog/tracks/${CURRICULUM.slug}`, `/catalog/items?type=lesson&track=${CURRICULUM.slug}&limit=100`];
       const logged = async (request: APIRequestContext) =>
          ((await (await request.get(`${PREVIEW_API_ORIGIN}/__catalog-log`)).json()) as unknown[]).length;
 
-      test("rendering the Track reads the outline and nothing else: no entry is fetched for it", async ({ request }) => {
+      test("rendering the Track reads the outline and one Lesson list page: no entry is fetched for it", async ({ request }) => {
          const since = await logged(request);
          expect((await request.get(canonical(CURRICULUM.id))).status()).toBe(200);
-         expect(await reads(request, since)).toEqual([`/catalog/tracks/${CURRICULUM.slug}`]);
+         expect(await reads(request, since)).toEqual(TRACK_READS);
       });
 
       test("in a browser too: opening every module, hovering and focusing entries reads nothing more", async ({ page, request }) => {
@@ -385,7 +399,7 @@ test.describe("Track page", () => {
          await main(page).getByRole("link", { name: "Start" }).hover();
          await page.waitForTimeout(1000); // prefetches, if any, are scheduled once links are in view or hovered
 
-         expect(await reads(request, since), "the Track page read more than its own outline").toEqual([`/catalog/tracks/${CURRICULUM.slug}`]);
+         expect(await reads(request, since), "the Track page read more than its outline and summary list").toEqual(TRACK_READS);
 
          // Only following a link reads the next page.
          await outline(page, CURRICULUM).getByRole("link", { name: new RegExp(LESSON.title) }).click();
@@ -429,13 +443,14 @@ test.describe("Start into a premium first entry", () => {
       test.describe(identity, () => {
          test.use({ identity });
 
-         test("Start still points at the premium entry, marked Premium, and the item page withholds the body", async ({ page, traffic }) => {
+         test("Start still points at the premium Lesson, marked Premium, and the item page withholds the body", async ({ page, traffic }) => {
+            const start = main(page).getByRole("link", { name: `Start with ${PREMIUM.title}`, exact: true });
             await page.goto(route);
-            await expect(main(page).getByRole("link", { name: "Start" })).toHaveAttribute("href", target);
-            await expect(main(page).getByText(`Begins with ${PREMIUM.title}`).locator("..")).toContainText("Premium");
+            await expect(start).toHaveAttribute("href", target);
+            await expect(main(page).getByText("Recommended starting point").locator("..")).toContainText("Premium");
             await expectNoCanary(page, traffic, route, identity);
 
-            await main(page).getByRole("link", { name: "Start" }).click();
+            await start.click();
             await expect(page).toHaveURL(target);
             await expect(main(page).getByRole("status")).toContainText(notice);
             await expectNoCanary(page, traffic, target, identity);
@@ -569,6 +584,20 @@ test.describe("Track page responsive", () => {
          }
       });
    }
+
+   test("wraps the Start label inside the content column whatever the font, at 320px", async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 568 });
+      await page.goto(canonical(CURRICULUM.id));
+      const start = main(page).getByRole("link", { name: "Start" });
+      const column = await main(page).evaluate((el) => {
+         const { right } = el.getBoundingClientRect();
+         return right - parseFloat(getComputedStyle(el).paddingRight);
+      });
+      const box = (await start.boundingBox())!;
+      expect(box.x + box.width, "Start runs past the content column").toBeLessThanOrEqual(column + 0.5);
+      expect(box.height, "Start label did not wrap").toBeGreaterThan(44);
+      expect(await overflows(page)).toBe(false);
+   });
 
    test.describe("on a phone", () => {
       test.use({ viewport: { width: 390, height: 844 } });

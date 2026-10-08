@@ -54,8 +54,8 @@ describe("curriculumOf", () => {
 
    it("skips empty modules and unlinkable entries to find the start", () => {
       const bad = entry("lesson.bad", { type: "problem" });
-      expect(curriculumOf(track([mod("empty", []), mod("also-empty", []), mod("real", [entry("problem.first")])])).start?.entry.id).toBe(
-         "problem.first"
+      expect(curriculumOf(track([mod("empty", []), mod("also-empty", []), mod("real", [entry("lesson.first")])])).start?.entry.id).toBe(
+         "lesson.first"
       );
       expect(curriculumOf(track([mod("a", [bad]), mod("b", [entry("lesson.next")])])).start?.entry.id).toBe("lesson.next");
       const inModule = curriculumOf(track([mod("m", [bad, entry("lesson.Bad_Slug", { slug: "Bad_Slug" }), entry("lesson.ok")])]));
@@ -98,8 +98,8 @@ describe("Start with premium entries", () => {
       expect(curriculumOf(track([mod("m", [entry("lesson.free")])])).start?.entry.access).toBe("free");
    });
 
-   it("never skips a premium entry to reach a free one, in its module or an earlier module than the free one", () => {
-      expect(curriculumOf(track([mod("a", [premium("problem.paid")]), mod("b", [entry("lesson.free")])])).start?.entry.id).toBe("problem.paid");
+   it("never skips a premium Lesson to reach a free one, in its module or an earlier module than the free one", () => {
+      expect(curriculumOf(track([mod("a", [premium("lesson.paid")]), mod("b", [entry("lesson.free")])])).start?.entry.id).toBe("lesson.paid");
       expect(curriculumOf(track([mod("empty", []), mod("b", [premium("lesson.paid"), entry("lesson.free")])])).start?.entry.id).toBe("lesson.paid");
    });
 
@@ -122,5 +122,52 @@ describe("Start with premium entries", () => {
          ["lesson.b", "free", "/lessons/b"],
          ["lesson.c", "premium", "/lessons/c"],
       ]);
+   });
+});
+
+// S-CUR-13: Start is the first Lesson, never the first placement.
+describe("Start is the first Lesson", () => {
+   it("skips a leading Problem, in the same Module or an earlier one", () => {
+      const sameModule = curriculumOf(track([mod("m", [entry("problem.warmup"), entry("lesson.a"), entry("lesson.b")])]));
+      expect([sameModule.start?.entry.id, sameModule.start?.href]).toEqual(["lesson.a", "/lessons/a"]);
+      const earlier = curriculumOf(track([mod("p", [entry("problem.x"), entry("problem.y")]), mod("l", [entry("lesson.a")])]));
+      expect(earlier.start?.entry.id).toBe("lesson.a");
+      expect(earlier.start?.module.key).toBe("l");
+   });
+
+   it("is the first entry when that entry is already a Lesson", () => {
+      expect(curriculumOf(track([mod("m", [entry("lesson.a"), entry("problem.b")])])).start?.entry.id).toBe("lesson.a");
+   });
+
+   it("is null for a Track that places only Problems, though it has linkable entries", () => {
+      const curriculum = curriculumOf(track([mod("m", [entry("problem.a"), entry("problem.b")])]));
+      expect(curriculum.start).toBeNull();
+      expect(curriculum.counts).toEqual({ lesson: 0, problem: 2 });
+   });
+});
+
+describe("module counts", () => {
+   it("counts each module's linkable Lessons and Problems separately, in module order", () => {
+      const { modules } = curriculumOf(
+         track([
+            mod("a", [entry("lesson.one"), entry("problem.two"), entry("lesson.three"), entry("problem.four"), entry("problem.five")]),
+            mod("b", [entry("lesson.six")]),
+            mod("c", [entry("problem.seven")]),
+            mod("d", []),
+         ])
+      );
+      expect(modules.map(({ counts }) => counts)).toEqual([
+         { lesson: 2, problem: 3 },
+         { lesson: 1, problem: 0 },
+         { lesson: 0, problem: 1 },
+         { lesson: 0, problem: 0 },
+      ]);
+   });
+
+   it("counts only what the module shows: an unlinkable or Knowledge entry is not counted", () => {
+      const { modules } = curriculumOf(
+         track([mod("a", [entry("lesson.ok"), entry("lesson.bad", { type: "problem" }), entry("knowledge.stray")])])
+      );
+      expect(modules[0].counts).toEqual({ lesson: 1, problem: 0 });
    });
 });

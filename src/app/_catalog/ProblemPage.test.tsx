@@ -67,7 +67,7 @@ const HOME = {
    slug: "home",
    title: "Home Track",
    summary: "",
-   modules: [{ key: "m1", title: "First Module", position: 0, items: [entry("lesson.before"), entry("problem.rank"), entry("problem.after", { access: "premium" })] }],
+   modules: [{ key: "m1", title: "First Module", position: 0, items: [entry("lesson.before"), entry("problem.rank"), entry("problem.after", { access: "premium" }), entry("lesson.after", { access: "premium" })] }],
 };
 const RELATIONS = {
    prerequisite: [meta("lesson.basics"), meta("knowledge.embeddings", { access: "premium" })],
@@ -309,8 +309,9 @@ describe("what a Problem connects to", () => {
       expect(within(main().getByRole("region", { name: "Related Lessons" })).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual(["/lessons/deep"]);
 
       const steps = main().getByRole("navigation", { name: "Previous and next in Home Track" });
-      expect(within(steps).getByRole("link", { name: /Title before/ })).toHaveAttribute("href", "/lessons/before");
-      expect(within(steps).getByRole("link", { name: /Title after/ })).toHaveAttribute("href", "/problems/after");
+      expect(within(steps).getByRole("link", { name: "Previous lesson: Title before" })).toHaveAttribute("href", "/lessons/before");
+      expect(within(steps).getByRole("link", { name: "Next lesson: Title after, premium" })).toHaveAttribute("href", "/lessons/after");
+      expect(within(steps).getAllByRole("link")).toHaveLength(2);
       const last = main().getByRole("region", { name: "Related Lessons" });
       expect(last.compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
    });

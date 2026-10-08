@@ -111,22 +111,24 @@ test.describe("preparation and neighbours", () => {
       await expect(page).toHaveURL(canonical("lesson.p2-t5-primer"));
    });
 
-   test("ends with related Knowledge, Problems and Lessons, then previous and next across the Track's modules", async ({ page }) => {
+   test("ends with related Knowledge, Problems and Lessons, and no previous or next in a Track with no Lesson", async ({ page }) => {
       await page.goto(route);
       await expect(main(page).getByRole("region", { name: "Related Knowledge" }).getByRole("link")).toHaveAttribute("href", canonical("knowledge.p2-t6-vector-index"));
       await expect(main(page).getByRole("region", { name: "Related Problems" }).getByRole("link")).toHaveAttribute("href", canonical(SERVICE.id));
       await expect(main(page).getByRole("region", { name: "Related Lessons" }).getByRole("link")).toHaveAttribute("href", canonical("lesson.p2-t5-long"));
+      await expect(page.getByRole("navigation", { name: `Previous and next in ${WALKTHROUGHS.title}` })).toHaveCount(0);
+   });
 
-      const steps = page.getByRole("navigation", { name: `Previous and next in ${WALKTHROUGHS.title}` });
-      await expect(steps.getByRole("link", { name: /Previous/ })).toHaveAttribute("href", canonical(SERVICE.id));
-      await expect(steps.getByRole("link", { name: /Next/ })).toHaveAttribute("href", canonical(GATED.id));
-      const [related, nav] = await Promise.all([
-         main(page).getByRole("region", { name: "Related Lessons" }).boundingBox(),
-         steps.boundingBox(),
-      ]);
-      expect(nav!.y).toBeGreaterThan(related!.y);
-      await steps.getByRole("link", { name: /Next/ }).click();
-      await expect(page).toHaveURL(canonical(GATED.id));
+   test("inside a Track, names the previous and next Lesson and never another Problem (P3 S-CUR-14)", async ({ page }) => {
+      await page.goto(canonical("problem.p3-seq-drill-2"));
+      const steps = page.getByRole("navigation", { name: `Previous and next in ${track("p3-sequence").title}` });
+      const previous = steps.getByRole("link", { name: `Previous lesson: ${item("lesson.p3-seq-three").title}` });
+      const next = steps.getByRole("link", { name: `Next lesson: ${item("lesson.p3-seq-four").title}` });
+      await expect(previous).toHaveAttribute("href", canonical("lesson.p3-seq-three"));
+      await expect(next).toHaveAttribute("href", canonical("lesson.p3-seq-four"));
+      await expect(steps.getByRole("link")).toHaveCount(2);
+      await next.click();
+      await expect(page).toHaveURL(canonical("lesson.p3-seq-four"));
    });
 
    test("a Problem with no preparation relations shows no empty block, and no ML phase when it has no ML sections", async ({ page }) => {
@@ -222,7 +224,7 @@ test.describe("on a phone", () => {
          expect(await region.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
          expect((await region.boundingBox())!.width).toBeLessThanOrEqual(390);
       }
-      await expect(main(page).getByRole("region", { name: "Code" }).first()).toBeVisible();
+      await expect(main(page).getByRole("region", { name: /^(JSON|Python) code$/ }).first()).toBeVisible();
       await expect(main(page).getByRole("region", { name: "Table" }).first()).toBeVisible();
       const diagram = (await main(page).locator("figure").boundingBox())!;
       expect(diagram.x + diagram.width).toBeLessThanOrEqual(390);

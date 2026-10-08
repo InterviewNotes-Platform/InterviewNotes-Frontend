@@ -39,8 +39,8 @@ const TRACK = track("home", [
 const placement = (t: CatalogTrack, previous: string | null, next: string | null): TrackPlacement => ({
    track: t,
    module: t.modules[0],
-   previous: previous ? entry(previous) : null,
-   next: next ? entry(next) : null,
+   previousLesson: previous ? entry(previous) : null,
+   nextLesson: next ? entry(next) : null,
 });
 const hrefs = () => screen.getAllByRole("link").map((link) => link.getAttribute("href"));
 
@@ -108,22 +108,31 @@ describe("ModuleNavigation", () => {
 });
 
 describe("TrackPrevNext", () => {
-   it("shows only Next for the first item", () => {
+   it("shows only Next lesson for the first Lesson", () => {
       render(<TrackPrevNext placement={placement(TRACK, null, "lesson.b")} />);
       expect(screen.queryByRole("link", { name: /Previous/ })).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: /Next/ })).toHaveAttribute("href", "/lessons/b");
+      expect(screen.getByRole("link", { name: "Next lesson: Title b" })).toHaveAttribute("href", "/lessons/b");
    });
 
-   it("shows only Previous for the last item", () => {
+   it("shows only Previous lesson for the last Lesson", () => {
       render(<TrackPrevNext placement={placement(TRACK, "lesson.a", null)} />);
-      expect(screen.getByRole("link", { name: /Previous/ })).toHaveAttribute("href", "/lessons/a");
+      expect(screen.getByRole("link", { name: "Previous lesson: Title a" })).toHaveAttribute("href", "/lessons/a");
       expect(screen.queryByRole("link", { name: /Next/ })).not.toBeInTheDocument();
    });
 
-   it("shows both for a middle item, within the named Track", () => {
-      render(<TrackPrevNext placement={placement(TRACK, "lesson.a", "problem.c")} />);
+   it("shows both for a middle Lesson, within the named Track, with visible Lesson labels", () => {
+      render(<TrackPrevNext placement={placement(TRACK, "lesson.a", "lesson.c")} />);
       expect(screen.getByRole("navigation", { name: "Previous and next in Track home" })).toBeInTheDocument();
-      expect(hrefs()).toEqual(["/lessons/a", "/problems/c"]);
+      expect(hrefs()).toEqual(["/lessons/a", "/lessons/c"]);
+      expect(screen.getByText("Previous lesson")).toBeVisible();
+      expect(screen.getByText("Next lesson")).toBeVisible();
+   });
+
+   it("marks a premium Next lesson in its accessible name and visible text, without prefetching it", () => {
+      render(<TrackPrevNext placement={{ ...placement(TRACK, null, null), nextLesson: entry("lesson.pro", { access: "premium" }) }} />);
+      const next = screen.getByRole("link", { name: "Next lesson: Title pro, premium" });
+      expect(next).toHaveTextContent("Premium");
+      expect(next).toHaveAttribute("data-prefetch", "false");
    });
 
    it("renders nothing for a Track of one", () => {
@@ -210,13 +219,15 @@ describe("ItemNavigation", () => {
    const full: ItemNavigationData = {
       id: "lesson.zeta",
       relations: { related: [meta("lesson.rel")] },
-      home: placement(TRACK, null, "problem.mid"),
+      home: placement(TRACK, null, "lesson.alpha"),
       alternates: [placement(track("other", [mod("x", [])]), null, null)],
+      nextSummary: null,
+      practice: [],
    };
 
    it("composes Track navigation, related content and alternates using canonical URLs only", () => {
       render(<ItemNavigation navigation={full} />);
-      expect(screen.getByRole("link", { name: /Next/ })).toHaveAttribute("href", "/problems/mid");
+      expect(screen.getByRole("link", { name: /Next lesson/ })).toHaveAttribute("href", "/lessons/alpha");
       expect(screen.getByRole("navigation", { name: "Module: Module second" })).toBeInTheDocument();
       expect(screen.getByText("Full outline of Track home")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Related content" })).toBeInTheDocument();
@@ -232,7 +243,7 @@ describe("ItemNavigation", () => {
    });
 
    it("renders an empty, hideable wrapper, so its separator never floats under a page with no navigation", () => {
-      const { container } = render(<ItemNavigation navigation={{ id: "lesson.zeta", relations: {}, home: null, alternates: [] }} />);
+      const { container } = render(<ItemNavigation navigation={{ id: "lesson.zeta", relations: {}, home: null, alternates: [], nextSummary: null, practice: [] }} />);
       expect(container.firstElementChild).toBeEmptyDOMElement();
       expect(container.firstElementChild).toHaveClass("border-t", "empty:hidden");
    });

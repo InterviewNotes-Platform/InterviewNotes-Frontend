@@ -16,6 +16,8 @@ interface DisclosureProps {
    compact?: boolean;
    /** The heading level of the control, so it fits the page's outline. */
    level?: "h2" | "h3";
+   /** Opens and closes with no transition, for a panel opened by arrival rather than by the reader. */
+   instant?: boolean;
    className?: string;
    children: ReactNode;
 }
@@ -33,6 +35,7 @@ export function Disclosure({
    onOpenChange,
    compact = false,
    level: Heading = "h2",
+   instant = false,
    className,
    children,
 }: DisclosureProps) {
@@ -72,7 +75,8 @@ export function Disclosure({
             inert={!open}
             className={cn(
                "grid ease-standard [transition-duration:200ms,0s] [transition-property:grid-template-rows,visibility]",
-               open ? "visible grid-rows-[1fr]" : "invisible grid-rows-[0fr] [transition-delay:0s,200ms]"
+               open ? "visible grid-rows-[1fr]" : "invisible grid-rows-[0fr] [transition-delay:0s,200ms]",
+               instant && "transition-none"
             )}
          >
             <div className="-mx-2 min-h-0 overflow-hidden px-2">{children}</div>

@@ -25,6 +25,7 @@ describe("catalog browser/Git boundary", () => {
          "components/catalog/KnowledgeBands.tsx",
          "components/catalog/KnowledgeBrowse.tsx",
          "components/catalog/KnowledgeHeader.tsx",
+         "components/catalog/LessonClose.tsx",
          "components/catalog/LessonHeader.tsx",
          "components/catalog/LessonRelated.tsx",
          "components/catalog/PracticeFilters.tsx",
@@ -38,15 +39,20 @@ describe("catalog browser/Git boundary", () => {
          "components/catalog/TrackCurriculum.tsx",
          "components/catalog/TrackOutline.tsx",
          "components/catalog/blocks.ts",
+         "components/catalog/knowledgeRefs.ts",
          "lib/catalog/client.ts",
+      "lib/catalog/curriculum.ts",
          "lib/catalog/knowledge.ts",
          "lib/catalog/lesson.ts",
+         "lib/catalog/moduleLocation.ts",
          "lib/catalog/navigation.ts",
          "lib/catalog/practice.ts",
+         "lib/catalog/practiceStep.ts",
          "lib/catalog/preview.ts",
          "lib/catalog/problem.ts",
          "lib/catalog/problems.ts",
          "lib/catalog/routes.ts",
+         "lib/catalog/summaries.ts",
          "lib/catalog/topics.ts",
          "lib/catalog/track.ts",
          "lib/catalog/types.ts",
@@ -87,7 +93,7 @@ describe("catalog browser/Git boundary", () => {
       }
    });
 
-   it("loads relationships without ever fetching an item body", () => {
-      expect(read(join(SRC, "lib", "catalog", "navigation.ts"))).not.toMatch(/getCatalogItem/);
+   it("loads relationships without ever fetching an item body (public metadata only)", () => {
+      expect(read(join(SRC, "lib", "catalog", "navigation.ts"))).not.toMatch(/getCatalogItem(?!Meta)/);
    });
 });

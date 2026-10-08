@@ -114,10 +114,10 @@ test.describe("preview deployment", () => {
          }
          // `/tracks` is the Learn index (a Lesson's first breadcrumb step); `/knowledge` and `/knowledge?group=<id>` are the
          // Knowledge index and a category group (a topic's breadcrumb); `/practice` is the Practice index (a Problem's breadcrumb);
-         // `#id` is a heading anchor on this page.
+         // `#id` is a heading anchor on this page; `/tracks/<slug>#<module-key>` is a Lesson's Module location (S-MOD-4).
          for (const href of await hrefs(page, "main a[href]")) {
             expect(href, `${route}: ${href} is not a canonical catalog route`).toMatch(
-               /^(\/tracks|\/practice|\/knowledge(\?group=[a-z-]+)?|#[a-z0-9_-]+|\/(lessons|problems|knowledge|tracks)\/[a-z0-9-]+|\/login\?redirect=%2F(lessons|problems|knowledge|tracks)%2F[a-z0-9-]+)$/
+               /^(\/tracks|\/practice|\/knowledge(\?group=[a-z-]+)?|#[a-z0-9_-]+|\/(lessons|problems|knowledge|tracks)\/[a-z0-9-]+|\/tracks\/[a-z0-9-]+#[a-z0-9-]+|\/login\?redirect=%2F(lessons|problems|knowledge|tracks)%2F[a-z0-9-]+)$/
             );
          }
       }

@@ -104,6 +104,15 @@
   --surface: #f5f5f7;
   --code-surface: #f2f2f5;
 
+  /* Syntax colours on --code-surface (each at least 4.5:1); comments reuse --muted-foreground. */
+  --syntax-keyword: #8f2fb5;
+  --syntax-string: #0b6b3a;
+  --syntax-number: #a2470a;
+  --syntax-title: #0a5fa8;
+  --syntax-type: #9a2f6b;
+  --syntax-attr: #4d5bbf;
+  --syntax-comment: var(--muted-foreground);
+
   --card: #f5f5f7;
   --card-foreground: #1d1d1f;
 
@@ -159,6 +168,13 @@
 
   --surface: #1a1a1d;
   --code-surface: #18181b;
+
+  --syntax-keyword: #d49bff;
+  --syntax-string: #7fd69a;
+  --syntax-number: #ffb27a;
+  --syntax-title: #7cc4ff;
+  --syntax-type: #ff9ec8;
+  --syntax-attr: #a9b4ff;
 
   --card: #1a1a1d;
   --card-foreground: #f5f5f7;
@@ -300,6 +316,15 @@
     line-height: 1.5;
   }
 }
+
+/* Server-highlighted code: highlight.js token classes take their colour from the theme tokens, so a theme switch re-renders nothing. */
+.hljs .hljs-keyword, .hljs .hljs-selector-tag { color: var(--syntax-keyword); }
+.hljs .hljs-string, .hljs .hljs-regexp, .hljs .hljs-symbol, .hljs .hljs-char { color: var(--syntax-string); }
+.hljs .hljs-number, .hljs .hljs-literal, .hljs .hljs-bullet { color: var(--syntax-number); }
+.hljs .hljs-title, .hljs .hljs-section, .hljs .hljs-name { color: var(--syntax-title); }
+.hljs .hljs-built_in, .hljs .hljs-type, .hljs .hljs-title.class_ { color: var(--syntax-type); }
+.hljs .hljs-attr, .hljs .hljs-attribute, .hljs .hljs-variable, .hljs .hljs-property, .hljs .hljs-template-variable { color: var(--syntax-attr); }
+.hljs .hljs-comment, .hljs .hljs-doctag, .hljs .hljs-meta { color: var(--syntax-comment); }
 
 /* Custom scrollbar */
 .scrollbar-thin::-webkit-scrollbar {
