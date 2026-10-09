@@ -1935,6 +1935,25 @@
             "body": "## Legacy premium heading\n\nLegacy premium chapter marker.\n"
           }
         ]
+      },
+      {
+        "id": "e2e-legacy-home-card-id",
+        "slug": "ml-system-design",
+        "title": "ML System Design",
+        "description": "Synthetic legacy course behind a homepage track card.",
+        "icon": "FileCode",
+        "chapters": [
+          {
+            "id": "e2e-legacy-home-card-chapter-id",
+            "slug": "e2e-home-card-free",
+            "title": "E2E Home Card Chapter",
+            "section": "Synthetic Basics",
+            "order": 1,
+            "is_premium": false,
+            "estimated_read_time": 300,
+            "body": "## Home card heading\n\nHome card chapter marker.\n"
+          }
+        ]
       }
     ]
   }

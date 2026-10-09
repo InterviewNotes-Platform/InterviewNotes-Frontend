@@ -4,8 +4,8 @@ import { canonical, expect, FAKE_AUTH_ORIGIN, legacyCourse, test, track } from "
 // P2-T2 application shell: structure, active area, skip link, account states, mobile menu and legacy reachability.
 const [freeChapter] = legacyCourse.chapters;
 const LESSON = canonical("lesson.catalog-e2e-free");
-const NAMES = ["Learn", "Practice", "Knowledge"];
-const HREFS = ["/tracks", "/practice", "/knowledge"];
+const NAMES = ["Tracks", "Knowledge", "Pricing", "FAQ"];
+const HREFS = ["/learn", "/knowledge", "/#pricing", "/#faq"];
 
 const banner = (page: Page) => page.getByRole("banner");
 const primary = (page: Page) => banner(page).getByRole("navigation", { name: "Primary" });
@@ -17,7 +17,7 @@ const focusedName = (page: Page) =>
    });
 
 test.describe("desktop shell", () => {
-   test("shows the logo, Learn / Practice / Knowledge, Sign in and the theme control", async ({ page }) => {
+   test("shows the logo, Tracks / Knowledge / Pricing / FAQ, Premium, Sign in and the theme control", async ({ page }) => {
       await page.goto("/login");
       await expect(banner(page).getByRole("link", { name: "InterviewNotes" })).toHaveAttribute("href", "/");
 
@@ -25,15 +25,26 @@ test.describe("desktop shell", () => {
       await expect(links).toHaveText(NAMES);
       for (const [index, href] of HREFS.entries()) await expect(links.nth(index)).toHaveAttribute("href", href);
 
+      await expect(banner(page).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
       await expect(banner(page).getByRole("button", { name: "Toggle theme" })).toBeVisible();
       await expect(banner(page).getByRole("button", { name: "Menu" })).toBeHidden();
    });
 
-   test("has no Subscribe, Upgrade, search or Sign up affordance", async ({ page }) => {
+   test("Tracks opens the courses that have content today, the same place as the homepage actions", async ({ page }) => {
+      await page.goto("/");
+      await primary(page).getByRole("link", { name: "Tracks" }).click();
+      await expect(page).toHaveURL("/learn");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Interview Paths");
+      await page.goto("/");
+      await page.getByRole("main").getByRole("link", { name: "Start Learning" }).first().click();
+      await expect(page).toHaveURL("/learn");
+   });
+
+   test("has no Practice entry, Subscribe, Upgrade, search or Sign up affordance", async ({ page }) => {
       await page.goto("/login");
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: /subscribe|upgrade|pricing|sign up|log in/i })).toHaveCount(0);
+      await expect(banner(page).getByRole("link", { name: /subscribe|upgrade|practice|sign up|log in/i })).toHaveCount(0);
       await expect(page.getByRole("search")).toHaveCount(0);
       await expect(page.getByRole("searchbox")).toHaveCount(0);
    });
@@ -48,11 +59,11 @@ test.describe("desktop shell", () => {
 
 test.describe("active area", () => {
    const routes: [string, string | null][] = [
-      ["/tracks", "Learn"],
-      [`/tracks/${track("catalog-e2e-home").slug}`, "Learn"],
-      [LESSON, "Learn"],
-      ["/learn", "Learn"],
-      [canonical("problem.catalog-e2e-related"), "Practice"],
+      ["/tracks", "Tracks"],
+      [`/tracks/${track("catalog-e2e-home").slug}`, "Tracks"],
+      [LESSON, "Tracks"],
+      ["/learn", "Tracks"],
+      [canonical("problem.catalog-e2e-related"), "Tracks"],
       [canonical("knowledge.catalog-e2e-sections"), "Knowledge"],
       ["/login", null],
    ];
@@ -82,16 +93,16 @@ test.describe("keyboard", () => {
       await expect(page.getByRole("main")).toHaveCount(1);
    });
 
-   test("tab order runs skip link, logo, destinations, account, theme", async ({ page }) => {
+   test("tab order runs skip link, logo, destinations, Premium, theme, account", async ({ page }) => {
       await page.goto("/login");
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toBeVisible();
 
       const order: (string | undefined)[] = [];
-      for (let stop = 0; stop < 7; stop++) {
+      for (let stop = 0; stop < 9; stop++) {
          await page.keyboard.press("Tab");
          order.push(await focusedName(page));
       }
-      expect(order).toEqual(["Skip to content", "InterviewNotes", ...NAMES, "Sign in", "Toggle theme"]);
+      expect(order).toEqual(["Skip to content", "InterviewNotes", ...NAMES, "Premium", "Toggle theme", "Sign in"]);
    });
 
    test.describe("theme control", () => {
@@ -177,6 +188,14 @@ test.describe("legacy", () => {
 test.describe("mobile menu at 390px", () => {
    test.use({ viewport: { width: 390, height: 844 } });
 
+   test("Tracks opens the same courses as the desktop navigation", async ({ page }) => {
+      await page.goto("/");
+      await page.getByRole("button", { name: "Menu" }).click();
+      await page.getByRole("dialog", { name: "Menu" }).getByRole("link", { name: "Tracks" }).click();
+      await expect(page).toHaveURL("/learn");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Interview Paths");
+   });
+
    test("hides the desktop navigation, keeps the logo stable and overflows nowhere", async ({ page }) => {
       await page.goto(LESSON);
       await expect(primary(page)).toBeHidden();
@@ -193,9 +212,10 @@ test.describe("mobile menu at 390px", () => {
 
       await trigger.click();
       const menu = page.getByRole("dialog", { name: "Menu" });
-      await expect(menu.getByRole("link", { name: "Learn" })).toBeFocused();
+      await expect(menu.getByRole("link", { name: "Tracks" })).toBeFocused();
       await expect(menu.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveText(NAMES);
-      await expect(menu.getByRole("link", { name: "Learn" })).toHaveAttribute("aria-current", "page");
+      await expect(menu.getByRole("link", { name: "Tracks" })).toHaveAttribute("aria-current", "page");
+      await expect(menu.getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
       await expect(menu.getByRole("link", { name: "Sign in" })).toBeVisible();
       await expect(menu.getByRole("button", { name: "Toggle theme" })).toBeVisible();
 

@@ -105,9 +105,9 @@ test.describe("/tracks", () => {
       await expect(page).toHaveURL(canonical(HOME.id));
    });
 
-   test("the Learn destination is the current area", async ({ page }) => {
+   test("the Tracks destination is the current area", async ({ page }) => {
       await page.goto("/tracks");
-      await expect(page.getByRole("banner").getByRole("navigation", { name: "Primary" }).locator("[aria-current]")).toHaveText("Learn");
+      await expect(page.getByRole("banner").getByRole("navigation", { name: "Primary" }).locator("[aria-current]")).toHaveText("Tracks");
    });
 
    const viewports = [

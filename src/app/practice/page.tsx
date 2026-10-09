@@ -10,7 +10,7 @@ import { listCatalogTracks } from "@/lib/catalog/client";
 import { activeFilterCount, parsePracticeQuery, withKnownTrack } from "@/lib/catalog/practice";
 import { loadProblemTopics, loadProblems } from "@/lib/catalog/problems";
 import { linkableEntries } from "@/lib/catalog/routes";
-import { PRIMARY_NAV, type NavArea } from "@/lib/primary-navigation";
+import { PRIMARY_NAV, TRACKS_INDEX_HREF } from "@/lib/primary-navigation";
 
 // The Problem list comes from the catalog at request time and is never built or cached statically.
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ interface PageProps {
 }
 
 const LINK = "text-primary underline underline-offset-4";
-const hrefOf = (area: NavArea) => PRIMARY_NAV.find((item) => item.area === area)!.href;
+const KNOWLEDGE_HREF = PRIMARY_NAV.find((item) => item.area === "knowledge")!.href;
 
 // Problem metadata is public and never gated, so this route sends no session. Each render reads the Track list, the capped
 // Topic scan and one page of Problems: three kinds of list read, never an item.
@@ -56,11 +56,11 @@ export default async function PracticePage({ searchParams }: PageProps) {
                </p>
                <p className="mt-4 mb-0 text-supporting text-pretty text-muted-foreground">
                   Want the ground first? Build it in{" "}
-                  <Link href={hrefOf("learn")} prefetch={false} className={LINK}>
+                  <Link href={TRACKS_INDEX_HREF} prefetch={false} className={LINK}>
                      Tracks
                   </Link>
                   , or look up a concept in{" "}
-                  <Link href={hrefOf("knowledge")} prefetch={false} className={LINK}>
+                  <Link href={KNOWLEDGE_HREF} prefetch={false} className={LINK}>
                      Knowledge
                   </Link>
                   . Problems point back to both.
