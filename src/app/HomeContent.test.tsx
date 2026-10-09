@@ -1,8 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PRIMARY_NAV } from "@/lib/primary-navigation";
 import { HomeContent } from "./HomeContent";
-import { ENTRY_POINTS, FAQ, HERO, HERO_TOPICS, PREMIUM, PRICING } from "./home-copy";
+import { FAQ, HERO, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
 import HomePage, { metadata } from "./page";
 
 // The homepage is static: importing the catalog client or the legacy course loader would throw here.
@@ -20,6 +19,12 @@ function stubMotion(reduce: boolean) {
     vi.stubGlobal("matchMedia", (query: string) => ({ matches: reduce && query.includes("reduce"), addEventListener() {}, removeEventListener() {} }));
 }
 
+const section = (name: string | RegExp) => screen.getByRole("region", { name });
+const tracks = () => section(TRACKS.heading);
+const knowledge = () => section(KNOWLEDGE.heading);
+const testimonials = () => section(TESTIMONIALS_SECTION.heading);
+const pricing = () => section(PRICING.heading);
+
 beforeEach(() => stubMotion(false));
 afterEach(() => {
     vi.useRealTimers();
@@ -27,28 +32,38 @@ afterEach(() => {
 });
 
 describe("structure", () => {
-    it("has one h1 and a heading outline that runs proposition, entry points, access, FAQ", () => {
+    it("has one h1 and a heading outline that runs hero, Tracks, Knowledge, testimonials, pricing, FAQ", () => {
         render(<HomeContent />);
         const headings = within(screen.getByRole("main")).getAllByRole("heading");
-        expect(headings.map((h) => h.tagName)).toEqual([1, 2, 3, 3, 3, 2, 3, 3, 2, 3, 3, 3, 3, 3].map(H));
+        expect(headings.map((h) => h.tagName)).toEqual([1, 2, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 2, 2, 3, 2, 3, 3, 3, 3, 3].map(H));
         expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1); // page-wide, footer included
-        expect(headings.slice(2, 5).map((h) => h.textContent)).toEqual(["Learn", "Knowledge", "Practice"]);
-        expect(headings[5]).toHaveTextContent(PREMIUM.heading);
-        expect(headings[8]).toHaveTextContent(FAQ.heading);
-        expect(headings.slice(9).map((h) => h.textContent)).toEqual(FAQ.items.map((item) => item.q));
+        expect(headings.filter((h) => h.tagName === "H2").map((h) => h.textContent)).toEqual([
+            TRACKS.heading,
+            KNOWLEDGE.heading,
+            TESTIMONIALS_SECTION.heading,
+            PRICING.heading,
+            FAQ.heading,
+        ]);
+        expect(headings.slice(-FAQ.items.length).map((h) => h.textContent)).toEqual(FAQ.items.map((item) => item.q));
     });
 
-    it("places the sections in order inside a single main landmark", () => {
+    it("places the sections in order inside a single main landmark, Tracks first", () => {
         render(<HomeContent />);
-        const main = screen.getByRole("main");
-        const regions = within(main).getAllByRole("region");
-        expect(regions).toHaveLength(4);
-        const [hero, entry, premium, faq] = regions;
+        const regions = within(screen.getByRole("main")).getAllByRole("region");
+        expect(regions).toHaveLength(6);
+        const [hero, tracksSection, knowledgeSection, testimonialsSection, pricingSection, faq] = regions;
         expect(hero).toHaveAccessibleName(`${HERO.lead} ${HERO.subject} ${HERO.tail}`);
-        expect(entry).toHaveAccessibleName("Where to start");
-        expect(premium).toHaveAccessibleName(PREMIUM.heading);
+        expect(tracksSection).toHaveAccessibleName(TRACKS.heading);
+        expect(knowledgeSection).toHaveAccessibleName(KNOWLEDGE.heading);
+        expect(testimonialsSection).toHaveAccessibleName(TESTIMONIALS_SECTION.heading);
+        expect(pricingSection).toHaveAccessibleName(PRICING.heading);
         expect(faq).toHaveAccessibleName(FAQ.heading);
-        regions.slice(1).forEach((section, i) => expect(regions[i].compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy());
+        regions.slice(1).forEach((s, i) => expect(regions[i].compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy());
+    });
+
+    it("marks the page for the pre-P0 palette scope", () => {
+        render(<HomeContent />);
+        expect(screen.getByRole("main")).toHaveAttribute("data-home");
     });
 
     it("renders no learner-state area or placeholder", () => {
@@ -56,8 +71,8 @@ describe("structure", () => {
         expect(screen.queryByText(/continue learning|your progress|recently viewed/i)).toBeNull();
         expect(screen.queryByRole("progressbar")).toBeNull();
         expect(container.querySelector("[disabled], [aria-busy='true'], .animate-pulse")).toBeNull();
-        for (const section of within(screen.getByRole("main")).getAllByRole("region")) {
-            expect(section.textContent?.trim(), "an empty section would be a visible reserved area").not.toBe("");
+        for (const s of within(screen.getByRole("main")).getAllByRole("region")) {
+            expect(s.textContent?.trim(), "an empty section would be a visible reserved area").not.toBe("");
         }
     });
 });
@@ -70,12 +85,12 @@ describe("hero", () => {
         for (const topic of HERO_TOPICS) expect(within(h1).getByText(topic).closest("[aria-hidden='true']")).not.toBeNull();
     });
 
-    it("offers two calls to action: the Learn landing route, and the access section on this page", () => {
+    it("offers two calls to action: the Tracks landing route, and the pricing section on this page", () => {
         render(<HomeContent />);
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
         expect(within(hero).getByRole("link", { name: HERO.primaryAction.label })).toHaveAttribute("href", "/tracks");
-        expect(within(hero).getByRole("link", { name: HERO.secondaryAction.label })).toHaveAttribute("href", "#access");
-        expect(document.getElementById("access")).toBe(screen.getByRole("region", { name: PREMIUM.heading }));
+        expect(within(hero).getByRole("link", { name: HERO.secondaryAction.label })).toHaveAttribute("href", "#pricing");
+        expect(document.getElementById("pricing")).toBe(pricing());
     });
 
     it("keeps the gold accent on the primary action", () => {
@@ -84,12 +99,21 @@ describe("hero", () => {
         expect(within(hero).getByRole("link", { name: HERO.primaryAction.label }).className).toMatch(/\bbg-gold\b/);
     });
 
-    it("lists the subject areas as plain items, not controls", () => {
+    it("lists the subject areas and the restored stats as plain items, not controls", () => {
         render(<HomeContent />);
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
-        const chips = within(hero).getAllByRole("listitem");
-        expect(chips.length).toBeGreaterThan(0);
-        for (const chip of chips) expect(chip.querySelector("a, button")).toBeNull();
+        const items = within(hero).getAllByRole("listitem");
+        expect(items.length).toBeGreaterThan(STATS.length);
+        for (const item of items) expect(item.querySelector("a, button")).toBeNull();
+    });
+
+    it("shows the restored pre-P0 stats exactly as they were", () => {
+        render(<HomeContent />);
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        for (const [value, label] of [["80+", "Design Modules"], ["5K+", "Engineers"], ["90%", "Offer Rate"], ["6", "Tracks"]]) {
+            expect(within(hero).getByText(value).nextElementSibling).toHaveTextContent(label);
+        }
+        expect(STATS).toHaveLength(4);
     });
 });
 
@@ -131,76 +155,144 @@ describe("rotating subject", () => {
     });
 });
 
-describe("entry points", () => {
-    const links = () => within(screen.getByRole("region", { name: "Where to start" })).getAllByRole("link");
-
-    it("offers Learn, Knowledge and Practice as three links to their landing routes", () => {
+describe("tracks", () => {
+    it("leads the product: the first section after the hero, with one card per track and one primary action", () => {
         render(<HomeContent />);
-        expect(links().map((link) => link.getAttribute("href"))).toEqual(["/tracks", "/knowledge", "/practice"]);
-        for (const [link, { title, action, description }] of links().map((l, i) => [l, ENTRY_POINTS[i]] as const)) {
-            expect(link).toHaveAccessibleName(`${title} ${action}`);
-            expect(link).toHaveAccessibleDescription(description);
+        const cards = within(tracks()).getAllByRole("heading", { level: 3 });
+        expect(cards.map((h) => h.textContent)).toEqual(TRACKS.items.map((item) => item.title));
+        expect(document.getElementById("tracks")).toBe(tracks());
+    });
+
+    it("sends every card and the action to the Track index, never to a catalog item", () => {
+        render(<HomeContent />);
+        const links = within(tracks()).getAllByRole("link");
+        expect(links).toHaveLength(TRACKS.items.length + 1);
+        for (const link of links) expect(link).toHaveAttribute("href", "/tracks");
+        expect(within(tracks()).getByRole("link", { name: new RegExp(TRACKS.action.label) })).toBeInTheDocument();
+    });
+
+    it("names each card by its title and tagline, with the Explore cue inside the same link", () => {
+        render(<HomeContent />);
+        for (const { title, tagline } of TRACKS.items) {
+            const link = within(tracks()).getByRole("link", { name: new RegExp(`^${title}\\b`) });
+            expect(link).toHaveTextContent(tagline);
+            expect(link).toHaveTextContent(TRACKS.cardAction);
         }
     });
 
-    it("points at the same destinations as the primary navigation", () => {
+    it("explains the path as Tracks, then modules, then content, in order", () => {
         render(<HomeContent />);
-        for (const link of links()) {
-            const title = within(link).getByRole("heading").textContent;
-            expect(PRIMARY_NAV.find((entry) => entry.label === title)?.href).toBe(link.getAttribute("href"));
-        }
+        const steps = within(tracks()).getAllByRole("listitem").slice(0, TRACKS.steps.length);
+        expect(steps.map((li) => li.textContent?.replace(/^\d/, ""))).toEqual([...TRACKS.steps]);
+    });
+
+    it("shows no per-track counts or durations, which the static page cannot know", () => {
+        render(<HomeContent />);
+        expect(within(tracks()).queryByText(/\b\d+\s*(chapters?|lessons?|modules?|problems?|hours?|h)\b/i)).toBeNull();
+    });
+
+    it("nests no interactive control inside another anywhere on the page", () => {
+        const { container } = render(<HomeContent />);
+        expect(container.querySelectorAll(NESTED_INTERACTIVE)).toHaveLength(0);
     });
 
     it("keeps the decorative icons out of the accessibility tree", () => {
         render(<HomeContent />);
-        for (const link of links()) expect(link.querySelectorAll("svg:not([aria-hidden='true'])")).toHaveLength(0);
-    });
-
-    it("nests no interactive control inside another", () => {
-        const { container } = render(<HomeContent />);
-        expect(container.querySelectorAll(NESTED_INTERACTIVE)).toHaveLength(0);
+        for (const link of within(tracks()).getAllByRole("link")) expect(link.querySelectorAll("svg:not([aria-hidden='true'])")).toHaveLength(0);
     });
 });
 
-describe("access", () => {
-    it("says what is free and what is planned, with no purchase action", () => {
+describe("knowledge", () => {
+    it("presents the four editorial groups and one link into the explorer", () => {
         render(<HomeContent />);
-        const access = screen.getByRole("region", { name: PREMIUM.heading });
-        expect(within(access).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual(["/tracks"]);
-        expect(within(access).queryByRole("button")).toBeNull();
-        expect(within(access).getByText(PREMIUM.note)).toBeInTheDocument();
+        expect(within(knowledge()).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+            "Core Concepts",
+            "Technologies & Research",
+            "Patterns",
+            "Quick References",
+        ]);
+        const links = within(knowledge()).getAllByRole("link");
+        expect(links.map((l) => l.getAttribute("href"))).toEqual(["/knowledge"]);
+        expect(links[0]).toHaveAccessibleName(KNOWLEDGE.action.label);
+        expect(document.getElementById("knowledge")).toBe(knowledge());
     });
 
-    it("shows the three approved planned prices, as informational text", () => {
+    it("is positioned as supporting the Tracks, after them", () => {
         render(<HomeContent />);
-        const access = screen.getByRole("region", { name: PREMIUM.heading });
-        const prices = within(within(access).getByRole("list", { name: PRICING.label })).getAllByRole("listitem");
-        expect(prices.map((item) => item.textContent)).toEqual(["$50/year", "$100/3 years", "$150/lifetime"]);
-        for (const { amount, unit } of PRICING.plans) expect(within(access).getByText(amount).parentElement).toHaveTextContent(`${amount}${unit}`);
-        for (const item of prices) expect(item.querySelector("a, button, input, form")).toBeNull();
+        expect(tracks().compareDocumentPosition(knowledge()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(KNOWLEDGE.lead).toMatch(/every track/i);
+    });
+});
+
+describe("testimonials", () => {
+    it("restores all eight pre-P0 testimonials once for assistive technology, in two rows", () => {
+        render(<HomeContent />);
+        expect(TESTIMONIALS).toHaveLength(8);
+        const rows = within(testimonials()).getAllByRole("list");
+        expect(rows.map((row) => within(row).getAllByRole("figure").length)).toEqual([4, 4]);
+        const figures = within(testimonials()).getAllByRole("figure"); // the aria-hidden loop copies are not exposed
+        expect(figures).toHaveLength(TESTIMONIALS.length);
+        TESTIMONIALS.forEach(({ name, quote, role, company }, i) => {
+            expect(figures[i]).toHaveTextContent(quote);
+            expect(figures[i]).toHaveTextContent(`${name}${role} at ${company}`);
+        });
+        expect(within(testimonials()).getByText(TESTIMONIALS_SECTION.lead)).toBeInTheDocument();
     });
 
-    it("labels the prices as planned and not yet available, without a heading of its own", () => {
-        render(<HomeContent />);
-        const access = screen.getByRole("region", { name: PREMIUM.heading });
-        expect(within(access).getByText(PRICING.label)).toHaveTextContent(/planned/i);
-        expect(within(access).getByText(PRICING.note)).toHaveTextContent(/not available yet/i);
-        expect(within(access).queryByRole("heading", { name: PRICING.label })).toBeNull();
+    it("duplicates each row for a seamless loop, hidden from assistive technology", () => {
+        const { container } = render(<HomeContent />);
+        const hidden = container.querySelectorAll("section li[aria-hidden='true']");
+        expect(hidden).toHaveLength(TESTIMONIALS.length);
+        for (const copy of hidden) expect(copy.querySelector("a, button")).toBeNull();
     });
 
-    it("introduces no purchase or checkout action or form", () => {
+    it("pauses and resumes the drift from a labelled button", () => {
+        render(<HomeContent />);
+        const button = within(testimonials()).getByRole("button", { name: "Pause testimonials" });
+        fireEvent.click(button);
+        expect(testimonials()).toHaveAttribute("data-paused", "true");
+        fireEvent.click(within(testimonials()).getByRole("button", { name: "Play testimonials" }));
+        expect(testimonials()).toHaveAttribute("data-paused", "false");
+    });
+
+    it("drifts in opposite directions", () => {
+        const { container } = render(<HomeContent />);
+        expect(container.querySelectorAll(".testimonial-scroll-left")).toHaveLength(1);
+        expect(container.querySelectorAll(".testimonial-scroll-right")).toHaveLength(1);
+    });
+});
+
+describe("pricing", () => {
+    it("shows the three approved planned prices as parallel, informational plans", () => {
+        render(<HomeContent />);
+        const plans = within(within(pricing()).getByRole("list", { name: PRICING.listLabel })).getAllByRole("listitem");
+        expect(plans.map((item) => item.textContent)).toEqual(["Annual$50/yearPlanned", "3-year$100/3 yearsPlanned", "Lifetime$150/lifetimePlanned"]);
+        for (const item of plans) expect(item.querySelector("a, button, input, form")).toBeNull();
+    });
+
+    it("says the plans are planned and not yet available, with a free path that leads to the Tracks", () => {
+        render(<HomeContent />);
+        expect(within(pricing()).getByText(PRICING.lead)).toHaveTextContent(/not available yet/i);
+        expect(within(pricing()).getByText(PRICING.note)).toHaveTextContent(/not available yet/i);
+        expect(within(pricing()).getAllByText(PRICING.badge)).toHaveLength(PRICING.plans.length);
+        expect(within(pricing()).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual(["/tracks"]);
+        expect(within(pricing()).queryByRole("button")).toBeNull();
+    });
+
+    it("introduces no purchase or checkout action or form, and restores neither $40 nor Most Popular", () => {
         const { container } = render(<HomeContent />);
         const main = screen.getByRole("main");
         expect(main.querySelector("form, input, select, textarea")).toBeNull();
-        expect(within(main).queryByRole("button", { name: /buy|purchase|checkout|subscribe|upgrade|pay|get (full )?access/i })).toBeNull();
-        expect(within(main).queryByRole("link", { name: /buy|purchase|checkout|subscribe|upgrade|pay|get (full )?access/i })).toBeNull();
+        expect(within(main).queryByRole("button", { name: /buy|purchase|checkout|subscribe|upgrade|pay|get (full )?(access|premium)/i })).toBeNull();
+        expect(within(main).queryByRole("link", { name: /buy|purchase|checkout|subscribe|upgrade|pay|get (full )?(access|premium)/i })).toBeNull();
         const hrefs = [...container.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")!);
-        expect(hrefs.filter((href) => /checkout|billing|purchase|subscribe|stripe|payment|pricing/i.test(href))).toEqual([]);
+        expect(hrefs.filter((href) => /checkout|billing|purchase|subscribe|stripe|payment/i.test(href))).toEqual([]);
+        expect(main.textContent).not.toMatch(/\$40|most popular/i);
     });
 });
 
 describe("FAQ", () => {
-    const toggles = () => within(screen.getByRole("region", { name: FAQ.heading })).getAllByRole("button");
+    const toggles = () => within(section(FAQ.heading)).getAllByRole("button");
 
     it("starts collapsed, with one toggle per question", () => {
         render(<HomeContent />);
@@ -213,7 +305,7 @@ describe("FAQ", () => {
         const [first] = toggles();
         fireEvent.click(first);
         expect(first).toHaveAttribute("aria-expanded", "true");
-        expect(screen.getByRole("region", { name: FAQ.heading })).toHaveTextContent(FAQ.items[0].a);
+        expect(section(FAQ.heading)).toHaveTextContent(FAQ.items[0].a);
         fireEvent.click(first);
         expect(first).toHaveAttribute("aria-expanded", "false");
     });
@@ -240,26 +332,31 @@ describe("legacy courses", () => {
     });
 });
 
-describe("public claims", () => {
-    it("does not make unsupported claims", () => {
-        render(<HomeContent />);
-        for (const claim of [/5K\+/, /Offer Rate/i, /Testimonials/i, /Trusted by/i, /AI-powered/i, /guarantee/i]) {
-            expect(screen.queryByText(claim)).toBeNull();
-        }
+describe("product positioning", () => {
+    it("offers Tracks and Knowledge only: no standalone Practice product or unbuilt AI practice capability", () => {
+        const { container } = render(<HomeContent />);
+        const main = screen.getByRole("main");
+        const hrefs = [...container.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")!);
+        expect(hrefs.filter((href) => href.startsWith("/practice") || href.startsWith("/problems"))).toEqual([]);
+        expect(within(main).queryByRole("heading", { name: /^practice$/i })).toBeNull();
+        expect(main.textContent).not.toMatch(/mock interview|AI interviewer|whiteboard|AI scoring|voice practice|AI-powered/i);
     });
 
+    it("keeps Explore inside the Tracks, not as a product of its own", () => {
+        render(<HomeContent />);
+        expect(within(tracks()).getAllByText(TRACKS.cardAction)).toHaveLength(TRACKS.items.length);
+        expect(within(screen.getByRole("main")).queryByRole("heading", { name: /^explore$/i })).toBeNull();
+    });
+});
+
+describe("public claims", () => {
     it("adds no pricing terms beyond the three approved prices", () => {
         render(<HomeContent />);
         const main = screen.getByRole("main");
         expect(main.textContent?.match(/\$\d+(?:[.,]\d+)?/g)).toEqual(["$50", "$100", "$150"]);
-        for (const claim of [/discount|% off|save \d|on sale/i, /limited[- ]time|early[- ]bird/i, /refund|money-back|cancel anytime/i, /free trial|trial/i, /\btax|\bvat\b/i]) {
+        for (const claim of [/discount|% off|save \d|on sale/i, /limited[- ]time|early[- ]bird/i, /refund|money-back|cancel anytime/i, /free trial|trial/i, /\btax|\bvat\b/i, /guarantee/i]) {
             expect(within(main).queryByText(claim)).toBeNull();
         }
-    });
-
-    it("shows no counts of content", () => {
-        render(<HomeContent />);
-        expect(within(screen.getByRole("main")).queryByText(/\b\d+\s*(chapters?|tracks?|lessons?|problems?|hours?|h)\b/i)).toBeNull();
     });
 
     it("states that paid access is not available yet", () => {
