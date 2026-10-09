@@ -47,7 +47,7 @@ test("offers one h1 and Learn, Knowledge and Practice as links to their landing 
    }
 });
 
-test("keyboard reaches the two hero actions, then the three entry links in order, each with a solid 2px focus ring", async ({ page }) => {
+test("keyboard reaches the two hero actions, the access action, then the three entry links in order, each with a solid 2px focus ring", async ({ page }) => {
    await page.goto("/");
    await page.keyboard.press("Tab"); // skip link
    await page.keyboard.press("Enter");
@@ -58,6 +58,9 @@ test("keyboard reaches the two hero actions, then the three entry links in order
       await page.keyboard.press("Tab");
       await expect(hero.getByRole("link", { name })).toBeFocused();
    }
+
+   await page.keyboard.press("Tab");
+   await expect(page.locator("#access").getByRole("link", { name: "Start learning" })).toBeFocused();
 
    for (const [index] of DOORS.entries()) {
       await page.keyboard.press("Tab");

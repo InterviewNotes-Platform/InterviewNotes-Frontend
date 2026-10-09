@@ -27,13 +27,13 @@ afterEach(() => {
 });
 
 describe("structure", () => {
-    it("has one h1 and a heading outline that runs proposition, entry points, access, FAQ", () => {
+    it("has one h1 and a heading outline that runs proposition, access, entry points, FAQ", () => {
         render(<HomeContent />);
         const headings = within(screen.getByRole("main")).getAllByRole("heading");
-        expect(headings.map((h) => h.tagName)).toEqual([1, 2, 3, 3, 3, 2, 3, 3, 2, 3, 3, 3, 3, 3].map(H));
+        expect(headings.map((h) => h.tagName)).toEqual([1, 2, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 3, 3].map(H));
         expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1); // page-wide, footer included
-        expect(headings.slice(2, 5).map((h) => h.textContent)).toEqual(["Learn", "Knowledge", "Practice"]);
-        expect(headings[5]).toHaveTextContent(PREMIUM.heading);
+        expect(headings[1]).toHaveTextContent(PREMIUM.heading);
+        expect(headings.slice(5, 8).map((h) => h.textContent)).toEqual(["Learn", "Knowledge", "Practice"]);
         expect(headings[8]).toHaveTextContent(FAQ.heading);
         expect(headings.slice(9).map((h) => h.textContent)).toEqual(FAQ.items.map((item) => item.q));
     });
@@ -43,7 +43,7 @@ describe("structure", () => {
         const main = screen.getByRole("main");
         const regions = within(main).getAllByRole("region");
         expect(regions).toHaveLength(4);
-        const [hero, entry, premium, faq] = regions;
+        const [hero, premium, entry, faq] = regions;
         expect(hero).toHaveAccessibleName(`${HERO.lead} ${HERO.subject} ${HERO.tail}`);
         expect(entry).toHaveAccessibleName("Where to start");
         expect(premium).toHaveAccessibleName(PREMIUM.heading);
@@ -76,6 +76,12 @@ describe("hero", () => {
         expect(within(hero).getByRole("link", { name: HERO.primaryAction.label })).toHaveAttribute("href", "/tracks");
         expect(within(hero).getByRole("link", { name: HERO.secondaryAction.label })).toHaveAttribute("href", "#access");
         expect(document.getElementById("access")).toBe(screen.getByRole("region", { name: PREMIUM.heading }));
+    });
+
+    it("keeps the gold accent on the primary action", () => {
+        render(<HomeContent />);
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        expect(within(hero).getByRole("link", { name: HERO.primaryAction.label }).className).toMatch(/\bbg-gold\b/);
     });
 
     it("lists the subject areas as plain items, not controls", () => {
@@ -170,7 +176,7 @@ describe("access", () => {
         const access = screen.getByRole("region", { name: PREMIUM.heading });
         const prices = within(within(access).getByRole("list", { name: PRICING.label })).getAllByRole("listitem");
         expect(prices.map((item) => item.textContent)).toEqual(["$50/year", "$100/3 years", "$150/lifetime"]);
-        for (const price of ["$50/year", "$100/3 years", "$150/lifetime"]) expect(within(access).getByText(price)).toBeInTheDocument();
+        for (const { amount } of PRICING.plans) expect(within(access).getByText(amount)).toBeInTheDocument();
         for (const item of prices) expect(item.querySelector("a, button, input, form")).toBeNull();
     });
 

@@ -30,7 +30,7 @@ export function RotatingTopic({ topics, label }: RotatingTopicProps) {
          <span className="sr-only">{label}</span>
          <span
             aria-hidden="true"
-            className="inline-grid rounded-xl bg-primary/[0.08] px-3 py-0.5 text-center text-[0.85em] whitespace-nowrap text-primary md:px-4 md:py-1 md:text-[1em]"
+            className="inline-grid rounded-xl bg-gradient-to-r from-primary/15 via-primary/10 to-primary/5 px-3 py-1 text-center text-[0.85em] whitespace-nowrap text-primary md:px-4 md:py-2 md:text-[1em]"
          >
             {topics.map((topic, i) => (
                <span
