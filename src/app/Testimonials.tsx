@@ -16,12 +16,12 @@ const ROWS = [
 
 function Card({ t, copy }: { t: Testimonial; copy?: boolean }) {
    return (
-      <li aria-hidden={copy || undefined} className={`mx-2.5 w-[350px] shrink-0 ${copy ? "motion-reduce:hidden" : ""}`}>
-         <figure className="m-0 h-full rounded-2xl border border-border/40 bg-card/60 p-5 backdrop-blur-sm">
+      <li aria-hidden={copy || undefined} className={`mx-2.5 flex w-[350px] shrink-0 ${copy ? "motion-reduce:hidden" : ""}`}>
+         <figure className="m-0 w-full rounded-2xl border border-border/40 bg-card/60 p-5 backdrop-blur-sm">
             <Quote aria-hidden="true" className="mb-3 size-5 text-gold/60" />
             <blockquote className="m-0 mb-4 text-sm leading-relaxed text-foreground/90">&ldquo;{t.quote}&rdquo;</blockquote>
             <figcaption className="flex items-center gap-3 border-t border-border/30 pt-3">
-               <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+               <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-(--primary-text)">
                   {t.initials}
                </span>
                <span>

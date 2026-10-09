@@ -83,16 +83,16 @@ test.describe("keyboard", () => {
       await expect(page.getByRole("main")).toHaveCount(1);
    });
 
-   test("tab order runs skip link, logo, destinations, account, theme", async ({ page }) => {
+   test("tab order runs skip link, logo, destinations, Premium, theme, account", async ({ page }) => {
       await page.goto("/login");
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toBeVisible();
 
       const order: (string | undefined)[] = [];
-      for (let stop = 0; stop < 7; stop++) {
+      for (let stop = 0; stop < 9; stop++) {
          await page.keyboard.press("Tab");
          order.push(await focusedName(page));
       }
-      expect(order).toEqual(["Skip to content", "InterviewNotes", ...NAMES, "Sign in", "Toggle theme"]);
+      expect(order).toEqual(["Skip to content", "InterviewNotes", ...NAMES, "Premium", "Toggle theme", "Sign in"]);
    });
 
    test.describe("theme control", () => {

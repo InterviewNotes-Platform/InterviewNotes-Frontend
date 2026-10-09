@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/layout/BrandMark";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { MobileMenu } from "@/components/layout/MobileMenu";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -29,8 +30,7 @@ export function Header() {
             <PageContainer className="flex h-16 items-center justify-between gap-6">
                 <div className="flex min-w-0 items-center gap-6">
                     <Link href="/" className="shrink-0 whitespace-nowrap text-lg font-bold">
-                        <span className="text-primary">Interview</span>
-                        <span className="text-gold">Notes</span>
+                        <BrandMark />
                     </Link>
                     <nav aria-label="Primary" className="hidden md:block">
                         <ul className="flex items-center">

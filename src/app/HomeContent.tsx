@@ -178,7 +178,7 @@ function Tracks() {
                               </span>
                               <h3 className="m-0 mb-1.5 text-xl font-bold transition-micro group-hover:text-premium">{title}</h3>
                               <p className="m-0 mb-6 text-supporting font-medium text-muted-foreground">{tagline}</p>
-                              <span className="mt-auto flex items-center justify-end gap-2 border-t border-border/30 pt-4 text-sm font-bold text-premium opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100">
+                              <span className="mt-auto flex items-center justify-end gap-2 border-t border-border/30 pt-4 text-sm font-bold text-premium">
                                  {TRACKS.cardAction}
                                  <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
                               </span>

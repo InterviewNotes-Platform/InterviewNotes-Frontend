@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, test } from "./catalog/harness";
 
@@ -65,7 +66,6 @@ test("keyboard reaches the two hero actions, then the track cards in order, each
       await expect(trackCards(page).nth(index)).toBeFocused();
       await expect(trackCards(page).nth(index)).toHaveCSS("outline-style", "solid");
       await expect(trackCards(page).nth(index)).toHaveCSS("outline-width", "2px");
-      await expect(trackCards(page).nth(index).getByText("Explore")).toHaveCSS("opacity", "1");
    }
 });
 
@@ -146,5 +146,22 @@ for (const [width, height] of [
          expect(new Set(boxes.map((box) => (width >= 768 ? box.y : box.x))).size).toBe(1);
          expect(Math.max(...boxes.map((box) => box.right))).toBeLessThanOrEqual(width);
       });
+   });
+}
+
+// The homepage carries the pre-P0 palette, so its contrast is checked in both themes (WCAG A and AA only).
+for (const colorScheme of ["light", "dark"] as const) {
+   test.describe(`${colorScheme} theme`, () => {
+      test.use({ colorScheme, reducedMotion: "reduce" });
+
+      for (const width of [390, 1440]) {
+         test(`the homepage has no WCAG A or AA violation at ${width}px`, async ({ page }) => {
+            await page.setViewportSize({ width, height: 900 });
+            await page.goto("/");
+            await expect(page.locator("html")).toHaveClass(colorScheme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b)/);
+            const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+            expect(violations.map(({ id, nodes }) => `${id} on ${nodes.length} node(s)`)).toEqual([]);
+         });
+      }
    });
 }
