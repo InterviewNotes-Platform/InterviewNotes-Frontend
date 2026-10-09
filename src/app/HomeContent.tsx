@@ -70,7 +70,7 @@ function Hero() {
                {HERO.intro.after}
             </p>
 
-            <ul className={`${ENTER} m-0 mb-10 flex max-w-3xl list-none flex-wrap justify-center gap-3 p-0 delay-200`}>
+            <ul className={`${ENTER} m-0 mb-10 flex max-w-5xl list-none flex-wrap justify-center gap-3 p-0 delay-200`}>
                {HERO_AREAS.map((area) => (
                   <li
                      key={area}
@@ -262,8 +262,8 @@ export function HomeContent() {
       <>
          <main>
             <Hero />
-            <Premium />
             <EntryPoints />
+            <Premium />
             <Faq />
          </main>
          <Footer />
