@@ -27,10 +27,10 @@ test.describe("mobile menu", () => {
         // An open modal hides the rest of the page from the role tree, trigger included.
         await expect(page.locator('button[aria-label="Menu"]')).toHaveAttribute("aria-expanded", "true");
         const menu = page.getByRole("dialog", { name: "Menu" });
-        await expect(menu.getByRole("link", { name: "Learn" })).toBeFocused();
+        await expect(menu.getByRole("link", { name: "Tracks" })).toBeFocused();
 
         await page.keyboard.press("Tab");
-        await expect(menu.getByRole("link", { name: "Practice" })).toBeFocused();
+        await expect(menu.getByRole("link", { name: "Knowledge" })).toBeFocused();
 
         await page.keyboard.press("Escape");
         await expect(trigger).toHaveAttribute("aria-expanded", "false");

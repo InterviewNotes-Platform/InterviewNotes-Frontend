@@ -4,8 +4,8 @@ import { canonical, expect, FAKE_AUTH_ORIGIN, legacyCourse, test, track } from "
 // P2-T2 application shell: structure, active area, skip link, account states, mobile menu and legacy reachability.
 const [freeChapter] = legacyCourse.chapters;
 const LESSON = canonical("lesson.catalog-e2e-free");
-const NAMES = ["Learn", "Practice", "Knowledge"];
-const HREFS = ["/tracks", "/practice", "/knowledge"];
+const NAMES = ["Tracks", "Knowledge", "Pricing", "FAQ"];
+const HREFS = ["/tracks", "/knowledge", "/#pricing", "/#faq"];
 
 const banner = (page: Page) => page.getByRole("banner");
 const primary = (page: Page) => banner(page).getByRole("navigation", { name: "Primary" });
@@ -17,7 +17,7 @@ const focusedName = (page: Page) =>
    });
 
 test.describe("desktop shell", () => {
-   test("shows the logo, Learn / Practice / Knowledge, Sign in and the theme control", async ({ page }) => {
+   test("shows the logo, Tracks / Knowledge / Pricing / FAQ, Premium, Sign in and the theme control", async ({ page }) => {
       await page.goto("/login");
       await expect(banner(page).getByRole("link", { name: "InterviewNotes" })).toHaveAttribute("href", "/");
 
@@ -25,15 +25,16 @@ test.describe("desktop shell", () => {
       await expect(links).toHaveText(NAMES);
       for (const [index, href] of HREFS.entries()) await expect(links.nth(index)).toHaveAttribute("href", href);
 
+      await expect(banner(page).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
       await expect(banner(page).getByRole("button", { name: "Toggle theme" })).toBeVisible();
       await expect(banner(page).getByRole("button", { name: "Menu" })).toBeHidden();
    });
 
-   test("has no Subscribe, Upgrade, search or Sign up affordance", async ({ page }) => {
+   test("has no Practice entry, Subscribe, Upgrade, search or Sign up affordance", async ({ page }) => {
       await page.goto("/login");
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toBeVisible();
-      await expect(banner(page).getByRole("link", { name: /subscribe|upgrade|pricing|sign up|log in/i })).toHaveCount(0);
+      await expect(banner(page).getByRole("link", { name: /subscribe|upgrade|practice|sign up|log in/i })).toHaveCount(0);
       await expect(page.getByRole("search")).toHaveCount(0);
       await expect(page.getByRole("searchbox")).toHaveCount(0);
    });
@@ -48,11 +49,11 @@ test.describe("desktop shell", () => {
 
 test.describe("active area", () => {
    const routes: [string, string | null][] = [
-      ["/tracks", "Learn"],
-      [`/tracks/${track("catalog-e2e-home").slug}`, "Learn"],
-      [LESSON, "Learn"],
-      ["/learn", "Learn"],
-      [canonical("problem.catalog-e2e-related"), "Practice"],
+      ["/tracks", "Tracks"],
+      [`/tracks/${track("catalog-e2e-home").slug}`, "Tracks"],
+      [LESSON, "Tracks"],
+      ["/learn", "Tracks"],
+      [canonical("problem.catalog-e2e-related"), "Tracks"],
       [canonical("knowledge.catalog-e2e-sections"), "Knowledge"],
       ["/login", null],
    ];
@@ -193,9 +194,10 @@ test.describe("mobile menu at 390px", () => {
 
       await trigger.click();
       const menu = page.getByRole("dialog", { name: "Menu" });
-      await expect(menu.getByRole("link", { name: "Learn" })).toBeFocused();
+      await expect(menu.getByRole("link", { name: "Tracks" })).toBeFocused();
       await expect(menu.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveText(NAMES);
-      await expect(menu.getByRole("link", { name: "Learn" })).toHaveAttribute("aria-current", "page");
+      await expect(menu.getByRole("link", { name: "Tracks" })).toHaveAttribute("aria-current", "page");
+      await expect(menu.getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
       await expect(menu.getByRole("link", { name: "Sign in" })).toBeVisible();
       await expect(menu.getByRole("button", { name: "Toggle theme" })).toBeVisible();
 

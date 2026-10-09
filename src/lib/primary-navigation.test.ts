@@ -2,12 +2,17 @@ import { describe, expect, it } from "vitest";
 import { activeArea, PRIMARY_NAV } from "./primary-navigation";
 
 describe("primary navigation", () => {
-   it("lists Learn, Practice and Knowledge with their exact destinations", () => {
+   it("lists Tracks, Knowledge, Pricing and FAQ with their exact destinations, and no Practice", () => {
       expect(PRIMARY_NAV.map(({ label, href }) => [label, href])).toEqual([
-         ["Learn", "/tracks"],
-         ["Practice", "/practice"],
+         ["Tracks", "/tracks"],
          ["Knowledge", "/knowledge"],
+         ["Pricing", "/#pricing"],
+         ["FAQ", "/#faq"],
       ]);
+   });
+
+   it("gives only the two route entries an area; the section links never read as the current page", () => {
+      expect(PRIMARY_NAV.filter(({ area }) => area).map(({ label }) => label)).toEqual(["Tracks", "Knowledge"]);
    });
 });
 
@@ -19,9 +24,9 @@ describe("activeArea", () => {
       ["/learn", "learn"],
       ["/learn/example", "learn"],
       ["/learn/example/chapter", "learn"],
-      ["/practice", "practice"],
-      ["/practice/example", "practice"],
-      ["/problems/example", "practice"],
+      ["/practice", "learn"],
+      ["/practice/example", "learn"],
+      ["/problems/example", "learn"],
       ["/knowledge", "knowledge"],
       ["/knowledge/example", "knowledge"],
    ])("%s belongs to %s", (pathname, area) => {
@@ -43,7 +48,7 @@ describe("activeArea", () => {
 
    it("ignores a trailing slash and a query or hash on a normalized pathname", () => {
       expect(activeArea("/tracks/")).toBe("learn");
-      expect(activeArea("/problems/example?track=x")).toBe("practice");
+      expect(activeArea("/problems/example?track=x")).toBe("learn");
       expect(activeArea("/knowledge#section")).toBe("knowledge");
    });
 

@@ -10,17 +10,17 @@ vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
 const hrefs = () => screen.getAllByRole("link").map((a) => a.getAttribute("href"));
 
 describe("public navigation", () => {
-    it("header links go to the primary destinations, never to homepage sections", () => {
+    it("header links go to Tracks, Knowledge, the homepage Pricing and FAQ sections, and sign-in only", () => {
         render(<Header />);
         const links = hrefs();
-        expect(links).toEqual(expect.arrayContaining(["/tracks", "/practice", "/knowledge"]));
-        expect(links.filter((h) => h?.startsWith("/#"))).toEqual([]);
-        for (const href of links) expect(["/", "/tracks", "/practice", "/knowledge", "/login"]).toContain(href);
+        expect(links).toEqual(expect.arrayContaining(["/tracks", "/knowledge", "/#pricing", "/#faq"]));
+        for (const href of links) expect(["/", "/tracks", "/knowledge", "/#pricing", "/#faq", "/login"]).toContain(href);
     });
 
-    it("header has no Pricing or Premium affordance", () => {
+    it("header sends Pricing and Premium to the informational pricing section, never to a purchase route", () => {
         render(<Header />);
-        expect(screen.queryByRole("link", { name: /pricing|premium/i })).toBeNull();
+        for (const name of ["Pricing", "Premium"]) expect(screen.getByRole("link", { name })).toHaveAttribute("href", "/#pricing");
+        expect(hrefs().filter((h) => /checkout|billing|purchase|subscribe|stripe|payment|practice/i.test(h ?? ""))).toEqual([]);
     });
 
     it("footer links are real routes and expose no dead placeholders", () => {

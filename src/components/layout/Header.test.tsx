@@ -32,21 +32,24 @@ const banner = () => screen.getByRole("banner");
 const primary = () => within(banner()).getByRole("navigation", { name: "Primary" });
 
 describe("desktop shell", () => {
-    it("holds the logo, Learn / Practice / Knowledge, account and theme controls in the banner", () => {
+    it("holds the logo, Tracks / Knowledge / Pricing / FAQ, Premium, account and theme controls in the banner", () => {
         render(<Header />);
         expect(within(banner()).getByRole("link", { name: "InterviewNotes" })).toHaveAttribute("href", "/");
         expect(within(primary()).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Learn", "/tracks"],
-            ["Practice", "/practice"],
+            ["Tracks", "/tracks"],
             ["Knowledge", "/knowledge"],
+            ["Pricing", "/#pricing"],
+            ["FAQ", "/#faq"],
         ]);
+        expect(within(banner()).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
         expect(within(banner()).getByRole("link", { name: "Sign in" })).toBeInTheDocument();
         expect(within(banner()).getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
     });
 
-    it("has no Subscribe, Upgrade, Pricing or search affordance", () => {
+    it("has no Practice entry, purchase affordance or search", () => {
         render(<Header />);
-        expect(screen.queryByRole("link", { name: /subscribe|upgrade|pricing|premium/i })).toBeNull();
+        expect(screen.queryByRole("link", { name: /practice/i })).toBeNull();
+        expect(screen.queryByRole("link", { name: /subscribe|upgrade|buy|checkout|get premium/i })).toBeNull();
         expect(screen.queryByRole("search")).toBeNull();
         expect(screen.queryByRole("searchbox")).toBeNull();
         expect(screen.queryByText(/search/i)).toBeNull();
@@ -63,14 +66,14 @@ describe("desktop shell", () => {
 
 describe("active area", () => {
     it.each([
-        ["/tracks", "Learn"],
-        ["/tracks/example", "Learn"],
-        ["/lessons/example", "Learn"],
-        ["/learn", "Learn"],
-        ["/learn/ml-system-design/intro", "Learn"],
-        ["/practice", "Practice"],
-        ["/practice/example", "Practice"],
-        ["/problems/example", "Practice"],
+        ["/tracks", "Tracks"],
+        ["/tracks/example", "Tracks"],
+        ["/lessons/example", "Tracks"],
+        ["/learn", "Tracks"],
+        ["/learn/ml-system-design/intro", "Tracks"],
+        ["/practice", "Tracks"],
+        ["/practice/example", "Tracks"],
+        ["/problems/example", "Tracks"],
         ["/knowledge", "Knowledge"],
         ["/knowledge/example", "Knowledge"],
     ])("marks only %s's area as the current page", (pathname, label) => {

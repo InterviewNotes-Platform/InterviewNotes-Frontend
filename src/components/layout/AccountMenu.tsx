@@ -60,7 +60,7 @@ export function AccountMenu({ user, loading, onSignOut }: AccountMenuProps) {
             ) : (
                 <Link
                     href="/login"
-                    className="inline-flex h-9 items-center rounded-md px-3 text-supporting font-medium text-muted-foreground transition-micro hover:text-foreground"
+                    className="inline-flex h-8 items-center rounded-md bg-foreground px-3 text-sm font-medium text-background transition-micro hover:bg-foreground/90"
                 >
                     Sign in
                 </Link>

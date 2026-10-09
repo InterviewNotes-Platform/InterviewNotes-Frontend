@@ -1,11 +1,19 @@
-export type NavArea = "learn" | "practice" | "knowledge";
+export type NavArea = "learn" | "knowledge";
 
-/** Learn deliberately targets the catalog Track index; legacy `/learn/*` stays outside the primary navigation. */
-export const PRIMARY_NAV: readonly { area: NavArea; label: string; href: string }[] = [
-   { area: "learn", label: "Learn", href: "/tracks" },
-   { area: "practice", label: "Practice", href: "/practice" },
+/** Tracks (the Learn area) targets the Track index; legacy `/learn/*` stays outside the navigation. Pricing and FAQ are
+ *  homepage sections. Practice is not a product of its own: its routes belong to the Tracks area (spec §5.3). */
+export const PRIMARY_NAV: readonly { area?: NavArea; label: string; href: string }[] = [
+   { area: "learn", label: "Tracks", href: "/tracks" },
    { area: "knowledge", label: "Knowledge", href: "/knowledge" },
+   { label: "Pricing", href: "/#pricing" },
+   { label: "FAQ", href: "/#faq" },
 ];
+
+/** The Practice route still exists inside the Tracks area; it is linked from Problems and filters, not from the navigation. */
+export const PRACTICE_HREF = "/practice";
+
+/** The gold Premium button in the header opens the planned pricing; nothing is for sale there. */
+export const PREMIUM_HREF = "/#pricing";
 
 /** The landing routes arrive in later P2 tasks; prefetching them now only logs 404s. Re-enable as each one ships. */
 export const PREFETCH_PRIMARY = false;
@@ -14,8 +22,8 @@ const AREA_BY_ROOT = new Map<string, NavArea>([
    ["tracks", "learn"],
    ["lessons", "learn"],
    ["learn", "learn"],
-   ["practice", "practice"],
-   ["problems", "practice"],
+   ["practice", "learn"],
+   ["problems", "learn"],
    ["knowledge", "knowledge"],
 ]);
 
