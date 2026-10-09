@@ -36,7 +36,7 @@ describe("desktop shell", () => {
         render(<Header />);
         expect(within(banner()).getByRole("link", { name: "InterviewNotes" })).toHaveAttribute("href", "/");
         expect(within(primary()).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Tracks", "/tracks"],
+            ["Tracks", "/learn"],
             ["Knowledge", "/knowledge"],
             ["Pricing", "/#pricing"],
             ["FAQ", "/#faq"],

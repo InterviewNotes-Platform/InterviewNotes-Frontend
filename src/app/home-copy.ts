@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
+import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 
 // Tracks are the primary product, Knowledge supports them (P2 spec §5.3). STATS and TESTIMONIALS are the pre-P0
 // claims (51b99f3) restored verbatim at the product owner's request, not backed by product data. Prices: spec §5.1.
-/** The catalog has published no Track yet, so `/tracks` is empty; the courses behind the track cards are live at `/learn`. */
-const TRACKS_ENTRY = "/learn";
-
 export const HOME_METADATA: Metadata = {
    title: "InterviewNotes: ML interview preparation",
    description:

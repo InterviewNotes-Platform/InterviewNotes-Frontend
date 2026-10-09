@@ -5,7 +5,7 @@ import { canonical, expect, FAKE_AUTH_ORIGIN, legacyCourse, test, track } from "
 const [freeChapter] = legacyCourse.chapters;
 const LESSON = canonical("lesson.catalog-e2e-free");
 const NAMES = ["Tracks", "Knowledge", "Pricing", "FAQ"];
-const HREFS = ["/tracks", "/knowledge", "/#pricing", "/#faq"];
+const HREFS = ["/learn", "/knowledge", "/#pricing", "/#faq"];
 
 const banner = (page: Page) => page.getByRole("banner");
 const primary = (page: Page) => banner(page).getByRole("navigation", { name: "Primary" });
@@ -29,6 +29,16 @@ test.describe("desktop shell", () => {
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
       await expect(banner(page).getByRole("button", { name: "Toggle theme" })).toBeVisible();
       await expect(banner(page).getByRole("button", { name: "Menu" })).toBeHidden();
+   });
+
+   test("Tracks opens the courses that have content today, the same place as the homepage actions", async ({ page }) => {
+      await page.goto("/");
+      await primary(page).getByRole("link", { name: "Tracks" }).click();
+      await expect(page).toHaveURL("/learn");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Interview Paths");
+      await page.goto("/");
+      await page.getByRole("main").getByRole("link", { name: "Start Learning" }).first().click();
+      await expect(page).toHaveURL("/learn");
    });
 
    test("has no Practice entry, Subscribe, Upgrade, search or Sign up affordance", async ({ page }) => {
@@ -177,6 +187,14 @@ test.describe("legacy", () => {
 
 test.describe("mobile menu at 390px", () => {
    test.use({ viewport: { width: 390, height: 844 } });
+
+   test("Tracks opens the same courses as the desktop navigation", async ({ page }) => {
+      await page.goto("/");
+      await page.getByRole("button", { name: "Menu" }).click();
+      await page.getByRole("dialog", { name: "Menu" }).getByRole("link", { name: "Tracks" }).click();
+      await expect(page).toHaveURL("/learn");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Interview Paths");
+   });
 
    test("hides the desktop navigation, keeps the logo stable and overflows nowhere", async ({ page }) => {
       await page.goto(LESSON);

@@ -1,9 +1,15 @@
 export type NavArea = "learn" | "knowledge";
 
-/** Tracks (the Learn area) targets the Track index; legacy `/learn/*` stays outside the navigation. Pricing and FAQ are
- *  homepage sections. Practice is not a product of its own: its routes belong to the Tracks area (spec §5.3). */
+/** Where Tracks open. The catalog has published no Track, so `/tracks` is empty and the live courses at `/learn` stand in;
+ *  switch this one constant to "/tracks" when the first Track is published (spec §5.3). The header and homepage share it. */
+export const TRACKS_ENTRY = "/learn";
+
+/** The catalog Track index, which catalog pages (breadcrumbs, Practice) keep linking to. */
+export const TRACKS_INDEX_HREF = "/tracks";
+
+/** Pricing and FAQ are homepage sections. Practice is not a product of its own: its routes belong to the Tracks area (spec §5.3). */
 export const PRIMARY_NAV: readonly { area?: NavArea; label: string; href: string }[] = [
-   { area: "learn", label: "Tracks", href: "/tracks" },
+   { area: "learn", label: "Tracks", href: TRACKS_ENTRY },
    { area: "knowledge", label: "Knowledge", href: "/knowledge" },
    { label: "Pricing", href: "/#pricing" },
    { label: "FAQ", href: "/#faq" },

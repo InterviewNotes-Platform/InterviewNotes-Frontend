@@ -4,7 +4,7 @@ import { activeArea, PRIMARY_NAV } from "./primary-navigation";
 describe("primary navigation", () => {
    it("lists Tracks, Knowledge, Pricing and FAQ with their exact destinations, and no Practice", () => {
       expect(PRIMARY_NAV.map(({ label, href }) => [label, href])).toEqual([
-         ["Tracks", "/tracks"],
+         ["Tracks", "/learn"],
          ["Knowledge", "/knowledge"],
          ["Pricing", "/#pricing"],
          ["FAQ", "/#faq"],

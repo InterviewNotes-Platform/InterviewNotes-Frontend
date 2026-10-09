@@ -4,12 +4,12 @@ import { moduleLocation } from "@/lib/catalog/moduleLocation";
 import { catalogEntryHref } from "@/lib/catalog/routes";
 import type { TrackPlacement } from "@/lib/catalog/navigation";
 import type { CatalogOutlineEntry, CatalogTrack } from "@/lib/catalog/types";
-import { PRIMARY_NAV } from "@/lib/primary-navigation";
+import { TRACKS_INDEX_HREF } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 import { PremiumMark } from "./EntryRow";
 
 const trackHref = (track: CatalogTrack) => catalogEntryHref({ ...track, type: "track" });
-const LEARN_HREF = PRIMARY_NAV.find(({ area }) => area === "learn")!.href;
+const LEARN_HREF = TRACKS_INDEX_HREF;
 const CRUMB_LINK = "min-w-0 truncate font-medium text-foreground transition-micro hover:text-primary";
 
 /** Home Track and module above the title: navigation context, not part of the item's URL. */

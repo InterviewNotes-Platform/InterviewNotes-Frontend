@@ -36,7 +36,7 @@ describe("mobile menu", () => {
         setup().open();
         const nav = within(menu()).getByRole("navigation", { name: "Primary" });
         expect(within(nav).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Tracks", "/tracks"],
+            ["Tracks", "/learn"],
             ["Knowledge", "/knowledge"],
             ["Pricing", "/#pricing"],
             ["FAQ", "/#faq"],
