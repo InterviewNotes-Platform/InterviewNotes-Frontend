@@ -3,11 +3,10 @@ import { problemCategoryLabel } from "@/lib/catalog/problem";
 import type { TrackPlacement } from "@/lib/catalog/navigation";
 import { catalogEntryHref } from "@/lib/catalog/routes";
 import type { CatalogMeta } from "@/lib/catalog/types";
-import { PRIMARY_NAV } from "@/lib/primary-navigation";
+import { PRACTICE_HREF } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 import { DIFFICULTY_LABEL, LEVEL_LABEL, PremiumMark } from "./EntryRow";
 
-const PRACTICE_HREF = PRIMARY_NAV.find(({ area }) => area === "practice")!.href;
 const QUIET = "m-0 text-supporting text-muted-foreground";
 
 /**

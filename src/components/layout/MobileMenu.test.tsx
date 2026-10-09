@@ -29,26 +29,29 @@ describe("mobile menu", () => {
     it("moves focus into the menu, onto the first destination", () => {
         setup().open();
         expect(menu().contains(document.activeElement)).toBe(true);
-        expect(document.activeElement).toBe(within(menu()).getByRole("link", { name: "Learn" }));
+        expect(document.activeElement).toBe(within(menu()).getByRole("link", { name: "Tracks" }));
     });
 
-    it("offers the three destinations, account and theme control", () => {
+    it("offers Tracks, Knowledge, Pricing and FAQ, the Premium link, account and theme control", () => {
         setup().open();
         const nav = within(menu()).getByRole("navigation", { name: "Primary" });
         expect(within(nav).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Learn", "/tracks"],
-            ["Practice", "/practice"],
+            ["Tracks", "/learn"],
             ["Knowledge", "/knowledge"],
+            ["Pricing", "/#pricing"],
+            ["FAQ", "/#faq"],
         ]);
+        expect(within(menu()).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
+        expect(within(nav).queryByRole("link", { name: "Practice" })).toBeNull();
         expect(within(menu()).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
         expect(within(menu()).getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
         expect(within(menu()).getByRole("button", { name: "Close" })).toBeInTheDocument();
     });
 
     it("marks the active area as the current page", () => {
-        setup({ active: "practice" }).open();
+        setup({ active: "learn" }).open();
         const current = within(menu()).getAllByRole("link").filter((a) => a.hasAttribute("aria-current"));
-        expect(current.map((a) => a.textContent)).toEqual(["Practice"]);
+        expect(current.map((a) => a.textContent)).toEqual(["Tracks"]);
     });
 
     it("signed in: shows the email, Courses and Log out instead of Sign in", () => {
@@ -101,7 +104,7 @@ describe("mobile menu", () => {
         await waitFor(() => expect(trigger).toHaveFocus());
     });
 
-    it.each(["Learn", "Practice", "Knowledge", "Sign in"])("closes after choosing %s", async (name) => {
+    it.each(["Tracks", "Knowledge", "Pricing", "FAQ", "Premium", "Sign in"])("closes after choosing %s", async (name) => {
         setup().open();
         const link = within(menu()).getByRole("link", { name });
         link.addEventListener("click", (event) => event.preventDefault()); // jsdom cannot navigate

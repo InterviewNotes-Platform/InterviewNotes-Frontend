@@ -14,7 +14,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
-import { PREFETCH_PRIMARY, PRIMARY_NAV, type NavArea } from "@/lib/primary-navigation";
+import { PREFETCH_PRIMARY, PREMIUM_HREF, PRIMARY_NAV, type NavArea } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 
 interface MobileMenuProps {
@@ -54,12 +54,12 @@ export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps
                 <nav aria-label="Primary" className="px-6 py-4">
                     <ul>
                         {PRIMARY_NAV.map(({ area, label, href }) => (
-                            <li key={area}>
+                            <li key={label}>
                                 <Link
                                     href={href}
                                     prefetch={PREFETCH_PRIMARY}
                                     onClick={close}
-                                    aria-current={area === active ? "page" : undefined}
+                                    aria-current={area && area === active ? "page" : undefined}
                                     className={cn(
                                         "flex min-h-12 items-center border-l-2 border-transparent pl-4 text-subsection text-muted-foreground transition-micro hover:text-foreground",
                                         "aria-[current=page]:border-foreground aria-[current=page]:text-foreground"
@@ -72,6 +72,13 @@ export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps
                     </ul>
                 </nav>
                 <div className="mt-auto border-t px-6 py-3">
+                    <Link
+                        href={PREMIUM_HREF}
+                        onClick={close}
+                        className="mb-1 flex min-h-11 items-center text-body font-semibold text-premium transition-micro hover:text-premium/80"
+                    >
+                        Premium
+                    </Link>
                     {loading ? null : user ? (
                         <>
                             <p className="truncate py-2 text-supporting text-muted-foreground">{user.email}</p>

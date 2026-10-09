@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/layout/BrandMark";
 
 export function Footer() {
     return (
@@ -9,7 +10,7 @@ export function Footer() {
                     <div className="md:col-span-1">
                         <Link href="/" className="flex items-center gap-2 mb-4">
                             <span className="text-lg font-bold">
-                                <span className="text-[var(--primary)]">Interview</span><span className="text-[var(--gold)]">Notes</span>
+                                <BrandMark />
                             </span>
                         </Link>
                         <p className="text-sm text-muted-foreground leading-relaxed">

@@ -222,6 +222,48 @@
   --sidebar-ring: #5cb8ff;
 }
 
+/*
+ * Homepage identity: the pre-P0 palette (51b99f3), applied only while the page carries [data-home], so every
+ * other route keeps the AA-tuned tokens above. --primary-text is the small-text blue (AA on the page background).
+ */
+:root:has([data-home]) {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #f1f4f8;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #30a2ff;
+  --primary-text: #0a6ebd;
+  --primary-foreground: #ffffff;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  --muted: #e2e8f0;
+  --muted-foreground: #475569;
+  --border: #cbd5e1;
+  --ring: #0a6ebd;
+}
+
+.dark:has([data-home]) {
+  --background: #0a0a0f;
+  --foreground: #f8fafc;
+  --surface: #0f111a;
+  --card: #111827;
+  --card-foreground: #f8fafc;
+  --popover: #111827;
+  --popover-foreground: #f8fafc;
+  --primary: #5cb8ff;
+  --primary-text: #5cb8ff;
+  --primary-foreground: #0a0a0f;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --border: #1e293b;
+  --ring: #60a5fa;
+}
+
 @layer base {
   * {
     border-color: var(--border);
@@ -399,8 +441,19 @@
 }
 
 .testimonial-scroll-left:hover,
-.testimonial-scroll-right:hover {
+.testimonial-scroll-right:hover,
+.testimonial-scroll-left:focus-visible,
+.testimonial-scroll-right:focus-visible,
+[data-paused="true"] .testimonial-scroll-left,
+[data-paused="true"] .testimonial-scroll-right {
   animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial-scroll-left,
+  .testimonial-scroll-right {
+    animation: none;
+  }
 }
 
 /* Markdown content styling */

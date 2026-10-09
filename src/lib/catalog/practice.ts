@@ -1,4 +1,4 @@
-import { PRIMARY_NAV } from "@/lib/primary-navigation";
+import { PRACTICE_HREF } from "@/lib/primary-navigation";
 import type { CatalogItemListParams, CatalogMeta } from "./types";
 
 type Difficulty = NonNullable<CatalogMeta["difficulty"]>;
@@ -53,8 +53,6 @@ export function withKnownTrack(query: PracticeQuery, trackSlugs: readonly string
 export function activeFilterCount({ tag, difficulty, level, track, access }: PracticeQuery): number {
    return [tag, difficulty, level, track, access].filter((value) => value !== null).length;
 }
-
-const PRACTICE_HREF = PRIMARY_NAV.find(({ area }) => area === "practice")!.href;
 
 /** The Practice URL for a query: filters in a fixed order, absent ones omitted, so a link never carries stale state. */
 export function practiceHref(query: Partial<PracticeQuery> = {}): string {

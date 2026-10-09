@@ -1,5 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { HomeContent } from "@/app/HomeContent";
+import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 
@@ -10,17 +12,31 @@ vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
 const hrefs = () => screen.getAllByRole("link").map((a) => a.getAttribute("href"));
 
 describe("public navigation", () => {
-    it("header links go to the primary destinations, never to homepage sections", () => {
+    it("header links go to Tracks, Knowledge, the homepage Pricing and FAQ sections, and sign-in only", () => {
         render(<Header />);
         const links = hrefs();
-        expect(links).toEqual(expect.arrayContaining(["/tracks", "/practice", "/knowledge"]));
-        expect(links.filter((h) => h?.startsWith("/#"))).toEqual([]);
-        for (const href of links) expect(["/", "/tracks", "/practice", "/knowledge", "/login"]).toContain(href);
+        expect(links).toEqual(expect.arrayContaining(["/learn", "/knowledge", "/#pricing", "/#faq"]));
+        for (const href of links) expect(["/", "/learn", "/knowledge", "/#pricing", "/#faq", "/login"]).toContain(href);
     });
 
-    it("header has no Pricing or Premium affordance", () => {
+    it("the Tracks link opens the same place in the header, the mobile menu and the homepage actions", () => {
+        render(<><Header /><HomeContent /></>);
+        const header = within(screen.getByRole("banner"));
+        const desktop = header.getByRole("navigation", { name: "Primary" }).querySelector("a[href]")!;
+        expect(desktop).toHaveTextContent("Tracks");
+        const home = within(screen.getByRole("main")); // read before the open menu hides the page from the role tree
+        const homeTargets = [...home.getAllByRole("link", { name: "Start Learning" }), home.getByRole("link", { name: /Explore Tracks/ })];
+        fireEvent.click(header.getByRole("button", { name: "Menu" }));
+        const mobile = within(screen.getByRole("dialog")).getByRole("link", { name: "Tracks" });
+        const targets = [desktop, mobile, ...homeTargets];
+        expect(new Set(targets.map((a) => a.getAttribute("href")))).toEqual(new Set([TRACKS_ENTRY]));
+        expect(TRACKS_ENTRY).toBe("/learn");
+    });
+
+    it("header sends Pricing and Premium to the informational pricing section, never to a purchase route", () => {
         render(<Header />);
-        expect(screen.queryByRole("link", { name: /pricing|premium/i })).toBeNull();
+        for (const name of ["Pricing", "Premium"]) expect(screen.getByRole("link", { name })).toHaveAttribute("href", "/#pricing");
+        expect(hrefs().filter((h) => /checkout|billing|purchase|subscribe|stripe|payment|practice/i.test(h ?? ""))).toEqual([]);
     });
 
     it("footer links are real routes and expose no dead placeholders", () => {
