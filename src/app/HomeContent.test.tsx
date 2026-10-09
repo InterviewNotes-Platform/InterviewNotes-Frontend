@@ -78,6 +78,12 @@ describe("hero", () => {
         expect(document.getElementById("access")).toBe(screen.getByRole("region", { name: PREMIUM.heading }));
     });
 
+    it("keeps the gold accent on the primary action", () => {
+        render(<HomeContent />);
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        expect(within(hero).getByRole("link", { name: HERO.primaryAction.label }).className).toMatch(/\bbg-gold\b/);
+    });
+
     it("lists the subject areas as plain items, not controls", () => {
         render(<HomeContent />);
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
@@ -170,7 +176,7 @@ describe("access", () => {
         const access = screen.getByRole("region", { name: PREMIUM.heading });
         const prices = within(within(access).getByRole("list", { name: PRICING.label })).getAllByRole("listitem");
         expect(prices.map((item) => item.textContent)).toEqual(["$50/year", "$100/3 years", "$150/lifetime"]);
-        for (const price of ["$50/year", "$100/3 years", "$150/lifetime"]) expect(within(access).getByText(price)).toBeInTheDocument();
+        for (const { amount, unit } of PRICING.plans) expect(within(access).getByText(amount).parentElement).toHaveTextContent(`${amount}${unit}`);
         for (const item of prices) expect(item.querySelector("a, button, input, form")).toBeNull();
     });
 

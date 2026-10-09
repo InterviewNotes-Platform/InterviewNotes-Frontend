@@ -16,7 +16,12 @@ export const HERO = {
    lead: "Crack your next",
    subject: "ML and AI engineering",
    tail: "interview",
-   body: "Structured learning paths, reusable technical foundations and interview problems, in one connected library for ML and AI engineering interviews.",
+   /** Rendered as `${before}<strong>${emphasis}</strong>${after}`. */
+   intro: {
+      before: "One platform for ",
+      emphasis: "ML system design, LLM platforms and GenAI",
+      after: " interviews. Structured learning paths, reusable foundations and interview problems, in one connected library.",
+   },
    primaryAction: { label: "Start learning", href: "/tracks" },
    secondaryAction: { label: "How access works", href: "#access" },
 };
@@ -74,7 +79,9 @@ export const PREMIUM = {
    full: {
       label: "Full library",
       title: "Planned as paid access",
-      body: "The same lessons, topics and problems, with the premium material open. Locked content will open up once paid access launches.",
+      body: "The same lessons, topics and problems, with the premium material open.",
+      points: ["Every lesson, topic and problem in one library", "Premium material open once paid access launches", "Premium content is labelled wherever it appears"],
+      ribbon: "Not yet available",
    },
    note: "Premium content is labelled wherever it appears. Paid access is not available yet, and nothing is for sale today.",
 };
@@ -83,7 +90,11 @@ export const PREMIUM = {
 export const PRICING = {
    label: "Planned pricing",
    note: "For information only. Paid access is not available yet.",
-   plans: ["$50/year", "$100/3 years", "$150/lifetime"],
+   plans: [
+      { amount: "$50", unit: "/year" },
+      { amount: "$100", unit: "/3 years" },
+      { amount: "$150", unit: "/lifetime" },
+   ],
 };
 
 export const FAQ = {
