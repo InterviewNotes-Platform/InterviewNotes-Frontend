@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HomeContent } from "./HomeContent";
@@ -85,10 +86,10 @@ describe("hero", () => {
         for (const topic of HERO_TOPICS) expect(within(h1).getByText(topic).closest("[aria-hidden='true']")).not.toBeNull();
     });
 
-    it("offers two calls to action: the Tracks landing route, and the pricing section on this page", () => {
+    it("offers two calls to action: the course index that has content today, and the pricing section on this page", () => {
         render(<HomeContent />);
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
-        expect(within(hero).getByRole("link", { name: HERO.primaryAction.label })).toHaveAttribute("href", "/tracks");
+        expect(within(hero).getByRole("link", { name: HERO.primaryAction.label })).toHaveAttribute("href", "/learn");
         expect(within(hero).getByRole("link", { name: HERO.secondaryAction.label })).toHaveAttribute("href", "#pricing");
         expect(document.getElementById("pricing")).toBe(pricing());
     });
@@ -114,6 +115,28 @@ describe("hero", () => {
             expect(within(hero).getByText(value).nextElementSibling).toHaveTextContent(label);
         }
         expect(STATS).toHaveLength(4);
+    });
+});
+
+describe("historical provenance", () => {
+    // The pre-P0 source is 51b99f3:src/app/HomeContent.tsx. This hash is of its eight testimonials as written there.
+    it("keeps all eight testimonials word for word as in the pre-P0 source", () => {
+        const fields = TESTIMONIALS.map(({ name, role, company, quote, initials }) => ({ name, role, company, quote, initials }));
+        expect(fields).toHaveLength(8);
+        expect(createHash("sha256").update(JSON.stringify(fields)).digest("hex")).toBe("e4e9271f3ddb6e701868b51dabbc4fcdf548c532c97d279bc13e3f2eebeb9ce6");
+    });
+
+    it("keeps the four stats and the section wording as in the pre-P0 source", () => {
+        expect(STATS.map(({ value, label }) => `${value} ${label}`)).toEqual(["80+ Design Modules", "5K+ Engineers", "90% Offer Rate", "6 Tracks"]);
+        expect(TESTIMONIALS_SECTION).toEqual({
+            label: "Testimonials",
+            heading: "Engineers Who Landed Offers",
+            lead: "Trusted by engineers at Google, Meta, Amazon, Netflix, Apple & Microsoft.",
+        });
+        expect(HERO.eyebrow).toBe("Your complete interview prep");
+        expect(`${HERO.intro.before}${HERO.intro.emphasis}${HERO.intro.after}`).toBe(
+            "One platform for ML System Design, LLM Platforms & GenAI interviews. Everything you need to land your dream ML/AI offer.",
+        );
     });
 });
 
@@ -163,12 +186,18 @@ describe("tracks", () => {
         expect(document.getElementById("tracks")).toBe(tracks());
     });
 
-    it("sends every card and the action to the Track index, never to a catalog item", () => {
+    it("opens each card on its live course and the action on the course index, never on a catalog item", () => {
         render(<HomeContent />);
         const links = within(tracks()).getAllByRole("link");
-        expect(links).toHaveLength(TRACKS.items.length + 1);
-        for (const link of links) expect(link).toHaveAttribute("href", "/tracks");
-        expect(within(tracks()).getByRole("link", { name: new RegExp(TRACKS.action.label) })).toBeInTheDocument();
+        expect(links.map((link) => link.getAttribute("href"))).toEqual([
+            "/learn/gen-ai-native-design",
+            "/learn/ml-system-design",
+            "/learn/llm-platform-design",
+            "/learn/ml-platform-design",
+            "/learn/gen-ai-foundations",
+            "/learn",
+        ]);
+        expect(within(tracks()).getByRole("link", { name: new RegExp(TRACKS.action.label) })).toHaveAttribute("href", "/learn");
     });
 
     it("names each card by its title and tagline, with the Explore cue inside the same link", () => {
@@ -270,12 +299,12 @@ describe("pricing", () => {
         for (const item of plans) expect(item.querySelector("a, button, input, form")).toBeNull();
     });
 
-    it("says the plans are planned and not yet available, with a free path that leads to the Tracks", () => {
+    it("says the plans are planned and not yet available, with a free path into the courses", () => {
         render(<HomeContent />);
         expect(within(pricing()).getByText(PRICING.lead)).toHaveTextContent(/not available yet/i);
         expect(within(pricing()).getByText(PRICING.note)).toHaveTextContent(/not available yet/i);
         expect(within(pricing()).getAllByText(PRICING.badge)).toHaveLength(PRICING.plans.length);
-        expect(within(pricing()).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual(["/tracks"]);
+        expect(within(pricing()).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual(["/learn"]);
         expect(within(pricing()).queryByRole("button")).toBeNull();
     });
 

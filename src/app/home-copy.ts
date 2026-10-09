@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 
 // Tracks are the primary product, Knowledge supports them (P2 spec §5.3). STATS and TESTIMONIALS are the pre-P0
 // claims (51b99f3) restored verbatim at the product owner's request, not backed by product data. Prices: spec §5.1.
+/** The catalog has published no Track yet, so `/tracks` is empty; the courses behind the track cards are live at `/learn`. */
+const TRACKS_ENTRY = "/learn";
+
 export const HOME_METADATA: Metadata = {
    title: "InterviewNotes: ML interview preparation",
    description:
@@ -20,7 +23,7 @@ export const HERO = {
       emphasis: "ML System Design, LLM Platforms & GenAI",
       after: " interviews. Everything you need to land your dream ML/AI offer.",
    },
-   primaryAction: { label: "Start Learning", href: "/tracks" },
+   primaryAction: { label: "Start Learning", href: TRACKS_ENTRY },
    secondaryAction: { label: "View Pricing", href: "#pricing" },
 };
 
@@ -42,16 +45,16 @@ export const TRACKS = {
    heading: "Choose Your Path",
    lead: "Tracks are the way in: pick one, work through its modules, and explore the lessons, knowledge and practice problems inside it.",
    steps: ["Select a track", "Work through its modules", "Explore lessons, knowledge and problems"],
-   /** Titles and taglines are the pre-P0 track cards; the page is static, so a card opens the Track index. */
+   /** Titles, taglines and course links are the pre-P0 track cards; the page is static, so it carries no counts. */
    items: [
-      { key: "gen-ai-native", title: "Gen AI Native Design", tagline: "RAG, Agents, LLM Ops & more", grid: "lg:col-span-7 md:col-span-2" },
-      { key: "ml-system-design", title: "ML System Design", tagline: "Recommendations, search, ranking & more", grid: "lg:col-span-5" },
-      { key: "llm-platform", title: "LLM Platform Design", tagline: "Inference serving, fine-tuning & guardrails", grid: "lg:col-span-5" },
-      { key: "ml-platform", title: "ML Platform Design", tagline: "MLOps, feature stores & inference", grid: "lg:col-span-7" },
-      { key: "gen-ai-foundations", title: "Gen AI Foundations", tagline: "Transformers, attention, tokenization & more", grid: "lg:col-span-12 md:col-span-2" },
+      { key: "gen-ai-native", href: `${TRACKS_ENTRY}/gen-ai-native-design`, title: "Gen AI Native Design", tagline: "RAG, Agents, LLM Ops & more", grid: "lg:col-span-7 md:col-span-2" },
+      { key: "ml-system-design", href: `${TRACKS_ENTRY}/ml-system-design`, title: "ML System Design", tagline: "Recommendations, search, ranking & more", grid: "lg:col-span-5" },
+      { key: "llm-platform", href: `${TRACKS_ENTRY}/llm-platform-design`, title: "LLM Platform Design", tagline: "Inference serving, fine-tuning & guardrails", grid: "lg:col-span-5" },
+      { key: "ml-platform", href: `${TRACKS_ENTRY}/ml-platform-design`, title: "ML Platform Design", tagline: "MLOps, feature stores & inference", grid: "lg:col-span-7" },
+      { key: "gen-ai-foundations", href: `${TRACKS_ENTRY}/gen-ai-foundations`, title: "Gen AI Foundations", tagline: "Transformers, attention, tokenization & more", grid: "lg:col-span-12 md:col-span-2" },
    ],
    cardAction: "Explore",
-   action: { label: "Explore Tracks", href: "/tracks" },
+   action: { label: "Explore Tracks", href: TRACKS_ENTRY },
 };
 
 export const KNOWLEDGE = {
@@ -106,7 +109,7 @@ export const PRICING = {
       label: "Free",
       title: "Start with free content",
       body: "Read free content to judge the depth for yourself. Premium content is labelled wherever it appears.",
-      action: { label: "Start Learning", href: "/tracks" },
+      action: { label: "Start Learning", href: TRACKS_ENTRY },
    },
 };
 

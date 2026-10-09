@@ -135,7 +135,7 @@ function Hero() {
    );
 }
 
-/** Tracks are the primary product: the bento grid of the pre-P0 page, every card an entry to the Track index. */
+/** Tracks are the primary product: the bento grid of the pre-P0 page, each card opening its course. */
 function Tracks() {
    return (
       <section id="tracks" aria-labelledby="home-tracks-heading" className="relative scroll-mt-20 overflow-hidden border-t border-border/50 py-20 md:py-28">
@@ -159,12 +159,12 @@ function Tracks() {
             </ol>
 
             <ul className="m-0 mx-auto grid max-w-6xl list-none grid-cols-1 gap-5 p-0 md:grid-cols-2 lg:grid-cols-12">
-               {TRACKS.items.map(({ key, title, tagline, grid }) => {
+               {TRACKS.items.map(({ key, href, title, tagline, grid }) => {
                   const Icon = TRACK_ICONS[key];
                   return (
                      <li key={key} className={cn("flex", grid)}>
                         <Link
-                           href={TRACKS.action.href}
+                           href={href}
                            prefetch={PREFETCH_PRIMARY}
                            className="group relative flex w-full flex-col overflow-hidden wrap-anywhere rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.04] transition-[color,background-color,border-color,box-shadow,transform] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10 motion-safe:hover:scale-[1.02]"
                         >

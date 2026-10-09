@@ -3,6 +3,7 @@ import type { APIRequestContext, Page } from "@playwright/test";
 import { expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, test } from "./catalog/harness";
 
 // Homepage: static and presentation-only (look and feel is validated by hand). Tracks lead, Knowledge supports them.
+const TRACK_HREFS = ["/learn/gen-ai-native-design", "/learn/ml-system-design", "/learn/llm-platform-design", "/learn/ml-platform-design", "/learn/gen-ai-foundations"] as const;
 const TRACK_TITLES = ["Gen AI Native Design", "ML System Design", "LLM Platform Design", "ML Platform Design", "Gen AI Foundations"] as const;
 
 const tracks = (page: Page) => page.getByRole("region", { name: "Choose Your Path" });
@@ -37,12 +38,12 @@ test.describe("catalog independence", () => {
    });
 });
 
-test("offers one h1, the five tracks as links to the Track index and Knowledge as a link to its explorer", async ({ page }) => {
+test("offers one h1, the five tracks as links to their courses and Knowledge as a link to its explorer", async ({ page }) => {
    await page.goto("/");
    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
    await expect(trackCards(page)).toHaveCount(TRACK_TITLES.length);
    for (const [index, title] of TRACK_TITLES.entries()) {
-      await expect(trackCards(page).nth(index)).toHaveAttribute("href", "/tracks");
+      await expect(trackCards(page).nth(index)).toHaveAttribute("href", TRACK_HREFS[index]);
       await expect(trackCards(page).nth(index)).toHaveAccessibleName(new RegExp(`^${title}\\b`));
    }
    await expect(page.locator("#knowledge").getByRole("link")).toHaveAttribute("href", "/knowledge");
@@ -67,6 +68,22 @@ test("keyboard reaches the two hero actions, then the track cards in order, each
       await expect(trackCards(page).nth(index)).toHaveCSS("outline-style", "solid");
       await expect(trackCards(page).nth(index)).toHaveCSS("outline-width", "2px");
    }
+});
+
+test("a visitor reaches real content: a track card opens its course and a chapter", async ({ page }) => {
+   await page.goto("/");
+   await trackCards(page).filter({ hasText: "ML System Design" }).click();
+   await expect(page).toHaveURL("/learn/ml-system-design");
+   await page.getByRole("link", { name: "E2E Home Card Chapter" }).click();
+   await expect(page).toHaveURL("/learn/ml-system-design/e2e-home-card-free");
+   await expect(page.getByText("Home card chapter marker.")).toBeVisible();
+});
+
+test("the hero and Explore Tracks actions open the course index, which lists the courses", async ({ page }) => {
+   await page.goto("/");
+   await page.getByRole("link", { name: "Start Learning" }).first().click();
+   await expect(page).toHaveURL("/learn");
+   await expect(page.getByRole("link", { name: /\d+ chapters ML System Design/ })).toBeVisible();
 });
 
 test("the hero's pricing action scrolls to the pricing section", async ({ page }) => {
