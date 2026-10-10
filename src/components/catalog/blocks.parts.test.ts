@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalParts, headingIds, parseBlocks, type Block } from "./blocks";
+import { canonicalParts, headingIds, parseBlocks, partLabel, untargetedSeniorities, type Block } from "./blocks";
 import { knowledgeCoverage } from "./knowledgeRefs";
 
 const md = (text: string): Block => ({ type: "markdown", text });
@@ -85,6 +85,49 @@ describe("canonicalParts (S-PRT-6)", () => {
       const blocks: Block[] = [part("why_it_matters", []), md("Between."), part("answer", [])];
       expect(canonicalParts(blocks)).toEqual([part("answer", []), md("Between."), part("why_it_matters", [])]);
       expect(blocks[0]).toEqual(part("why_it_matters", []));
+   });
+});
+
+const barsOf = (...levels: (string | null)[]) => parseBlocks(levels.map((level) => `::: part name=bar${level ? ` seniority=${level}` : ""}\nBar.\n:::`).join("\n\n"));
+
+describe("untargetedSeniorities (S-SEN-2)", () => {
+   it("names the seniorities with no bar, in presentation order, whatever the authored order", () => {
+      expect(untargetedSeniorities(barsOf("staff", "senior"))).toEqual(["mid", "principal"]);
+      expect(untargetedSeniorities(barsOf("principal", "mid", "staff", "senior"))).toEqual([]);
+   });
+
+   it("names none for legacy prose, whose seniorities are undeclared, and none for an empty body", () => {
+      expect(untargetedSeniorities(parseBlocks("Seniors explain the label bias; staff quantify it."))).toEqual([]);
+      expect(untargetedSeniorities([])).toEqual([]);
+   });
+
+   it("counts a seniority outside the closed set as no target, and names none when a bar names no seniority", () => {
+      expect(untargetedSeniorities(barsOf("fellow", "senior"))).toEqual(["mid", "staff", "principal"]);
+      expect(untargetedSeniorities(barsOf(null, "senior"))).toEqual([]);
+   });
+
+   it("looks at bar parts only", () => {
+      expect(untargetedSeniorities(parseBlocks("::: part name=evaluates\nE.\n:::"))).toEqual([]);
+   });
+});
+
+describe("partLabel (S-RUB-4, S-SEN-3, S-SEN-4)", () => {
+   const label = (text: string) => partLabel(parseBlocks(text)[0] as Extract<Block, { type: "part" }>);
+
+   it("labels the rubric's parts in plain words and a bar by its seniority, never as a level", () => {
+      expect([
+         label("::: part name=evaluates\nE.\n:::"),
+         label("::: part name=strong_evidence\nS.\n:::"),
+         label("::: part name=weak_evidence\nW.\n:::"),
+         label("::: part name=bar seniority=mid\nB.\n:::"),
+         label("::: part name=bar seniority=principal\nB.\n:::"),
+         label("::: part name=bar\nB.\n:::"),
+      ]).toEqual(["What it evaluates", "Strong evidence", "Weak evidence", "Mid bar", "Principal bar", "The bar, for every seniority"]);
+   });
+
+   it("keeps a clarification's eyebrows, and has none for a part it does not know", () => {
+      expect(label("::: part name=answer\nA.\n:::")).toBe("Interviewer's answer");
+      expect(label("::: part name=mystery\nM.\n:::")).toBeUndefined();
    });
 });
 

@@ -193,7 +193,7 @@ describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
       ]);
       expect(controls(region("Follow-ups"))).toEqual(["Show the follow-up questions", "Show reference: What if traffic doubles?"]);
       expect(controls(region("Reference Solution"))).toEqual(["Show the reference solution", "Show reference: Two-tower retrieval"]);
-      expect(controls(region("Self-review"))).toEqual(["Open self-review", "Show reference: ML formulation", "Show common mistakes"]);
+      expect(controls(region("Self-review"))).toEqual(["Open self-review", "Show rubric: ML formulation", "Show common mistakes"]);
       // A hint control also says which hint it is, for assistive technology only (T15); that ordinal is not a count of anything.
       const labels = [...controls(region("Interview")), ...controls(region("Review"))].map((label) => (label ?? "").replace(/^(Show a hint|Show the next hint), hint \d+ for .*$/, "$1"));
       expect(labels.join(" ")).not.toMatch(/\d/);

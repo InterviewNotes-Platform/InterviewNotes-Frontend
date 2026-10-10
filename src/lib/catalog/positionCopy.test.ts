@@ -9,11 +9,14 @@ import {
    NEUTRAL_REGION_LABEL,
    PART_EYEBROW,
    PART_ORDER,
+   SENIORITY_LABEL,
    SENIORITY_ORDER,
    POSITION_COPY,
    REVIEW_INTRODUCTION,
    ROLE_LABEL,
    STAGE_WITHHELD,
+   UNATTRIBUTED_BAR_LABEL,
+   untargetedLine,
    WITHHELD_NOTE,
    YOURS_FIRST,
 } from "./positionCopy";
@@ -65,9 +68,23 @@ describe("position copy", () => {
       expect(YOURS_FIRST).toBe("Before reading on, list the questions you would ask the interviewer and the assumptions you would state.");
       // §7.3 in table order: a clarification's parts, then the rubric dimension's; `bar` serves both tables.
       expect(PART_ORDER).toEqual(["answer", "why_it_matters", "if_different", "evaluates", "strong_evidence", "weak_evidence", "bar"]);
-      expect(PART_EYEBROW).toEqual({ answer: "Interviewer's answer", why_it_matters: "Why it matters", if_different: "If the answer were different" });
+      expect(PART_EYEBROW).toEqual({
+         answer: "Interviewer's answer",
+         why_it_matters: "Why it matters",
+         if_different: "If the answer were different",
+         evaluates: "What it evaluates",
+         strong_evidence: "Strong evidence",
+         weak_evidence: "Weak evidence",
+      });
       expect(SENIORITY_ORDER).toEqual(["mid", "senior", "staff", "principal"]); // S-SEN-1
       expect(Object.keys(PART_EYEBROW).every((name) => PART_ORDER.includes(name))).toBe(true);
+   });
+
+   it("labels every seniority of the closed set, in order, and states an untargeted one as written to no bar (S-SEN-1, S-SEN-2, S-SEN-4)", () => {
+      expect([...SENIORITY_LABEL.keys()]).toEqual([...SENIORITY_ORDER]);
+      expect([...SENIORITY_LABEL.values()]).toEqual(["Mid", "Senior", "Staff", "Principal"]);
+      expect(untargetedLine("principal")).toBe("This Problem is not written to the Principal bar.");
+      expect(UNATTRIBUTED_BAR_LABEL).toBe("The bar, for every seniority");
    });
 
    it("labels the nine shared dimensions of spec §8.1 in their order, and the branches of an open follow-up (S-FUP-5)", () => {
@@ -98,6 +115,7 @@ describe("position copy", () => {
             "Show how the reference frames the problem",
             "Show the reference solution",
             "Show the alternatives",
+            "Show rubric",
             "Open self-review",
             "Show common mistakes",
             "Show the interviewer's answer",

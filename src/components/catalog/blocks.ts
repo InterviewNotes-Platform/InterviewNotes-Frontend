@@ -1,4 +1,4 @@
-import { PART_ORDER, SENIORITY_ORDER } from "@/lib/catalog/positionCopy";
+import { PART_EYEBROW, PART_ORDER, SENIORITY_LABEL, SENIORITY_ORDER, UNATTRIBUTED_BAR_LABEL } from "@/lib/catalog/positionCopy";
 import type { CatalogHeading } from "@/lib/catalog/types";
 
 export type CalloutKind = "note" | "tip" | "warning";
@@ -104,6 +104,22 @@ export function canonicalParts(blocks: Block[]): Block[] {
       .sort((a, b) => rank(a)[0] - rank(b)[0] || rank(a)[1] - rank(b)[1]);
    let next = 0;
    return blocks.map((block) => (block.type === "part" ? parts[next++] : block));
+}
+
+/** The visible label of a part: its eyebrow, or for a bar the seniority it is written to (S-SEN-4). Undefined when the part has none. */
+export function partLabel({ name, seniority }: PartBlock): string | undefined {
+   if (name !== "bar") return PART_EYEBROW[name];
+   return seniority === null ? UNATTRIBUTED_BAR_LABEL : `${SENIORITY_LABEL.get(seniority) ?? seniority} bar`;
+}
+
+/**
+ * The seniorities a structured `level_expectations` has no bar for (S-SEN-2), in presentation order. Legacy prose has no bars,
+ * so its seniorities are undeclared, not untargeted; so does a body with an unattributed bar, which cannot say which it targets.
+ */
+export function untargetedSeniorities(blocks: Block[]): string[] {
+   const bars = blocks.filter((block): block is PartBlock => block.type === "part" && block.name === "bar");
+   if (bars.length === 0 || bars.some(({ seniority }) => seniority === null)) return [];
+   return SENIORITY_ORDER.filter((seniority) => !bars.some((bar) => bar.seniority === seniority));
 }
 
 export type MarkdownBlock = Extract<Block, { type: "markdown" }>;

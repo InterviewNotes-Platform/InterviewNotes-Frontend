@@ -12,12 +12,14 @@ import {
    ROLE_LABEL,
    STAGE_WITHHELD,
    YOURS_FIRST,
+   untargetedLine,
 } from "@/lib/catalog/positionCopy";
 import { problemSectionHeading } from "@/lib/catalog/problem";
 import { firstHintSequence, type ProblemComposition, type ProblemRoleGroup, type ProblemStage } from "@/lib/catalog/problemSpine";
 import type { CatalogSection } from "@/lib/catalog/types";
 import { ProblemReveal } from "@/components/problem/ProblemReveal";
 import { cn } from "@/lib/utils";
+import { parseBlocks, untargetedSeniorities } from "./blocks";
 import { CatalogBody } from "./CatalogBody";
 import { PremiumMark } from "./EntryRow";
 import { HintSequence } from "./HintSequence";
@@ -84,7 +86,7 @@ function Units({
    hints?: (section: CatalogSection) => ReactNode;
    after?: (section: CatalogSection) => ReactNode;
 }) {
-   const label = role === "clarifications" ? CONTROL_LABEL.clarification : CONTROL_LABEL.unit;
+   const label = role === "clarifications" ? CONTROL_LABEL.clarification : role === "rubric" ? CONTROL_LABEL.rubric : CONTROL_LABEL.unit;
    return sections.map((section) => (
       <div key={section.id}>
          <SectionHeading section={section} level={level} id={section.id} />
@@ -117,9 +119,11 @@ function LinkLine({ section, released }: { section: CatalogSection; released: Ca
    );
 }
 
-/** A unit's note: its link line, and a follow-up's shared dimension as a quiet label, never a score or a filter (S-FUP-5). */
+const DIMENSIONED = new Set(["follow_ups", "rubric_dimension"]);
+
+/** A unit's note: its link line, and a follow-up's or rubric dimension's shared dimension as a quiet label, never a score or a filter (S-FUP-5, S-RUB-4). */
 function UnitNote({ section, released }: { section: CatalogSection; released: CatalogSection[] }) {
-   const dimension = section.type === "follow_ups" && section.dimension ? DIMENSION_LABEL.get(section.dimension) : undefined;
+   const dimension = DIMENSIONED.has(section.type) && section.dimension ? DIMENSION_LABEL.get(section.dimension) : undefined;
    return (
       <>
          <LinkLine section={section} released={released} />
@@ -133,8 +137,8 @@ function UnitNote({ section, released }: { section: CatalogSection; released: Ca
    );
 }
 
-// The units that say where they point (S-FUP-5, S-ASM-1, S-ALT-1).
-const LINKED_ROLES = new Set(["assumptions", "followUps", "alternatives"]);
+// The units that say where they point (S-FUP-5, S-ASM-1, S-ALT-1, S-RUB-1).
+const LINKED_ROLES = new Set(["assumptions", "followUps", "alternatives", "rubric"]);
 
 /** Frame's pause before its controls (S-CLR-2): shown when Frame has a clarification, an assumption or a reference to compare. */
 const hasQuestionsToCompare = (stage: ProblemStage) =>
@@ -211,6 +215,16 @@ function StageGroups({ stage, body, released, firstHints }: { stage: ProblemStag
    return yoursFirst ? [...groups.slice(0, after), yoursFirst, ...groups.slice(after)] : groups;
 }
 
+/** The seniorities a structured expectations section has no bar for, each stated (S-SEN-2); none for legacy prose, whose seniorities are undeclared. */
+function Untargeted({ section }: { section: CatalogSection }) {
+   const missing = section.body.format === "markdown@1" ? untargetedSeniorities(parseBlocks(section.body.text)) : [];
+   return missing.map((seniority) => (
+      <p key={seniority} data-untargeted={seniority} className="mt-4 mb-0 text-body text-pretty text-muted-foreground">
+         {untargetedLine(seniority)}
+      </p>
+   ));
+}
+
 /** What a review surface's one control opens: its groups, labelled ones as h3 with their units as h4 (S-AX-1). */
 function SurfaceGroup({ group: { role, sections }, body, released }: { group: ProblemRoleGroup; body: Body; released: CatalogSection[] }) {
    const label = ROLE_LABEL[role];
@@ -231,7 +245,21 @@ function SurfaceGroup({ group: { role, sections }, body, released }: { group: Pr
                <Sections sections={sections} level={3} body={body} untitled />
             </ProblemReveal>
          ) : (
-            <Sections sections={sections} level={3} body={body} untitled />
+            <Sections
+               sections={sections}
+               level={3}
+               untitled
+               body={
+                  role === "expectations"
+                     ? (section, level) => (
+                          <>
+                             {body(section, level)}
+                             <Untargeted section={section} />
+                          </>
+                       )
+                     : body
+               }
+            />
          )}
       </div>
    );

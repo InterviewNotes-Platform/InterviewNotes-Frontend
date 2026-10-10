@@ -89,12 +89,29 @@ export const PART_ORDER: readonly string[] = ["answer", "why_it_matters", "if_di
 /** The closed seniority vocabulary in its presentation order (S-SEN-1): bars are presented in it, whatever their authored order (S-PRT-6). */
 export const SENIORITY_ORDER: readonly string[] = ["mid", "senior", "staff", "principal"];
 
-/** The eyebrow of a clarification's parts (§7.3, S-CLR-3, S-AX-8): text, read in order. The other parts' labels are the self-review's. */
+/** The eyebrow of a part (§7.3, S-CLR-3, S-RUB-4, S-AX-8): text, read in order. A bar's label depends on its seniority, see `SENIORITY_LABEL`. */
 export const PART_EYEBROW: Readonly<Record<string, string>> = {
    answer: "Interviewer's answer",
    why_it_matters: "Why it matters",
    if_different: "If the answer were different",
+   evaluates: "What it evaluates",
+   strong_evidence: "Strong evidence",
+   weak_evidence: "Weak evidence",
 };
+
+/** How a seniority reads on screen (S-SEN-4): a bar is "the Staff bar", never a level. */
+export const SENIORITY_LABEL: ReadonlyMap<string, string> = new Map([
+   ["mid", "Mid"],
+   ["senior", "Senior"],
+   ["staff", "Staff"],
+   ["principal", "Principal"],
+]);
+
+/** The one bar of a rubric dimension that does not differ by seniority (S-SEN-3). */
+export const UNATTRIBUTED_BAR_LABEL = "The bar, for every seniority";
+
+/** The line for a seniority the Problem's expectations have no bar for (S-SEN-2). */
+export const untargetedLine = (seniority: string) => `This Problem is not written to the ${SENIORITY_LABEL.get(seniority) ?? seniority} bar.`;
 
 /** Visible labels of the role groups that carry one (§9.7). */
 export const ROLE_LABEL: Readonly<Partial<Record<ProblemRole, string>>> = {
@@ -146,5 +163,7 @@ export const CONTROL_LABEL = {
    neutral: "Show more material",
    /** A unit's body, after its heading; a clarification's body is the interviewer's answer (S-RVL-4). */
    unit: "Show reference",
+   /** A rubric dimension's body, after its heading: it opens the dimension, not reference-solution content. */
+   rubric: "Show rubric",
    clarification: "Show the interviewer's answer",
 } as const;
