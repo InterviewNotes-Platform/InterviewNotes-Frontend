@@ -51,6 +51,15 @@ export const POSITION_COPY: ReadonlyMap<string, PositionCopy> = new Map([
 
 export const GROUP_LABEL = { interview: "Interview", review: "Review" } as const;
 
+/** The outline's name, and its Show / Hide everything control with the one polite message each press announces (S-RVL-6, S-AX-5). */
+export const OUTLINE_LABEL = "Outline";
+export const EVERYTHING = {
+   show: "Show everything",
+   hide: "Hide everything",
+   shown: "Everything is shown.",
+   hidden: "Everything is hidden.",
+} as const;
+
 export const REVIEW_INTRODUCTION = "After the interview: study one strong approach, then review your reasoning.";
 
 /** The closed region after the review surfaces for material with no usable position (S-SPN-13). */

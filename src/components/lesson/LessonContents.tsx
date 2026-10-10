@@ -10,7 +10,7 @@ import { useActiveHeading } from "./useActiveHeading";
 const COLLAPSE_MS = 220;
 
 /** Focus first, so a keyboard reader never loses their place; then scroll, which follows the page's motion preference. */
-function goTo(id: string, delay: number) {
+export function goTo(id: string, delay: number) {
    const target = document.getElementById(id);
    if (!target) return;
    target.focus({ preventScroll: true });

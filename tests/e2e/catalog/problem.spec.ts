@@ -32,10 +32,14 @@ const band = (page: Page, name: string) => main(page).getByRole("region", { name
 const control = (scope: Locator, name: string) => scope.locator("summary").filter({ hasText: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) });
 const stageNames = (page: Page, name: "Interview" | "Review") => group(page, name).locator(":scope section > div > h2");
 const cues = (page: Page) => main(page).getByText(/^Step \d of \d$/);
-const openCount = (page: Page) => main(page).locator("details[open]").count();
+const reveals = (page: Page) => main(page).locator("details[data-reveal]");
+const openCount = (page: Page) => main(page).locator("details[data-reveal][open]").count();
 const visibleBodies = (page: Page) => main(page).locator("[data-catalog-body]").filter({ visible: true });
-const phases = (page: Page) => page.getByRole("navigation", { name: "Phases" });
-const toggle = (page: Page) => page.getByRole("button", { name: "Phases" });
+const outline = (page: Page) => page.getByRole("navigation", { name: "Outline" });
+// The phone outline is the one native disclosure that is not a reveal.
+const phoneOutline = (page: Page) => main(page).locator("details:not([data-reveal])");
+const toggle = (page: Page) => phoneOutline(page).locator("> summary");
+const opened = (page: Page) => phoneOutline(page).evaluate((element) => (element as HTMLDetailsElement).open);
 const target = (page: Page, id: string) => page.locator(`[id="${id}"]`);
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 const top = (locator: Locator) => locator.evaluate((element) => Math.round(element.getBoundingClientRect().top));
@@ -165,7 +169,7 @@ test.describe("without JavaScript (AC-22, S-RVL-12)", () => {
       await page.goto(route);
       await expect(main(page).getByText(textOf(ML.id, "prompt"))).toBeVisible();
       await expect(visibleBodies(page)).toHaveCount(1);
-      const total = await main(page).locator("details").count();
+      const total = await reveals(page).count();
       expect(await openCount(page)).toBe(0);
 
       // Tab reaches the first stage control, and Enter opens it.
@@ -177,7 +181,7 @@ test.describe("without JavaScript (AC-22, S-RVL-12)", () => {
 
       // Then every other control, outer before inner, by Space on its focused summary.
       for (let opened = 1; opened < total; opened++) {
-         const next = main(page).locator("details:not([open]) > summary").filter({ visible: true }).first();
+         const next = main(page).locator("details[data-reveal]:not([open]) > summary").filter({ visible: true }).first();
          await next.focus();
          await page.keyboard.press("Space");
       }
@@ -252,7 +256,7 @@ test.describe("compatibility and unknowns (AC-9, S-CMP-3, S-SPN-13)", () => {
       await expect(stageNames(page, "Review")).toHaveText(["Reference Solution"]);
       await expect(cues(page)).toHaveText(["Step 1 of 3", "Step 2 of 3", "Step 3 of 3"]);
       await expect(more(page)).toHaveCount(0);
-      await expect(main(page).locator("summary")).toHaveText(["Show reference for Requirements", "Show reference for Design", "Show the reference solution"]);
+      await expect(reveals(page).locator("> summary")).toHaveText(["Show reference for Requirements", "Show reference for Design", "Show the reference solution"]);
 
       await control(band(page, "Design"), "Show reference for Design").click();
       await expect(band(page, "Design").getByRole("heading", { level: 3, name: "High-level design" })).toBeVisible();
@@ -367,34 +371,34 @@ test.describe("preparation and neighbours", () => {
    });
 });
 
-test.describe("stage navigation on a desktop (the P2 outline, until T12)", () => {
+test.describe("the outline on a desktop (S-LAY-2, S-AX-1)", () => {
    test.use({ viewport: { width: 1440, height: 900 } });
 
    test("is a labelled, sticky list of the stages and surfaces shown, and the mobile control is not shown", async ({ page }) => {
       await page.goto(route);
-      await expect(phases(page)).toHaveCount(1);
-      await expect(phases(page).getByRole("link")).toHaveText([...ML_STAGES, ...SURFACES]);
-      await expect(toggle(page)).toHaveCount(0);
-      expect(await phases(page).evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
-      const before = (await phases(page).boundingBox())!.y;
+      await expect(outline(page)).toHaveCount(1);
+      await expect(outline(page).getByRole("link")).toHaveText([...ML_STAGES, ...SURFACES]);
+      await expect(toggle(page)).toBeHidden();
+      expect(await outline(page).evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
+      const before = (await outline(page).boundingBox())!.y;
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-      expect(Math.abs((await phases(page).boundingBox())!.y - before), "the navigation stayed in view").toBeLessThan(400);
+      expect(Math.abs((await outline(page).boundingBox())!.y - before), "the navigation stayed in view").toBeLessThan(400);
    });
 
    test("a click focuses the stage, lands it under the header, marks it current and updates the URL", async ({ page }) => {
       await page.goto(route);
-      await phases(page).getByRole("link", { name: "Evaluate & Scale" }).click();
+      await outline(page).getByRole("link", { name: "Evaluate & Scale" }).click();
       await expect(target(page, "problem_evaluate_and_scale")).toBeFocused();
       await expect.poll(() => top(target(page, "problem_evaluate_and_scale")), { timeout: 5000 }).toBe(112);
-      await expect(phases(page).getByRole("link", { name: "Evaluate & Scale" })).toHaveAttribute("aria-current", "location");
-      await expect(phases(page).locator("[aria-current]")).toHaveCount(1);
+      await expect(outline(page).getByRole("link", { name: "Evaluate & Scale" })).toHaveAttribute("aria-current", "location");
+      await expect(outline(page).locator("[aria-current]")).toHaveCount(1);
       await expect(page).toHaveURL(`${route}#problem_evaluate_and_scale`);
       expect(await openCount(page), "navigating opens no reveal").toBe(0);
    });
 
    test("is reachable by keyboard alone: Tab to a stage, Enter", async ({ page }) => {
       await page.goto(route);
-      const link = phases(page).getByRole("link", { name: "ML Reasoning" });
+      const link = outline(page).getByRole("link", { name: "ML Reasoning" });
       for (let stop = 0; stop < 80 && !(await link.evaluate((element) => element === document.activeElement)); stop++) await page.keyboard.press("Tab");
       await expect(link).toBeFocused();
       await page.keyboard.press("Enter");
@@ -404,29 +408,31 @@ test.describe("stage navigation on a desktop (the P2 outline, until T12)", () =>
    test("follows the reader: the stage being read becomes the current one", async ({ page }) => {
       await page.goto(route);
       await page.evaluate(() => document.getElementById("problem_requirements")!.scrollIntoView({ block: "start" }));
-      await expect.poll(() => phases(page).locator("[aria-current]").textContent()).toBe("Requirements");
+      await expect.poll(() => outline(page).locator("[aria-current]").textContent()).toBe("Requirements");
    });
 });
 
-test.describe("on a phone", () => {
+test.describe("the outline on a phone", () => {
    test.use({ viewport: { width: 390, height: 844 } });
 
    test("keeps the stages in a collapsed disclosure that opens by keyboard, closes on a pick, and focuses the stage", async ({ page }) => {
       await page.goto(route);
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+      expect(await opened(page)).toBe(false);
       expect((await toggle(page).boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await toggle(page).focus();
       await page.keyboard.press("Space");
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-      for (const link of await phases(page).getByRole("link").all()) expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(await opened(page)).toBe(true);
+      for (const link of await outline(page).getByRole("link").all()) expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await page.keyboard.press("Tab");
-      await expect(phases(page).getByRole("link").first()).toBeFocused();
+      await expect(outline(page).getByRole("button", { name: "Show everything" })).toBeFocused(); // first inside the disclosure (S-LAY-2)
+      await page.keyboard.press("Tab");
+      await expect(outline(page).getByRole("link").first()).toBeFocused();
       await page.keyboard.press("Enter");
       await expect(target(page, "problem_frame")).toBeFocused();
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+      expect(await opened(page)).toBe(false);
 
       await toggle(page).click();
-      await phases(page).getByRole("link", { name: "Depth & Trade-offs" }).click();
+      await outline(page).getByRole("link", { name: "Depth & Trade-offs" }).click();
       await expect(target(page, "problem_depth_and_trade_offs")).toBeFocused();
       await expect.poll(() => top(target(page, "problem_depth_and_trade_offs")), { timeout: 5000 }).toBe(112);
    });
@@ -491,7 +497,7 @@ test.describe("themes and motion", () => {
                cue: style("#problem_frame > p").color,
                rule: style("section[aria-labelledby='problem_requirements_title']").borderTopColor,
                control: style("section[aria-labelledby='problem_requirements_title'] summary").color,
-               rail: style("nav[aria-label='Phases'].sticky a").borderLeftColor,
+               rail: style("nav[aria-label='Outline'].sticky a").borderLeftColor,
             };
          });
          expect(colours.page).toBe(scheme === "dark" ? "rgb(15, 15, 17)" : "rgb(255, 255, 255)");
@@ -507,7 +513,7 @@ test.describe("themes and motion", () => {
          await page.goto(route);
          await expect(page.locator("html")).toHaveCSS("scroll-behavior", "auto");
          await toggle(page).click();
-         await phases(page).getByRole("link", { name: "Requirements" }).click();
+         await outline(page).getByRole("link", { name: "Requirements" }).click();
          await expect.poll(() => top(target(page, "problem_requirements")), { timeout: 1500 }).toBe(112);
          await expect(target(page, "problem_requirements")).toBeFocused();
       });
@@ -571,7 +577,7 @@ test.describe("a fully locked Problem (AC-14)", () => {
                await expect(main(page).getByText(absent)).toHaveCount(0);
             }
             await expect(main(page).locator("details")).toHaveCount(0);
-            await expect(phases(page)).toHaveCount(0);
+            await expect(outline(page)).toHaveCount(0);
             await expect(page.getByRole("navigation", { name: /Previous and next/ })).toHaveCount(0);
             await expect(note(page)).toHaveCount(0);
          });
@@ -598,5 +604,403 @@ test.describe("a preview deployment", () => {
       await expect(main(page).getByRole("status")).toBeVisible();
       const reads = (await log(request)).slice(since).map(({ path }) => path).filter((path) => path.includes("catalog-t8-"));
       expect(reads.sort()).toEqual([`/catalog/items/problem/${LOCKED.slug}`, `/catalog/items/problem/${LOCKED.slug}/meta`].sort());
+   });
+});
+
+// P4-T12: one ephemeral owner of reveal state (S-RVL-7) over the native disclosures, Show / Hide everything, fragments, the outline.
+const SECTIONS = ML.sections!.map(({ id }) => id);
+const everything = (page: Page, name: "Show everything" | "Hide everything") => page.getByRole("button", { name });
+const status = (page: Page) => page.getByRole("status");
+const hasText = (page: Page, id: string, section: string) => main(page).getByText(textOf(id, section));
+const inView = (page: Page, id: string) => expect(target(page, id)).toBeInViewport();
+/** Everything a reveal could use to remember itself: cookies, storage, the query and the fragment. */
+const remembered = (page: Page) =>
+   page.evaluate(async () => ({
+      cookie: document.cookie,
+      local: Object.keys(localStorage).sort(),
+      session: Object.keys(sessionStorage).sort(),
+      databases: ((await indexedDB.databases?.()) ?? []).map(({ name }) => name),
+      search: location.search,
+      hash: location.hash,
+   }));
+
+test.describe("Show everything and Hide everything (CHL-7, S-RVL-6, S-AX-5)", () => {
+   test.describe("on a desktop", () => {
+      test.use({ viewport: { width: 1440, height: 900 } });
+
+      test("lives in the outline below a hairline, never beside the challenge", async ({ page }) => {
+         await page.goto(route);
+         const button = everything(page, "Show everything");
+         await expect(button).toHaveCount(1);
+         await expect(outline(page).getByRole("button")).toHaveText("Show everything");
+         expect(await button.evaluate((element) => getComputedStyle(element.parentElement!).borderTopWidth)).toBe("1px");
+         await expect(main(page).getByRole("button")).toHaveCount(1); // the only button on the page
+         await expect(band(page, "Frame").getByRole("button")).toHaveCount(0);
+      });
+
+      test("opens every released reveal and every unit, then reads Hide everything, and moves no focus", async ({ page }) => {
+         await page.goto(route);
+         const total = await reveals(page).count();
+         await everything(page, "Show everything").click();
+         expect(await openCount(page)).toBe(total);
+         for (const id of SECTIONS) await expect(target(page, id), id).toBeVisible();
+         await expect(everything(page, "Hide everything")).toBeFocused();
+         await expect(everything(page, "Show everything")).toHaveCount(0);
+      });
+
+      test("returns to the challenge-first view, whatever the reader had opened", async ({ page }) => {
+         await page.goto(route);
+         await control(band(page, "Design"), "Show reference for Design").click();
+         await everything(page, "Show everything").click();
+         await everything(page, "Hide everything").click();
+         expect(await openCount(page)).toBe(0);
+         await expect(visibleBodies(page)).toHaveCount(1);
+         await expect(main(page).getByText(textOf(ML.id, "prompt"))).toBeVisible();
+         await expect(everything(page, "Show everything")).toBeFocused();
+      });
+
+      test("announces each press once, politely, and not at load", async ({ page }) => {
+         await page.goto(route);
+         await expect(status(page)).toHaveCount(1);
+         await expect(status(page)).toHaveText("");
+         const box = (await status(page).boundingBox())!;
+         expect(box.width * box.height, "visually hidden, read by assistive technology").toBeLessThanOrEqual(1);
+         await everything(page, "Show everything").click();
+         await expect(status(page)).toHaveText("Everything is shown.");
+         await everything(page, "Hide everything").click();
+         await expect(status(page)).toHaveText("Everything is hidden.");
+      });
+
+      test("keeps native toggling in step: closing one reveal leaves the others shown", async ({ page }) => {
+         await page.goto(route);
+         const total = await reveals(page).count();
+         await everything(page, "Show everything").click();
+         await control(band(page, "Design"), "Show reference for Design").click();
+         expect(await openCount(page)).toBe(total - 1);
+         await expect(main(page).getByText(textOf(ML.id, "high-level-design"))).toBeHidden();
+         await expect(main(page).getByText(textOf(ML.id, "functional"))).toBeVisible();
+      });
+
+      test("is reachable by keyboard: Tab to it, Space shows, Space hides", async ({ page }) => {
+         await page.goto(route);
+         const button = everything(page, "Show everything");
+         for (let stop = 0; stop < 80 && !(await button.evaluate((element) => element === document.activeElement)); stop++) await page.keyboard.press("Tab");
+         await expect(button).toBeFocused();
+         expect(await button.evaluate((element) => element.matches(":focus-visible") && getComputedStyle(element).outlineStyle !== "none")).toBe(true);
+         await page.keyboard.press("Space");
+         await expect(everything(page, "Hide everything")).toBeFocused();
+         expect(await openCount(page)).toBeGreaterThan(10);
+         await page.keyboard.press("Enter");
+         expect(await openCount(page)).toBe(0);
+      });
+   });
+
+   test.describe("on a phone", () => {
+      test.use({ viewport: { width: 390, height: 844 } });
+
+      test("is at the top of the collapsed outline, and the outline stays open for it", async ({ page }) => {
+         await page.goto(route);
+         await expect(everything(page, "Show everything")).toBeHidden(); // inside the closed disclosure
+         await toggle(page).click();
+         const button = everything(page, "Show everything");
+         await expect(button).toBeVisible();
+         expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+         const before = (await button.boundingBox())!.y;
+         expect(before, "above the first group").toBeLessThan((await outline(page).getByRole("list", { name: "Interview" }).boundingBox())!.y);
+         await button.click();
+         expect(await openCount(page)).toBe(await reveals(page).count());
+         expect(await opened(page)).toBe(true);
+         await expect(status(page)).toHaveText("Everything is shown.");
+         await everything(page, "Hide everything").click();
+         expect(await openCount(page)).toBe(0);
+         expect(await overflows(page)).toBe(false);
+      });
+   });
+
+   test.describe("without JavaScript (S-RVL-12c)", () => {
+      test.use({ javaScriptEnabled: false, viewport: { width: 1440, height: 900 } });
+
+      test("is absent, and the outline's links still lead to every band", async ({ page }) => {
+         await page.goto(route);
+         await expect(page.getByRole("button", { name: /everything/ })).toHaveCount(0);
+         await expect(outline(page).getByRole("link")).toHaveCount(9);
+         await expect(outline(page).getByRole("link", { name: "Design" })).toHaveAttribute("href", "#problem_design");
+         expect(await openCount(page)).toBe(0);
+      });
+   });
+});
+
+test.describe("deep links and reload (CHL-8, S-RVL-8 … S-RVL-10, AC-4)", () => {
+   test.use({ viewport: { width: 1440, height: 900 } });
+
+   test("a released unit opens its list and itself, takes focus, and is brought into view; nothing else opens", async ({ page }) => {
+      await page.goto(`${route}#deep-dive-labels`);
+      await expect(target(page, "deep-dive-labels")).toBeFocused();
+      await expect(hasText(page, ML.id, "deep-dive-labels")).toBeVisible();
+      await expect(hasText(page, ML.id, "decision-model")).toBeHidden(); // the other unit stays closed
+      expect(await openCount(page)).toBe(2);
+      await inView(page, "deep-dive-labels");
+      expect(await page.evaluate(() => location.hash)).toBe("#deep-dive-labels");
+   });
+
+   test("a clarification opens the same way, and Tab then reaches the unit's own open control", async ({ page }) => {
+      await page.goto(`${route}#clarify-freshness`);
+      await expect(target(page, "clarify-freshness")).toBeFocused();
+      expect(await openCount(page)).toBe(2);
+      await page.keyboard.press("Tab");
+      await expect(page.locator('details[data-reveal="clarify-freshness"] > summary')).toBeFocused();
+   });
+
+   for (const [name, id, expected] of [
+      ["a stage-reference section", "entities", 1],
+      ["a hint", "hint-model", 1],
+      ["reference_design", "reference-design", 1],
+      ["level_expectations", "level-expectations", 1],
+      ["common_mistakes", "common-mistakes", 2],
+   ] as const) {
+      test(`${name} (#${id}) opens the reveal around it, moves no focus, and scrolls to it`, async ({ page }) => {
+         await page.goto(`${route}#${id}`);
+         await expect(target(page, id)).toBeVisible();
+         await inView(page, id);
+         expect(await openCount(page)).toBe(expected);
+         await expect(target(page, id)).not.toBeFocused();
+         expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+      });
+   }
+
+   test("the challenge and a position (page id) only scroll: nothing opens", async ({ page }) => {
+      for (const id of ["prompt", "problem_design"]) {
+         await page.goto(`${route}#${id}`);
+         await inView(page, id);
+         expect(await openCount(page), id).toBe(0);
+      }
+   });
+
+   test("an absent id does nothing and raises no error", async ({ page }) => {
+      await page.goto(`${route}#not-in-this-problem`);
+      await page.waitForTimeout(300);
+      expect(await openCount(page)).toBe(0);
+      expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+   });
+
+   test("following an in-page link or changing the hash later opens the same way", async ({ page }) => {
+      await page.goto(route);
+      expect(await openCount(page)).toBe(0);
+      await page.evaluate(() => (location.hash = "#decision-model"));
+      await expect(target(page, "decision-model")).toBeFocused();
+      expect(await openCount(page)).toBe(2);
+      await page.evaluate(() => (location.hash = "#model"));
+      await expect(hasText(page, ML.id, "model")).toBeVisible();
+      expect(await openCount(page), "opening one thing never closes another").toBe(3);
+   });
+
+   // `window.next.router` is the App Router instance behind every <Link>; the marker proves the document was never reloaded.
+   test.describe("through the client router, not a page load", () => {
+      const push = (page: Page, href: string) => page.evaluate((to) => (window as unknown as { next: { router: { push(href: string): void } } }).next.router.push(to), href);
+
+      test("from another page to a released unit: its path and the unit open, and it takes focus", async ({ page }) => {
+         await page.goto(canonical(SD.id));
+         await page.evaluate(() => ((window as unknown as { __sameDocument: boolean }).__sameDocument = true));
+         const documents: string[] = [];
+         page.on("request", (request) => void (request.resourceType() === "document" && documents.push(request.url())));
+         await push(page, `${route}#deep-dive-labels`);
+         await expect(page).toHaveURL(`${route}#deep-dive-labels`);
+         await expect(target(page, "deep-dive-labels")).toBeFocused();
+         await expect(hasText(page, ML.id, "deep-dive-labels")).toBeVisible();
+         await expect(hasText(page, ML.id, "decision-model")).toBeHidden();
+         expect(await openCount(page)).toBe(2);
+         expect(await page.evaluate(() => (window as unknown as { __sameDocument?: boolean }).__sameDocument), "the document survived").toBe(true);
+         expect(documents, "no document request").toEqual([]);
+      });
+
+      test("to a unit of the page already open, which fires no hashchange", async ({ page }) => {
+         await page.goto(route);
+         expect(await openCount(page)).toBe(0);
+         await push(page, `${route}#decision-model`);
+         await expect(target(page, "decision-model")).toBeFocused();
+         expect(await openCount(page)).toBe(2);
+         await push(page, `${route}#clarify-freshness`);
+         await expect(target(page, "clarify-freshness")).toBeFocused();
+         expect(await openCount(page), "opening one thing never closes another").toBe(4);
+      });
+   });
+
+   test("a normal reload returns to the challenge-first view", async ({ page }) => {
+      await page.goto(route);
+      await control(band(page, "Design"), "Show reference for Design").click();
+      await control(band(page, "Frame"), "Show a hint").click();
+      expect(await openCount(page)).toBe(2);
+      await page.reload();
+      expect(await openCount(page)).toBe(0);
+      await expect(visibleBodies(page)).toHaveCount(1);
+   });
+
+   test("a reload after Show everything is challenge-first too", async ({ page }) => {
+      await page.goto(route);
+      await everything(page, "Show everything").click();
+      await page.reload();
+      expect(await openCount(page)).toBe(0);
+      await expect(everything(page, "Show everything")).toBeVisible();
+   });
+
+   test("a reload that still carries a valid unit fragment reopens that unit and only the path to it", async ({ page }) => {
+      await page.goto(`${route}#deep-dive-labels`);
+      await control(band(page, "Design"), "Show reference for Design").click(); // the reader's own reveal is not remembered
+      await page.reload();
+      await expect(target(page, "deep-dive-labels")).toBeFocused();
+      await expect(hasText(page, ML.id, "deep-dive-labels")).toBeVisible();
+      expect(await openCount(page)).toBe(2);
+      await expect(hasText(page, ML.id, "high-level-design")).toBeHidden();
+   });
+
+   test("after outline navigation the fragment names a position, so a reload opens nothing", async ({ page }) => {
+      await page.goto(`${route}#deep-dive-labels`);
+      await outline(page).getByRole("link", { name: "Design" }).click();
+      await expect(page).toHaveURL(`${route}#problem_design`);
+      await page.reload();
+      expect(await openCount(page)).toBe(0);
+   });
+
+   test("a followed fragment is not the lens or learner state: no request is made", async ({ page }) => {
+      const sent: string[] = [];
+      page.on("request", (request) => void sent.push(`${request.method()} ${request.url()}`));
+      await page.goto(`${route}#deep-dive-labels`);
+      await page.waitForLoadState("load");
+      const before = sent.length;
+      await everything(page, "Show everything").click();
+      await everything(page, "Hide everything").click();
+      await page.evaluate(() => (location.hash = "#decision-model"));
+      await page.waitForTimeout(300);
+      expect(sent.slice(before).filter((request) => !/_rsc|\/_next\/static\//.test(request)), "interactions made no data request").toEqual([]);
+   });
+});
+
+test.describe("withheld and premium ids (S-RVL-9, S-ENT-1, SEC-3)", () => {
+   const stages = canonical(STAGES.id);
+   const WITHHELD = ["non-functional", "entities", "interfaces", "high-level-design", "evaluation", "follow-up-secret", "reference-design", "level-expectations"];
+
+   for (const identity of ["signed-out", "unentitled"] as const) {
+      test.describe(identity, () => {
+         test.use({ identity, viewport: { width: 1440, height: 900 } });
+
+         test("a guessed premium id does nothing, raises no error and adds nothing to the page", async ({ page, traffic }) => {
+            for (const id of WITHHELD) {
+               await page.goto(`${stages}#${id}`);
+               await page.waitForTimeout(150);
+               expect(await openCount(page), id).toBe(0);
+               await expect(target(page, id), id).toHaveCount(0);
+               expect(await page.evaluate(() => document.activeElement === document.body), id).toBe(true);
+            }
+            await expectNoCanary(page, traffic, stages, identity);
+            const html = await page.content();
+            expect(html).not.toContain("P4_SENTINEL");
+            expect(html).not.toContain("premium evaluation body");
+         });
+
+         test("a released id on the same Problem still opens its reveal", async ({ page }) => {
+            await page.goto(`${stages}#hint-design-1`);
+            await expect(main(page).getByText(textOf(STAGES.id, "hint-design-1"))).toBeVisible();
+            expect(await openCount(page)).toBe(1);
+         });
+
+         test("Show everything opens only what was released", async ({ page, traffic }) => {
+            await page.goto(stages);
+            await everything(page, "Show everything").click();
+            expect(await openCount(page)).toBe(await reveals(page).count());
+            await expectNoCanary(page, traffic, stages, identity);
+            expect(await page.content()).not.toContain("P4_SENTINEL");
+         });
+      });
+   }
+
+   test.describe("entitled", () => {
+      test.use({ identity: "entitled", viewport: { width: 1440, height: 900 } });
+
+      test("the same ids open their reveals", async ({ page }) => {
+         await page.goto(`${stages}#entities`);
+         await expect(target(page, "entities")).toBeVisible();
+         expect(await openCount(page)).toBe(1);
+         await page.goto(`${stages}#level-expectations`);
+         await expect(target(page, "level-expectations")).toBeVisible();
+      });
+   });
+});
+
+test.describe("nothing is remembered (S-PST-1 … S-PST-3, S-TST-6)", () => {
+   test.use({ viewport: { width: 1440, height: 900 } });
+
+   test("no cookie, storage, database, query or fragment is written by any reveal interaction", async ({ page }) => {
+      await page.goto(route);
+      await page.waitForLoadState("load");
+      const before = await remembered(page);
+      expect(before.hash).toBe("");
+
+      await control(band(page, "Design"), "Show reference for Design").click(); // a native toggle
+      await control(band(page, "Depth & Trade-offs"), "Compare with the topics the reference goes deep on").click();
+      await everything(page, "Show everything").click();
+      await everything(page, "Hide everything").click();
+      await everything(page, "Show everything").click();
+      expect(await remembered(page)).toEqual(before);
+   });
+
+   test("following a fragment adds no storage, query or second fragment; only outline navigation writes one, naming a position", async ({ page }) => {
+      await page.goto(route);
+      const before = await remembered(page);
+      await page.goto(`${route}#deep-dive-labels`);
+      const arrived = await remembered(page);
+      expect(arrived).toEqual({ ...before, hash: "#deep-dive-labels" });
+      await outline(page).getByRole("link", { name: "Follow-ups" }).click();
+      expect(await remembered(page)).toEqual({ ...before, hash: "#problem_follow_ups" });
+   });
+});
+
+test.describe("the outline, grouped (S-LAY-2, S-AX-1)", () => {
+   test.describe("on a desktop", () => {
+      test.use({ viewport: { width: 1440, height: 900 } });
+
+      test("lists Interview numbered in spine order and Review unnumbered, as two labelled lists", async ({ page }) => {
+         await page.goto(route);
+         const interview = outline(page).getByRole("list", { name: "Interview" });
+         const review = outline(page).getByRole("list", { name: "Review" });
+         await expect(interview.getByRole("link")).toHaveText(ML_STAGES);
+         await expect(review.getByRole("link")).toHaveText(SURFACES);
+         expect(await interview.evaluate((element) => element.tagName + getComputedStyle(element).listStyleType)).toBe("OLdecimal");
+         expect(await review.evaluate((element) => getComputedStyle(element).listStyleType)).toBe("none");
+         await expect(outline(page).locator("h1, h2, h3, h4, h5, h6")).toHaveCount(0); // the page's own h2s stay the spine
+         // The numbers are the cues' numbers.
+         await expect(cues(page)).toHaveText(ML_STAGES.map((_, index) => `Step ${index + 1} of 7`));
+      });
+
+      test("keeps the order of its links equal to the order of the bands", async ({ page }) => {
+         await page.goto(route);
+         const hrefs = await outline(page).getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")!.slice(1)));
+         expect(hrefs).toEqual(ML_IDS);
+         const positions = await page.evaluate((ids) => ids.map((id) => document.getElementById(id)!.getBoundingClientRect().top), hrefs);
+         expect(positions).toEqual([...positions].sort((a, b) => a - b));
+      });
+   });
+
+   test("is a rail from 1024 px and a collapsed disclosure below it", async ({ page }) => {
+      await page.setViewportSize({ width: 1024, height: 800 });
+      await page.goto(route);
+      await expect(toggle(page)).toBeHidden();
+      await expect(outline(page)).toBeVisible();
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await expect(toggle(page)).toBeVisible();
+      expect(await opened(page)).toBe(false);
+      await expect(outline(page)).toHaveCount(0);
+      expect(await overflows(page)).toBe(false);
+   });
+
+   test.describe("on a phone without JavaScript", () => {
+      test.use({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+
+      test("is complete: the disclosure opens natively, its links are anchors, and there is no Show everything", async ({ page }) => {
+         await page.goto(route);
+         await toggle(page).click();
+         expect(await opened(page)).toBe(true);
+         await expect(outline(page).getByRole("link")).toHaveCount(9);
+         await expect(page.getByRole("button", { name: /everything/ })).toHaveCount(0);
+      });
    });
 });

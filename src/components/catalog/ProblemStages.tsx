@@ -3,10 +3,10 @@ import { ADDITIONAL_MATERIAL_LABEL, CHALLENGE_LABEL, CONTROL_LABEL, GROUP_LABEL,
 import { problemSectionHeading } from "@/lib/catalog/problem";
 import type { ProblemComposition, ProblemRoleGroup, ProblemStage } from "@/lib/catalog/problemSpine";
 import type { CatalogSection } from "@/lib/catalog/types";
+import { ProblemReveal } from "@/components/problem/ProblemReveal";
 import { cn } from "@/lib/utils";
 import { CatalogBody } from "./CatalogBody";
 import { PremiumMark } from "./EntryRow";
-import { ProblemReveal } from "./ProblemReveal";
 
 // Problem sections carry no API headings; reading mode still gives diagrams their natural size and keeps links from prefetching.
 const READING = { headings: [] } as const;
@@ -24,7 +24,7 @@ const headingOf = (section: CatalogSection) => problemSectionHeading(section) ??
 function SectionHeading({ section, level, id }: { section: CatalogSection; level: Level; id?: string }) {
    const Tag = `h${level}` as const;
    return (
-      <Tag id={id} className={cn(HEADING[level], id && "scroll-mt-28")}>
+      <Tag id={id} tabIndex={id ? -1 : undefined} className={cn(HEADING[level], id && "scroll-mt-28 rounded-sm")}>
          {headingOf(section)}
       </Tag>
    );
@@ -43,13 +43,13 @@ function Sections({ sections, level, body, untitled = false }: { sections: Catal
    ));
 }
 
-/** A unit: its heading outside the disclosure (the deep-link target without JavaScript), then its own closed body. */
+/** A unit: its heading outside the disclosure (the deep-link target, which takes focus on arrival), then its own closed body. */
 function Units({ role, sections, level, body }: { role: string; sections: CatalogSection[]; level: Level; body: Body }) {
    const label = role === "clarifications" ? CONTROL_LABEL.clarification : CONTROL_LABEL.unit;
    return sections.map((section) => (
       <div key={section.id}>
          <SectionHeading section={section} level={level} id={section.id} />
-         <ProblemReveal label={label} context={`: ${headingOf(section)}`}>
+         <ProblemReveal unit={section.id} label={label} context={`: ${headingOf(section)}`}>
             {body(section, level)}
          </ProblemReveal>
       </div>

@@ -32,7 +32,6 @@ describe("catalog browser/Git boundary", () => {
          "components/catalog/ProblemHeader.tsx",
          "components/catalog/ProblemPreparation.tsx",
          "components/catalog/ProblemResults.tsx",
-         "components/catalog/ProblemReveal.tsx",
          "components/catalog/ProblemStages.tsx",
          "components/catalog/RelatedContent.tsx",
          "components/catalog/TrackCard.tsx",

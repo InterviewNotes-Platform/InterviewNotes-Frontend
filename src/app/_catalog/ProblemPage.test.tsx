@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
@@ -118,6 +118,7 @@ beforeEach(() => {
    getCatalogRelated.mockResolvedValue({ status: "ok", data: RELATED });
    getCatalogTrack.mockImplementation(async (slug: string) => (slug === "home" ? { status: "ok", data: HOME } : { status: "notFound" }));
    Element.prototype.scrollIntoView = vi.fn();
+   window.history.replaceState(null, "", "/"); // the outline writes a fragment; a reveal test sets its own
 });
 
 const region = (name: string) => main().getByRole("region", { name });
@@ -131,7 +132,6 @@ describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
       expect(screen.getByRole("heading", { level: 1, name: "Synthetic Ranking" })).toBeInTheDocument();
       expect(headings(2)).toEqual([
          "Before you start",
-         "Phases", // the mobile disclosure's own heading, as on a Lesson
          ...STAGES,
          ...SURFACES,
          "More material",
@@ -409,7 +409,7 @@ describe("withheld material (S-ENT-1, S-ENT-1a, S-SPN-12)", () => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: { ...PROBLEM, sections: [], spine: [], sections_withheld: true } });
       await show();
       expect(screen.getAllByRole("note")).toHaveLength(1);
-      expect(screen.queryByRole("navigation", { name: "Phases" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();
    });
 });
 
@@ -451,7 +451,7 @@ describe("material the frontend cannot place (S-SPN-13)", () => {
       expect(main().queryByText("The challenge")).not.toBeInTheDocument();
       expect(revealOf("Text of prompt.")).not.toHaveAttribute("open");
       expect(main().queryByText("Text of hint-frame.")).not.toBeInTheDocument();
-      expect(screen.queryByRole("navigation", { name: "Phases" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();
    });
 });
 
@@ -483,13 +483,26 @@ describe("Before you start", () => {
    });
 });
 
-describe("stage navigation (P2 outline until T12)", () => {
-   const desktop = () => screen.getAllByRole("navigation", { name: "Phases" })[1];
-   const mobile = () => screen.getAllByRole("navigation", { name: "Phases" })[0];
+describe("the outline (S-LAY-2, S-AX-1)", () => {
+   const outlines = () => screen.getAllByRole("navigation", { name: "Outline" });
+   const phone = () => outlines()[0];
+   const rail = () => outlines()[1];
 
-   it("lists the stages and surfaces that are shown, as links to them, in a labelled navigation on desktop", async () => {
+   it("lists the stages as numbered Interview links and the surfaces as unnumbered Review links, in labelled lists", async () => {
       await show();
-      const links = within(desktop()).getAllByRole("link");
+      const interview = within(rail()).getByRole("list", { name: "Interview" });
+      expect(interview.tagName).toBe("OL");
+      expect(within(interview).getAllByRole("link").map((link) => link.textContent)).toEqual(STAGES);
+      const review = within(rail()).getByRole("list", { name: "Review" });
+      expect(review.tagName).toBe("UL");
+      expect(within(review).getAllByRole("link").map((link) => link.textContent)).toEqual(SURFACES);
+      expect(within(rail()).getByRole("list", { name: "More material" })).toBeInTheDocument();
+      expect(within(rail()).queryAllByRole("heading")).toHaveLength(0);
+   });
+
+   it("links to every band, each a focus target", async () => {
+      await show();
+      const links = within(rail()).getAllByRole("link");
       expect(links.map((link) => link.textContent)).toEqual([...STAGES, ...SURFACES, "More material"]);
       for (const link of links) {
          const target = document.getElementById(link.getAttribute("href")!.slice(1))!;
@@ -498,27 +511,56 @@ describe("stage navigation (P2 outline until T12)", () => {
       }
    });
 
-   it("is a collapsed, keyboard-operable disclosure on mobile", async () => {
+   it("is a native disclosure on a phone: collapsed, and complete without JavaScript", async () => {
       await show();
-      const trigger = screen.getByRole("button", { name: "Phases" });
-      expect(trigger).toHaveAttribute("aria-expanded", "false");
-      expect(document.getElementById(trigger.getAttribute("aria-controls")!)).toHaveAttribute("inert");
-      fireEvent.click(trigger);
-      expect(trigger).toHaveAttribute("aria-expanded", "true");
-      expect(within(mobile()).getAllByRole("link")).toHaveLength(9);
+      const disclosure = phone().closest("details")!;
+      expect(disclosure).not.toHaveAttribute("open");
+      expect(disclosure.querySelector("summary")).toHaveTextContent("Outline");
+      expect(within(phone()).getAllByRole("link")).toHaveLength(9);
+      expect(within(phone()).getAllByRole("link").every((link) => link.getAttribute("href")!.startsWith("#"))).toBe(true);
    });
 
-   it("moves focus to the stage it was asked for", async () => {
+   it("moves focus to the stage it was asked for, writes that position id as the fragment, and opens nothing", async () => {
       await show();
-      fireEvent.click(within(desktop()).getByRole("link", { name: "Evaluate & Scale" }));
+      fireEvent.click(within(rail()).getByRole("link", { name: "Evaluate & Scale" }));
       expect(document.getElementById("problem_evaluate_and_scale")).toHaveFocus();
+      expect(window.location.hash).toBe("#problem_evaluate_and_scale");
+      expect(document.querySelectorAll("main details[open]")).toHaveLength(0);
+   });
+
+   it("closes the phone disclosure on a pick", async () => {
+      await show();
+      const disclosure = phone().closest("details")!;
+      disclosure.open = true;
+      fireEvent.click(within(phone()).getByRole("link", { name: "Requirements" }));
+      expect(disclosure.open).toBe(false);
+      expect(document.getElementById("problem_requirements")).toHaveFocus();
    });
 
    it("is left out when there is only one stage to show", async () => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: { ...PROBLEM, sections: [section("prompt", "prompt", "Prompt", "frame")], spine: [stage("frame")] } });
       await show();
-      expect(screen.queryByRole("navigation", { name: "Phases" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /everything/ })).not.toBeInTheDocument(); // nothing to reveal
       expect(screen.getByText("Text of prompt.")).toBeInTheDocument();
+   });
+
+   it("keeps Show everything on a single-position Problem that has reveals, with no links to jump between (S-RVL-6)", async () => {
+      const sections = [section("prompt", "prompt", "Prompt", "frame"), section("hint-frame", "hint", null, "frame"), section("question", "clarification", "How fresh?", "frame")];
+      getCatalogItem.mockResolvedValue({ status: "ok", data: { ...PROBLEM, sections, spine: [stage("frame")] } });
+      await show();
+      expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Interview" })).not.toBeInTheDocument();
+      expect(main().queryByRole("link", { name: "Frame" })).not.toBeInTheDocument();
+      expect(main().queryByText("Outline")).not.toBeInTheDocument(); // no phone disclosure either
+
+      const button = screen.getByRole("button", { name: "Show everything" });
+      expect(region("Frame").contains(button)).toBe(false); // never beside the challenge
+      fireEvent.click(button);
+      expect(document.querySelectorAll("main details[data-reveal][open]")).toHaveLength(document.querySelectorAll("main details[data-reveal]").length);
+      expect(screen.getByRole("status")).toHaveTextContent("Everything is shown.");
+      fireEvent.click(screen.getByRole("button", { name: "Hide everything" }));
+      expect(document.querySelectorAll("main details[open]")).toHaveLength(0);
    });
 });
 
@@ -533,7 +575,7 @@ describe("a fully locked Problem", () => {
       expect(getCatalogRelated).not.toHaveBeenCalled();
       expect(getCatalogTrack).not.toHaveBeenCalled();
       expect(screen.queryByText("Before you start")).not.toBeInTheDocument();
-      expect(screen.queryByRole("navigation", { name: "Phases" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();
       expect(screen.queryByRole("note")).not.toBeInTheDocument();
       expect(screen.queryByText("Text of prompt.")).not.toBeInTheDocument();
       expect(screen.queryByText("Part of")).not.toBeInTheDocument();
@@ -571,5 +613,182 @@ describe("what a Problem connects to", () => {
       const links = main().getAllByRole("link").filter((link) => /^\/(lessons|problems|knowledge|tracks)\//.test(link.getAttribute("href")!));
       expect(links.length).toBeGreaterThan(8);
       for (const link of links) expect(link, link.getAttribute("href")!).toHaveAttribute("data-prefetch", "false");
+   });
+});
+
+describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1)", () => {
+   const reveals = () => [...document.querySelectorAll<HTMLDetailsElement>("main details[data-reveal]")];
+   const opened = () => reveals().filter((details) => details.open).map((details) => details.querySelector(":scope > summary")!.textContent);
+   const settle = () => act(() => new Promise<void>((done) => setTimeout(done, 10)));
+   const arrive = async (fragment: string) => {
+      window.history.replaceState(null, "", fragment);
+      await show();
+      await settle();
+   };
+   const press = (name: string) => fireEvent.click(screen.getAllByRole("button", { name })[0]);
+
+   describe("Show everything / Hide everything", () => {
+      it("is a control of the outline only, absent beside the challenge", async () => {
+         await show();
+         expect(screen.getAllByRole("button", { name: "Show everything" })).toHaveLength(2); // the phone disclosure and the rail
+         for (const button of screen.getAllByRole("button", { name: "Show everything" })) expect(button.closest("nav")).toHaveAccessibleName("Outline");
+         expect(region("Frame").querySelector("button")).toBeNull();
+      });
+
+      it("opens every reveal and then reads Hide everything", async () => {
+         await show();
+         expect(opened()).toEqual([]);
+         press("Show everything");
+         expect(opened()).toHaveLength(reveals().length);
+         expect(reveals().length).toBeGreaterThan(10);
+         expect(screen.getAllByRole("button", { name: "Hide everything" })).toHaveLength(2);
+         expect(screen.queryByRole("button", { name: "Show everything" })).not.toBeInTheDocument();
+      });
+
+      it("returns to the challenge-first view, closing what the reader opened too", async () => {
+         await show();
+         const mine = reveals()[0];
+         mine.open = true;
+         fireEvent(mine, new Event("toggle"));
+         press("Show everything");
+         press("Hide everything");
+         expect(opened()).toEqual([]);
+         expect(screen.getAllByRole("button", { name: "Show everything" })).toHaveLength(2);
+      });
+
+      it("announces each press once, politely, in one live region", async () => {
+         await show();
+         const status = screen.getByRole("status");
+         expect(status).toHaveTextContent("");
+         press("Show everything");
+         expect(status).toHaveTextContent("Everything is shown.");
+         press("Hide everything");
+         expect(status).toHaveTextContent("Everything is hidden.");
+         expect(screen.getAllByRole("status")).toHaveLength(1);
+      });
+
+      it("moves no focus", async () => {
+         await show();
+         const button = screen.getAllByRole("button", { name: "Show everything" })[1];
+         button.focus();
+         fireEvent.click(button);
+         expect(document.activeElement).toBe(button);
+      });
+
+      it("keeps native opening and closing in step: closing one leaves the others shown", async () => {
+         await show();
+         press("Show everything");
+         const one = reveals()[3];
+         one.open = false;
+         fireEvent(one, new Event("toggle"));
+         expect(opened()).toHaveLength(reveals().length - 1);
+         press("Hide everything");
+         expect(opened()).toEqual([]);
+      });
+   });
+
+   describe("a fragment naming released material", () => {
+      it("opens a unit's list and the unit, and moves focus to the unit's heading", async () => {
+         await arrive("#deep-one");
+         expect(opened()).toEqual(["Compare with the topics the reference goes deep on", "Show reference: Deep dive: skew"]);
+         expect(document.getElementById("deep-one")).toHaveFocus();
+      });
+
+      it("opens a clarification the same way", async () => {
+         await arrive("#question");
+         expect(opened()).toEqual(["Compare with a strong candidate's questions", "Show the interviewer's answer: How fresh must features be?"]);
+         expect(document.getElementById("question")).toHaveFocus();
+      });
+
+      it.each([
+         ["a stage-reference section", "#features", ["Show reference for ML Reasoning"]],
+         ["a hint", "#hint-frame", ["Show a hint for Frame"]],
+         ["reference_design", "#reference", ["Show the reference solution"]],
+         ["level_expectations", "#levels", ["Open self-review"]],
+         ["common_mistakes", "#mistakes", ["Open self-review", "Show common mistakes"]],
+      ])("opens the reveal around %s, and moves no focus (S-AX-4)", async (_, fragment, expected) => {
+         await arrive(fragment);
+         expect(opened()).toEqual(expected);
+         expect(document.activeElement).toBe(document.body);
+      });
+
+      it("scrolls to the target once it is shown, instantly", async () => {
+         const scroll = vi.fn();
+         Element.prototype.scrollIntoView = scroll;
+         await arrive("#features");
+         expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "instant" });
+         expect(scroll.mock.contexts.at(-1)).toBe(document.getElementById("features"));
+      });
+
+      it("follows a fragment that arrives later, from an in-page link", async () => {
+         await arrive("#");
+         expect(opened()).toEqual([]);
+         await act(async () => {
+            window.location.hash = "#deep-two";
+            await new Promise((done) => setTimeout(done, 10));
+         });
+         expect(opened()).toContain("Show reference: Deep dive: caching");
+         expect(opened()).toHaveLength(2);
+      });
+
+      it("follows a hash the client router wrote with pushState, which fires no hashchange", async () => {
+         const navigation = new EventTarget();
+         Object.defineProperty(window, "navigation", { value: navigation, configurable: true });
+         try {
+            await arrive("#");
+            expect(opened()).toEqual([]);
+            await act(async () => {
+               window.history.pushState(null, "", "#deep-two");
+               navigation.dispatchEvent(new Event("currententrychange"));
+            });
+            expect(opened()).toContain("Show reference: Deep dive: caching");
+            expect(document.getElementById("deep-two")).toHaveFocus();
+         } finally {
+            Reflect.deleteProperty(window, "navigation");
+         }
+      });
+
+      it("opens only the path of the one it names, so a second unit stays closed (S-RVL-10)", async () => {
+         await arrive("#deep-one");
+         expect(document.querySelector<HTMLDetailsElement>('details[data-reveal="deep-two"]')!.open).toBe(false);
+      });
+   });
+
+   describe("a fragment that opens nothing", () => {
+      it.each([
+         ["the challenge", "#prompt"],
+         ["a position (page id)", "#problem_frame"],
+         ["an absent id", "#not-in-this-problem"],
+         ["a malformed escape", "#%E0%A4%A"],
+         ["no fragment", ""],
+      ])("%s: everything stays closed, nothing takes focus, nothing throws", async (_, fragment) => {
+         await arrive(fragment);
+         expect(opened()).toEqual([]);
+         expect(document.activeElement).toBe(document.body);
+      });
+
+      it("treats a withheld section's id as absent: it is not in the page, so it opens nothing", async () => {
+         const withheld = ML_SECTIONS.filter(({ id }) => id !== "features");
+         getCatalogItem.mockResolvedValue({ status: "ok", data: { ...PROBLEM, sections: withheld, sections_withheld: true } });
+         await arrive("#features");
+         expect(document.getElementById("features")).toBeNull();
+         expect(opened()).toEqual([]);
+      });
+   });
+
+   it("writes nothing: no storage, cookie or query, and no fragment beyond the one followed or the outline's position id (S-PST-1)", async () => {
+      await arrive("#deep-one");
+      press("Show everything");
+      press("Hide everything");
+      reveals()[2].open = true;
+      fireEvent(reveals()[2], new Event("toggle"));
+      expect(window.localStorage).toHaveLength(0);
+      expect(window.sessionStorage).toHaveLength(0);
+      expect(document.cookie).toBe("");
+      expect(window.location.search).toBe("");
+      expect(window.location.hash).toBe("#deep-one");
+
+      fireEvent.click(within(screen.getAllByRole("navigation", { name: "Outline" })[1]).getByRole("link", { name: "Requirements" }));
+      expect(window.location.hash).toBe("#problem_requirements");
    });
 });
