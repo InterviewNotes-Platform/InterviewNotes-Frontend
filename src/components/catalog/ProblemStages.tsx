@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { ADDITIONAL_MATERIAL_LABEL, CHALLENGE_LABEL, CONTROL_LABEL, GROUP_LABEL, REVIEW_INTRODUCTION, ROLE_LABEL, STAGE_WITHHELD } from "@/lib/catalog/positionCopy";
+import { linkDisplay } from "@/lib/catalog/linkDisplay";
+import { ADDITIONAL_MATERIAL_LABEL, CHALLENGE_LABEL, CONTROL_LABEL, GROUP_LABEL, REVIEW_INTRODUCTION, ROLE_LABEL, STAGE_WITHHELD, YOURS_FIRST } from "@/lib/catalog/positionCopy";
 import { problemSectionHeading } from "@/lib/catalog/problem";
 import type { ProblemComposition, ProblemRoleGroup, ProblemStage } from "@/lib/catalog/problemSpine";
 import type { CatalogSection } from "@/lib/catalog/types";
@@ -18,6 +19,8 @@ const LIST_ROLES = new Set(["clarifications", "assumptions", "units", "followUps
 
 type Level = 3 | 4;
 type Body = (section: CatalogSection, level: Level) => ReactNode;
+/** What sits between a unit's heading and its control: its link line, if the unit has one. */
+type Note = (section: CatalogSection) => ReactNode;
 
 const headingOf = (section: CatalogSection) => problemSectionHeading(section) ?? ADDITIONAL_MATERIAL_LABEL;
 
@@ -44,11 +47,12 @@ function Sections({ sections, level, body, untitled = false }: { sections: Catal
 }
 
 /** A unit: its heading outside the disclosure (the deep-link target, which takes focus on arrival), then its own closed body. */
-function Units({ role, sections, level, body }: { role: string; sections: CatalogSection[]; level: Level; body: Body }) {
+function Units({ role, sections, level, body, note }: { role: string; sections: CatalogSection[]; level: Level; body: Body; note?: Note }) {
    const label = role === "clarifications" ? CONTROL_LABEL.clarification : CONTROL_LABEL.unit;
    return sections.map((section) => (
       <div key={section.id}>
          <SectionHeading section={section} level={level} id={section.id} />
+         {note?.(section)}
          <ProblemReveal unit={section.id} label={label} context={`: ${headingOf(section)}`}>
             {body(section, level)}
          </ProblemReveal>
@@ -63,9 +67,26 @@ const LIST_LABEL: Partial<Record<string, string>> = {
    followUps: CONTROL_LABEL.followUps,
 };
 
+/** A unit's link line (spec §6.5): a withheld one carries the premium mark, like a stage's access indication. */
+function LinkLine({ section, released }: { section: CatalogSection; released: CatalogSection[] }) {
+   const { text, withheld } = linkDisplay(section, released);
+   if (!text) return null;
+   return (
+      <p className="mt-1 mb-0 flex flex-wrap items-center gap-2 text-supporting text-muted-foreground">
+         {withheld ? <PremiumMark /> : null}
+         <span>{text}</span>
+      </p>
+   );
+}
+
+/** Frame's pause before its controls (S-CLR-2): shown when Frame has a clarification, an assumption or a reference to compare. */
+const hasQuestionsToCompare = (stage: ProblemStage) =>
+   stage.position === "frame" && stage.groups.some(({ role }) => role === "clarifications" || role === "assumptions" || role === "stageReference");
+
 /** An interview stage's role groups, in presentation order: hints quieter, then each reveal closed (§9.3). */
-function StageGroups({ stage, body }: { stage: ProblemStage; body: Body }) {
-   return stage.groups.map(({ role, sections }) => {
+function StageGroups({ stage, body, released }: { stage: ProblemStage; body: Body; released: CatalogSection[] }) {
+   const yoursFirst = hasQuestionsToCompare(stage) ? <p key="yours-first" className="mt-6 mb-0 text-body text-pretty">{YOURS_FIRST}</p> : null;
+   const groups = stage.groups.map(({ role, sections }) => {
       if (role === "challenge") {
          return (
             <div key={role} className="mt-8">
@@ -84,7 +105,13 @@ function StageGroups({ stage, body }: { stage: ProblemStage; body: Body }) {
       if (LIST_ROLES.has(role)) {
          return (
             <ProblemReveal key={role} label={LIST_LABEL[role] ?? CONTROL_LABEL.stageReference(stage.label)}>
-               <Units role={role} sections={sections} level={3} body={body} />
+               <Units
+                  role={role}
+                  sections={sections}
+                  level={3}
+                  body={body}
+                  note={role === "assumptions" ? (section) => <LinkLine section={section} released={released} /> : undefined}
+               />
             </ProblemReveal>
          );
       }
@@ -95,6 +122,9 @@ function StageGroups({ stage, body }: { stage: ProblemStage; body: Body }) {
          </ProblemReveal>
       );
    });
+   // Directly after the challenge, or first when Frame has none released.
+   const after = stage.groups[0]?.role === "challenge" ? 1 : 0;
+   return yoursFirst ? [...groups.slice(0, after), yoursFirst, ...groups.slice(after)] : groups;
 }
 
 /** What a review surface's one control opens: its groups, labelled ones as h3 with their units as h4 (S-AX-1). */
@@ -156,6 +186,7 @@ function AccessIndication({ stage }: { stage: ProblemStage }) {
  */
 export function ProblemStages({ composition, stayOnDeployment }: { composition: ProblemComposition; stayOnDeployment: boolean }) {
    const { interview, review, neutral } = composition;
+   const released = [...interview, ...review, ...(neutral ? [neutral] : [])].flatMap(({ groups }) => groups.flatMap(({ sections }) => sections));
    // An authored heading renders below the heading that contains it, and never above h6 (S-AX-2).
    const body: Body = (section, level) => (
       <CatalogBody key={section.id} body={section.body} stayOnDeployment={stayOnDeployment} reading={READING} headingOffset={level} />
@@ -171,7 +202,7 @@ export function ProblemStages({ composition, stayOnDeployment }: { composition: 
                {interview.map((stage, index) => (
                   <Band key={stage.id} stage={stage} first={index === 0}>
                      {stage.withheld ? <AccessIndication stage={stage} /> : null}
-                     <StageGroups stage={stage} body={body} />
+                     <StageGroups stage={stage} body={body} released={released} />
                   </Band>
                ))}
             </section>

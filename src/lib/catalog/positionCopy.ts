@@ -80,6 +80,22 @@ export const STAGE_WITHHELD = {
    some: "Some material in this stage is included with full access.",
 } as const;
 
+/** Frame's one line in the coach's voice, shown before its controls: a pause, not a form (S-CLR-2). */
+export const YOURS_FIRST = "Before reading on, list the questions you would ask the interviewer and the assumptions you would state.";
+
+/** Part names in their canonical presentation order (§7.3, S-PRT-6): the authored order is not validated. */
+export const PART_ORDER: readonly string[] = ["answer", "why_it_matters", "if_different", "evaluates", "strong_evidence", "weak_evidence", "bar"];
+
+/** The closed seniority vocabulary in its presentation order (S-SEN-1): bars are presented in it, whatever their authored order (S-PRT-6). */
+export const SENIORITY_ORDER: readonly string[] = ["mid", "senior", "staff", "principal"];
+
+/** The eyebrow of a clarification's parts (§7.3, S-CLR-3, S-AX-8): text, read in order. The other parts' labels are the self-review's. */
+export const PART_EYEBROW: Readonly<Record<string, string>> = {
+   answer: "Interviewer's answer",
+   why_it_matters: "Why it matters",
+   if_different: "If the answer were different",
+};
+
 /** Visible labels of the role groups that carry one (§9.7). */
 export const ROLE_LABEL: Readonly<Partial<Record<ProblemRole, string>>> = {
    expectations: "Expectations by seniority",

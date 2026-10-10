@@ -11,10 +11,11 @@ import { Mermaid } from "@/components/mdx/Mermaid";
 import { Tip, type TipType } from "@/components/mdx/Tip";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
 import { plainHeading, type KnowledgeSupport } from "@/lib/catalog/lesson";
+import { PART_EYEBROW } from "@/lib/catalog/positionCopy";
 import { catalogHref, firstPartyPath } from "@/lib/catalog/routes";
 import type { CatalogBody as CatalogBodyData, CatalogHeading } from "@/lib/catalog/types";
 import { cn } from "@/lib/utils";
-import { headingIds, parseBlocks, type Block, type CalloutKind } from "./blocks";
+import { canonicalParts, headingIds, parseBlocks, type Block, type CalloutKind } from "./blocks";
 import { knowledgeCoverage, type KnowledgeCoverage } from "./knowledgeRefs";
 
 type HastElement = NonNullable<ExtraProps["node"]>;
@@ -116,6 +117,7 @@ const components: Components = {
    img: () => null,
 };
 
+const EYEBROW = "m-0 mb-2 text-supporting font-semibold uppercase tracking-wide text-muted-foreground";
 const LINK_STYLE = "text-primary underline underline-offset-4 decoration-primary/40 transition-micro hover:decoration-primary";
 // A reference to Knowledge reads as a reference, not a link away: quiet, dotted, and distinct from LINK_STYLE.
 const KNOWLEDGE_REF_STYLE =
@@ -221,7 +223,7 @@ function aboutIn(block: Block, knowledge: Knowledge | null) {
 function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffset }: BlocksProps) {
    return (
       <>
-         {blocks.map((block, index) =>
+         {canonicalParts(blocks).map((block, index) =>
             block.type === "markdown" ? (
                <ReactMarkdown
                   key={index}
@@ -238,6 +240,11 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffs
                >
                   {block.text}
                </ReactMarkdown>
+            ) : block.type === "part" ? (
+               <div key={index} data-part={block.name} className="mt-6 first:mt-0">
+                  {PART_EYEBROW[block.name] ? <p className={EYEBROW}>{PART_EYEBROW[block.name]}</p> : null}
+                  <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} headingOffset={headingOffset} />
+               </div>
             ) : (
                <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
                   <Tip type={CALLOUTS[block.kind].type} title={CALLOUTS[block.kind].title}>

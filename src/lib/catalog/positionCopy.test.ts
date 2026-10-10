@@ -5,11 +5,15 @@ import {
    CONTROL_LABEL,
    GROUP_LABEL,
    NEUTRAL_REGION_LABEL,
+   PART_EYEBROW,
+   PART_ORDER,
+   SENIORITY_ORDER,
    POSITION_COPY,
    REVIEW_INTRODUCTION,
    ROLE_LABEL,
    STAGE_WITHHELD,
    WITHHELD_NOTE,
+   YOURS_FIRST,
 } from "./positionCopy";
 
 // Transcribed from spec §4.1 (contract position ids) and §9.3 / §9.7 (working copy).
@@ -53,6 +57,15 @@ describe("position copy", () => {
          some: "Some material in this stage is included with full access.",
       });
       expect(ROLE_LABEL).toEqual({ expectations: "Expectations by seniority", rubric: "Rubric", alternatives: "Alternatives", mistakes: "Common mistakes" });
+   });
+
+   it("carries Frame's coach line and the parts' canonical order and clarification eyebrows (S-CLR-2, §7.3, S-CLR-3)", () => {
+      expect(YOURS_FIRST).toBe("Before reading on, list the questions you would ask the interviewer and the assumptions you would state.");
+      // §7.3 in table order: a clarification's parts, then the rubric dimension's; `bar` serves both tables.
+      expect(PART_ORDER).toEqual(["answer", "why_it_matters", "if_different", "evaluates", "strong_evidence", "weak_evidence", "bar"]);
+      expect(PART_EYEBROW).toEqual({ answer: "Interviewer's answer", why_it_matters: "Why it matters", if_different: "If the answer were different" });
+      expect(SENIORITY_ORDER).toEqual(["mid", "senior", "staff", "principal"]); // S-SEN-1
+      expect(Object.keys(PART_EYEBROW).every((name) => PART_ORDER.includes(name))).toBe(true);
    });
 
    it("labels every control with the §9.3 wording, and never with a count (S-RVL-3)", () => {
