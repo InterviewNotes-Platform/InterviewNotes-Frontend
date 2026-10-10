@@ -1,4 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
+import { P4_DECISION_CANARY, P4_FOLLOW_UP_CANARY, P4_TARGET_ID_CANARY, P4_TARGET_TITLE_CANARY } from "../../leak/canaries";
 import { canonical, expect, item, test } from "./harness";
 
 // P4-T16 links in presentation (S-DEC, S-FUP, S-ALT, S-LNK-13, S-AX-7) on the synthetic P4 Problems: SD carries decisions, deep
@@ -127,7 +128,7 @@ for (const identity of ["signed-out", "unentitled"] as const) {
             const html = await (await page.request.get(url)).text();
             const rsc = await (await page.request.get(url, { headers: { RSC: "1" } })).text();
             for (const text of [html, rsc]) {
-               for (const leak of ["decision-secret", "Hidden decision", "P4_SENTINEL_DECISION", textOf(UNITS.id, "decision-secret")]) expect(text).not.toContain(leak);
+               for (const leak of ["decision-secret", "Hidden decision", P4_DECISION_CANARY, textOf(UNITS.id, "decision-secret")]) expect(text).not.toContain(leak);
             }
          }
       });
@@ -148,7 +149,7 @@ for (const identity of ["signed-out", "unentitled"] as const) {
 
          const html = await (await page.request.get(canonical(FOLLOW_UPS.id))).text();
          const rsc = await (await page.request.get(canonical(FOLLOW_UPS.id), { headers: { RSC: "1" } })).text();
-         for (const text of [html, rsc]) for (const leak of ["P4_SENTINEL_TARGET_ID", "P4_SENTINEL_TARGET_TITLE", "P4_SENTINEL_FOLLOW_UP"]) expect(text).not.toContain(leak);
+         for (const text of [html, rsc]) for (const leak of [P4_TARGET_ID_CANARY, P4_TARGET_TITLE_CANARY, P4_FOLLOW_UP_CANARY]) expect(text).not.toContain(leak);
       });
    });
 }

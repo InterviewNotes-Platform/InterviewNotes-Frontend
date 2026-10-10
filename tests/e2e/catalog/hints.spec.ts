@@ -1,4 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
+import { P4_FOLLOW_UP_CANARY } from "../../leak/canaries";
 import { canonical, expect, item, test } from "./harness";
 
 // P4-T15 hint sequences (S-HNT-5 … 9) on the synthetic P4 Problems: SD carries hints in a narrative stage and in both unit
@@ -113,7 +114,7 @@ for (const identity of ["signed-out", "unentitled"] as const) {
          const rsc = await (await page.request.get(stages, { headers: { RSC: "1" } })).text();
          for (const text of [html, rsc]) {
             expect(text).not.toContain("follow-up-secret");
-            expect(text).not.toContain("P4_SENTINEL_FOLLOW_UP");
+            expect(text).not.toContain(P4_FOLLOW_UP_CANARY);
             expect(text).not.toContain(textOf(STAGES.id, "follow-up-secret"));
          }
       });

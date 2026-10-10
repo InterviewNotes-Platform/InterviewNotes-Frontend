@@ -5,6 +5,7 @@ vi.mock("@/components/mdx/Mermaid", () => ({ Mermaid: () => null }));
 
 import { composeProblem } from "@/lib/catalog/problemSpine";
 import type { CatalogSection } from "@/lib/catalog/types";
+import { P4_TARGET_ID_CANARY, P4_TARGET_TITLE_CANARY } from "../../../tests/leak/canaries";
 import { ProblemStages } from "./ProblemStages";
 
 const BRANCHES = "Then, depending on the answer";
@@ -213,7 +214,7 @@ describe("Follow-ups: branches (S-FUP-4, S-FUP-5, S-LNK-9, AC-10)", () => {
 });
 
 describe("Follow-ups: withheld targets (S-FUP-6, S-LNK-13, S-AX-7, AC-13)", () => {
-   const LEAK = ["P4_SENTINEL_TARGET_ID", "P4_SENTINEL_TARGET_TITLE", "CANARY_SECRET"];
+   const LEAK = [P4_TARGET_ID_CANARY, P4_TARGET_TITLE_CANARY, "CANARY_SECRET"];
    // The API names nothing of a withheld target; the section simply is not among the released ones.
    const SECTIONS = [
       followUp("free-parent", "A free parent"),
