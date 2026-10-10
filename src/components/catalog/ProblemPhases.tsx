@@ -1,4 +1,5 @@
-import { problemSectionHeading, type ProblemPhase } from "@/lib/catalog/problem";
+import { problemSectionHeading } from "@/lib/catalog/problem";
+import type { ProblemStage } from "@/lib/catalog/problemSpine";
 import { cn } from "@/lib/utils";
 import { CatalogBody } from "./CatalogBody";
 
@@ -11,7 +12,7 @@ const READING = { headings: [] } as const;
  * the title are text, not headings, so the Problem's sections are the page's h2s. The phase's top is the anchor the
  * phase navigation jumps to: a focus target that clears the sticky header.
  */
-export function ProblemPhases({ phases, stayOnDeployment }: { phases: ProblemPhase[]; stayOnDeployment: boolean }) {
+export function ProblemPhases({ phases, stayOnDeployment }: { phases: ProblemStage[]; stayOnDeployment: boolean }) {
    return (
       <>
          {phases.map((phase, index) => (
@@ -26,7 +27,7 @@ export function ProblemPhases({ phases, stayOnDeployment }: { phases: ProblemPha
                      {phase.label}
                   </p>
                </div>
-               {phase.sections.map((section, position) => {
+               {phase.groups.flatMap(({ sections }) => sections).map((section, position) => {
                   const heading = problemSectionHeading(section);
                   return (
                      <section key={section.id} id={section.id} className={cn("scroll-mt-28", position === 0 ? "mt-8" : "mt-10 border-t border-border pt-8")}>

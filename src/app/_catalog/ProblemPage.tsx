@@ -8,7 +8,8 @@ import { AlternateTracks } from "@/components/catalog/TrackContext";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { LessonContents } from "@/components/lesson/LessonContents";
 import type { ItemNavigation } from "@/lib/catalog/navigation";
-import { phasesOf, problemRelations } from "@/lib/catalog/problem";
+import { problemRelations } from "@/lib/catalog/problem";
+import { composeProblem } from "@/lib/catalog/problemSpine";
 import type { CatalogItem } from "@/lib/catalog/types";
 import { cn } from "@/lib/utils";
 import { WithheldNote } from "./ItemContent";
@@ -19,7 +20,8 @@ import { WithheldNote } from "./ItemContent";
  * fetched here, so a locked Problem (which never reaches this page) loads no body, Track or relations.
  */
 export function ProblemPage({ item, navigation, stayOnDeployment }: { item: CatalogItem; navigation: ItemNavigation | null; stayOnDeployment: boolean }) {
-   const phases = phasesOf(item.sections);
+   const { interview, review, neutral } = composeProblem(item);
+   const phases = [...interview, ...review, ...(neutral ? [neutral] : [])];
    const related = navigation ? problemRelations(navigation.relations, item.id) : null;
    // One phase needs no navigation; with two or more the reader can jump between them.
    const entries = phases.length >= 2 ? phases.map(({ id, label }) => ({ id, level: 2 as const, text: label })) : [];
