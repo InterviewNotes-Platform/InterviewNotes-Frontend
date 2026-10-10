@@ -6,7 +6,7 @@
 //     [--base http://localhost:3100] [--api http://127.0.0.1:3101]
 //     [--viewports 390,768,1024,1440] [--themes light,dark] [--settle 500] [--body-selector <css>] [--identity entitled] [--strict]
 //
-// Modes: overflow, requests, offset, console, panel, syntax, expand, order, axe, interact, keys, motion. Add a mode by writing an async function in MODES; no new loop script.
+// Modes: overflow, requests, offset, console, panel, syntax, expand, order, axe, interact, keys, motion, reveal. Add a mode by writing an async function in MODES; no new loop script.
 // `requests` reads the fake API's /__catalog-log. The production build caches signed-out catalog reads for 60s, so a route
 // whose count is 0 was served from that cache (`cached: true`). `--identity entitled` sends a session, which is never cached: exact counts.
 import { readFileSync } from "node:fs";
@@ -966,6 +966,45 @@ const MODES = {
       return rows;
    },
 
+   // P4-T12: at load, a Problem is challenge-first (S-CHL-1): no reveal open, and no authored body visible but the challenge.
+   async reveal({ browser, config, routes }) {
+      const rows = [];
+      for (const width of list(config.viewports).map(Number)) {
+         for (const theme of list(config.themes)) {
+            const { page, close } = await open(browser, { width, theme, cookies: identityCookies(config) });
+            for (const route of routes) {
+               const { status, errors } = await visit(page, config, route);
+               const found = await page.evaluate(() => {
+                  const shown = (e) => e.checkVisibility({ visibilityProperty: true }) && e.getClientRects().length > 0;
+                  const reveals = [...document.querySelectorAll("main details[data-reveal]")];
+                  const bodies = [...document.querySelectorAll("main [data-catalog-body]")].filter(shown);
+                  const challenge = (e) => e.closest("section[id]")?.previousElementSibling?.textContent === "The challenge";
+                  const reference = bodies.filter((e) => !challenge(e));
+                  return {
+                     dark: document.documentElement.classList.contains("dark"),
+                     reveals: reveals.length,
+                     open: reveals.filter((e) => e.open).length,
+                     outlineOpen: [...document.querySelectorAll("main details:not([data-reveal])")].filter((e) => e.open).length,
+                     visibleBodies: bodies.length,
+                     challengeBodies: bodies.length - reference.length,
+                     referenceBodies: reference.length,
+                     referenceChars: reference.reduce((sum, e) => sum + e.textContent.trim().length, 0),
+                     staged: !!document.querySelector("main [aria-labelledby='problem_interview']"),
+                     everythingControls: [...document.querySelectorAll("main button")].filter((e) => shown(e) && /everything/i.test(e.textContent)).length,
+                     overflowPx: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+                  };
+               });
+               rows.push({
+                  route, width, theme, status, themeApplied: found.dark === (theme === "dark"), ...found,
+                  errors: errors.length, hydrationErrors: errors.filter((text) => HYDRATION.test(text)).length, ...(errors.length > 0 && { errorTexts: errors }),
+               });
+            }
+            await close();
+         }
+      }
+      return rows;
+   },
+
    async console({ browser, config, routes }) {
       const { page, close } = await open(browser);
       const rows = [];
@@ -984,6 +1023,8 @@ const FINDING = {
    requests: () => false,
    offset: (row) => !row.matched,
    console: (row) => row.errors.length > 0,
+   // Only the challenge may be showing at load; a Problem without a spine (a backend before P4) shows no body at all.
+   reveal: (row) => row.errors > 0 || row.status !== 200 || !row.themeApplied || row.open > 0 || row.outlineOpen > 0 || row.referenceBodies > 0 || row.challengeBodies > (row.staged ? 1 : 0) || row.overflowPx > 0,
    // P2 contrast standard: 4.5:1 for text.
    syntax: (row) => row.errors > 0 || !row.themeApplied || row.minContrast < 4.5 || row.plainBlocksWithTokens > 0 || row.tokens.length === 0,
    expand: (row) => {

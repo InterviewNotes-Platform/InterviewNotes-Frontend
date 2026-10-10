@@ -112,11 +112,33 @@ export interface CatalogHeading {
    text: string;
 }
 
+/** A Problem section's link to another section: `target` is null exactly when it is withheld from this caller. */
+export interface CatalogSectionLink {
+   target: string | null;
+   withheld: boolean;
+}
+
 export interface CatalogSection {
    id: string;
    type: string;
    title: string | null;
    body: CatalogBody;
+   /** A spine position id, or null. Absent from an older backend: treat as null. Unknown ids are legal. */
+   spine_position?: string | null;
+   /** Absent from an older backend: treat as null. */
+   link?: CatalogSectionLink | null;
+   /** Absent from an older backend: treat as null. Unknown values are legal. */
+   dimension?: string | null;
+}
+
+/**
+ * One entry of a Problem's spine, in the order the backend sent it. `withheld` is a boolean for an
+ * interview stage and null for a review surface.
+ */
+export interface CatalogSpineEntry {
+   position: string;
+   kind: "interview_stage" | "review_surface";
+   withheld: boolean | null;
 }
 
 /** Metadata plus what this caller may read: a Lesson's body, or a Knowledge/Problem's sections. */
@@ -126,6 +148,8 @@ export interface CatalogItem extends CatalogMeta {
    sections: CatalogSection[];
    /** True when premium sections were left out for this caller. */
    sections_withheld: boolean;
+   /** A Problem's spine. Null for a Lesson or Knowledge item; absent from an older backend: treat as no spine. */
+   spine?: CatalogSpineEntry[] | null;
 }
 
 /**

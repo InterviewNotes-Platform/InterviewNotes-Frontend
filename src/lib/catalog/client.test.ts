@@ -360,3 +360,92 @@ describe("getCatalogRelated", () => {
       expect(await getCatalogRelated("lesson", "x")).toEqual({ status: "unavailable", cause: "malformed" });
    });
 });
+
+describe("P4 section and spine fields (S-API-8)", () => {
+   const hint = {
+      id: "hint-design-1",
+      type: "hint",
+      title: null,
+      spine_position: "design",
+      link: { target: "high-level-design", withheld: false },
+      dimension: null,
+      body: { format: "markdown@1", text: "Who reads these features?" },
+   };
+   const SPINE = [
+      { position: "frame", kind: "interview_stage", withheld: false },
+      { position: "design", kind: "interview_stage", withheld: true },
+      { position: "self_review", kind: "review_surface", withheld: null },
+   ];
+   const problem = (sections: unknown[], spine: unknown = SPINE) => ({
+      ...META,
+      id: "problem.x",
+      type: "problem",
+      access: "free",
+      category: "system_design",
+      body: null,
+      headings: [],
+      sections,
+      sections_withheld: false,
+      spine,
+   });
+   const get = async (payload: unknown) => {
+      fetchMock.mockResolvedValue(reply(200, payload));
+      return getCatalogItem("problem", "x");
+   };
+
+   it("returns the P4 fields exactly as sent, including a withheld link and a stage flag", async () => {
+      const withheldLink = { ...hint, id: "hint-design-2", link: { target: null, withheld: true } };
+      const payload = problem([hint, withheldLink]);
+      expect(await get(payload)).toEqual({ status: "ok", data: payload });
+   });
+
+   it("accepts sections without the fields and an item without a spine, as an older backend sends them", async () => {
+      const bare = { id: "prompt", type: "prompt", title: null, body: { format: "markdown@1", text: "x" } };
+      const payload = without(problem([bare]), "spine");
+      const result = await get(payload);
+      expect(result).toEqual({ status: "ok", data: payload });
+      expect(result.status === "ok" && result.data.spine).toBeUndefined();
+      expect(result.status === "ok" && result.data.sections[0].spine_position).toBeUndefined();
+   });
+
+   it("accepts null for every field, as the backend sends them for a Knowledge section and a section without a link", async () => {
+      const nulls = { ...hint, spine_position: null, link: null, dimension: null };
+      expect((await get({ ...problem([nulls], null) })).status).toBe("ok");
+      expect((await get({ ...KNOWLEDGE, spine: null, sections: [nulls] })).status).toBe("ok");
+   });
+
+   it("accepts a position, a spine position, a dimension and a type it has never seen", async () => {
+      const unknown = { ...hint, type: "p4_future_unit", spine_position: "p4_future_zone", dimension: "p4_future_dimension" };
+      const future = [...SPINE, { position: "p4_future_zone", kind: "interview_stage", withheld: false }];
+      expect((await get(problem([unknown], future))).status).toBe("ok");
+   });
+
+   it.each<[string, Record<string, unknown>]>([
+      ["a non-string spine_position", { spine_position: 3 }],
+      ["a link that is a string", { link: "high-level-design" }],
+      ["a link without withheld", { link: { target: "x" } }],
+      ["a link with a non-boolean withheld", { link: { target: "x", withheld: "no" } }],
+      ["a link with a non-string target", { link: { target: 3, withheld: false } }],
+      ["a link missing its target", { link: { withheld: false } }],
+      ["a withheld link that names a target", { link: { target: "high-level-design", withheld: true } }],
+      ["a released link without a target", { link: { target: null, withheld: false } }],
+      ["a non-string dimension", { dimension: ["architecture"] }],
+   ])("refuses %s", async (_name, patch) => {
+      expect(await get(problem([{ ...hint, ...patch }]))).toEqual(MALFORMED);
+   });
+
+   it.each<[string, unknown]>([
+      ["a spine that is not an array", { position: "frame" }],
+      ["an entry that is not an object", ["frame"]],
+      ["an entry without a position", [{ kind: "interview_stage", withheld: false }]],
+      ["an entry with a non-string position", [{ position: 1, kind: "interview_stage", withheld: false }]],
+      ["an entry without a kind", [{ position: "frame", withheld: false }]],
+      ["an entry with a kind it cannot classify", [{ position: "frame", kind: "bonus_stage", withheld: false }]],
+      ["an interview stage without withheld", [{ position: "frame", kind: "interview_stage" }]],
+      ["an interview stage with a null withheld", [{ position: "frame", kind: "interview_stage", withheld: null }]],
+      ["a review surface with a boolean withheld", [{ position: "self_review", kind: "review_surface", withheld: false }]],
+      ["a review surface without withheld", [{ position: "self_review", kind: "review_surface" }]],
+   ])("refuses %s", async (_name, spine) => {
+      expect(await get(problem([hint], spine))).toEqual(MALFORMED);
+   });
+});

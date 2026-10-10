@@ -16,6 +16,7 @@ import type {
    CatalogRelated,
    CatalogResult,
    CatalogSection,
+   CatalogSpineEntry,
    CatalogTrack,
    CatalogTrackList,
    CatalogTrackSummary,
@@ -102,13 +103,40 @@ function isHeading(value: unknown): value is CatalogHeading {
    );
 }
 
+/** `target` is null exactly when the link is withheld, so a withheld link never names a section. */
+function isLink(value: unknown): boolean {
+   return (
+      isRecord(value) &&
+      typeof value.withheld === "boolean" &&
+      (value.target === null || isString(value.target)) &&
+      (value.target === null) === value.withheld
+   );
+}
+
+/** An absent field is an older backend; a present one must have its documented shape. Unknown strings are legal. */
 function isSection(value: unknown): value is CatalogSection {
    return (
       isRecord(value) &&
       isString(value.id) &&
       isString(value.type) &&
       (value.title === null || isString(value.title)) &&
-      isBody(value.body)
+      isBody(value.body) &&
+      (value.spine_position === undefined || value.spine_position === null || isString(value.spine_position)) &&
+      (value.link === undefined || value.link === null || isLink(value.link)) &&
+      (value.dimension === undefined || value.dimension === null || isString(value.dimension))
+   );
+}
+
+const SPINE_KINDS = ["interview_stage", "review_surface"];
+
+/** `withheld` is a boolean for an interview stage and null for a review surface. */
+function isSpineEntry(value: unknown): value is CatalogSpineEntry {
+   return (
+      isRecord(value) &&
+      isString(value.position) &&
+      isString(value.kind) &&
+      SPINE_KINDS.includes(value.kind) &&
+      (value.kind === "interview_stage" ? typeof value.withheld === "boolean" : value.withheld === null)
    );
 }
 
@@ -196,7 +224,8 @@ function isItem(value: unknown): value is CatalogItem {
       item.headings.every(isHeading) &&
       Array.isArray(item.sections) &&
       item.sections.every(isSection) &&
-      typeof item.sections_withheld === "boolean"
+      typeof item.sections_withheld === "boolean" &&
+      (item.spine === undefined || item.spine === null || (Array.isArray(item.spine) && item.spine.every(isSpineEntry)))
    );
 }
 

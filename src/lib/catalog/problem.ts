@@ -2,45 +2,6 @@ import type { LinkedMeta } from "./lesson";
 import { linkableEntries } from "./routes";
 import type { CatalogCategory, CatalogMeta, CatalogSection } from "./types";
 
-export interface ProblemPhase {
-   id: string;
-   label: string;
-   /** Position among the phases being shown, so a Problem without an ML phase counts 1..5; none for the unclassified remainder. */
-   step: { position: number; total: number } | null;
-   sections: CatalogSection[];
-}
-
-// Page-level ids use `_`, which a section id (kebab-case, P1 §3) never contains, so they cannot collide with one.
-const PHASES: readonly { id: string; label: string; types: readonly string[] }[] = [
-   { id: "problem_frame", label: "Frame", types: ["prompt", "scope_clarification"] },
-   { id: "problem_requirements", label: "Requirements", types: ["functional_requirements", "non_functional_requirements", "constraints"] },
-   { id: "problem_design", label: "Design", types: ["core_entities", "interfaces", "high_level_design"] },
-   { id: "problem_ml", label: "ML Reasoning", types: ["ml_objective", "data", "features", "labels", "model", "training", "inference"] },
-   { id: "problem_evaluate", label: "Evaluate & Scale", types: ["evaluation", "integration", "production_scaling"] },
-   { id: "problem_depth", label: "Depth & Trade-offs", types: ["deep_dive", "trade_offs"] },
-];
-const MORE = { id: "problem_more", label: "More" };
-
-const PHASE_OF_TYPE = new Map(PHASES.flatMap(({ types }, index) => types.map((type) => [type, index] as const)));
-
-/**
- * The phases that have sections, in the fixed phase order, each with its sections in the API's order (which is the
- * authored order, P1 §6.2). A type outside the mapping goes to More, never dropped and never classified further.
- */
-export function phasesOf(sections: readonly CatalogSection[]): ProblemPhase[] {
-   const buckets = [...PHASES, MORE].map((phase) => ({ ...phase, sections: [] as CatalogSection[] }));
-   for (const section of sections) buckets[PHASE_OF_TYPE.get(section.type) ?? PHASES.length].sections.push(section);
-   const present = buckets.filter(({ sections: members }) => members.length > 0);
-   const total = present.filter(({ id }) => id !== MORE.id).length;
-   let position = 0;
-   return present.map(({ id, label, sections: members }) => ({
-      id,
-      label,
-      step: id === MORE.id ? null : { position: (position += 1), total },
-      sections: members,
-   }));
-}
-
 const SECTION_LABEL = new Map<string, string>([
    ["prompt", "Prompt"],
    ["scope_clarification", "Scope clarification"],
