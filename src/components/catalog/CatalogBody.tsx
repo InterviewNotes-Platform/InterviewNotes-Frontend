@@ -14,7 +14,7 @@ import { plainHeading, type KnowledgeSupport } from "@/lib/catalog/lesson";
 import { catalogHref, firstPartyPath } from "@/lib/catalog/routes";
 import type { CatalogBody as CatalogBodyData, CatalogHeading } from "@/lib/catalog/types";
 import { cn } from "@/lib/utils";
-import { headingIds, parseBlocks, type Block, type CalloutKind } from "./blocks";
+import { canonicalParts, headingIds, parseBlocks, partLabel, type Block, type CalloutKind } from "./blocks";
 import { knowledgeCoverage, type KnowledgeCoverage } from "./knowledgeRefs";
 
 type HastElement = NonNullable<ExtraProps["node"]>;
@@ -116,6 +116,7 @@ const components: Components = {
    img: () => null,
 };
 
+const EYEBROW = "m-0 mb-2 text-supporting font-semibold uppercase tracking-wide text-muted-foreground";
 const LINK_STYLE = "text-primary underline underline-offset-4 decoration-primary/40 transition-micro hover:decoration-primary";
 // A reference to Knowledge reads as a reference, not a link away: quiet, dotted, and distinct from LINK_STYLE.
 const KNOWLEDGE_REF_STYLE =
@@ -218,39 +219,67 @@ function aboutIn(block: Block, knowledge: Knowledge | null) {
    return marked && ((offset: number) => knowledge?.support.get(marked.get(offset) ?? ""));
 }
 
+const EVIDENCE = new Set(["strong_evidence", "weak_evidence"]);
+// Neighbouring evidence parts share a row on wide screens and stack on phones (S-RUB-4, S-LAY-4); cells may shrink so code scrolls inside them.
+const EVIDENCE_ROW = "mt-6 grid gap-6 first:mt-0 md:grid-cols-2 [&>[data-part]]:mt-0 [&>[data-part]]:min-w-0";
+
+/** The blocks with each run of neighbouring evidence parts gathered into one row. */
+function withEvidenceRows(blocks: Block[]): (Block | Block[])[] {
+   return blocks.reduce<(Block | Block[])[]>((out, block) => {
+      const evidence = block.type === "part" && EVIDENCE.has(block.name);
+      const last = out[out.length - 1];
+      if (evidence && Array.isArray(last)) last.push(block);
+      else out.push(evidence ? [block] : block);
+      return out;
+   }, []);
+}
+
 function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffset }: BlocksProps) {
+   const view = (block: Block, index: number) =>
+      block.type === "markdown" ? (
+         <ReactMarkdown
+            key={index}
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[[rehypeHighlight, HIGHLIGHT]]}
+            components={{
+               ...components,
+               ...headingComponents(ids?.get(block), headingOffset),
+               pre: codeBlock(reading),
+               a: anchor(stayOnDeployment, reading, aboutIn(block, knowledge)),
+            }}
+            urlTransform={safeUrl}
+            skipHtml
+         >
+            {block.text}
+         </ReactMarkdown>
+      ) : block.type === "part" ? (
+         <div key={index} data-part={block.name} className="mt-6 first:mt-0">
+            {partLabel(block) ? <p className={EYEBROW}>{partLabel(block)}</p> : null}
+            <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} headingOffset={headingOffset} />
+         </div>
+      ) : (
+         <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
+            <Tip type={CALLOUTS[block.kind].type} title={CALLOUTS[block.kind].title}>
+               <Blocks
+                  blocks={block.children}
+                  stayOnDeployment={stayOnDeployment}
+                  reading={reading}
+                  ids={ids}
+                  knowledge={knowledge}
+                  headingOffset={headingOffset}
+               />
+            </Tip>
+         </div>
+      );
    return (
       <>
-         {blocks.map((block, index) =>
-            block.type === "markdown" ? (
-               <ReactMarkdown
-                  key={index}
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[[rehypeHighlight, HIGHLIGHT]]}
-                  components={{
-                     ...components,
-                     ...headingComponents(ids?.get(block), headingOffset),
-                     pre: codeBlock(reading),
-                     a: anchor(stayOnDeployment, reading, aboutIn(block, knowledge)),
-                  }}
-                  urlTransform={safeUrl}
-                  skipHtml
-               >
-                  {block.text}
-               </ReactMarkdown>
-            ) : (
-               <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
-                  <Tip type={CALLOUTS[block.kind].type} title={CALLOUTS[block.kind].title}>
-                     <Blocks
-                        blocks={block.children}
-                        stayOnDeployment={stayOnDeployment}
-                        reading={reading}
-                        ids={ids}
-                        knowledge={knowledge}
-                        headingOffset={headingOffset}
-                     />
-                  </Tip>
+         {withEvidenceRows(canonicalParts(blocks)).map((entry, index) =>
+            Array.isArray(entry) ? (
+               <div key={index} className={EVIDENCE_ROW}>
+                  {entry.map(view)}
                </div>
+            ) : (
+               view(entry, index)
             )
          )}
       </>

@@ -178,12 +178,12 @@ describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
    it("labels every closed control with what it shows and where, and never with a count", async () => {
       await show();
       expect(controls(region("Frame"))).toEqual([
-         "Show a hint for Frame",
+         "Show a hint, hint 1 for Frame",
          "Compare with a strong candidate's questions",
          "Show the interviewer's answer: How fresh must features be?",
          "Show how the reference frames the problem",
       ]);
-      expect(controls(region("Requirements"))).toEqual(["Show a hint for Requirements", "Show reference for Requirements"]);
+      expect(controls(region("Requirements"))).toEqual(["Show a hint, hint 1 for Requirements", "Show reference for Requirements"]);
       expect(controls(region("ML Reasoning"))).toEqual(["Show reference for ML Reasoning"]);
       expect(controls(region("Depth & Trade-offs"))).toEqual([
          "Compare with the topics the reference goes deep on",
@@ -193,8 +193,10 @@ describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
       ]);
       expect(controls(region("Follow-ups"))).toEqual(["Show the follow-up questions", "Show reference: What if traffic doubles?"]);
       expect(controls(region("Reference Solution"))).toEqual(["Show the reference solution", "Show reference: Two-tower retrieval"]);
-      expect(controls(region("Self-review"))).toEqual(["Open self-review", "Show reference: ML formulation", "Show common mistakes"]);
-      expect([...controls(region("Interview")), ...controls(region("Review"))].join(" ")).not.toMatch(/\d/);
+      expect(controls(region("Self-review"))).toEqual(["Open self-review", "Show rubric: ML formulation", "Show common mistakes"]);
+      // A hint control also says which hint it is, for assistive technology only (T15); that ordinal is not a count of anything.
+      const labels = [...controls(region("Interview")), ...controls(region("Review"))].map((label) => (label ?? "").replace(/^(Show a hint|Show the next hint), hint \d+ for .*$/, "$1"));
+      expect(labels.join(" ")).not.toMatch(/\d/);
    });
 
    it("shows a stage's reference together, each section under its own h3, and a hint control quieter, before it", async () => {
@@ -375,7 +377,7 @@ describe("withheld material (S-ENT-1, S-ENT-1a, S-SPN-12)", () => {
       const design = region("Design");
       expect(within(design).getByText("Some material in this stage is included with full access.")).toBeInTheDocument();
       expect(within(design).queryByText("The material for this stage is included with full access.")).not.toBeInTheDocument();
-      expect(controls(design)).toEqual(["Show a hint for Design"]);
+      expect(controls(design)).toEqual(["Show a hint, hint 1 for Design"]);
    });
 
    it("marks a partly withheld stage after its intent and still offers its released reference", async () => {
@@ -702,7 +704,7 @@ describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1
 
       it.each([
          ["a stage-reference section", "#features", ["Show reference for ML Reasoning"]],
-         ["a hint", "#hint-frame", ["Show a hint for Frame"]],
+         ["a hint", "#hint-frame", ["Show a hint, hint 1 for Frame"]],
          ["reference_design", "#reference", ["Show the reference solution"]],
          ["level_expectations", "#levels", ["Open self-review"]],
          ["common_mistakes", "#mistakes", ["Open self-review", "Show common mistakes"]],

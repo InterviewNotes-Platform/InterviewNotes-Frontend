@@ -1,23 +1,45 @@
 import type { ReactNode } from "react";
-import { ADDITIONAL_MATERIAL_LABEL, CHALLENGE_LABEL, CONTROL_LABEL, GROUP_LABEL, REVIEW_INTRODUCTION, ROLE_LABEL, STAGE_WITHHELD } from "@/lib/catalog/positionCopy";
+import { sequenceKey } from "@/lib/catalog/hintSequences";
+import { linkDisplay } from "@/lib/catalog/linkDisplay";
+import {
+   ADDITIONAL_MATERIAL_LABEL,
+   BRANCHES_LABEL,
+   CHALLENGE_LABEL,
+   CONTROL_LABEL,
+   DIMENSION_LABEL,
+   GROUP_LABEL,
+   REVIEW_INTRODUCTION,
+   ROLE_LABEL,
+   STAGE_WITHHELD,
+   YOURS_FIRST,
+   untargetedLine,
+} from "@/lib/catalog/positionCopy";
 import { problemSectionHeading } from "@/lib/catalog/problem";
-import type { ProblemComposition, ProblemRoleGroup, ProblemStage } from "@/lib/catalog/problemSpine";
+import { firstHintSequence, type ProblemComposition, type ProblemRoleGroup, type ProblemStage } from "@/lib/catalog/problemSpine";
 import type { CatalogSection } from "@/lib/catalog/types";
 import { ProblemReveal } from "@/components/problem/ProblemReveal";
 import { cn } from "@/lib/utils";
+import { parseBlocks, untargetedSeniorities } from "./blocks";
 import { CatalogBody } from "./CatalogBody";
 import { PremiumMark } from "./EntryRow";
+import { HintSequence } from "./HintSequence";
 
 // Problem sections carry no API headings; reading mode still gives diagrams their natural size and keeps links from prefetching.
 const READING = { headings: [] } as const;
 const EYEBROW = "m-0 text-supporting font-semibold uppercase tracking-wide text-muted-foreground";
-const HEADING = { 3: "mt-8 mb-3 text-subsection text-balance", 4: "mt-6 mb-2 text-body font-semibold text-balance" } as const;
+const HEADING = {
+   3: "mt-8 mb-3 text-subsection text-balance",
+   4: "mt-6 mb-2 text-body font-semibold text-balance",
+   5: "mt-5 mb-2 text-body font-semibold text-balance",
+} as const;
 
 // Unit groups: a list control shows their headings, then each unit opens on its own (S-RVL-1).
 const LIST_ROLES = new Set(["clarifications", "assumptions", "units", "followUps", "alternatives", "rubric"]);
 
-type Level = 3 | 4;
+type Level = 3 | 4 | 5;
 type Body = (section: CatalogSection, level: Level) => ReactNode;
+/** What sits between a unit's heading and its control: its link line, if the unit has one. */
+type Note = (section: CatalogSection) => ReactNode;
 
 const headingOf = (section: CatalogSection) => problemSectionHeading(section) ?? ADDITIONAL_MATERIAL_LABEL;
 
@@ -43,14 +65,36 @@ function Sections({ sections, level, body, untitled = false }: { sections: Catal
    ));
 }
 
-/** A unit: its heading outside the disclosure (the deep-link target, which takes focus on arrival), then its own closed body. */
-function Units({ role, sections, level, body }: { role: string; sections: CatalogSection[]; level: Level; body: Body }) {
-   const label = role === "clarifications" ? CONTROL_LABEL.clarification : CONTROL_LABEL.unit;
+/**
+ * A unit: its heading outside the disclosure (the deep-link target, which takes focus on arrival), its hints, then its own
+ * closed body, and inside that body whatever follows it (a follow-up's branches).
+ */
+function Units({
+   role,
+   sections,
+   level,
+   body,
+   note,
+   hints,
+   after,
+}: {
+   role: string;
+   sections: CatalogSection[];
+   level: Level;
+   body: Body;
+   note?: Note;
+   hints?: (section: CatalogSection) => ReactNode;
+   after?: (section: CatalogSection) => ReactNode;
+}) {
+   const label = role === "clarifications" ? CONTROL_LABEL.clarification : role === "rubric" ? CONTROL_LABEL.rubric : CONTROL_LABEL.unit;
    return sections.map((section) => (
       <div key={section.id}>
          <SectionHeading section={section} level={level} id={section.id} />
+         {note?.(section)}
+         {hints?.(section)}
          <ProblemReveal unit={section.id} label={label} context={`: ${headingOf(section)}`}>
             {body(section, level)}
+            {after?.(section)}
          </ProblemReveal>
       </div>
    ));
@@ -63,9 +107,47 @@ const LIST_LABEL: Partial<Record<string, string>> = {
    followUps: CONTROL_LABEL.followUps,
 };
 
+/** A unit's link line (spec §6.5): a withheld one carries the premium mark, like a stage's access indication. */
+function LinkLine({ section, released }: { section: CatalogSection; released: CatalogSection[] }) {
+   const { text, withheld } = linkDisplay(section, released);
+   if (!text) return null;
+   return (
+      <p className="mt-1 mb-0 flex flex-wrap items-center gap-2 text-supporting text-muted-foreground">
+         {withheld ? <PremiumMark /> : null}
+         <span>{text}</span>
+      </p>
+   );
+}
+
+const DIMENSIONED = new Set(["follow_ups", "rubric_dimension"]);
+
+/** A unit's note: its link line, and a follow-up's or rubric dimension's shared dimension as a quiet label, never a score or a filter (S-FUP-5, S-RUB-4). */
+function UnitNote({ section, released }: { section: CatalogSection; released: CatalogSection[] }) {
+   const dimension = DIMENSIONED.has(section.type) && section.dimension ? DIMENSION_LABEL.get(section.dimension) : undefined;
+   return (
+      <>
+         <LinkLine section={section} released={released} />
+         {dimension ? (
+            <p className="mt-1 mb-0 text-supporting text-muted-foreground">
+               <span className="sr-only">Dimension: </span>
+               {dimension}
+            </p>
+         ) : null}
+      </>
+   );
+}
+
+// The units that say where they point (S-FUP-5, S-ASM-1, S-ALT-1, S-RUB-1).
+const LINKED_ROLES = new Set(["assumptions", "followUps", "alternatives", "rubric"]);
+
+/** Frame's pause before its controls (S-CLR-2): shown when Frame has a clarification, an assumption or a reference to compare. */
+const hasQuestionsToCompare = (stage: ProblemStage) =>
+   stage.position === "frame" && stage.groups.some(({ role }) => role === "clarifications" || role === "assumptions" || role === "stageReference");
+
 /** An interview stage's role groups, in presentation order: hints quieter, then each reveal closed (§9.3). */
-function StageGroups({ stage, body }: { stage: ProblemStage; body: Body }) {
-   return stage.groups.map(({ role, sections }) => {
+function StageGroups({ stage, body, released, firstHints }: { stage: ProblemStage; body: Body; released: CatalogSection[]; firstHints: string | null }) {
+   const yoursFirst = hasQuestionsToCompare(stage) ? <p key="yours-first" className="mt-6 mb-0 text-body text-pretty">{YOURS_FIRST}</p> : null;
+   const groups = stage.groups.map(({ role, sections }) => {
       if (role === "challenge") {
          return (
             <div key={role} className="mt-8">
@@ -75,16 +157,49 @@ function StageGroups({ stage, body }: { stage: ProblemStage; body: Body }) {
          );
       }
       if (role === "hints") {
+         // A narrative stage's reference is its own; a unit stage's stage-level hints concern withheld units, so open none (S-HNT-6).
+         const reference = stage.groups.some((group) => group.role === "stageReference");
          return (
-            <ProblemReveal key={role} label={CONTROL_LABEL.hints} context={` for ${stage.label}`} quiet>
-               <Sections sections={sections} level={3} body={body} untitled />
-            </ProblemReveal>
+            <HintSequence
+               key={role}
+               hints={sections}
+               where={stage.label}
+               reference={reference}
+               explain={firstHints === sequenceKey(stage.position!)}
+               body={(hint) => body(hint, 3)}
+            />
          );
       }
       if (LIST_ROLES.has(role)) {
+         const note = LINKED_ROLES.has(role) ? (section: CatalogSection) => <UnitNote section={section} released={released} /> : undefined;
+         const hints = (section: CatalogSection) => {
+            const unitHints = stage.unitHints.get(section.id);
+            return unitHints ? (
+               <HintSequence
+                  hints={unitHints}
+                  where={headingOf(section)}
+                  reference
+                  explain={firstHints === sequenceKey(stage.position!, section.id)}
+                  body={(hint) => body(hint, 3)}
+               />
+            ) : null;
+         };
+         // A branch opens beneath its parent, only once the parent is open, and has no branches of its own (S-LNK-9).
+         const after =
+            role === "followUps"
+               ? (parent: CatalogSection) => {
+                    const branches = stage.branches.get(parent.id);
+                    return branches ? (
+                       <div>
+                          <h4 className={HEADING[4]}>{BRANCHES_LABEL}</h4>
+                          <Units role={role} sections={branches} level={5} body={body} note={note} hints={hints} />
+                       </div>
+                    ) : null;
+                 }
+               : undefined;
          return (
             <ProblemReveal key={role} label={LIST_LABEL[role] ?? CONTROL_LABEL.stageReference(stage.label)}>
-               <Units role={role} sections={sections} level={3} body={body} />
+               <Units role={role} sections={sections} level={3} body={body} note={note} hints={hints} after={after} />
             </ProblemReveal>
          );
       }
@@ -95,23 +210,56 @@ function StageGroups({ stage, body }: { stage: ProblemStage; body: Body }) {
          </ProblemReveal>
       );
    });
+   // Directly after the challenge, or first when Frame has none released.
+   const after = stage.groups[0]?.role === "challenge" ? 1 : 0;
+   return yoursFirst ? [...groups.slice(0, after), yoursFirst, ...groups.slice(after)] : groups;
+}
+
+/** The seniorities a structured expectations section has no bar for, each stated (S-SEN-2); none for legacy prose, whose seniorities are undeclared. */
+function Untargeted({ section }: { section: CatalogSection }) {
+   const missing = section.body.format === "markdown@1" ? untargetedSeniorities(parseBlocks(section.body.text)) : [];
+   return missing.map((seniority) => (
+      <p key={seniority} data-untargeted={seniority} className="mt-4 mb-0 text-body text-pretty text-muted-foreground">
+         {untargetedLine(seniority)}
+      </p>
+   ));
 }
 
 /** What a review surface's one control opens: its groups, labelled ones as h3 with their units as h4 (S-AX-1). */
-function SurfaceGroup({ group: { role, sections }, body }: { group: ProblemRoleGroup; body: Body }) {
+function SurfaceGroup({ group: { role, sections }, body, released }: { group: ProblemRoleGroup; body: Body; released: CatalogSection[] }) {
    const label = ROLE_LABEL[role];
    if (!label) return <Sections sections={sections} level={3} body={body} />;
    return (
       <div>
          <h3 className={HEADING[3]}>{label}</h3>
          {LIST_ROLES.has(role) ? (
-            <Units role={role} sections={sections} level={4} body={body} />
+            <Units
+               role={role}
+               sections={sections}
+               level={4}
+               body={body}
+               note={LINKED_ROLES.has(role) ? (section) => <UnitNote section={section} released={released} /> : undefined}
+            />
          ) : role === "mistakes" ? (
             <ProblemReveal label={CONTROL_LABEL.mistakes}>
                <Sections sections={sections} level={3} body={body} untitled />
             </ProblemReveal>
          ) : (
-            <Sections sections={sections} level={3} body={body} untitled />
+            <Sections
+               sections={sections}
+               level={3}
+               untitled
+               body={
+                  role === "expectations"
+                     ? (section, level) => (
+                          <>
+                             {body(section, level)}
+                             <Untargeted section={section} />
+                          </>
+                       )
+                     : body
+               }
+            />
          )}
       </div>
    );
@@ -156,6 +304,8 @@ function AccessIndication({ stage }: { stage: ProblemStage }) {
  */
 export function ProblemStages({ composition, stayOnDeployment }: { composition: ProblemComposition; stayOnDeployment: boolean }) {
    const { interview, review, neutral } = composition;
+   const firstHints = firstHintSequence(interview);
+   const released = [...interview, ...review, ...(neutral ? [neutral] : [])].flatMap(({ groups }) => groups.flatMap(({ sections }) => sections));
    // An authored heading renders below the heading that contains it, and never above h6 (S-AX-2).
    const body: Body = (section, level) => (
       <CatalogBody key={section.id} body={section.body} stayOnDeployment={stayOnDeployment} reading={READING} headingOffset={level} />
@@ -171,7 +321,7 @@ export function ProblemStages({ composition, stayOnDeployment }: { composition: 
                {interview.map((stage, index) => (
                   <Band key={stage.id} stage={stage} first={index === 0}>
                      {stage.withheld ? <AccessIndication stage={stage} /> : null}
-                     <StageGroups stage={stage} body={body} />
+                     <StageGroups stage={stage} body={body} released={released} firstHints={firstHints} />
                   </Band>
                ))}
             </section>
@@ -186,7 +336,7 @@ export function ProblemStages({ composition, stayOnDeployment }: { composition: 
                   <Band key={stage.id} stage={stage} first={index === 0}>
                      <ProblemReveal label={surfaceControl(stage)}>
                         {stage.groups.map((group) => (
-                           <SurfaceGroup key={group.role} group={group} body={body} />
+                           <SurfaceGroup key={group.role} group={group} body={body} released={released} />
                         ))}
                      </ProblemReveal>
                   </Band>

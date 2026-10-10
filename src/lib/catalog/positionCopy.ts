@@ -80,6 +80,39 @@ export const STAGE_WITHHELD = {
    some: "Some material in this stage is included with full access.",
 } as const;
 
+/** Frame's one line in the coach's voice, shown before its controls: a pause, not a form (S-CLR-2). */
+export const YOURS_FIRST = "Before reading on, list the questions you would ask the interviewer and the assumptions you would state.";
+
+/** Part names in their canonical presentation order (§7.3, S-PRT-6): the authored order is not validated. */
+export const PART_ORDER: readonly string[] = ["answer", "why_it_matters", "if_different", "evaluates", "strong_evidence", "weak_evidence", "bar"];
+
+/** The closed seniority vocabulary in its presentation order (S-SEN-1): bars are presented in it, whatever their authored order (S-PRT-6). */
+export const SENIORITY_ORDER: readonly string[] = ["mid", "senior", "staff", "principal"];
+
+/** The eyebrow of a part (§7.3, S-CLR-3, S-RUB-4, S-AX-8): text, read in order. A bar's label depends on its seniority, see `SENIORITY_LABEL`. */
+export const PART_EYEBROW: Readonly<Record<string, string>> = {
+   answer: "Interviewer's answer",
+   why_it_matters: "Why it matters",
+   if_different: "If the answer were different",
+   evaluates: "What it evaluates",
+   strong_evidence: "Strong evidence",
+   weak_evidence: "Weak evidence",
+};
+
+/** How a seniority reads on screen (S-SEN-4): a bar is "the Staff bar", never a level. */
+export const SENIORITY_LABEL: ReadonlyMap<string, string> = new Map([
+   ["mid", "Mid"],
+   ["senior", "Senior"],
+   ["staff", "Staff"],
+   ["principal", "Principal"],
+]);
+
+/** The one bar of a rubric dimension that does not differ by seniority (S-SEN-3). */
+export const UNATTRIBUTED_BAR_LABEL = "The bar, for every seniority";
+
+/** The line for a seniority the Problem's expectations have no bar for (S-SEN-2). */
+export const untargetedLine = (seniority: string) => `This Problem is not written to the ${SENIORITY_LABEL.get(seniority) ?? seniority} bar.`;
+
 /** Visible labels of the role groups that carry one (§9.7). */
 export const ROLE_LABEL: Readonly<Partial<Record<ProblemRole, string>>> = {
    expectations: "Expectations by seniority",
@@ -87,6 +120,32 @@ export const ROLE_LABEL: Readonly<Partial<Record<ProblemRole, string>>> = {
    alternatives: "Alternatives",
    mistakes: "Common mistakes",
 };
+
+/** The shared dimension values (spec §8.1) in their presentation order, with the working label shown beside a follow-up. A value with no label here shows none. */
+export const DIMENSION_LABEL: ReadonlyMap<string, string> = new Map([
+   ["problem_framing", "Problem framing"],
+   ["estimation_and_scale", "Estimation and scale"],
+   ["architecture", "Architecture"],
+   ["data_and_storage", "Data and storage"],
+   ["ml_formulation", "ML formulation"],
+   ["evaluation_and_metrics", "Evaluation and metrics"],
+   ["reliability_and_operations", "Reliability and operations"],
+   ["trade_off_reasoning", "Trade-off reasoning"],
+   ["communication_and_structure", "Communication and structure"],
+]);
+
+/** The label over an open follow-up's branches (S-FUP-5). */
+export const BRANCHES_LABEL = "Then, depending on the answer";
+
+/** Hint sequences (S-HNT-6, S-HNT-8, §9.7): one hint at a time, the next offered inside the previous one. */
+export const HINT = {
+   explanation: "Hints nudge your thinking without giving the answer. Use as few as you need.",
+   next: "Show the next hint",
+   cue: (position: number, total: number) => `Hint ${position} of ${total}`,
+   /** Read after a hint control's label, so its name says which hint and where (S-RVL-4). */
+   context: (position: number, where: string) => `, hint ${position} for ${where}`,
+   closing: (where: string, reference: boolean) => `No more hints for ${where}.${reference ? " Open the reference when you're ready." : ""}`,
+} as const;
 
 /** Closed controls, each saying what it shows (§9.3, S-RVL-3, S-RVL-4). Never a count. */
 export const CONTROL_LABEL = {
@@ -104,5 +163,7 @@ export const CONTROL_LABEL = {
    neutral: "Show more material",
    /** A unit's body, after its heading; a clarification's body is the interviewer's answer (S-RVL-4). */
    unit: "Show reference",
+   /** A rubric dimension's body, after its heading: it opens the dimension, not reference-solution content. */
+   rubric: "Show rubric",
    clarification: "Show the interviewer's answer",
 } as const;

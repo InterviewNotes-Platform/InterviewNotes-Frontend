@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CHALLENGE_FACING, ROLE_GROUPS, composeProblem, type ProblemStage } from "./problemSpine";
+import { CHALLENGE_FACING, ROLE_GROUPS, composeProblem, firstHintSequence, type ProblemStage } from "./problemSpine";
 import { POSITION_COPY } from "./positionCopy";
 import type { CatalogSection, CatalogSpineEntry } from "./types";
 
@@ -108,7 +108,7 @@ describe("composeProblem: role groups and authored order", () => {
             section("hint-r", "hint", "requirements"),
             section("deep-b", "deep_dive", "depth_and_trade_offs"),
             section("decision", "trade_offs", "depth_and_trade_offs"),
-            section("hint-d", "hint", "depth_and_trade_offs"),
+            { ...section("hint-d", "hint", "depth_and_trade_offs"), link: { target: null, withheld: true } },
             section("deep-a", "deep_dive", "depth_and_trade_offs"),
          ],
       });
@@ -136,7 +136,8 @@ describe("composeProblem: role groups and authored order", () => {
 
    it("reads the role table for every position", () => {
       const sectionsFor = (position: string) =>
-         [...SECTION_TYPES].reverse().map((type) => section(`${position}-${type}`, type, position));
+         // A hint over a withheld target is the one that is stage-level in a unit stage (S-HNT-5).
+         [...SECTION_TYPES].reverse().map((type) => ({ ...section(`${position}-${type}`, type, position), ...(type === "hint" ? { link: { target: null, withheld: true } } : {}) }));
       const result = composeProblem({ spine: spineOf(...POSITION_IDS), sections: POSITION_IDS.flatMap(sectionsFor) });
       for (const stage of [...result.interview, ...result.review]) {
          const table = ROLE_TABLE[stage.position!];
@@ -304,5 +305,63 @@ describe("the position model is bound to the spec tables", () => {
       expect(source).not.toMatch(/\bPHASES\b|PHASE_OF_TYPE|phasesOf|POSITION_ORDER|SPINE_ORDER/);
       // Nothing sorts or ranks by position: the spine's order is the only order.
       expect(source).not.toMatch(/\.sort\(|\.toSorted\(/);
+   });
+});
+
+describe("composeProblem: hint sequences (S-HNT-5, S-HNT-8)", () => {
+   const hintOver = (id: string, position: string, target: string | null) => ({
+      ...section(id, "hint", position),
+      link: target === null ? { target: null, withheld: true } : { target, withheld: false },
+   });
+   const spine = spineOf("frame", "design", "depth_and_trade_offs", "follow_ups");
+
+   it("keeps a unit stage's stage-level hints in its hints group and its unit hints beside their units", () => {
+      const [, , depth] = composeProblem({
+         spine,
+         sections: [
+            section("deep-a", "deep_dive", "depth_and_trade_offs"),
+            hintOver("h-unit", "depth_and_trade_offs", "deep-a"),
+            hintOver("h-stage", "depth_and_trade_offs", null),
+         ],
+      }).interview;
+      expect(roles(depth)).toEqual(["hints", "units"]);
+      expect(depth.groups[0].sections.map(({ id }) => id)).toEqual(["h-stage"]);
+      expect([...depth.unitHints.keys()]).toEqual(["deep-a"]);
+   });
+
+   it("leaves no hints group when every hint belongs to a unit, or to nothing", () => {
+      const [, , depth] = composeProblem({
+         spine,
+         sections: [section("deep-a", "deep_dive", "depth_and_trade_offs"), hintOver("h-unit", "depth_and_trade_offs", "deep-a"), section("h-loose", "hint", "depth_and_trade_offs")],
+      }).interview;
+      expect(roles(depth)).toEqual(["units"]);
+   });
+
+   it("names the first sequence by presentation order, not the document's authored order", () => {
+      const result = composeProblem({
+         spine,
+         sections: [
+            section("deep-a", "deep_dive", "depth_and_trade_offs"),
+            section("deep-b", "deep_dive", "depth_and_trade_offs"),
+            // Authored hints: the later unit first, and a stage that comes earlier in the spine last.
+            hintOver("h-b", "depth_and_trade_offs", "deep-b"),
+            hintOver("h-a", "depth_and_trade_offs", "deep-a"),
+         ],
+      });
+      expect(firstHintSequence(result.interview)).toBe("depth_and_trade_offs:deep-a");
+      const withDesign = composeProblem({ spine, sections: [...result.interview[2].groups.flatMap(({ sections }) => sections), hintOver("h-d", "design", "x")] });
+      expect(firstHintSequence(withDesign.interview)).toBe("design");
+   });
+
+   it("puts a unit stage's stage-level sequence before its units' sequences", () => {
+      const result = composeProblem({
+         spine,
+         sections: [section("deep-a", "deep_dive", "depth_and_trade_offs"), hintOver("h-a", "depth_and_trade_offs", "deep-a"), hintOver("h-w", "depth_and_trade_offs", null)],
+      });
+      expect(firstHintSequence(result.interview)).toBe("depth_and_trade_offs");
+   });
+
+   it("is null when no hint is shown", () => {
+      expect(firstHintSequence(composeProblem({ spine, sections: [section("deep-a", "deep_dive", "depth_and_trade_offs")] }).interview)).toBeNull();
    });
 });

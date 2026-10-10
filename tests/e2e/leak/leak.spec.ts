@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { appendFileSync, cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,10 +21,58 @@ const P4_ROUTES = fixture.items
    .filter(({ id }) => id.startsWith("problem.p4-"))
    .map(({ id }) => {
       const sections = item(id).sections ?? [];
-      return { route: canonical(id), withheld: sections.filter(({ access }) => access === "premium"), released: sections.find(({ access }) => access === "free")! };
+      return { id, route: canonical(id), withheld: sections.filter(({ access }) => access === "premium"), released: sections.find(({ access }) => access === "free")! };
    });
 // An element id in HTML (id="x") or a prop in an RSC payload ("id":"x", escaped when inlined).
 const idPattern = (id: string) => new RegExp(`id\\\\?"?[=:]\\\\?"${id}\\\\?"`);
+// What a reveal could have left behind (S-PST-1): cookies, storage as sorted key/value pairs, every IndexedDB record, and the address.
+const remembered = (page: Page) =>
+   page.evaluate(async () => {
+      const pairs = (store: Storage) => Object.keys(store).sort().map((key) => `${key}=${store.getItem(key)}`);
+      const show = (value: unknown) => {
+         try {
+            return JSON.stringify(value) ?? String(value);
+         } catch {
+            return String(value);
+         }
+      };
+      // Read-only: opening without a version never upgrades, and a readonly transaction cannot write.
+      const read = (name: string) =>
+         new Promise<string>((resolve) => {
+            const request = indexedDB.open(name);
+            request.onerror = () => resolve(`${name}: unreadable`);
+            request.onsuccess = () => {
+               const db = request.result;
+               const stores = [...db.objectStoreNames];
+               if (stores.length === 0) return (db.close(), resolve(`${name} v${db.version}: no stores`));
+               const tx = db.transaction(stores, "readonly");
+               const dumps = stores.map(
+                  (store) =>
+                     new Promise<string>((done) => {
+                        const keys = tx.objectStore(store).getAllKeys();
+                        const values = tx.objectStore(store).getAll();
+                        values.onsuccess = () => done(`${store}: ${show(keys.result)} ${show(values.result)}`);
+                        values.onerror = () => done(`${store}: unreadable`);
+                     })
+               );
+               Promise.all(dumps).then((all) => (db.close(), resolve(`${name} v${db.version}: ${all.join(" | ")}`)));
+            };
+         });
+      const names = ((await indexedDB.databases?.()) ?? []).map(({ name }) => name!).sort();
+      return {
+         cookie: document.cookie,
+         local: pairs(localStorage),
+         session: pairs(sessionStorage),
+         databases: await Promise.all(names.map(read)),
+         search: location.search,
+         hash: location.hash,
+      };
+   });
+// A title as the channel writes it: HTML-escaped between tags, or a JSON string value (escaped quotes when inlined) in RSC.
+const titlePattern = (channel: "HTML" | "inlined RSC" | "fetched RSC", title: string) => {
+   const written = channel === "HTML" ? title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;") : JSON.stringify(title).slice(1, -1);
+   return new RegExp(`[>"]${written.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\\\?[<"]`);
+};
 const BROWSER_CHUNK = 16;
 const BROWSER_CHUNKS = Array.from({ length: Math.ceil(ROUTES.length / BROWSER_CHUNK) }, (_, index) => ROUTES.slice(index * BROWSER_CHUNK, (index + 1) * BROWSER_CHUNK));
 const PROBLEM = canonical("problem.t24-premium-solution");
@@ -234,6 +283,74 @@ for (const { name, baseURL } of [
    });
 }
 
+// P4: every control a Problem offers, pressed in turn. S-PST-1 forbids a trace, and AC-17 and S-TST-6 forbid any further request.
+test.describe("every P4 interaction leaves no trace and asks the server for nothing", () => {
+   test.use({ viewport: { width: 1440, height: 900 } });
+
+   test("the snapshot sees a changed value under an existing key and a record written to an existing database", async ({ page }) => {
+      await page.goto("/login");
+      await page.evaluate(async () => {
+         localStorage.setItem("probe-key", "one");
+         sessionStorage.setItem("probe-key", "one");
+         await new Promise<void>((resolve) => {
+            const open = indexedDB.open("probe-db", 1);
+            open.onupgradeneeded = () => open.result.createObjectStore("rows");
+            open.onsuccess = () => (open.result.close(), resolve());
+         });
+      });
+      const before = await remembered(page);
+      expect(before.databases.join()).toContain("probe-db");
+      for (const change of [
+         () => localStorage.setItem("probe-key", "two"),
+         () => sessionStorage.setItem("probe-key", "two"),
+         () =>
+            new Promise<void>((resolve) => {
+               const open = indexedDB.open("probe-db");
+               open.onsuccess = () => {
+                  const tx = open.result.transaction("rows", "readwrite");
+                  tx.objectStore("rows").put("v", "k");
+                  tx.oncomplete = () => (open.result.close(), resolve());
+               };
+            }),
+      ]) {
+         const was = await remembered(page);
+         await page.evaluate(change);
+         expect(await remembered(page)).not.toEqual(was);
+      }
+      expect(await remembered(page)).not.toEqual(before);
+   });
+
+   for (const identity of ["signed-out", "entitled"] as const) {
+      test.describe(identity, () => {
+         test.use({ identity });
+
+         for (const id of ["problem.p4-ml-complete", "problem.p4-premium-stages", "problem.p4-premium-followups"]) {
+            test(`${id}: opening every reveal, Show everything and Hide everything write nothing and fetch nothing`, async ({ page, traffic, context }) => {
+               await page.goto(canonical(id));
+               await page.waitForLoadState("networkidle");
+               const before = await remembered(page);
+               const cookies = await context.cookies();
+               const requested = traffic.requests.length;
+
+               const closed = page.locator("main details:not([open]) > summary").filter({ visible: true });
+               let pressed = 0;
+               // A hint's next control and a branch exist only inside their parent, so pressing runs until nothing visible is closed.
+               for (; pressed < 60 && (await closed.count()) > 0; pressed++) await closed.first().click();
+               expect(pressed, "the Problem offers reveals").toBeGreaterThan(0);
+               await expect(closed).toHaveCount(0);
+               const everything = page.getByRole("button", { name: /^(Show|Hide) everything$/ });
+               await expect(everything).toHaveCount(1);
+               for (let press = 0; press < 3; press++) await everything.click();
+
+               expect(await remembered(page), "cookie, storage, database, query or fragment changed").toEqual(before);
+               expect(await context.cookies(), "a cookie was set").toEqual(cookies);
+               expect(traffic.requests.slice(requested), "a reveal made a request").toEqual([]);
+            });
+         }
+      });
+   }
+});
+
 test.describe("positive control: an entitled reader of the production deployment", () => {
    test.use({ identity: "entitled" });
 
@@ -259,6 +376,38 @@ test.describe("positive control: an entitled reader of the production deployment
       const row = page.getByRole("navigation", { name: `${GATED.track.title} outline` }).getByRole("link", { name: GATED.lockedItem.title });
       await expect(row).toHaveAttribute("href", GATED.locked);
       await expect(row).toContainText("Premium");
+   });
+
+   test("every P4 Problem gives the entitled reader each premium section's id and title, and the canaries its fixture places", async ({ page }) => {
+      expect(P4_ROUTES.flatMap(({ withheld }) => withheld).length, "the fixture withholds something from others").toBeGreaterThan(0);
+      for (const { id, route, withheld } of P4_ROUTES) {
+         const html = await (await page.request.get(route)).text();
+         const rsc = await (await page.request.get(route, { headers: { RSC: "1" } })).text();
+         for (const [channel, text] of [
+            ["HTML", html],
+            ["inlined RSC", inlinedRsc(html)],
+            ["fetched RSC", rsc],
+         ] as const) {
+            for (const section of withheld) {
+               expect(text, `${route} ${channel}: premium id ${section.id}`).toMatch(idPattern(section.id));
+               // The challenge is shown as "The challenge", not under its authored title (S-CHL-1).
+               const shown = section.id === "prompt" ? "The challenge" : section.title;
+               if (shown) expect(text, `${route} ${channel}: title ${shown}`).toMatch(titlePattern(channel, shown));
+            }
+         }
+         const placed = holds(item(id));
+         for (const canary of placed) {
+            for (const [channel, text] of [["HTML", html], ["inlined RSC", inlinedRsc(html)], ["fetched RSC", rsc]] as const) expect(text, `${route} ${channel}: ${canary}`).toContain(canary);
+         }
+      }
+   });
+
+   test("the entitled reader of a Problem whose Design stage is premium sees the stage with no access indication", async ({ page }) => {
+      await page.goto(canonical("problem.p4-premium-stages"));
+      const design = page.getByRole("main").getByRole("region", { name: "Design", exact: true });
+      await expect(design).toBeVisible();
+      await expect(page.getByRole("main").locator("[role=note]:not([data-callout])")).toHaveCount(0);
+      await expect(page.getByRole("main").getByText(/included with full access/)).toHaveCount(0);
    });
 
    test("renders the T24 canaries only inside the premium content the fixture places them in", async ({ page }) => {

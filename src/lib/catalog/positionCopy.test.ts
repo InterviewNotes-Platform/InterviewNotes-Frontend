@@ -1,15 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
    ADDITIONAL_MATERIAL_LABEL,
+   BRANCHES_LABEL,
    CHALLENGE_LABEL,
    CONTROL_LABEL,
+   DIMENSION_LABEL,
    GROUP_LABEL,
    NEUTRAL_REGION_LABEL,
+   PART_EYEBROW,
+   PART_ORDER,
+   SENIORITY_LABEL,
+   SENIORITY_ORDER,
    POSITION_COPY,
    REVIEW_INTRODUCTION,
    ROLE_LABEL,
    STAGE_WITHHELD,
+   UNATTRIBUTED_BAR_LABEL,
+   untargetedLine,
    WITHHELD_NOTE,
+   YOURS_FIRST,
 } from "./positionCopy";
 
 // Transcribed from spec §4.1 (contract position ids) and §9.3 / §9.7 (working copy).
@@ -55,6 +64,44 @@ describe("position copy", () => {
       expect(ROLE_LABEL).toEqual({ expectations: "Expectations by seniority", rubric: "Rubric", alternatives: "Alternatives", mistakes: "Common mistakes" });
    });
 
+   it("carries Frame's coach line and the parts' canonical order and clarification eyebrows (S-CLR-2, §7.3, S-CLR-3)", () => {
+      expect(YOURS_FIRST).toBe("Before reading on, list the questions you would ask the interviewer and the assumptions you would state.");
+      // §7.3 in table order: a clarification's parts, then the rubric dimension's; `bar` serves both tables.
+      expect(PART_ORDER).toEqual(["answer", "why_it_matters", "if_different", "evaluates", "strong_evidence", "weak_evidence", "bar"]);
+      expect(PART_EYEBROW).toEqual({
+         answer: "Interviewer's answer",
+         why_it_matters: "Why it matters",
+         if_different: "If the answer were different",
+         evaluates: "What it evaluates",
+         strong_evidence: "Strong evidence",
+         weak_evidence: "Weak evidence",
+      });
+      expect(SENIORITY_ORDER).toEqual(["mid", "senior", "staff", "principal"]); // S-SEN-1
+      expect(Object.keys(PART_EYEBROW).every((name) => PART_ORDER.includes(name))).toBe(true);
+   });
+
+   it("labels every seniority of the closed set, in order, and states an untargeted one as written to no bar (S-SEN-1, S-SEN-2, S-SEN-4)", () => {
+      expect([...SENIORITY_LABEL.keys()]).toEqual([...SENIORITY_ORDER]);
+      expect([...SENIORITY_LABEL.values()]).toEqual(["Mid", "Senior", "Staff", "Principal"]);
+      expect(untargetedLine("principal")).toBe("This Problem is not written to the Principal bar.");
+      expect(UNATTRIBUTED_BAR_LABEL).toBe("The bar, for every seniority");
+   });
+
+   it("labels the nine shared dimensions of spec §8.1 in their order, and the branches of an open follow-up (S-FUP-5)", () => {
+      expect([...DIMENSION_LABEL]).toEqual([
+         ["problem_framing", "Problem framing"],
+         ["estimation_and_scale", "Estimation and scale"],
+         ["architecture", "Architecture"],
+         ["data_and_storage", "Data and storage"],
+         ["ml_formulation", "ML formulation"],
+         ["evaluation_and_metrics", "Evaluation and metrics"],
+         ["reliability_and_operations", "Reliability and operations"],
+         ["trade_off_reasoning", "Trade-off reasoning"],
+         ["communication_and_structure", "Communication and structure"],
+      ]);
+      expect(BRANCHES_LABEL).toBe("Then, depending on the answer");
+   });
+
    it("labels every control with the §9.3 wording, and never with a count (S-RVL-3)", () => {
       expect(CONTROL_LABEL.stageReference("Design")).toBe("Show reference for Design");
       const fixed = Object.values(CONTROL_LABEL).filter((label) => typeof label === "string") as string[];
@@ -68,6 +115,7 @@ describe("position copy", () => {
             "Show how the reference frames the problem",
             "Show the reference solution",
             "Show the alternatives",
+            "Show rubric",
             "Open self-review",
             "Show common mistakes",
             "Show the interviewer's answer",

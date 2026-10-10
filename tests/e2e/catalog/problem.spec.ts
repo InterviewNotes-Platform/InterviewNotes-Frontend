@@ -211,7 +211,7 @@ test.describe("withheld material (AC-20, S-ENT-1, S-ENT-1a)", () => {
             const design = band(page, "Design");
             await expect(design.getByText("Some material in this stage is included with full access.")).toBeVisible(); // its free hints are released
             await expect(design.getByText("Premium", { exact: true })).toBeVisible();
-            await expect(design.locator("summary")).toHaveText(["Show a hint for Design"]);
+            await expect(design.locator("summary")).toHaveText(["Show a hint, hint 1 for Design", "Show the next hint, hint 2 for Design"]);
             await expect(band(page, "Requirements").getByText("Some material in this stage is included with full access.")).toBeVisible();
             await expect(band(page, "Follow-ups").getByText("Some material in this stage is included with full access.")).toBeVisible();
             await expect(band(page, "Frame").getByText(/included with full access/)).toHaveCount(0);
@@ -240,7 +240,7 @@ test.describe("withheld material (AC-20, S-ENT-1, S-ENT-1a)", () => {
          await page.goto(stages);
          await expect(note(page)).toHaveCount(0);
          await expect(main(page).getByText(/included with full access/)).toHaveCount(0);
-         await expect(band(page, "Design").locator(":scope > details > summary")).toHaveText(["Show a hint for Design", "Show reference for Design"]);
+         await expect(band(page, "Design").locator(":scope > details > summary")).toHaveText(["Show a hint, hint 1 for Design", "Show reference for Design"]);
          expect(await (await page.request.get(stages)).text(), "the matcher the unentitled check relies on").toMatch(/["']evaluation["']|[>"]Evaluation[<"]/);
          await expect(stageNames(page, "Review")).toHaveText(SURFACES);
       });
@@ -746,6 +746,8 @@ test.describe("deep links and reload (CHL-8, S-RVL-8 … S-RVL-10, AC-4)", () =>
    test("a clarification opens the same way, and Tab then reaches the unit's own open control", async ({ page }) => {
       await page.goto(`${route}#clarify-freshness`);
       await expect(target(page, "clarify-freshness")).toBeFocused();
+      // The browser focuses the fragment and opens its list at once; the unit opens once the page is interactive (S-RVL-8).
+      await expect(page.locator('details[data-reveal="clarify-freshness"]')).toHaveAttribute("open", "");
       expect(await openCount(page)).toBe(2);
       await page.keyboard.press("Tab");
       await expect(page.locator('details[data-reveal="clarify-freshness"] > summary')).toBeFocused();
@@ -1002,5 +1004,66 @@ test.describe("the outline, grouped (S-LAY-2, S-AX-1)", () => {
          await expect(outline(page).getByRole("link")).toHaveCount(9);
          await expect(page.getByRole("button", { name: /everything/ })).toHaveCount(0);
       });
+   });
+});
+
+test.describe("Frame: your questions first, and the assumptions (AC-7, AC-8, S-CLR-2, S-CLR-3, S-ASM-1)", () => {
+   const sd = canonical(SD.id);
+   const QUESTIONS = "Compare with a strong candidate's questions";
+   const RATE = "How many notifications per second must it handle?";
+   const CHANNELS = "Which channels are in scope?";
+   const frame = (page: Page) => band(page, "Frame");
+
+   test("opens with the coach's line and no canonical question; the questions are titles only after their own reveal", async ({ page }) => {
+      await page.goto(sd);
+      await expect(frame(page).getByText("Before reading on, list the questions you would ask the interviewer and the assumptions you would state.")).toBeVisible();
+      for (const title of [RATE, CHANNELS]) await expect(page.getByRole("heading", { name: title })).toBeHidden();
+      for (const hidden of ["P4 sd answer marker", "Sizing drives the queue"]) await expect(page.getByText(hidden, { exact: false })).toBeHidden();
+      expect(await openCount(page)).toBe(0);
+
+      await control(frame(page), QUESTIONS).click();
+      await expect(frame(page).getByRole("heading", { name: RATE })).toBeVisible();
+      await expect(frame(page).getByRole("heading", { name: CHANNELS })).toBeVisible();
+      await expect(page.getByText("P4 sd answer marker", { exact: false })).toBeHidden(); // titles are not answers
+      expect(await openCount(page)).toBe(1);
+   });
+
+   test("opens each answer on its own, with its parts in canonical order under their eyebrows", async ({ page }) => {
+      await page.goto(sd);
+      await control(frame(page), QUESTIONS).click();
+      await control(frame(page), `Show the interviewer's answer: ${RATE}`).click();
+      const answer = page.locator('details[data-reveal="clarify-rate"]');
+      await expect(answer.locator("[data-part]")).toHaveCount(3);
+      expect(await answer.locator("[data-part] > p:first-child").allTextContents()).toEqual(["Interviewer's answer", "Why it matters", "If the answer were different"]);
+      await expect(answer.getByText("P4 sd answer marker", { exact: false })).toBeVisible();
+      await expect(page.getByText("P4 sd channels answer marker", { exact: false })).toBeHidden(); // opening one opens no other
+      expect(await openCount(page)).toBe(2);
+   });
+
+   test("lists each assumption with its Conditions line, and opens each on its own", async ({ page }) => {
+      await page.goto(sd);
+      await control(frame(page), "Compare with the reference's assumptions").click();
+      const unit = page.locator("#assume-fanout");
+      await expect(unit).toBeVisible();
+      await expect(unit.locator("xpath=following-sibling::p[1]")).toHaveText("Conditions: Queue or direct send?");
+      await expect(page.getByText("P4 sd assumption marker", { exact: false })).toBeHidden();
+      await control(frame(page), "Show reference: Fan-out is bounded per event").click();
+      await expect(page.getByText("P4 sd assumption marker", { exact: false })).toBeVisible();
+      expect(await openCount(page)).toBe(2);
+   });
+
+   test("reveals the scope reasoning only from its own control", async ({ page }) => {
+      await page.goto(sd);
+      await expect(page.getByText("P4 sd scope marker", { exact: false })).toBeHidden();
+      await control(frame(page), "Show how the reference frames the problem").click();
+      await expect(page.getByText("P4 sd scope marker", { exact: false })).toBeVisible();
+   });
+
+   test("a withheld clarification offers no questions control, no coach's line and no trace of the question", async ({ page }) => {
+      await page.goto(canonical(item("problem.p4-premium-units").id));
+      await expect(frame(page).getByText("Some material in this stage is included with full access.")).toBeVisible();
+      await expect(control(frame(page), QUESTIONS)).toHaveCount(0);
+      await expect(frame(page).getByText("Before reading on")).toHaveCount(0);
+      expect(await page.content()).not.toContain("P4_SENTINEL_CLARIFICATION");
    });
 });

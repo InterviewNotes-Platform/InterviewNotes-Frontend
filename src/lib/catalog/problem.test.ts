@@ -7,6 +7,8 @@ describe("problemSectionHeading", () => {
       expect(problemSectionHeading({ type: "prompt", title: "  The ask  " })).toBe("The ask");
       expect(problemSectionHeading({ type: "high_level_design", title: null })).toBe("High-level design");
       expect(problemSectionHeading({ type: "deep_dive", title: "" })).toBe("Deep dive");
+      expect(problemSectionHeading({ type: "trade_offs", title: null })).toBe("Trade-offs"); // S-DEC-2
+      expect(problemSectionHeading({ type: "follow_ups", title: " " })).toBe("Follow-up"); // S-FUP-1: one follow-up, not the stage
       expect(problemSectionHeading({ type: "mystery", title: null })).toBeNull();
    });
 });

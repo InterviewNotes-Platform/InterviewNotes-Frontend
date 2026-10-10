@@ -206,10 +206,11 @@ test.describe("preview deployment", () => {
 });
 
 test.describe("production deployment", () => {
-   for (const { route, heading: title, content } of PAGES) {
+   for (const { route, heading: title, content, reveal } of PAGES) {
       test(`${route} has no Preview marker and is not noindex`, async ({ page, request }) => {
          expect((await page.goto(route))?.status()).toBe(200);
          await expect(heading(page)).toHaveText(title);
+         if (reveal) await page.getByRole("main").locator("summary", { hasText: reveal }).click();
          await expect(page.getByRole("main").getByText(content)).toBeVisible();
          await expect(page.getByRole("complementary")).toHaveCount(0);
          await expect(page.getByText(MARKER_TEXT)).toHaveCount(0);

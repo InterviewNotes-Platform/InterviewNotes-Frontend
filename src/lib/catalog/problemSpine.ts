@@ -1,3 +1,5 @@
+import { followUpTree } from "./followUpTree";
+import { sequenceHints, sequenceKey } from "./hintSequences";
 import { NEUTRAL_REGION_LABEL, POSITION_COPY } from "./positionCopy";
 import type { CatalogItem, CatalogSection, CatalogSpineEntry } from "./types";
 
@@ -68,8 +70,50 @@ export interface ProblemStage {
    step: { position: number; total: number } | null;
    /** The backend reported withheld material in this interview stage (X-2). Never set for a review surface. */
    withheld: boolean;
-   /** Non-empty role groups in presentation order, each in authored order. */
+   /** Non-empty role groups in presentation order, each in authored order. A unit stage's hints group holds only its stage-level sequence. */
    groups: ProblemRoleGroup[];
+   /** A unit stage's hint sequences by the id of the released unit they belong to (S-HNT-5); empty elsewhere. */
+   unitHints: ReadonlyMap<string, CatalogSection[]>;
+   /** The Follow-ups stage's branches by their top-level parent's id (S-FUP-5); empty elsewhere. A branch is not in `groups`. */
+   branches: ReadonlyMap<string, CatalogSection[]>;
+}
+
+const UNIT_ROLES: ReadonlySet<ProblemRole> = new Set(["units", "followUps"]);
+
+/**
+ * Splits a stage's hints group into its stage-level sequence and its units' sequences (a hint that fits neither is dropped),
+ * and the follow-ups group into its top-level follow-ups and their branches. A branch keeps its hints: they are found first.
+ */
+function withUnits(position: string, groups: ProblemRoleGroup[], released: readonly CatalogSection[]): Pick<ProblemStage, "groups" | "unitHints" | "branches"> {
+   const hints = groups.find(({ role }) => role === "hints")?.sections ?? [];
+   const units = groups.find(({ role }) => UNIT_ROLES.has(role))?.sections ?? [];
+   const { stage, units: unitHints } = sequenceHints(position, hints, units);
+   const tree = followUpTree(groups.find(({ role }) => role === "followUps")?.sections ?? [], released);
+   return {
+      groups: groups.flatMap((group) => {
+         if (group.role === "followUps") return [{ role: group.role, sections: tree.top }];
+         return group.role !== "hints" ? [group] : stage.length > 0 ? [{ role: group.role, sections: stage }] : [];
+      }),
+      unitHints,
+      branches: tree.branches,
+   };
+}
+
+/**
+ * The first hint sequence in presentation order (S-HNT-8): stage by stage as composed, then role group, then unit, a
+ * follow-up's branches right after it; never the document's authored order. Null when the Problem shows no hint.
+ */
+export function firstHintSequence(stages: readonly ProblemStage[]): string | null {
+   for (const { position, groups, unitHints, branches } of stages) {
+      if (position === null) continue;
+      for (const { role, sections } of groups) {
+         if (role === "hints") return sequenceKey(position);
+         if (!UNIT_ROLES.has(role)) continue;
+         const unit = sections.flatMap((section) => [section, ...(branches.get(section.id) ?? [])]).find(({ id }) => unitHints.has(id));
+         if (unit) return sequenceKey(position, unit.id);
+      }
+   }
+   return null;
 }
 
 export interface ProblemComposition {
@@ -125,7 +169,7 @@ export function composeProblem({ sections, spine }: Pick<CatalogItem, "sections"
       intent: POSITION_COPY.get(entry.position)!.intent,
       step,
       withheld: entry.kind === "interview_stage" && entry.withheld === true,
-      groups: groupsOf(entry.position, placed.get(entry.position) ?? []),
+      ...withUnits(entry.position, groupsOf(entry.position, placed.get(entry.position) ?? []), sections),
    });
 
    return {
@@ -143,6 +187,8 @@ export function composeProblem({ sections, spine }: Pick<CatalogItem, "sections"
               step: null,
               withheld: false,
               groups: [{ role: "stageReference", sections: loose }],
+              unitHints: new Map(),
+              branches: new Map(),
            }
          : null,
    };
