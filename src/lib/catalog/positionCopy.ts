@@ -104,6 +104,22 @@ export const ROLE_LABEL: Readonly<Partial<Record<ProblemRole, string>>> = {
    mistakes: "Common mistakes",
 };
 
+/** The shared dimension values (spec §8.1) in their presentation order, with the working label shown beside a follow-up. A value with no label here shows none. */
+export const DIMENSION_LABEL: ReadonlyMap<string, string> = new Map([
+   ["problem_framing", "Problem framing"],
+   ["estimation_and_scale", "Estimation and scale"],
+   ["architecture", "Architecture"],
+   ["data_and_storage", "Data and storage"],
+   ["ml_formulation", "ML formulation"],
+   ["evaluation_and_metrics", "Evaluation and metrics"],
+   ["reliability_and_operations", "Reliability and operations"],
+   ["trade_off_reasoning", "Trade-off reasoning"],
+   ["communication_and_structure", "Communication and structure"],
+]);
+
+/** The label over an open follow-up's branches (S-FUP-5). */
+export const BRANCHES_LABEL = "Then, depending on the answer";
+
 /** Hint sequences (S-HNT-6, S-HNT-8, §9.7): one hint at a time, the next offered inside the previous one. */
 export const HINT = {
    explanation: "Hints nudge your thinking without giving the answer. Use as few as you need.",

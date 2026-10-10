@@ -25,7 +25,7 @@ const SECTION_LABEL = new Map<string, string>([
    ["trade_offs", "Trade-offs"],
    ["reference_design", "Reference design"],
    ["common_mistakes", "Common mistakes"],
-   ["follow_ups", "Follow-ups"],
+   ["follow_ups", "Follow-up"],
    ["level_expectations", "Level expectations"],
 ]);
 

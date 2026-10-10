@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
    ADDITIONAL_MATERIAL_LABEL,
+   BRANCHES_LABEL,
    CHALLENGE_LABEL,
    CONTROL_LABEL,
+   DIMENSION_LABEL,
    GROUP_LABEL,
    NEUTRAL_REGION_LABEL,
    PART_EYEBROW,
@@ -66,6 +68,21 @@ describe("position copy", () => {
       expect(PART_EYEBROW).toEqual({ answer: "Interviewer's answer", why_it_matters: "Why it matters", if_different: "If the answer were different" });
       expect(SENIORITY_ORDER).toEqual(["mid", "senior", "staff", "principal"]); // S-SEN-1
       expect(Object.keys(PART_EYEBROW).every((name) => PART_ORDER.includes(name))).toBe(true);
+   });
+
+   it("labels the nine shared dimensions of spec §8.1 in their order, and the branches of an open follow-up (S-FUP-5)", () => {
+      expect([...DIMENSION_LABEL]).toEqual([
+         ["problem_framing", "Problem framing"],
+         ["estimation_and_scale", "Estimation and scale"],
+         ["architecture", "Architecture"],
+         ["data_and_storage", "Data and storage"],
+         ["ml_formulation", "ML formulation"],
+         ["evaluation_and_metrics", "Evaluation and metrics"],
+         ["reliability_and_operations", "Reliability and operations"],
+         ["trade_off_reasoning", "Trade-off reasoning"],
+         ["communication_and_structure", "Communication and structure"],
+      ]);
+      expect(BRANCHES_LABEL).toBe("Then, depending on the answer");
    });
 
    it("labels every control with the §9.3 wording, and never with a count (S-RVL-3)", () => {
