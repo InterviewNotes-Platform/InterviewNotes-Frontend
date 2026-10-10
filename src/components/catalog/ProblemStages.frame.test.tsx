@@ -60,7 +60,9 @@ describe("Frame: your questions first (S-CLR-2, S-CLR-3, AC-7)", () => {
       const line = challenge.nextElementSibling!;
       expect(line.tagName).toBe("P");
       expect(line).toHaveTextContent("Before reading on, list the questions you would ask the interviewer and the assumptions you would state.");
-      expect(line.nextElementSibling!.tagName).toBe("DETAILS"); // the first control follows it
+      // The first hint sequence carries its one explanatory line (S-HNT-8), then its closed control follows.
+      expect(line.nextElementSibling).toHaveTextContent("Hints nudge your thinking without giving the answer. Use as few as you need.");
+      expect(line.nextElementSibling!.nextElementSibling!.tagName).toBe("DETAILS");
       expect(frame.getByText(CHALLENGE, { exact: false })).toBeVisible();
       expect(line.querySelector("input, button, textarea, [role=timer]")).toBeNull(); // a pause, not a form
    });
@@ -68,7 +70,7 @@ describe("Frame: your questions first (S-CLR-2, S-CLR-3, AC-7)", () => {
    it("lists the controls in the order of spec §9.3, with no count", () => {
       const frame = show();
       expect(summaries(frame)).toEqual([
-         "Show a hint for Frame",
+         "Show a hint, hint 1 for Frame",
          "Compare with a strong candidate's questions",
          "Show the interviewer's answer: CANARY_Q_RATE How many per second?",
          "Show the interviewer's answer: CANARY_Q_CHANNELS Which channels?",
@@ -193,7 +195,7 @@ describe("Frame: the scope reasoning and what is absent", () => {
    it("omits the coach's line when Frame has nothing to compare, even with a hint", () => {
       const frame = show([SECTIONS[0], SECTIONS[1]], [stage("frame")]);
       expect(within(frame).queryByText(/Before reading on/)).not.toBeInTheDocument();
-      expect(summaries(frame)).toEqual(["Show a hint for Frame"]);
+      expect(summaries(frame)).toEqual(["Show a hint, hint 1 for Frame"]);
    });
 
    it("puts the line first when the challenge is withheld and Frame still has questions", () => {

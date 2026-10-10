@@ -104,6 +104,16 @@ export const ROLE_LABEL: Readonly<Partial<Record<ProblemRole, string>>> = {
    mistakes: "Common mistakes",
 };
 
+/** Hint sequences (S-HNT-6, S-HNT-8, §9.7): one hint at a time, the next offered inside the previous one. */
+export const HINT = {
+   explanation: "Hints nudge your thinking without giving the answer. Use as few as you need.",
+   next: "Show the next hint",
+   cue: (position: number, total: number) => `Hint ${position} of ${total}`,
+   /** Read after a hint control's label, so its name says which hint and where (S-RVL-4). */
+   context: (position: number, where: string) => `, hint ${position} for ${where}`,
+   closing: (where: string, reference: boolean) => `No more hints for ${where}.${reference ? " Open the reference when you're ready." : ""}`,
+} as const;
+
 /** Closed controls, each saying what it shows (§9.3, S-RVL-3, S-RVL-4). Never a count. */
 export const CONTROL_LABEL = {
    hints: "Show a hint",

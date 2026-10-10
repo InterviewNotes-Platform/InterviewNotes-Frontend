@@ -14,6 +14,8 @@ interface ProblemRevealProps {
    quiet?: boolean;
    /** A unit's section id: its reveal is keyed by it, so a fragment naming the unit can open it (S-RVL-8). */
    unit?: string;
+   /** Opens inside another reveal's panel, which already indents it: a hint sequence's next hint (S-HNT-6). */
+   nested?: boolean;
    children: ReactNode;
 }
 
@@ -22,7 +24,7 @@ interface ProblemRevealProps {
  * never holding a heading in its summary (S-RVL-11, S-RVL-12, S-RVL-12a). Its panel follows the control in reading order.
  * Once interactive, the page's reveal state holds its `open` (S-RVL-7); outside a page owner it stays plain native.
  */
-export function ProblemReveal({ label, context, quiet = false, unit, children }: ProblemRevealProps) {
+export function ProblemReveal({ label, context, quiet = false, unit, nested = false, children }: ProblemRevealProps) {
    const generated = useId();
    const key = unit ?? generated;
    const reveal = useReveal(key);
@@ -41,7 +43,7 @@ export function ProblemReveal({ label, context, quiet = false, unit, children }:
                {context ? <span className="sr-only">{context}</span> : null}
             </span>
          </summary>
-         <div className="mt-4 mb-6 border-l border-border pl-5">{children}</div>
+         <div className={nested ? "mt-4" : "mt-4 mb-6 border-l border-border pl-5"}>{children}</div>
       </details>
    );
 }

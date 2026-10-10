@@ -1,3 +1,4 @@
+import { sequenceHints, sequenceKey } from "./hintSequences";
 import { NEUTRAL_REGION_LABEL, POSITION_COPY } from "./positionCopy";
 import type { CatalogItem, CatalogSection, CatalogSpineEntry } from "./types";
 
@@ -68,8 +69,39 @@ export interface ProblemStage {
    step: { position: number; total: number } | null;
    /** The backend reported withheld material in this interview stage (X-2). Never set for a review surface. */
    withheld: boolean;
-   /** Non-empty role groups in presentation order, each in authored order. */
+   /** Non-empty role groups in presentation order, each in authored order. A unit stage's hints group holds only its stage-level sequence. */
    groups: ProblemRoleGroup[];
+   /** A unit stage's hint sequences by the id of the released unit they belong to (S-HNT-5); empty elsewhere. */
+   unitHints: ReadonlyMap<string, CatalogSection[]>;
+}
+
+const UNIT_ROLES: ReadonlySet<ProblemRole> = new Set(["units", "followUps"]);
+
+/** Splits a stage's hints group into its stage-level sequence and its units' sequences; a hint that fits neither is dropped. */
+function withHintSequences(position: string, groups: ProblemRoleGroup[]): Pick<ProblemStage, "groups" | "unitHints"> {
+   const hints = groups.find(({ role }) => role === "hints")?.sections ?? [];
+   const units = groups.find(({ role }) => UNIT_ROLES.has(role))?.sections ?? [];
+   const { stage, units: unitHints } = sequenceHints(position, hints, units);
+   return {
+      groups: groups.flatMap((group) => (group.role !== "hints" ? [group] : stage.length > 0 ? [{ role: group.role, sections: stage }] : [])),
+      unitHints,
+   };
+}
+
+/**
+ * The first hint sequence in presentation order (S-HNT-8): stage by stage as composed, then role group, then unit; never
+ * the document's authored order. Null when the Problem shows no hint.
+ */
+export function firstHintSequence(stages: readonly ProblemStage[]): string | null {
+   for (const { position, groups, unitHints } of stages) {
+      if (position === null) continue;
+      for (const { role, sections } of groups) {
+         if (role === "hints") return sequenceKey(position);
+         const unit = UNIT_ROLES.has(role) ? sections.find(({ id }) => unitHints.has(id)) : undefined;
+         if (unit) return sequenceKey(position, unit.id);
+      }
+   }
+   return null;
 }
 
 export interface ProblemComposition {
@@ -125,7 +157,7 @@ export function composeProblem({ sections, spine }: Pick<CatalogItem, "sections"
       intent: POSITION_COPY.get(entry.position)!.intent,
       step,
       withheld: entry.kind === "interview_stage" && entry.withheld === true,
-      groups: groupsOf(entry.position, placed.get(entry.position) ?? []),
+      ...withHintSequences(entry.position, groupsOf(entry.position, placed.get(entry.position) ?? [])),
    });
 
    return {
@@ -143,6 +175,7 @@ export function composeProblem({ sections, spine }: Pick<CatalogItem, "sections"
               step: null,
               withheld: false,
               groups: [{ role: "stageReference", sections: loose }],
+              unitHints: new Map(),
            }
          : null,
    };

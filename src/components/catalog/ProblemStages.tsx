@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
+import { sequenceKey } from "@/lib/catalog/hintSequences";
 import { linkDisplay } from "@/lib/catalog/linkDisplay";
 import { ADDITIONAL_MATERIAL_LABEL, CHALLENGE_LABEL, CONTROL_LABEL, GROUP_LABEL, REVIEW_INTRODUCTION, ROLE_LABEL, STAGE_WITHHELD, YOURS_FIRST } from "@/lib/catalog/positionCopy";
 import { problemSectionHeading } from "@/lib/catalog/problem";
-import type { ProblemComposition, ProblemRoleGroup, ProblemStage } from "@/lib/catalog/problemSpine";
+import { firstHintSequence, type ProblemComposition, type ProblemRoleGroup, type ProblemStage } from "@/lib/catalog/problemSpine";
 import type { CatalogSection } from "@/lib/catalog/types";
 import { ProblemReveal } from "@/components/problem/ProblemReveal";
 import { cn } from "@/lib/utils";
 import { CatalogBody } from "./CatalogBody";
 import { PremiumMark } from "./EntryRow";
+import { HintSequence } from "./HintSequence";
 
 // Problem sections carry no API headings; reading mode still gives diagrams their natural size and keeps links from prefetching.
 const READING = { headings: [] } as const;
@@ -46,13 +48,28 @@ function Sections({ sections, level, body, untitled = false }: { sections: Catal
    ));
 }
 
-/** A unit: its heading outside the disclosure (the deep-link target, which takes focus on arrival), then its own closed body. */
-function Units({ role, sections, level, body, note }: { role: string; sections: CatalogSection[]; level: Level; body: Body; note?: Note }) {
+/** A unit: its heading outside the disclosure (the deep-link target, which takes focus on arrival), its hints, then its own closed body. */
+function Units({
+   role,
+   sections,
+   level,
+   body,
+   note,
+   hints,
+}: {
+   role: string;
+   sections: CatalogSection[];
+   level: Level;
+   body: Body;
+   note?: Note;
+   hints?: (section: CatalogSection) => ReactNode;
+}) {
    const label = role === "clarifications" ? CONTROL_LABEL.clarification : CONTROL_LABEL.unit;
    return sections.map((section) => (
       <div key={section.id}>
          <SectionHeading section={section} level={level} id={section.id} />
          {note?.(section)}
+         {hints?.(section)}
          <ProblemReveal unit={section.id} label={label} context={`: ${headingOf(section)}`}>
             {body(section, level)}
          </ProblemReveal>
@@ -84,7 +101,7 @@ const hasQuestionsToCompare = (stage: ProblemStage) =>
    stage.position === "frame" && stage.groups.some(({ role }) => role === "clarifications" || role === "assumptions" || role === "stageReference");
 
 /** An interview stage's role groups, in presentation order: hints quieter, then each reveal closed (§9.3). */
-function StageGroups({ stage, body, released }: { stage: ProblemStage; body: Body; released: CatalogSection[] }) {
+function StageGroups({ stage, body, released, firstHints }: { stage: ProblemStage; body: Body; released: CatalogSection[]; firstHints: string | null }) {
    const yoursFirst = hasQuestionsToCompare(stage) ? <p key="yours-first" className="mt-6 mb-0 text-body text-pretty">{YOURS_FIRST}</p> : null;
    const groups = stage.groups.map(({ role, sections }) => {
       if (role === "challenge") {
@@ -96,10 +113,17 @@ function StageGroups({ stage, body, released }: { stage: ProblemStage; body: Bod
          );
       }
       if (role === "hints") {
+         // A narrative stage's reference is its own; a unit stage's stage-level hints concern withheld units, so open none (S-HNT-6).
+         const reference = stage.groups.some((group) => group.role === "stageReference");
          return (
-            <ProblemReveal key={role} label={CONTROL_LABEL.hints} context={` for ${stage.label}`} quiet>
-               <Sections sections={sections} level={3} body={body} untitled />
-            </ProblemReveal>
+            <HintSequence
+               key={role}
+               hints={sections}
+               where={stage.label}
+               reference={reference}
+               explain={firstHints === sequenceKey(stage.position!)}
+               body={(hint) => body(hint, 3)}
+            />
          );
       }
       if (LIST_ROLES.has(role)) {
@@ -111,6 +135,18 @@ function StageGroups({ stage, body, released }: { stage: ProblemStage; body: Bod
                   level={3}
                   body={body}
                   note={role === "assumptions" ? (section) => <LinkLine section={section} released={released} /> : undefined}
+                  hints={(section) => {
+                     const unitHints = stage.unitHints.get(section.id);
+                     return unitHints ? (
+                        <HintSequence
+                           hints={unitHints}
+                           where={headingOf(section)}
+                           reference
+                           explain={firstHints === sequenceKey(stage.position!, section.id)}
+                           body={(hint) => body(hint, 3)}
+                        />
+                     ) : null;
+                  }}
                />
             </ProblemReveal>
          );
@@ -186,6 +222,7 @@ function AccessIndication({ stage }: { stage: ProblemStage }) {
  */
 export function ProblemStages({ composition, stayOnDeployment }: { composition: ProblemComposition; stayOnDeployment: boolean }) {
    const { interview, review, neutral } = composition;
+   const firstHints = firstHintSequence(interview);
    const released = [...interview, ...review, ...(neutral ? [neutral] : [])].flatMap(({ groups }) => groups.flatMap(({ sections }) => sections));
    // An authored heading renders below the heading that contains it, and never above h6 (S-AX-2).
    const body: Body = (section, level) => (
@@ -202,7 +239,7 @@ export function ProblemStages({ composition, stayOnDeployment }: { composition: 
                {interview.map((stage, index) => (
                   <Band key={stage.id} stage={stage} first={index === 0}>
                      {stage.withheld ? <AccessIndication stage={stage} /> : null}
-                     <StageGroups stage={stage} body={body} released={released} />
+                     <StageGroups stage={stage} body={body} released={released} firstHints={firstHints} />
                   </Band>
                ))}
             </section>

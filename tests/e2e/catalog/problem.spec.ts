@@ -211,7 +211,7 @@ test.describe("withheld material (AC-20, S-ENT-1, S-ENT-1a)", () => {
             const design = band(page, "Design");
             await expect(design.getByText("Some material in this stage is included with full access.")).toBeVisible(); // its free hints are released
             await expect(design.getByText("Premium", { exact: true })).toBeVisible();
-            await expect(design.locator("summary")).toHaveText(["Show a hint for Design"]);
+            await expect(design.locator("summary")).toHaveText(["Show a hint, hint 1 for Design", "Show the next hint, hint 2 for Design"]);
             await expect(band(page, "Requirements").getByText("Some material in this stage is included with full access.")).toBeVisible();
             await expect(band(page, "Follow-ups").getByText("Some material in this stage is included with full access.")).toBeVisible();
             await expect(band(page, "Frame").getByText(/included with full access/)).toHaveCount(0);
@@ -240,7 +240,7 @@ test.describe("withheld material (AC-20, S-ENT-1, S-ENT-1a)", () => {
          await page.goto(stages);
          await expect(note(page)).toHaveCount(0);
          await expect(main(page).getByText(/included with full access/)).toHaveCount(0);
-         await expect(band(page, "Design").locator(":scope > details > summary")).toHaveText(["Show a hint for Design", "Show reference for Design"]);
+         await expect(band(page, "Design").locator(":scope > details > summary")).toHaveText(["Show a hint, hint 1 for Design", "Show reference for Design"]);
          expect(await (await page.request.get(stages)).text(), "the matcher the unentitled check relies on").toMatch(/["']evaluation["']|[>"]Evaluation[<"]/);
          await expect(stageNames(page, "Review")).toHaveText(SURFACES);
       });
