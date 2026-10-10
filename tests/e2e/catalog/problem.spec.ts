@@ -746,6 +746,8 @@ test.describe("deep links and reload (CHL-8, S-RVL-8 … S-RVL-10, AC-4)", () =>
    test("a clarification opens the same way, and Tab then reaches the unit's own open control", async ({ page }) => {
       await page.goto(`${route}#clarify-freshness`);
       await expect(target(page, "clarify-freshness")).toBeFocused();
+      // The browser focuses the fragment and opens its list at once; the unit opens once the page is interactive (S-RVL-8).
+      await expect(page.locator('details[data-reveal="clarify-freshness"]')).toHaveAttribute("open", "");
       expect(await openCount(page)).toBe(2);
       await page.keyboard.press("Tab");
       await expect(page.locator('details[data-reveal="clarify-freshness"] > summary')).toBeFocused();
