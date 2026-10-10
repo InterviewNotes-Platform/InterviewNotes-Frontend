@@ -8,6 +8,16 @@ const PAGES = [
    { path: canonical("track.p3-sequence"), ready: "h1" },
    { path: canonical("problem.p3-seq-check"), ready: "h1" },
 ];
+// P4: the fixture Problems that carry a spine, as a signed-out reader (withheld indications, generic link phrases), and the one with the most premium material as an entitled reader.
+const P4_PAGES = [
+   { id: "problem.p4-ml-complete", identity: "signed-out" },
+   { id: "problem.p4-sd-complete", identity: "signed-out" },
+   { id: "problem.p4-premium-stages", identity: "signed-out" },
+   { id: "problem.p4-premium-hints", identity: "signed-out" },
+   { id: "problem.p4-premium-followups", identity: "signed-out" },
+   { id: "problem.p4-premium-units", identity: "signed-out" },
+   { id: "problem.p4-premium-stages", identity: "entitled" },
+] as const;
 // WCAG A and AA only, so a new best-practice rule in an axe upgrade cannot fail the suite.
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
@@ -26,6 +36,36 @@ for (const colorScheme of ["light", "dark"] as const) {
             }
          });
       });
+   }
+}
+
+// Closed native disclosures hide their content from axe, so each Problem is scanned as it opens and again with every reveal open.
+for (const colorScheme of ["light", "dark"] as const) {
+   for (const width of [390, 1440]) {
+      for (const identity of ["signed-out", "entitled"] as const) {
+         test.describe(`P4 Problems as ${identity}, ${colorScheme} at ${width}px`, () => {
+            test.use({ colorScheme, identity, viewport: { width, height: 900 } });
+
+            for (const { id } of P4_PAGES.filter((page) => page.identity === identity)) {
+               test(`${id} has no WCAG A or AA violation, closed or fully open`, async ({ page }) => {
+                  const path = canonical(id);
+                  await page.goto(path);
+                  await expect(page.locator("html")).toHaveClass(colorScheme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b)/);
+                  await expect(page.locator("h1").first()).toBeVisible();
+                  const scan = async (state: string) => {
+                     const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+                     return violations.map(({ id: rule, nodes }) => `${path} (${state}): ${rule} on ${nodes.length} node(s)`);
+                  };
+                  const closed = await scan("closed");
+                  // A hint's next control exists only inside the previous hint, so opening runs until nothing is left closed.
+                  const reveals = page.locator("main details:not([open]) > summary").filter({ visible: true });
+                  for (let pass = 0; pass < 40 && (await reveals.count()) > 0; pass++) await reveals.first().click();
+                  await expect(reveals).toHaveCount(0);
+                  expect([...closed, ...(await scan("open"))]).toEqual([]);
+               });
+            }
+         });
+      }
    }
 }
 
