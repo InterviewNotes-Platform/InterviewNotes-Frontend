@@ -79,6 +79,7 @@ const UNKNOWN_POSITIONS: Record<string, Record<string, string | null>> = {
       "future-unit": "design",
       "future-zone": "p4_future_zone",
       "hint-future": "p4_future_zone",
+      "future-untitled": "design",
       "no-position": null,
       "future-secret": "p4_future_stage",
    },

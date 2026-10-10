@@ -1,7 +1,7 @@
 import { appendFileSync, cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { P3_CANARIES, PROTECTED_CANARIES } from "../../leak/canaries";
+import { P3_CANARIES, P4_CANARIES, PROTECTED_CANARIES } from "../../leak/canaries";
 import { findMaterializedRoutes, format, prerendered, scanNextBuild, scanResponse, walk } from "../../leak/scanner";
 import fixture from "../catalog/fixture.json";
 import { PREVIEW_DIST, PREVIEW_ORIGIN, PRODUCTION_ORIGIN, canonical, expect, exposures, inlinedRsc, item, test, track } from "../catalog/harness";
@@ -15,6 +15,15 @@ const ROUTES = [...fixture.items, ...fixture.tracks].map((record) => ({
    expected: holds(record),
    premium: "access" in record && record.access === "premium",
 }));
+// P4: every Problem served with a spine, with the ids and titles of its premium sections (S-ENT-1b).
+const P4_ROUTES = fixture.items
+   .filter(({ id }) => id.startsWith("problem.p4-"))
+   .map(({ id }) => {
+      const sections = item(id).sections ?? [];
+      return { route: canonical(id), withheld: sections.filter(({ access }) => access === "premium"), released: sections.find(({ access }) => access === "free")! };
+   });
+// An element id in HTML (id="x") or a prop in an RSC payload ("id":"x", escaped when inlined).
+const idPattern = (id: string) => new RegExp(`id\\\\?"?[=:]\\\\?"${id}\\\\?"`);
 const BROWSER_CHUNK = 16;
 const BROWSER_CHUNKS = Array.from({ length: Math.ceil(ROUTES.length / BROWSER_CHUNK) }, (_, index) => ROUTES.slice(index * BROWSER_CHUNK, (index + 1) * BROWSER_CHUNK));
 const PROBLEM = canonical("problem.t24-premium-solution");
@@ -137,6 +146,31 @@ for (const { name, baseURL } of [
                      }
                   }
                });
+            });
+
+            test("every P4 Problem renders its spine and carries no premium canary, withheld section id or title in HTML or RSC", async ({ page }) => {
+               expect(P4_ROUTES.length).toBeGreaterThanOrEqual(12);
+               expect(P4_ROUTES.flatMap(({ withheld }) => withheld).length, "the fixture withholds something").toBeGreaterThan(0);
+               for (const { route, withheld, released } of P4_ROUTES) {
+                  const where = `${route} as ${identity} on ${name}`;
+                  const html = await (await page.request.get(route)).text();
+                  const rsc = await (await page.request.get(route, { headers: { RSC: "1" } })).text();
+                  expect(html, `${where}: not rendered as a readable Problem`).toContain('id="problem_interview"');
+                  expect(html, `${where}: the id matcher finds a released section`).toMatch(idPattern(released.id));
+                  for (const [channel, text] of [
+                     ["HTML", html],
+                     ["inlined RSC", inlinedRsc(html)],
+                     ["fetched RSC", rsc],
+                  ] as const) {
+                     for (const canary of P4_CANARIES) expect(text, `${where} ${channel}: ${canary}`).not.toContain(canary);
+                     for (const section of withheld) {
+                        expect(text, `${where} ${channel}: withheld id ${section.id}`).not.toMatch(idPattern(section.id));
+                        // A whole text node or string value: "Prompt" may sit inside the public title "P4 Premium Prompt".
+                        const title = section.title?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                        if (title) expect(text, `${where} ${channel}: withheld title`).not.toMatch(new RegExp(`[>"]${title}\\\\?[<"]`));
+                     }
+                  }
+               }
             });
 
             test("a readable Lesson offers its premium Next from public fields, and following it reaches the locked page with none of the body", async ({ page, traffic }) => {

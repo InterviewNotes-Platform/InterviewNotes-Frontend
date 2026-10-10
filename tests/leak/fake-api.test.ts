@@ -161,7 +161,7 @@ describe("X-2: interview stages stay listed and flagged; review surfaces appear 
          "frame:false",
          "requirements:true",
          "design:true",
-         "evaluate_and_scale:false",
+         "evaluate_and_scale:true",
          "follow_ups:true",
          "self_review:null",
       ]);

@@ -1886,7 +1886,7 @@
         {"id": "high-level-design", "type": "high_level_design", "title": "High-level design", "access": "premium", "text": "P4_SENTINEL_STAGE_REFERENCE premium design body.", "spine_position": "design"},
         {"id": "hint-design-1", "type": "hint", "title": null, "access": "free", "text": "P4 stages design hint one marker. Start from the read path.", "link": "high-level-design", "spine_position": "design"},
         {"id": "hint-design-2", "type": "hint", "title": null, "access": "free", "text": "P4 stages design hint two marker. Then the write path.", "link": "interfaces", "spine_position": "design"},
-        {"id": "evaluation", "type": "evaluation", "title": "Evaluation", "access": "free", "text": "P4 stages evaluation marker.", "spine_position": "evaluate_and_scale"},
+        {"id": "evaluation", "type": "evaluation", "title": "Evaluation", "access": "premium", "text": "P4_SENTINEL_STAGE_REFERENCE premium evaluation body.", "spine_position": "evaluate_and_scale"},
         {"id": "follow-up-secret", "type": "follow_ups", "title": "A region fails. What do users see?", "access": "premium", "text": "P4_SENTINEL_FOLLOW_UP premium stage follow-up body.", "dimension": "reliability_and_operations", "spine_position": "follow_ups"},
         {"id": "hint-follow-up", "type": "hint", "title": null, "access": "free", "text": "P4 stages follow-up hint marker. Think about stale reads.", "link": "follow-up-secret", "spine_position": "follow_ups"},
         {"id": "reference-design", "type": "reference_design", "title": "Reference design", "access": "premium", "text": "P4_SENTINEL_REFERENCE_DESIGN premium reference body.", "spine_position": "reference_solution"},
@@ -2077,9 +2077,36 @@
         {"id": "future-unit", "type": "p4_future_unit", "title": "Future unit", "access": "free", "text": "P4 unknown type at a known position marker.", "spine_position": "design"},
         {"id": "future-zone", "type": "p4_future_unit", "title": null, "access": "free", "text": "P4 unknown position marker.", "spine_position": "p4_future_zone"},
         {"id": "hint-future", "type": "hint", "title": null, "access": "free", "text": "P4 unplaceable hint marker.", "spine_position": "p4_future_zone", "link": "prompt"},
+        {"id": "future-untitled", "type": "p4_future_unit", "title": null, "access": "free", "text": "P4 untitled unknown type marker.", "spine_position": "design"},
         {"id": "no-position", "type": "p4_future_unit", "title": "Unpositioned", "access": "free", "text": "P4 no position marker.", "spine_position": null},
         {"id": "future-dimension", "type": "follow_ups", "title": "A question with a future dimension?", "access": "free", "text": "P4 unknown dimension marker.", "dimension": "p4_future_dimension", "spine_position": "follow_ups"},
         {"id": "future-secret", "type": "p4_future_unit", "title": "Hidden future unit", "access": "premium", "text": "P4_SENTINEL_STAGE_REFERENCE premium unknown-stage body.", "spine_position": "p4_future_stage"}
+      ],
+      "relations": {}
+    },
+    {
+      "id": "problem.p4-today-only",
+      "type": "problem",
+      "slug": "p4-today-only",
+      "title": "P4 Today Only",
+      "summary": "Synthetic P4-served Problem with only today's section types.",
+      "tags": ["e2e", "p4"],
+      "difficulty": "medium",
+      "level": "intermediate",
+      "access": "free",
+      "home": "",
+      "category": "system_design",
+      "spine": [
+        {"position": "frame", "kind": "interview_stage"},
+        {"position": "requirements", "kind": "interview_stage"},
+        {"position": "design", "kind": "interview_stage"},
+        {"position": "reference_solution", "kind": "review_surface"}
+      ],
+      "sections": [
+        {"id": "prompt", "type": "prompt", "title": "Prompt", "access": "free", "text": "P4 today prompt marker. Design a synthetic service that shortens links.", "spine_position": "frame"},
+        {"id": "functional", "type": "functional_requirements", "title": "Functional requirements", "access": "free", "text": "P4 today functional marker.\n\n- Create a short link\n- Follow a short link", "spine_position": "requirements"},
+        {"id": "high-level-design", "type": "high_level_design", "title": "High-level design", "access": "free", "text": "P4 today design marker.\n\n## Request path\n\nA stateless API in front of a keyed store.\n\n### Cache\n\nHot links are cached.", "spine_position": "design"},
+        {"id": "reference-design", "type": "reference_design", "title": "Reference design", "access": "free", "text": "P4 today reference marker. One keyed store and a cache.", "spine_position": "reference_solution"}
       ],
       "relations": {}
     }

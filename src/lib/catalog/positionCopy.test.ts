@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { GROUP_LABEL, NEUTRAL_REGION_LABEL, POSITION_COPY, REVIEW_INTRODUCTION } from "./positionCopy";
+import {
+   ADDITIONAL_MATERIAL_LABEL,
+   CHALLENGE_LABEL,
+   CONTROL_LABEL,
+   GROUP_LABEL,
+   NEUTRAL_REGION_LABEL,
+   POSITION_COPY,
+   REVIEW_INTRODUCTION,
+   ROLE_LABEL,
+   STAGE_WITHHELD,
+   WITHHELD_NOTE,
+} from "./positionCopy";
 
 // Transcribed from spec §4.1 (contract position ids) and §9.3 / §9.7 (working copy).
 const POSITION_IDS = ["frame", "requirements", "design", "ml_reasoning", "evaluate_and_scale", "depth_and_trade_offs", "follow_ups", "reference_solution", "self_review"];
@@ -31,5 +42,37 @@ describe("position copy", () => {
       expect(GROUP_LABEL).toEqual({ interview: "Interview", review: "Review" });
       expect(REVIEW_INTRODUCTION).toBe("After the interview: study one strong approach, then review your reasoning.");
       expect(NEUTRAL_REGION_LABEL).toBe("More material");
+   });
+
+   it("carries the reader copy of §9.3, §9.7 and §16.2: the challenge, the access lines and the group labels", () => {
+      expect(CHALLENGE_LABEL).toBe("The challenge");
+      expect(ADDITIONAL_MATERIAL_LABEL).toBe("Additional material");
+      expect(WITHHELD_NOTE).toBe("Some material for this Problem is included with full access.");
+      expect(STAGE_WITHHELD).toEqual({
+         all: "The material for this stage is included with full access.",
+         some: "Some material in this stage is included with full access.",
+      });
+      expect(ROLE_LABEL).toEqual({ expectations: "Expectations by seniority", rubric: "Rubric", alternatives: "Alternatives", mistakes: "Common mistakes" });
+   });
+
+   it("labels every control with the §9.3 wording, and never with a count (S-RVL-3)", () => {
+      expect(CONTROL_LABEL.stageReference("Design")).toBe("Show reference for Design");
+      const fixed = Object.values(CONTROL_LABEL).filter((label) => typeof label === "string") as string[];
+      expect(fixed).toEqual(
+         expect.arrayContaining([
+            "Show a hint",
+            "Compare with a strong candidate's questions",
+            "Compare with the reference's assumptions",
+            "Compare with the topics the reference goes deep on",
+            "Show the follow-up questions",
+            "Show how the reference frames the problem",
+            "Show the reference solution",
+            "Show the alternatives",
+            "Open self-review",
+            "Show common mistakes",
+            "Show the interviewer's answer",
+         ])
+      );
+      for (const label of fixed) expect(label).not.toMatch(/\d|\(/);
    });
 });

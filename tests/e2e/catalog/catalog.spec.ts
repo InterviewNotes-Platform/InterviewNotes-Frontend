@@ -40,12 +40,13 @@ const premiumMark = { name: "Premium", exact: true } as const;
 test.describe("type-based routes", () => {
    const routes = [
       { route: canonical(FREE_LESSON.id), heading: FREE_LESSON.title, marker: "Free lesson body marker." },
-      { route: canonical(PROBLEM.id), heading: PROBLEM.title, marker: "Problem prompt marker." },
+      // A Problem with no spine (P4 S-SPN-13) reads behind one closed reveal.
+      { route: canonical(PROBLEM.id), heading: PROBLEM.title, marker: "Problem prompt marker.", reveal: "Show more material" },
       { route: canonical(SECTIONED.id), heading: SECTIONED.title, marker: "Public section marker." },
       { route: canonical(HOME.id), heading: HOME.title, marker: HOME.summary },
    ];
 
-   for (const { route, heading, marker } of routes) {
+   for (const { route, heading, marker, reveal } of routes) {
       test(`${route} is server-rendered at its canonical URL`, async ({ page }) => {
          const response = await page.goto(route);
          expect(response?.status(), route).toBe(200);
@@ -53,6 +54,7 @@ test.describe("type-based routes", () => {
          expect(html, `${route}: title missing from the server HTML`).toContain(heading);
          expect(html, `${route}: content missing from the server HTML`).toContain(marker);
          await expect(title(page)).toHaveText(heading);
+         if (reveal) await main(page).locator("summary", { hasText: reveal }).click();
          await expect(main(page).getByText(marker)).toBeVisible();
       });
    }
