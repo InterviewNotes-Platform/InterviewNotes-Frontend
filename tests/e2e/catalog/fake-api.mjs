@@ -41,16 +41,50 @@ function authorize(item, identity, sections = item.sections ?? []) {
    return { withheld: entitled ? new Set() : premium };
 }
 
+/**
+ * P4 fields (spec §15.1), served from fixture values and never from a type map (S-SPN-16). Only an item whose
+ * fixture carries a `spine` is a P4 Problem; any other is served as a backend that predates P4 would.
+ * A link whose target is withheld names nothing: `target: null, withheld: true` (S-API-4).
+ * A released section keeps its own `spine_position`, so a hint over a withheld target stays placed (X-1).
+ */
+function p4Fields(section, withheld) {
+   const target = section.link ?? null;
+   const link = target === null ? null : withheld.has(target) ? { target: null, withheld: true } : { target, withheld: false };
+   return { spine_position: section.spine_position ?? null, link, dimension: section.dimension ?? null };
+}
+
+/**
+ * An interview stage is listed whenever the document has a section there, flagged when any section positioned
+ * there is withheld (X-2). A review surface is listed only with a released section and is never flagged.
+ */
+function spineOut(item, withheld) {
+   return item.spine.flatMap(({ position, kind }) => {
+      const here = item.sections.filter((section) => section.spine_position === position);
+      if (kind === "review_surface") {
+         return here.some((section) => !withheld.has(section.id)) ? [{ position, kind, withheld: null }] : [];
+      }
+      return [{ position, kind, withheld: here.some((section) => withheld.has(section.id)) }];
+   });
+}
+
 function itemOut(item, withheld) {
    const sections = item.sections ?? [];
+   const p4 = Array.isArray(item.spine);
    return {
       ...meta(item),
       body: item.body ? { format: "markdown@1", text: item.body } : null,
       headings: item.headings ?? [],
       sections: sections
          .filter((section) => !withheld.has(section.id))
-         .map(({ id, type, title, text }) => ({ id, type, title, body: { format: "markdown@1", text } })),
+         .map((section) => ({
+            id: section.id,
+            type: section.type,
+            title: section.title,
+            ...(p4 ? p4Fields(section, withheld) : {}),
+            body: { format: "markdown@1", text: section.text },
+         })),
       sections_withheld: sections.some((section) => withheld.has(section.id)),
+      ...(p4 ? { spine: spineOut(item, withheld) } : {}),
    };
 }
 

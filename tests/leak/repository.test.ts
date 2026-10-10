@@ -13,6 +13,23 @@ import {
    P3_PRACTICE_PROMPT_CANARY,
    P3_PROSE_CANARY,
    P3_TAKEAWAYS_CANARY,
+   P4_ALTERNATIVE_CANARY,
+   P4_ASSUMPTION_CANARY,
+   P4_CLARIFICATION_ANSWER_CANARY,
+   P4_CLARIFICATION_QUESTION_CANARY,
+   P4_DECISION_CANARY,
+   P4_FOLLOW_UP_CANARY,
+   P4_HINT_CANARY,
+   P4_LEVEL_BAR_CANARY,
+   P4_PROMPT_CANARY,
+   P4_REFERENCE_DESIGN_CANARY,
+   P4_RUBRIC_BAR_CANARY,
+   P4_RUBRIC_EVALUATES_CANARY,
+   P4_RUBRIC_STRONG_CANARY,
+   P4_RUBRIC_WEAK_CANARY,
+   P4_STAGE_REFERENCE_CANARY,
+   P4_TARGET_ID_CANARY,
+   P4_TARGET_TITLE_CANARY,
    PROTECTED_CANARIES,
    SOLUTION_CANARY,
 } from "./canaries";
@@ -23,6 +40,7 @@ const ROOT = join(__dirname, "..", "..");
 interface Section {
    id: string;
    type: string;
+   title?: string | null;
    access: string;
    text: string;
 }
@@ -83,6 +101,8 @@ describe("synthetic canary fixture", () => {
    const premiumContent = (item: Item) => [
       ...(item.body !== undefined ? [{ where: `${item.id} body`, access: item.access, text: item.body }] : []),
       ...(item.sections ?? []).map((s) => ({ where: `${item.id} section ${s.id}`, access: s.access, text: s.text })),
+      // A withheld section's own identity is premium too (P4): its id and title are canaries of a withheld link target.
+      ...(item.sections ?? []).map((s) => ({ where: `${item.id} section ${s.id} id and title`, access: s.access, text: `${s.id} ${s.title ?? ""}` })),
    ];
    const holders = (canary: string) => items.flatMap(premiumContent).filter(({ text }) => text.includes(canary));
 
@@ -110,6 +130,30 @@ describe("synthetic canary fixture", () => {
       const prompt = items.find((i) => i.id === "problem.p3-prac-premium")?.sections?.find((s) => s.type === "prompt");
       expect(prompt?.text).toContain(P3_PRACTICE_PROMPT_CANARY);
       expect(prompt?.access).toBe("premium");
+   });
+
+   it("places each P4 canary in the premium unit it names, and the target identity in a section's id and title", () => {
+      const sections = items.flatMap((i) => i.sections ?? []);
+      const typeOf = (canary: string) => [...new Set(sections.filter((s) => s.text.includes(canary)).map((s) => s.type))].sort();
+      expect(typeOf(P4_HINT_CANARY)).toEqual(["hint"]);
+      expect(typeOf(P4_CLARIFICATION_ANSWER_CANARY)).toEqual(["clarification"]);
+      expect(sections.filter((s) => s.title?.includes(P4_CLARIFICATION_QUESTION_CANARY)).map((s) => s.type)).toEqual(["clarification"]);
+      expect(typeOf(P4_ASSUMPTION_CANARY)).toEqual(["assumption"]);
+      expect(typeOf(P4_DECISION_CANARY)).toEqual(["trade_offs"]);
+      expect(typeOf(P4_ALTERNATIVE_CANARY)).toEqual(["alternative"]);
+      expect(typeOf(P4_FOLLOW_UP_CANARY)).toEqual(["follow_ups"]);
+      for (const canary of [P4_RUBRIC_EVALUATES_CANARY, P4_RUBRIC_STRONG_CANARY, P4_RUBRIC_WEAK_CANARY, P4_RUBRIC_BAR_CANARY]) {
+         expect(typeOf(canary)).toEqual(["rubric_dimension"]);
+      }
+      expect(typeOf(P4_LEVEL_BAR_CANARY)).toEqual(["level_expectations"]);
+      expect(typeOf(P4_REFERENCE_DESIGN_CANARY)).toEqual(["reference_design"]);
+      expect(typeOf(P4_PROMPT_CANARY)).toEqual(["prompt"]);
+      expect(typeOf(P4_STAGE_REFERENCE_CANARY)).toContain("non_functional_requirements");
+
+      const target = sections.find((s) => s.id === P4_TARGET_ID_CANARY);
+      expect(target?.title).toBe(P4_TARGET_TITLE_CANARY);
+      expect(target?.access).toBe("premium");
+      expect(sections.filter((s) => s.text.includes(P4_TARGET_ID_CANARY) || s.text.includes(P4_TARGET_TITLE_CANARY))).toEqual([]);
    });
 
    it("keeps canaries out of every identity, Track and legacy record", () => {

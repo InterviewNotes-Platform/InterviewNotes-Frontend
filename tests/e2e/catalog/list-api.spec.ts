@@ -98,10 +98,10 @@ test.describe("fake catalog list endpoints", () => {
    });
 
    test("GET /catalog/items returns public metadata for every item, ordered by id, at the largest page size", async ({ request }) => {
-      expect(ALL_ITEMS.length, "the fixture must fit one page of 100").toBeLessThanOrEqual(100);
       const body = await page(request, "?limit=100");
-      expect(body.items.map((i) => i.id)).toEqual(ALL_ITEMS);
-      expect(body.next_cursor).toBeNull();
+      expect(body.items.map((i) => i.id)).toEqual(ALL_ITEMS.slice(0, 100));
+      // The largest page is 100: a fixture of up to 100 items ends here, a larger one continues from the last id.
+      expect(body.next_cursor).toBe(ALL_ITEMS.length > 100 ? ALL_ITEMS[99] : null);
       for (const i of body.items) expect(Object.keys(i).sort()).toEqual(META_FIELDS);
    });
 
@@ -156,9 +156,18 @@ test.describe("fake catalog list endpoints", () => {
    });
 
    test("a page that exactly exhausts the items has no cursor", async ({ request }) => {
-      const body = await page(request, `?limit=${ALL_ITEMS.length}`);
-      expect(body.items).toHaveLength(ALL_ITEMS.length);
-      expect(body.next_cursor).toBeNull();
+      // The largest page is 100, so a fixture above it is exhausted by the last page asking for exactly what remains.
+      const walked: string[] = [];
+      let cursor: string | null = null;
+      while (walked.length < ALL_ITEMS.length) {
+         const size = Math.min(ALL_ITEMS.length - walked.length, 100);
+         const body: Page = await page(request, `?limit=${size}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`);
+         expect(body.items).toHaveLength(size);
+         walked.push(...body.items.map((i) => i.id));
+         expect(body.next_cursor).toBe(walked.length < ALL_ITEMS.length ? body.items.at(-1)!.id : null);
+         cursor = body.next_cursor;
+      }
+      expect(walked).toEqual(ALL_ITEMS);
    });
 
    test("filters by category as the backend's D-18 contract does, with or without a type", async ({ request }) => {
@@ -173,7 +182,7 @@ test.describe("fake catalog list endpoints", () => {
       for (const category of ["system_design", "ml_system_design"]) {
          const wanted = problems.filter((candidate) => candidate.category === category).map((candidate) => candidate.id).sort();
          expect(wanted.length, `fixture has no ${category} Problem`).toBeGreaterThan(0);
-         const found = (await page(request, `?category=${category}`)).items;
+         const found = (await page(request, `?category=${category}&limit=100`)).items;
          expect(found.map((i) => i.id), category).toEqual(wanted);
          for (const i of found) expect(i.type).toBe("problem");
       }

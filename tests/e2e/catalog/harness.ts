@@ -43,7 +43,8 @@ export const CANARY = CATALOG_CANARY;
 
 export interface FixtureSection {
    id: string;
-   title: string;
+   /** Null for a hint (`SectionOut.title` is nullable, spec §15.1). */
+   title: string | null;
    access: string;
    text: string;
 }

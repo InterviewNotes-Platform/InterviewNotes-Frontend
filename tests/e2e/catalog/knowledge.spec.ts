@@ -459,7 +459,7 @@ test.describe("premium Knowledge, access decided by the API alone", () => {
             await page.waitForLoadState("networkidle");
             await expectNoCanary(page, traffic, withheld, identity);
             expect(await main(page).locator("section h3").allTextContents()).toEqual(free.map((section) => section.title));
-            for (const section of gated) await expect(page.getByRole("heading", { name: section.title })).toHaveCount(0);
+            for (const section of gated) await expect(page.getByRole("heading", { name: section.title! })).toHaveCount(0);
             await expect(main(page).getByRole("note")).toHaveText("Some sections of this content are premium and are not included in your access.");
             await expect(bands(page)).toHaveText(["Fast understanding", "Explanation"]);
          });

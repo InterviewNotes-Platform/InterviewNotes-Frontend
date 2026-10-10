@@ -154,8 +154,8 @@ test.describe("section-level access", () => {
             await page.waitForLoadState("networkidle");
             await expectNoCanary(page, traffic, route, identity);
 
-            await expect(sectionTitled(page, publicSection.title)).toContainText(publicSection.text);
-            await expect(page.getByRole("heading", { name: premiumSection.title })).toHaveCount(0);
+            await expect(sectionTitled(page, publicSection.title!)).toContainText(publicSection.text);
+            await expect(page.getByRole("heading", { name: premiumSection.title! })).toHaveCount(0);
             await expect(main(page).getByRole("note")).toHaveText(
                "Some sections of this content are premium and are not included in your access."
             );
@@ -168,8 +168,8 @@ test.describe("section-level access", () => {
 
       test("receives every section; the canary renders only inside the premium section", async ({ page }) => {
          await page.goto(route);
-         await expect(sectionTitled(page, publicSection.title)).toContainText(publicSection.text);
-         await expect(sectionTitled(page, premiumSection.title)).toContainText(CANARY);
+         await expect(sectionTitled(page, publicSection.title!)).toContainText(publicSection.text);
+         await expect(sectionTitled(page, premiumSection.title!)).toContainText(CANARY);
          await expect(main(page).locator("section").filter({ hasText: CANARY })).toHaveCount(1);
          await expect(main(page).getByRole("note")).toHaveCount(0);
       });
