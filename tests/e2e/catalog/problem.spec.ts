@@ -743,6 +743,16 @@ test.describe("deep links and reload (CHL-8, S-RVL-8 … S-RVL-10, AC-4)", () =>
       expect(await page.evaluate(() => location.hash)).toBe("#deep-dive-labels");
    });
 
+   test("the browser's own scroll to the fragment is instant, so it and the page's own scroll land in the same place", async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.goto(`${route}#deep-dive-labels`);
+      await expect(page.locator("html")).toHaveCSS("scroll-behavior", "auto");
+      await expect(hasText(page, ML.id, "deep-dive-labels")).toBeVisible();
+      await expect.poll(() => top(target(page, "deep-dive-labels"))).toBe(112);
+      await page.waitForTimeout(500);
+      expect(await top(target(page, "deep-dive-labels")), "nothing scrolls it away afterwards").toBe(112);
+   });
+
    test("a clarification opens the same way, and Tab then reaches the unit's own open control", async ({ page }) => {
       await page.goto(`${route}#clarify-freshness`);
       await expect(target(page, "clarify-freshness")).toBeFocused();
