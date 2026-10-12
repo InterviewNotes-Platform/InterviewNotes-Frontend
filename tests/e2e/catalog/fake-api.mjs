@@ -277,7 +277,7 @@ const api = createServer((req, res) => {
    return send(res, 404, { detail: "Not found" });
 });
 
-/** Supabase Auth `GET /auth/v1/user`, called by the middleware and the browser client. */
+/** Supabase Auth `GET /auth/v1/user`, called by the proxy and the browser client. */
 const auth = createServer((req, res) => {
    const cors = {
       "access-control-allow-origin": req.headers.origin ?? "*",
