@@ -95,6 +95,9 @@ const BUILDS = [
    { name: "preview", dist: PREVIEW_DIST },
 ];
 
+// Every test here reads the builds or the servers and writes only to its own temporary copy, so they run apart: one file is over a third of the suite's time, and a shard cannot split it otherwise.
+test.describe.configure({ mode: "parallel" });
+
 test.describe("build output", () => {
    for (const { name, dist } of BUILDS) {
       test.describe(`${name} build (${dist})`, () => {

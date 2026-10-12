@@ -15,9 +15,9 @@ concurrency:
 # Deliberately deferred: `npm run lint` (tracked Phase 0 lint debt) and
 # `npm run build` (P0-X4: /learn prerender needs API_URL). Enforce once resolved.
 jobs:
-  quality:
+  checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -27,13 +27,40 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run test:run
+
+  # The end-to-end suite is about 1300 s of test time with two workers, so it runs as three shards, each with its own
+  # production and preview builds. `leak.spec.ts` runs its tests in parallel so that a shard can split it.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npx playwright test --shard=${{ matrix.shard }}/3
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-artifacts
+          name: playwright-artifacts-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
+
+  # The one check name that callers rely on: it passes only when the checks and every shard did.
+  quality:
+    if: always()
+    needs: [checks, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          test "${{ needs.checks.result }}" = success
+          test "${{ needs.e2e.result }}" = success
