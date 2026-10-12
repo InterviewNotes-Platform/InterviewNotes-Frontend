@@ -743,6 +743,16 @@ test.describe("deep links and reload (CHL-8, S-RVL-8 … S-RVL-10, AC-4)", () =>
       expect(await page.evaluate(() => location.hash)).toBe("#deep-dive-labels");
    });
 
+   test("the browser's own scroll to the fragment is instant, so it and the page's own scroll land in the same place", async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.goto(`${route}#deep-dive-labels`);
+      await expect(page.locator("html")).toHaveCSS("scroll-behavior", "auto");
+      await expect(hasText(page, ML.id, "deep-dive-labels")).toBeVisible();
+      await expect.poll(() => top(target(page, "deep-dive-labels"))).toBe(112);
+      await page.waitForTimeout(500);
+      expect(await top(target(page, "deep-dive-labels")), "nothing scrolls it away afterwards").toBe(112);
+   });
+
    test("a clarification opens the same way, and Tab then reaches the unit's own open control", async ({ page }) => {
       await page.goto(`${route}#clarify-freshness`);
       await expect(target(page, "clarify-freshness")).toBeFocused();
@@ -788,7 +798,12 @@ test.describe("deep links and reload (CHL-8, S-RVL-8 … S-RVL-10, AC-4)", () =>
    test("following an in-page link or changing the hash later opens the same way", async ({ page }) => {
       await page.goto(route);
       expect(await openCount(page)).toBe(0);
-      await page.evaluate(() => (location.hash = "#decision-model"));
+      // "Later" is once the page is interactive. The router rewrites the URL as it hydrates, which drops a hash set before that,
+      // so the change is repeated until the page answers it; the browser's own focus and its list opening answer nothing.
+      await expect(async () => {
+         await page.evaluate(() => (location.hash = "#decision-model"));
+         await expect(page.locator('details[data-reveal="decision-model"]')).toHaveAttribute("open", "", { timeout: 1000 });
+      }).toPass();
       await expect(target(page, "decision-model")).toBeFocused();
       expect(await openCount(page)).toBe(2);
       await page.evaluate(() => (location.hash = "#model"));
@@ -948,6 +963,7 @@ test.describe("nothing is remembered (S-PST-1 … S-PST-3, S-TST-6)", () => {
    test("following a fragment adds no storage, query or second fragment; only outline navigation writes one, naming a position", async ({ page }) => {
       await page.goto(route);
       const before = await remembered(page);
+      await page.goto("about:blank"); // a fresh document: the first one's router rewrites the URL as it hydrates, which drops a fragment set meanwhile
       await page.goto(`${route}#deep-dive-labels`);
       const arrived = await remembered(page);
       expect(arrived).toEqual({ ...before, hash: "#deep-dive-labels" });
