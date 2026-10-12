@@ -798,7 +798,12 @@ test.describe("deep links and reload (CHL-8, S-RVL-8 … S-RVL-10, AC-4)", () =>
    test("following an in-page link or changing the hash later opens the same way", async ({ page }) => {
       await page.goto(route);
       expect(await openCount(page)).toBe(0);
-      await page.evaluate(() => (location.hash = "#decision-model"));
+      // "Later" is once the page is interactive. The router rewrites the URL as it hydrates, which drops a hash set before that,
+      // so the change is repeated until the page answers it; the browser's own focus and its list opening answer nothing.
+      await expect(async () => {
+         await page.evaluate(() => (location.hash = "#decision-model"));
+         await expect(page.locator('details[data-reveal="decision-model"]')).toHaveAttribute("open", "", { timeout: 1000 });
+      }).toPass();
       await expect(target(page, "decision-model")).toBeFocused();
       expect(await openCount(page)).toBe(2);
       await page.evaluate(() => (location.hash = "#model"));
