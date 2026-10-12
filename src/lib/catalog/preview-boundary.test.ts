@@ -67,7 +67,7 @@ describe("preview credential boundary", () => {
    });
 
    it("keeps /learn and the rest of the site free of preview behavior", () => {
-      for (const path of sources.filter((p) => /src\/(app\/learn|lib\/(content|courses)|components\/layout|middleware)/.test(p))) {
+      for (const path of sources.filter((p) => /src\/(app\/learn|lib\/(content|courses)|components\/layout|proxy)/.test(p))) {
          expect(read(path), path).not.toMatch(/preview|PreviewMarker/i);
       }
    });

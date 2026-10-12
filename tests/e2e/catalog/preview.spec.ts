@@ -30,7 +30,8 @@ const HOME = track(PROBLEM.home);
 // One page of every catalog type, with its heading and a string that appears only in its authorized content.
 const PAGES = [
    { route: canonical(FREE_LESSON.id), heading: FREE_LESSON.title, content: "Free lesson body marker." },
-   { route: canonical(PROBLEM.id), heading: PROBLEM.title, content: "Problem prompt marker." },
+   // A Problem with no spine (P4 S-SPN-13) reads behind one closed reveal.
+   { route: canonical(PROBLEM.id), heading: PROBLEM.title, content: "Problem prompt marker.", reveal: "Show more material" },
    { route: canonical(SECTIONED.id), heading: SECTIONED.title, content: "Public section marker." },
    { route: canonical(HOME.id), heading: HOME.title, content: HOME.summary },
 ];
@@ -48,10 +49,11 @@ const hrefs = (page: Page, selector: string) =>
 test.describe("preview deployment", () => {
    test.use({ baseURL: PREVIEW_ORIGIN });
 
-   for (const { route, heading: title, content } of PAGES) {
+   for (const { route, heading: title, content, reveal } of PAGES) {
       test(`${route} renders authorized content with a Preview marker and noindex`, async ({ page }) => {
          expect((await page.goto(route))?.status()).toBe(200);
          await expect(heading(page)).toHaveText(title);
+         if (reveal) await page.getByRole("main").locator("summary", { hasText: reveal }).click();
          await expect(page.getByRole("main").getByText(content)).toBeVisible();
          await expect(marker(page)).toBeVisible();
          await expect(marker(page)).toHaveText(MARKER_TEXT);
@@ -204,10 +206,11 @@ test.describe("preview deployment", () => {
 });
 
 test.describe("production deployment", () => {
-   for (const { route, heading: title, content } of PAGES) {
+   for (const { route, heading: title, content, reveal } of PAGES) {
       test(`${route} has no Preview marker and is not noindex`, async ({ page, request }) => {
          expect((await page.goto(route))?.status()).toBe(200);
          await expect(heading(page)).toHaveText(title);
+         if (reveal) await page.getByRole("main").locator("summary", { hasText: reveal }).click();
          await expect(page.getByRole("main").getByText(content)).toBeVisible();
          await expect(page.getByRole("complementary")).toHaveCount(0);
          await expect(page.getByText(MARKER_TEXT)).toHaveCount(0);

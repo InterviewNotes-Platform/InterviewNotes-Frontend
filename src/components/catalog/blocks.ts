@@ -1,14 +1,21 @@
+import { PART_EYEBROW, PART_ORDER, SENIORITY_LABEL, SENIORITY_ORDER, UNATTRIBUTED_BAR_LABEL } from "@/lib/catalog/positionCopy";
 import type { CatalogHeading } from "@/lib/catalog/types";
 
 export type CalloutKind = "note" | "tip" | "warning";
 
 export type Block =
    | { type: "markdown"; text: string }
-   | { type: "callout"; kind: CalloutKind; children: Block[] };
+   | { type: "callout"; kind: CalloutKind; children: Block[] }
+   | { type: "part"; name: string; seniority: string | null; children: Block[] };
+
+type Container = Exclude<Block, { type: "markdown" }>;
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 const CALLOUT_OPEN =
    /^ {0,3}:::[ \t]*callout[ \t]+kind=(?:(note|tip|warning)|"(note|tip|warning)")[ \t]*$/;
+const PART_OPEN = /^ {0,3}:::[ \t]*part[ \t]+(.+?)[ \t]*$/;
+// The backend's attribute grammar (`app/content_engine/body.py`): `name=bare-token` or `name="quoted"`, no repeats.
+const ATTRIBUTE = /([a-z]+)=(?:([A-Za-z0-9_-]+)|"([^"]*)")(?:[ \t]+|$)/y;
 const DIRECTIVE_CLOSE = /^ {0,3}:::[ \t]*$/;
 // The backend's heading rule (`app/content_engine/body.py`): an ATX heading outside a code fence.
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
@@ -20,14 +27,30 @@ function nextFence(fence: string | null, line: string): string | null {
    return match && match[1].startsWith(fence) && !match[2].trim() ? null : fence;
 }
 
+/** A top-level `::: part name=<name> [seniority=<seniority>]` line as a part block, else null (malformed lines stay prose). */
+function partOpen(line: string): Extract<Block, { type: "part" }> | null {
+   const attributes = PART_OPEN.exec(line)?.[1];
+   if (attributes === undefined) return null;
+   const found = new Map<string, string>();
+   ATTRIBUTE.lastIndex = 0;
+   while (ATTRIBUTE.lastIndex < attributes.length) {
+      const match = ATTRIBUTE.exec(attributes);
+      if (match === null || found.has(match[1])) return null;
+      found.set(match[1], match[2] ?? match[3]);
+   }
+   const name = found.get("name");
+   if (!name || [...found.keys()].some((key) => key !== "name" && key !== "seniority")) return null;
+   return { type: "part", name, seniority: found.get("seniority") ?? null, children: [] };
+}
+
 /**
- * Splits a `markdown@1` body on the backend's `::: callout kind=<kind>` fences, which
- * remark-directive cannot parse. Fence detection mirrors the backend body scanner: lines
- * inside fenced code are literal, so a callout example in a code block stays code.
+ * Splits a `markdown@1` body on the backend's `::: callout` and `::: part` fences, which remark-directive cannot parse.
+ * Fence detection mirrors the backend body scanner: lines inside fenced code are literal, so a callout or part example in
+ * a code block stays code. A part is recognised only at the top level (S-PRT-2); a `:::` closes the innermost open one.
  */
 export function parseBlocks(text: string): Block[] {
    const root: Block[] = [];
-   const open: { kind: CalloutKind; children: Block[] }[] = [];
+   const open: Container[] = [];
    let buffer: string[] = [];
    let fence: string | null = null;
 
@@ -38,8 +61,8 @@ export function parseBlocks(text: string): Block[] {
       if (chunk.trim()) target().push({ type: "markdown", text: chunk });
    };
    const close = () => {
-      const { kind, children } = open.pop()!;
-      target().push({ type: "callout", kind, children });
+      const done = open.pop()!;
+      target().push(done);
    };
 
    for (const line of text.split("\n")) {
@@ -50,9 +73,10 @@ export function parseBlocks(text: string): Block[] {
          continue;
       }
       const opened = CALLOUT_OPEN.exec(line);
-      if (opened) {
+      const part = open.length ? null : partOpen(line);
+      if (opened || part) {
          flush();
-         open.push({ kind: (opened[1] ?? opened[2]) as CalloutKind, children: [] });
+         open.push(part ?? { type: "callout", kind: (opened![1] ?? opened![2]) as CalloutKind, children: [] });
       } else if (open.length && DIRECTIVE_CLOSE.test(line)) {
          flush();
          close();
@@ -63,6 +87,39 @@ export function parseBlocks(text: string): Block[] {
    flush();
    while (open.length) close();
    return root;
+}
+
+type PartBlock = Extract<Block, { type: "part" }>;
+
+const indexIn = (order: readonly string[], value: string) => (order.includes(value) ? order.indexOf(value) : order.length);
+
+/**
+ * The top-level parts of a body in their canonical order, and bars in seniority order (S-PRT-6): an unattributed bar first,
+ * an unlisted name or seniority after the listed ones. Equal parts keep their authored order.
+ */
+export function canonicalParts(blocks: Block[]): Block[] {
+   const rank = ({ name, seniority }: PartBlock) => [indexIn(PART_ORDER, name), seniority === null ? -1 : indexIn(SENIORITY_ORDER, seniority)];
+   const parts = blocks
+      .filter((block): block is PartBlock => block.type === "part")
+      .sort((a, b) => rank(a)[0] - rank(b)[0] || rank(a)[1] - rank(b)[1]);
+   let next = 0;
+   return blocks.map((block) => (block.type === "part" ? parts[next++] : block));
+}
+
+/** The visible label of a part: its eyebrow, or for a bar the seniority it is written to (S-SEN-4). Undefined when the part has none. */
+export function partLabel({ name, seniority }: PartBlock): string | undefined {
+   if (name !== "bar") return PART_EYEBROW[name];
+   return seniority === null ? UNATTRIBUTED_BAR_LABEL : `${SENIORITY_LABEL.get(seniority) ?? seniority} bar`;
+}
+
+/**
+ * The seniorities a structured `level_expectations` has no bar for (S-SEN-2), in presentation order. Legacy prose has no bars,
+ * so its seniorities are undeclared, not untargeted; so does a body with an unattributed bar, which cannot say which it targets.
+ */
+export function untargetedSeniorities(blocks: Block[]): string[] {
+   const bars = blocks.filter((block): block is PartBlock => block.type === "part" && block.name === "bar");
+   if (bars.length === 0 || bars.some(({ seniority }) => seniority === null)) return [];
+   return SENIORITY_ORDER.filter((seniority) => !bars.some((bar) => bar.seniority === seniority));
 }
 
 export type MarkdownBlock = Extract<Block, { type: "markdown" }>;

@@ -6,7 +6,7 @@
 //     [--base http://localhost:3100] [--api http://127.0.0.1:3101]
 //     [--viewports 390,768,1024,1440] [--themes light,dark] [--settle 500] [--body-selector <css>] [--identity entitled] [--strict]
 //
-// Modes: overflow, requests, offset, console, panel, syntax, expand, order, axe, interact, keys, motion. Add a mode by writing an async function in MODES; no new loop script.
+// Modes: overflow, requests, offset, console, panel, syntax, expand, order, axe, interact, keys, motion, reveal, problem. Add a mode by writing an async function in MODES; no new loop script.
 // `requests` reads the fake API's /__catalog-log. The production build caches signed-out catalog reads for 60s, so a route
 // whose count is 0 was served from that cache (`cached: true`). `--identity entitled` sends a session, which is never cached: exact counts.
 import { readFileSync } from "node:fs";
@@ -141,6 +141,59 @@ async function learnerState(context, page) {
    });
    return { cookies, ...stored };
 }
+
+/** The disclosure controls in Chromium's accessibility tree, as a screen reader gets them: role, name and expanded state. */
+async function disclosureNodes(session) {
+   const { nodes } = await session.send("Accessibility.getFullAXTree");
+   return nodes
+      .filter((node) => !node.ignored && node.role?.value === "DisclosureTriangle")
+      .map((node) => ({ name: node.name?.value ?? "", expanded: node.properties?.find((property) => property.name === "expanded")?.value?.value }));
+}
+
+/** The visible headings of `main` in reading order, with the level jumps downward between structural headings (S-AX-1; authored body headings keep their relative levels, S-AX-2) and the headings placed inside a summary (S-RVL-12a). */
+const headingOutline = () => {
+   const shown = (e) => e.checkVisibility({ visibilityProperty: true }) && e.getClientRects().length > 0;
+   const headings = [...document.querySelectorAll("main h1, main h2, main h3, main h4, main h5, main h6")].filter(shown);
+   const structural = headings.filter((e) => !e.closest("[data-catalog-body]"));
+   const name = (e) => e.textContent.trim().replace(/\s+/g, " ").slice(0, 60);
+   return {
+      count: headings.length,
+      h1: document.querySelectorAll("h1").length,
+      h2: headings.filter((e) => e.tagName === "H2").map(name),
+      authored: headings.filter((e) => e.closest("[data-catalog-body]")).length,
+      skips: structural.flatMap((e, i) => (i > 0 && Number(e.tagName[1]) > Number(structural[i - 1].tagName[1]) + 1 ? [`${structural[i - 1].tagName} ${name(structural[i - 1])} -> ${e.tagName} ${name(e)}`] : [])),
+      empty: headings.filter((e) => name(e) === "").length,
+      inSummary: headings.filter((e) => e.closest("summary")).length,
+   };
+};
+
+/** The nine positions a P4 reader knows (spec 4.1); any other position in a spine is not a band. */
+const KNOWN_POSITIONS = ["frame", "requirements", "design", "ml_reasoning", "evaluate_and_scale", "depth_and_trade_offs", "follow_ups", "reference_solution", "self_review"];
+
+/**
+ * What a route must show for an identity, read from the fixture and the contract's withholding rules, never from the page:
+ * `locked` (a fully premium item the caller may not read), `none` (an item with no spine, served as a backend that predates P4),
+ * or `staged` with the bands that must exist. An interview stage is listed whenever the document has a section there; a review
+ * surface only with a section released to the caller (X-2), so an empty one is expected to be absent.
+ */
+function expectedStructure(route, identity) {
+   const fixture = JSON.parse(readFileSync(new URL("./fixture.json", import.meta.url), "utf8"));
+   const slug = route.split("/").pop();
+   const item = fixture.items.find((candidate) => candidate.type === "problem" && candidate.slug === slug);
+   if (!item) return { kind: "unknown" };
+   const entitled = identity === "entitled";
+   if (item.access === "premium" && !entitled) return { kind: "locked" };
+   if (!Array.isArray(item.spine)) return { kind: "none" };
+   const known = item.spine.filter(({ position }) => KNOWN_POSITIONS.includes(position));
+   const released = (position) => (item.sections ?? []).some((section) => section.spine_position === position && (entitled || section.access !== "premium"));
+   return {
+      kind: "staged",
+      interview: known.filter(({ kind }) => kind === "interview_stage").map(({ position }) => position),
+      review: known.filter(({ kind, position }) => kind === "review_surface" && released(position)).map(({ position }) => position),
+   };
+}
+const sameSet = (a, b) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+
 const AREAS = ["cookies", "local", "session", "idb"];
 const stateDiff = (a, b) => Object.fromEntries(AREAS.map((area) => [area, { added: b[area].filter((x) => !a[area].includes(x)), removed: a[area].filter((x) => !b[area].includes(x)) }]));
 const differs = (diff) => Object.values(diff).some(({ added, removed }) => added.length + removed.length > 0);
@@ -966,6 +1019,141 @@ const MODES = {
       return rows;
    },
 
+   // P4-T12: at load, a Problem is challenge-first (S-CHL-1): no reveal open, and no authored body visible but the challenge.
+   async reveal({ browser, config, routes }) {
+      const rows = [];
+      for (const width of list(config.viewports).map(Number)) {
+         for (const theme of list(config.themes)) {
+            const { page, close } = await open(browser, { width, theme, cookies: identityCookies(config) });
+            for (const route of routes) {
+               const { status, errors } = await visit(page, config, route);
+               const found = await page.evaluate(() => {
+                  const shown = (e) => e.checkVisibility({ visibilityProperty: true }) && e.getClientRects().length > 0;
+                  const reveals = [...document.querySelectorAll("main details[data-reveal]")];
+                  const bodies = [...document.querySelectorAll("main [data-catalog-body]")].filter(shown);
+                  const challenge = (e) => e.closest("section[id]")?.previousElementSibling?.textContent === "The challenge";
+                  const reference = bodies.filter((e) => !challenge(e));
+                  return {
+                     dark: document.documentElement.classList.contains("dark"),
+                     reveals: reveals.length,
+                     open: reveals.filter((e) => e.open).length,
+                     outlineOpen: [...document.querySelectorAll("main details:not([data-reveal])")].filter((e) => e.open).length,
+                     visibleBodies: bodies.length,
+                     challengeBodies: bodies.length - reference.length,
+                     referenceBodies: reference.length,
+                     referenceChars: reference.reduce((sum, e) => sum + e.textContent.trim().length, 0),
+                     staged: !!document.querySelector("main [aria-labelledby='problem_interview']"),
+                     everythingControls: [...document.querySelectorAll("main button")].filter((e) => shown(e) && /everything/i.test(e.textContent)).length,
+                     overflowPx: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+                  };
+               });
+               rows.push({
+                  route, width, theme, status, themeApplied: found.dark === (theme === "dark"), ...found,
+                  errors: errors.length, hydrationErrors: errors.filter((text) => HYDRATION.test(text)).length, ...(errors.length > 0 && { errorTexts: errors }),
+               });
+            }
+            await close();
+         }
+      }
+      return rows;
+   },
+
+   /** P4-T18: a Problem at each viewport and theme (S-LAY-1, S-LAY-4, S-AX-1 … S-AX-3, S-AX-9): overflow, bands before reference, heading outline, disclosure names and expanded states, and reveal motion. */
+   async problem({ browser, config, routes }) {
+      const rows = [];
+      // The phone and rail outlines each hold one; only one is displayed at a width.
+      const everything = (page) => page.locator("main button").filter({ hasText: /^(Show|Hide) everything$/, visible: true });
+      for (const width of list(config.viewports).map(Number)) {
+         for (const theme of list(config.themes)) {
+            const { page, close } = await open(browser, { width, height: 900, theme, cookies: identityCookies(config) });
+            const session = await page.context().newCDPSession(page);
+            for (const route of routes) {
+               const { status, errors } = await visit(page, config, route);
+               // Order is read from the structure, never from the bodies: the bands the outline lists against the Reference Solution surface (else the Review group), whatever is open or closed.
+               const layout = await page.evaluate(() => {
+                  const ids = [...new Set([...document.querySelectorAll("nav[aria-label='Outline'] a[href^='#problem_']")].map((link) => link.getAttribute("href").slice(1)))];
+                  const found = ids.map((id) => document.getElementById(id));
+                  const interview = found.filter((element) => element?.closest("[aria-labelledby='problem_interview']"));
+                  const listedReview = found.filter((element) => element?.closest("[aria-labelledby='problem_review']"));
+                  const anchor = document.getElementById("problem_reference_solution") ?? document.getElementById("problem_review");
+                  const top = (element) => element.getBoundingClientRect().top + window.scrollY;
+                  const tops = found.filter(Boolean).map(top);
+                  return {
+                     dark: document.documentElement.classList.contains("dark"),
+                     overflowPx: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+                     staged: !!document.getElementById("problem_interview") || !!document.getElementById("problem_review"),
+                     interviewIds: interview.map((element) => element.id.replace(/^problem_/, "")),
+                     reviewIds: listedReview.map((element) => element.id.replace(/^problem_/, "")),
+                     reveals: document.querySelectorAll("main details[data-reveal]").length,
+                     listedBands: ids.length,
+                     missingBands: ids.filter((id, index) => !found[index]),
+                     interviewBands: interview.length,
+                     bandHeadings: document.querySelectorAll("main [aria-labelledby='problem_interview'] h2").length,
+                     referenceAnchor: anchor?.id ?? null,
+                     // Surfaces with nothing to show are omitted: then the outline lists no Review band and no Review container may exist.
+                     bandsBeforeReference: interview.length > 0 && (listedReview.length === 0 ? !anchor : !!anchor && interview.every((element) => top(element) < top(anchor))),
+                     bandsInOrder: tops.every((value, index) => index === 0 || value >= tops[index - 1]),
+                  };
+               });
+               const outlineAtLoad = await page.evaluate(headingOutline);
+               const before = await disclosureNodes(session);
+               const expected = expectedStructure(route, config.identity ?? "signed-out");
+               const structure = {
+                  expected: expected.kind,
+                  ok: expected.kind === "staged"
+                     ? expected.interview.length > 0 && sameSet(layout.interviewIds, expected.interview) && sameSet(layout.reviewIds, expected.review) && (expected.review.length > 0 || !(await page.locator("#problem_review").count()))
+                     : (expected.kind === "none" || expected.kind === "locked") && !layout.staged && layout.listedBands === 0,
+                  ...(expected.kind === "staged" && { expectedInterview: expected.interview, expectedReview: expected.review, interviewIds: layout.interviewIds, reviewIds: layout.reviewIds }),
+               };
+               const row = {
+                  kind: "layout", route, identity: config.identity ?? "signed-out", width, theme, status, themeApplied: layout.dark === (theme === "dark"), structure, ...layout,
+                  headings: outlineAtLoad, disclosures: before.length, unnamed: before.filter((node) => !node.name).length,
+                  expandedAtLoad: before.filter((node) => node.expanded !== false).length,
+               };
+               const first = page.locator("main details[data-reveal] > summary").filter({ visible: true }).first();
+               if (await first.count()) {
+                  await first.click();
+                  const after = await disclosureNodes(session);
+                  row.afterOne = { expanded: after.filter((node) => node.expanded === true).length, focusStays: await first.evaluate((element) => element === document.activeElement), shownAs: await first.evaluate((element) => element.parentElement.open) };
+                  await first.click();
+               }
+               // Show everything lives in the outline, which is a collapsed disclosure on a phone.
+               const toggle = page.locator("main details:not([data-reveal]) > summary").filter({ visible: true }).first();
+               if ((await toggle.count()) && !(await everything(page).first().isVisible())) await toggle.click();
+               // Not applicable (reported as such) when the route has no reveal content; otherwise the control must exist and must open every reveal.
+               row.showAllApplicable = layout.reveals > 0;
+               row.showAllControl = await everything(page).first().isVisible();
+               if (row.showAllControl) {
+                  await everything(page).first().click();
+                  const total = await page.locator("main details[data-reveal]").count();
+                  const open = await page.locator("main details[data-reveal][open]").count();
+                  const all = await disclosureNodes(session);
+                  row.showAll = { total, open, expanded: all.filter((node) => node.expanded === true).length, unnamed: all.filter((node) => !node.name).length, headings: await page.evaluate(headingOutline) };
+               }
+               rows.push({ ...row, errors: errors.length, hydrationErrors: errors.filter((text) => HYDRATION.test(text)).length });
+            }
+            await close();
+         }
+      }
+      // Reveals use short size and opacity transitions, instant under reduced motion (S-AX-9); `no-preference` is the control that shows the meter can see motion.
+      for (const preference of ["reduce", "no-preference"]) {
+         const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: "light", reducedMotion: preference });
+         await context.addInitScript(MOTION_INIT);
+         if (config.identity) await context.addCookies(identityCookies(config));
+         const page = await context.newPage();
+         for (const route of routes) {
+            const { status } = await visit(page, config, route);
+            const summary = page.locator("main details[data-reveal] > summary").filter({ visible: true }).first();
+            if (!(await summary.count())) continue;
+            await summary.click();
+            const motion = await summary.evaluate(async (element) => (await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), window.__motion(element.parentElement)));
+            rows.push({ kind: "motion", route, preference, status, ...motion });
+         }
+         await context.close();
+      }
+      return rows;
+   },
+
    async console({ browser, config, routes }) {
       const { page, close } = await open(browser);
       const rows = [];
@@ -984,6 +1172,8 @@ const FINDING = {
    requests: () => false,
    offset: (row) => !row.matched,
    console: (row) => row.errors.length > 0,
+   // Only the challenge may be showing at load; a Problem without a spine (a backend before P4) shows no body at all.
+   reveal: (row) => row.errors > 0 || row.status !== 200 || !row.themeApplied || row.open > 0 || row.outlineOpen > 0 || row.referenceBodies > 0 || row.challengeBodies > (row.staged ? 1 : 0) || row.overflowPx > 0,
    // P2 contrast standard: 4.5:1 for text.
    syntax: (row) => row.errors > 0 || !row.themeApplied || row.minContrast < 4.5 || row.plainBlocksWithTokens > 0 || row.tokens.length === 0,
    expand: (row) => {
@@ -1006,6 +1196,17 @@ const FINDING = {
    keys: (row) => row.errors > 0 || Object.values(row.checks).some((check) => check.ok === false),
    // Under `reduce` nothing may declare more than 1ms or still be animating; `no-preference` rows are the control that shows the meter can see motion.
    motion: (row) => row.preference === "reduce" && Object.values(row.surfaces).some((s) => s.declaredMs > 1 || s.running > 0 || s.closeMs > 100),
+   // P4-T18: every expected band is present (and no unexpected one), ordered before the Reference Solution or Review group; a route with reveals has a Show everything control that opens them all (not applicable otherwise); no sideways scroll, one h1 and no level jump between structural headings, every disclosure named and collapsed at load, one press expands one control, no motion under `reduce`.
+   problem: (row) =>
+      row.kind === "motion"
+         ? row.preference === "reduce" && (row.declaredMs > 1 || row.running > 0)
+         : row.errors > 0 || row.status !== 200 || !row.themeApplied || row.overflowPx > 0 || !row.structure.ok ||
+           (row.structure.expected === "staged" && !(row.listedBands > 0 && row.missingBands.length === 0 && row.bandHeadings === row.interviewBands && row.bandsBeforeReference && row.bandsInOrder)) ||
+           row.headings.h1 !== 1 || row.headings.skips.length > 0 || row.headings.empty > 0 || row.headings.inSummary > 0 ||
+           row.unnamed > 0 || row.expandedAtLoad > 0 ||
+           (row.showAllApplicable && (!row.afterOne || !row.showAllControl)) ||
+           (row.afterOne && !(row.afterOne.expanded === 1 && row.afterOne.focusStays && row.afterOne.shownAs)) ||
+           (row.showAll && (row.showAll.open !== row.showAll.total || row.showAll.total < row.reveals || row.showAll.expanded < row.showAll.total || row.showAll.unnamed > 0 || row.showAll.headings.skips.length > 0 || row.showAll.headings.empty > 0 || row.showAll.headings.inSummary > 0)),
    panel: (row) =>
       row.errors > 0 ||
       (row.toggles > 0 &&

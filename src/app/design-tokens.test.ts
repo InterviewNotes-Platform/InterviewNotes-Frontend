@@ -152,6 +152,10 @@ describe("focus and reduced-motion foundation", () => {
       expect(css.slice(0, smooth[0].index)).toMatch(/@media \(prefers-reduced-motion: no-preference\)\s*{\s*html\s*{\s*$/);
    });
 
+   it("keeps the browser's own fragment scroll instant on a page with reveals, which scrolls to its fragment itself", () => {
+      expect(css).toMatch(/html:has\(\[data-reveal\]\)\s*{\s*scroll-behavior:\s*auto;\s*}/);
+   });
+
    it("collapses animation and transition time under reduced motion", () => {
       const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
       expect(reduced).toMatch(/animation-duration:\s*0\.01ms !important/);

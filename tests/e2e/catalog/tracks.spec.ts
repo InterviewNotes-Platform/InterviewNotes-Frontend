@@ -643,6 +643,8 @@ test.describe("Learn flow", () => {
          .click();
       await expect(page).toHaveURL(canonical(PRACTICE.id));
       await expect(h1(page)).toHaveText(PRACTICE.title);
+      // A Problem with no spine reads behind one closed reveal (P4 S-SPN-13).
+      await main(page).locator("summary", { hasText: "Show more material" }).click();
       await expect(main(page).getByText("Curriculum practice prompt marker.")).toBeVisible();
    });
 });

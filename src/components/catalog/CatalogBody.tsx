@@ -14,7 +14,7 @@ import { plainHeading, type KnowledgeSupport } from "@/lib/catalog/lesson";
 import { catalogHref, firstPartyPath } from "@/lib/catalog/routes";
 import type { CatalogBody as CatalogBodyData, CatalogHeading } from "@/lib/catalog/types";
 import { cn } from "@/lib/utils";
-import { headingIds, parseBlocks, type Block, type CalloutKind } from "./blocks";
+import { canonicalParts, headingIds, parseBlocks, partLabel, type Block, type CalloutKind } from "./blocks";
 import { knowledgeCoverage, type KnowledgeCoverage } from "./knowledgeRefs";
 
 type HastElement = NonNullable<ExtraProps["node"]>;
@@ -62,13 +62,15 @@ const HEADING_STYLE = {
    h2: "mt-12 mb-4 text-section text-balance",
    h3: "mt-10 mb-3 text-subsection text-balance",
    h4: "mt-8 mb-2 text-body font-semibold",
+   h5: "mt-6 mb-2 text-body font-semibold",
+   h6: "mt-6 mb-2 text-supporting font-semibold",
 } as const;
 
 /**
  * A heading. When the API has a heading for its source line it carries that exact id and is a focus target for
  * the contents (tabIndex -1 is no tab stop); h2/h3 also offer a quiet anchor. The name stays the heading's own text.
  */
-function heading(Tag: keyof typeof HEADING_STYLE, ids?: Map<number, CatalogHeading>) {
+function heading(Tag: HeadingTag, ids?: Map<number, CatalogHeading>) {
    const style = HEADING_STYLE[Tag];
    return function Heading({ node, children, ...props }: ComponentPropsWithoutRef<"h2"> & ExtraProps) {
       const found = ids?.get(node?.position?.start.line ?? 0);
@@ -114,6 +116,7 @@ const components: Components = {
    img: () => null,
 };
 
+const EYEBROW = "m-0 mb-2 text-supporting font-semibold uppercase tracking-wide text-muted-foreground";
 const LINK_STYLE = "text-primary underline underline-offset-4 decoration-primary/40 transition-micro hover:decoration-primary";
 // A reference to Knowledge reads as a reference, not a link away: quiet, dotted, and distinct from LINK_STYLE.
 const KNOWLEDGE_REF_STYLE =
@@ -198,6 +201,16 @@ interface BlocksProps {
    ids: ReturnType<typeof headingIds>;
    /** The Lesson's contextual Knowledge: which links carry a panel, and what each shows. */
    knowledge: Knowledge | null;
+   /** Levels added to every authored heading, capped at h6; 0 renders headings as authored. */
+   headingOffset: number;
+}
+
+type HeadingTag = keyof typeof HEADING_STYLE;
+
+/** Authored levels to rendered tags: as authored up to h4 by default, else shifted below the container's heading (S-AX-2). */
+function headingComponents(ids: Map<number, CatalogHeading> | undefined, offset: number): Components {
+   const levels = offset > 0 ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4];
+   return Object.fromEntries(levels.map((level) => [`h${level}`, heading(`h${Math.min(6, level + offset)}` as HeadingTag, ids)]));
 }
 
 /** What a link at a source offset of this block shows in context, if the pre-pass marked it. */
@@ -206,35 +219,67 @@ function aboutIn(block: Block, knowledge: Knowledge | null) {
    return marked && ((offset: number) => knowledge?.support.get(marked.get(offset) ?? ""));
 }
 
-function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge }: BlocksProps) {
+const EVIDENCE = new Set(["strong_evidence", "weak_evidence"]);
+// Neighbouring evidence parts share a row on wide screens and stack on phones (S-RUB-4, S-LAY-4); cells may shrink so code scrolls inside them.
+const EVIDENCE_ROW = "mt-6 grid gap-6 first:mt-0 md:grid-cols-2 [&>[data-part]]:mt-0 [&>[data-part]]:min-w-0";
+
+/** The blocks with each run of neighbouring evidence parts gathered into one row. */
+function withEvidenceRows(blocks: Block[]): (Block | Block[])[] {
+   return blocks.reduce<(Block | Block[])[]>((out, block) => {
+      const evidence = block.type === "part" && EVIDENCE.has(block.name);
+      const last = out[out.length - 1];
+      if (evidence && Array.isArray(last)) last.push(block);
+      else out.push(evidence ? [block] : block);
+      return out;
+   }, []);
+}
+
+function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffset }: BlocksProps) {
+   const view = (block: Block, index: number) =>
+      block.type === "markdown" ? (
+         <ReactMarkdown
+            key={index}
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[[rehypeHighlight, HIGHLIGHT]]}
+            components={{
+               ...components,
+               ...headingComponents(ids?.get(block), headingOffset),
+               pre: codeBlock(reading),
+               a: anchor(stayOnDeployment, reading, aboutIn(block, knowledge)),
+            }}
+            urlTransform={safeUrl}
+            skipHtml
+         >
+            {block.text}
+         </ReactMarkdown>
+      ) : block.type === "part" ? (
+         <div key={index} data-part={block.name} className="mt-6 first:mt-0">
+            {partLabel(block) ? <p className={EYEBROW}>{partLabel(block)}</p> : null}
+            <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} headingOffset={headingOffset} />
+         </div>
+      ) : (
+         <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
+            <Tip type={CALLOUTS[block.kind].type} title={CALLOUTS[block.kind].title}>
+               <Blocks
+                  blocks={block.children}
+                  stayOnDeployment={stayOnDeployment}
+                  reading={reading}
+                  ids={ids}
+                  knowledge={knowledge}
+                  headingOffset={headingOffset}
+               />
+            </Tip>
+         </div>
+      );
    return (
       <>
-         {blocks.map((block, index) =>
-            block.type === "markdown" ? (
-               <ReactMarkdown
-                  key={index}
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[[rehypeHighlight, HIGHLIGHT]]}
-                  components={{
-                     ...components,
-                     h1: heading("h1", ids?.get(block)),
-                     h2: heading("h2", ids?.get(block)),
-                     h3: heading("h3", ids?.get(block)),
-                     h4: heading("h4", ids?.get(block)),
-                     pre: codeBlock(reading),
-                     a: anchor(stayOnDeployment, reading, aboutIn(block, knowledge)),
-                  }}
-                  urlTransform={safeUrl}
-                  skipHtml
-               >
-                  {block.text}
-               </ReactMarkdown>
-            ) : (
-               <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
-                  <Tip type={CALLOUTS[block.kind].type} title={CALLOUTS[block.kind].title}>
-                     <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} />
-                  </Tip>
+         {withEvidenceRows(canonicalParts(blocks)).map((entry, index) =>
+            Array.isArray(entry) ? (
+               <div key={index} className={EVIDENCE_ROW}>
+                  {entry.map(view)}
                </div>
+            ) : (
+               view(entry, index)
             )
          )}
       </>
@@ -252,20 +297,22 @@ interface CatalogBodyProps {
    stayOnDeployment?: boolean;
    /** Reading mode (Lesson, Problem): the API's headings give the rendered headings their ids; Knowledge refs and diagrams are set apart and links never prefetch. */
    reading?: ReadingMode;
+   /** Renders every authored heading this many levels lower, for a body that sits under a heading of its own. */
+   headingOffset?: number;
 }
 
 /**
  * The one renderer for catalog bodies: a Lesson body and every Knowledge/Problem section.
  * It renders whatever the API already authorized and holds no access logic of its own.
  */
-export function CatalogBody({ body, stayOnDeployment = false, reading }: CatalogBodyProps) {
+export function CatalogBody({ body, stayOnDeployment = false, reading, headingOffset = 0 }: CatalogBodyProps) {
    if (body.format !== "markdown@1") return null;
    const blocks = parseBlocks(body.text);
    const ids = reading ? headingIds(blocks, reading.headings) : null;
    const knowledge = reading?.knowledge ? { coverage: knowledgeCoverage(blocks, reading.knowledge), support: reading.knowledge } : null;
    return (
       <div data-catalog-body="">
-         <Blocks blocks={blocks} stayOnDeployment={stayOnDeployment} reading={Boolean(reading)} ids={ids} knowledge={knowledge} />
+         <Blocks blocks={blocks} stayOnDeployment={stayOnDeployment} reading={Boolean(reading)} ids={ids} knowledge={knowledge} headingOffset={headingOffset} />
       </div>
    );
 }
