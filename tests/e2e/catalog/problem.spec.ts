@@ -963,6 +963,7 @@ test.describe("nothing is remembered (S-PST-1 … S-PST-3, S-TST-6)", () => {
    test("following a fragment adds no storage, query or second fragment; only outline navigation writes one, naming a position", async ({ page }) => {
       await page.goto(route);
       const before = await remembered(page);
+      await page.goto("about:blank"); // a fresh document: the first one's router rewrites the URL as it hydrates, which drops a fragment set meanwhile
       await page.goto(`${route}#deep-dive-labels`);
       const arrived = await remembered(page);
       expect(arrived).toEqual({ ...before, hash: "#deep-dive-labels" });
