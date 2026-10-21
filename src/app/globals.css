@@ -223,45 +223,114 @@
 }
 
 /*
- * Homepage identity: the pre-P0 palette (51b99f3), applied only while the page carries [data-home], so every
- * other route keeps the AA-tuned tokens above. --primary-text is the small-text blue (AA on the page background).
+ * Homepage identity (P6, amendment A-4): the prototype's blue/slate and butter-yellow direction, applied only while the
+ * page carries [data-home], so every other route keeps the AA-tuned tokens above (decision P6-D-22, default: homepage only).
+ * The global Header and the mobile menu sit outside <main data-home> but inside :root, so they take the same tokens.
+ * Butter is a fill behind dark text, never text on a light surface; --primary-text is the small-text slate blue and
+ * --premium the text-safe tone for access signalling. --home-edge is the 3:1 boundary of a butter control on the light page.
  */
 :root:has([data-home]) {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --surface: #f1f4f8;
+  --background: #f3f5f7;
+  --foreground: #1e2a36;
+  --surface: #e9eef2;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1e2a36;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #30a2ff;
-  --primary-text: #0a6ebd;
+  --popover-foreground: #1e2a36;
+  --primary: #4b6f93;
+  --primary-text: #35597d;
   --primary-foreground: #ffffff;
-  --secondary: #e2e8f0;
-  --secondary-foreground: #0f172a;
-  --muted: #e2e8f0;
-  --muted-foreground: #475569;
-  --border: #cbd5e1;
-  --ring: #0a6ebd;
+  --secondary: #e9eef2;
+  --secondary-foreground: #1e2a36;
+  --muted: #e9eef2;
+  --muted-foreground: #526070;
+  --border: #d5dde4;
+  --ring: #35597d;
+  --gold: #f2db8c;
+  --gold-foreground: #1e2a36;
+  --gold-hover: #e8cd6e;
+  --premium: #7a5400;
+
+  --home-edge: #6b7c8c;
+  --home-sky-a: #dbe6ef;
+  --home-sky-b: #f3f5f7;
+  --home-hill-sky: #9fb3c8bf;
+  --home-hill-sun: #f2db8ce6;
+  --home-hill-mist: #d5dde4;
+  --home-hill-top: #ffffff;
+  --home-window-shadow: 0 30px 80px rgb(30 42 54 / 0.16), 0 2px 6px rgb(30 42 54 / 0.06);
 }
 
 .dark:has([data-home]) {
-  --background: #0a0a0f;
-  --foreground: #f8fafc;
-  --surface: #0f111a;
-  --card: #111827;
-  --card-foreground: #f8fafc;
-  --popover: #111827;
-  --popover-foreground: #f8fafc;
-  --primary: #5cb8ff;
-  --primary-text: #5cb8ff;
-  --primary-foreground: #0a0a0f;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --border: #1e293b;
-  --ring: #60a5fa;
+  --background: #111110;
+  --foreground: #eeeeec;
+  --surface: #191918;
+  --card: #191918;
+  --card-foreground: #eeeeec;
+  --popover: #191918;
+  --popover-foreground: #eeeeec;
+  --primary: #7f93a8;
+  --primary-text: #a9bccf;
+  --primary-foreground: #111110;
+  --secondary: #222221;
+  --secondary-foreground: #eeeeec;
+  --muted: #222221;
+  --muted-foreground: #a09e97;
+  --border: #2a2a28;
+  --ring: #a9bccf;
+  --gold: #e8d28a;
+  --gold-foreground: #1c1b17;
+  --gold-hover: #d9c274;
+  --premium: #e8d28a;
+
+  --home-edge: #e8d28a;
+  --home-sky-a: #1f1f1d;
+  --home-sky-b: #111110;
+  --home-hill-sky: rgb(127 147 168 / 0.2);
+  --home-hill-sun: rgb(232 210 138 / 0.45);
+  --home-hill-mist: #1a1a19;
+  --home-hill-top: #191918;
+  --home-window-shadow: 0 30px 80px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
+}
+
+/* The shared header and mobile menu, restyled inside the homepage scope only; the header keeps its 64px + 1px border. */
+:root:has([data-home]) [data-site-header] {
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+:root:has([data-home]) [data-mobile-menu] nav a[aria-current="page"] {
+  border-color: var(--gold);
+}
+
+/*
+ * Homepage motion is decoration: CSS only, inside @supports and no-preference, and the page is complete (and visible)
+ * without it, without JavaScript and under reduced motion. Nothing here starts at opacity 0.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    @keyframes home-rise {
+      from { transform: translateY(40px) scale(0.97); }
+      to { transform: none; }
+    }
+
+    @keyframes home-hill {
+      to { transform: translateY(var(--home-hill-shift, -16px)); }
+    }
+
+    [data-home] .home-rise {
+      animation: home-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+
+    [data-home] .home-hill {
+      animation: home-hill linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 70vh;
+    }
+  }
 }
 
 @layer base {

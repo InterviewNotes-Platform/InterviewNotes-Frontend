@@ -26,10 +26,10 @@ export function Header() {
     };
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
+        <header data-site-header className="sticky top-0 z-50 w-full border-b border-border bg-background">
             <PageContainer className="flex h-16 items-center justify-between gap-6">
                 <div className="flex min-w-0 items-center gap-6">
-                    <Link href="/" className="shrink-0 whitespace-nowrap text-lg font-bold">
+                    <Link href="/" className="relative shrink-0 whitespace-nowrap text-lg font-bold after:absolute after:inset-x-0 after:-inset-y-2">
                         <BrandMark />
                     </Link>
                     <nav aria-label="Primary" className="hidden md:block">

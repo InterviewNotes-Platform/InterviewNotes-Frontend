@@ -24,6 +24,7 @@ import { Disclosure } from "@/components/ui/disclosure";
 import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 import { FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TRACKS } from "./home-copy";
+import { HeroStage } from "./HeroStage";
 import { RotatingTopic } from "./RotatingTopic";
 import { SectionIntro } from "./SectionIntro";
 import { Testimonials } from "./Testimonials";
@@ -43,7 +44,7 @@ const KNOWLEDGE_ICONS: Record<(typeof KNOWLEDGE.groups)[number]["key"], LucideIc
    references: BookOpen,
 };
 
-/** Entrance motion for the hero only; `motion-safe` leaves the content visible and still when motion is reduced. */
+/** Entrance motion for the hero copy only; `motion-safe` leaves the content visible and still when motion is reduced. */
 const ENTER = "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:fill-mode-backwards motion-safe:duration-500";
 
 /** The gold tick chip used by the pricing lists. */
@@ -57,16 +58,10 @@ function Tick() {
 
 function Hero() {
    return (
-      <section aria-labelledby="home-heading" className="relative isolate overflow-hidden">
-         {/* Decoration only: a hairline grid that fades out, and a soft spotlight from the accent. */}
-         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 [--grid:color-mix(in_oklab,var(--foreground)_7%,transparent)]">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--grid)_1px,transparent_1px),linear-gradient(to_bottom,var(--grid)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-            <div className="absolute top-0 left-1/2 h-[400px] w-[1000px] -translate-x-1/2 rounded-full bg-primary/20 opacity-50 blur-[120px] dark:mix-blend-screen" />
-         </div>
-
-         <PageContainer className="flex flex-col items-center py-20 text-center md:py-28 lg:py-32">
+      <section aria-labelledby="home-heading" className="relative isolate overflow-hidden bg-gradient-to-b from-(--home-sky-a) to-(--home-sky-b)">
+         <PageContainer className="flex flex-col items-center pt-16 text-center md:pt-24 lg:pt-28">
             <div className={ENTER}>
-               <Badge variant="outline" className="gap-2 border-primary/30 bg-primary/10 px-4 py-2 text-sm font-bold text-(--primary-text) shadow-sm [&>svg]:size-4">
+               <Badge variant="outline" className="gap-2 border-primary/40 bg-card/70 px-4 py-2 text-sm font-bold text-(--primary-text) shadow-sm [&>svg]:size-4">
                   <Sparkles aria-hidden="true" />
                   {HERO.eyebrow}
                </Badge>
@@ -77,29 +72,17 @@ function Hero() {
                <RotatingTopic topics={HERO_TOPICS} label={HERO.subject} /> {HERO.tail}
             </h1>
 
-            <p className={`${ENTER} mt-0 mb-8 max-w-2xl text-base leading-relaxed font-medium text-pretty text-muted-foreground delay-150 md:text-lg`}>
+            <p className={`${ENTER} mt-0 mb-8 max-w-2xl text-base leading-relaxed font-medium text-pretty text-foreground/85 delay-150 md:text-lg`}>
                {HERO.intro.before}
                <strong className="font-semibold text-foreground">{HERO.intro.emphasis}</strong>
                {HERO.intro.after}
             </p>
 
-            <ul className={`${ENTER} m-0 mb-10 flex max-w-5xl list-none flex-wrap justify-center gap-3 p-0 delay-200`}>
-               {HERO_AREAS.map((area) => (
-                  <li
-                     key={area}
-                     className="inline-flex cursor-default items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1.5 text-sm font-medium transition-micro hover:bg-secondary"
-                  >
-                     <CheckCircle2 aria-hidden="true" className="size-4 text-primary" />
-                     {area}
-                  </li>
-               ))}
-            </ul>
-
-            <div className={`${ENTER} mb-12 flex w-full flex-col items-stretch justify-center gap-3 delay-300 sm:w-auto sm:flex-row sm:items-center`}>
+            <div className={`${ENTER} mb-8 flex w-full flex-col items-stretch justify-center gap-3 delay-200 sm:w-auto sm:flex-row sm:items-center`}>
                <Button
                   asChild
                   size="lg"
-                  className="h-12 rounded-xl bg-gold px-8 text-base font-bold text-gold-foreground shadow-xl shadow-gold/25 hover:bg-gold-hover hover:shadow-gold/40 motion-safe:hover:scale-105"
+                  className="h-12 rounded-xl border border-(--home-edge) bg-gold px-8 text-base font-bold text-gold-foreground shadow-xl shadow-gold/25 hover:bg-gold-hover hover:shadow-gold/40 motion-safe:hover:scale-105"
                >
                   <Link href={HERO.primaryAction.href} prefetch={PREFETCH_PRIMARY}>
                      {HERO.primaryAction.label}
@@ -110,18 +93,41 @@ function Hero() {
                   asChild
                   size="lg"
                   variant="outline"
-                  className="h-12 rounded-xl border-2 border-foreground/20 px-8 text-base font-bold hover:border-foreground/40 hover:bg-muted/60 hover:text-foreground"
+                  className="h-12 rounded-xl border border-(--home-edge) bg-card px-8 text-base font-bold hover:bg-muted hover:text-foreground"
                >
                   <Link href={HERO.secondaryAction.href}>{HERO.secondaryAction.label}</Link>
                </Button>
             </div>
 
-            <ul className={`${ENTER} m-0 grid max-w-4xl list-none grid-cols-2 gap-6 p-0 delay-500 md:grid-cols-4 md:gap-10`}>
+            <ul className={`${ENTER} m-0 flex max-w-5xl list-none flex-wrap justify-center gap-3 p-0 delay-300`}>
+               {HERO_AREAS.map((area) => (
+                  <li
+                     key={area}
+                     className="inline-flex cursor-default items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1.5 text-sm font-medium transition-micro hover:bg-card"
+                  >
+                     <CheckCircle2 aria-hidden="true" className="size-4 text-primary" />
+                     {area}
+                  </li>
+               ))}
+            </ul>
+         </PageContainer>
+
+         <HeroStage />
+      </section>
+   );
+}
+
+/** The four existing stats, in their own band after the hero (spec S6-HOME-1); wording is unchanged. */
+function StatsBand() {
+   return (
+      <div className="bg-background pt-4 pb-16 md:pb-20">
+         <PageContainer>
+            <ul className="m-0 mx-auto grid max-w-4xl list-none grid-cols-2 gap-6 p-0 md:grid-cols-4 md:gap-10">
                {STATS.map(({ key, value, label }) => {
                   const Icon = STAT_ICONS[key];
                   return (
                      <li key={key} className="group cursor-default text-center">
-                        <span aria-hidden="true" className="mx-auto mb-3 block w-fit rounded-xl border border-primary/10 bg-primary/5 p-3 transition-micro group-hover:bg-primary/15">
+                        <span aria-hidden="true" className="mx-auto mb-3 block w-fit rounded-xl border border-primary/15 bg-primary/10 p-3 transition-micro group-hover:bg-primary/15">
                            <Icon className="size-5 text-primary md:size-6" />
                         </span>
                         <span className="mb-1 block text-2xl font-extrabold md:text-3xl lg:text-4xl">{value}</span>
@@ -131,7 +137,7 @@ function Hero() {
                })}
             </ul>
          </PageContainer>
-      </section>
+      </div>
    );
 }
 
@@ -316,6 +322,7 @@ export function HomeContent() {
       <>
          <main data-home>
             <Hero />
+            <StatsBand />
             <Tracks />
             <Knowledge />
             <Testimonials />

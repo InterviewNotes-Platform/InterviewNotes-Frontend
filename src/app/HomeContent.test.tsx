@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HomeContent } from "./HomeContent";
-import { FAQ, HERO, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
+import { FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
 import HomePage, { metadata } from "./page";
 
 // The homepage is static: importing the catalog client or the legacy course loader would throw here.
@@ -100,19 +100,42 @@ describe("hero", () => {
         expect(within(hero).getByRole("link", { name: HERO.primaryAction.label }).className).toMatch(/\bbg-gold\b/);
     });
 
-    it("lists the subject areas and the restored stats as plain items, not controls", () => {
+    it("lists the subject areas as plain items, not controls", () => {
         render(<HomeContent />);
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
         const items = within(hero).getAllByRole("listitem");
-        expect(items.length).toBeGreaterThan(STATS.length);
+        expect(items.map((item) => item.textContent)).toEqual([...HERO_AREAS]);
         for (const item of items) expect(item.querySelector("a, button")).toBeNull();
+    });
+
+    it("keeps a decorative reader-window preview in the hero: hidden from assistive technology, with no link, figure or timer", () => {
+        render(<HomeContent />);
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        const preview = hero.querySelector("[data-hero-stage][aria-hidden='true']");
+        expect(preview).not.toBeNull();
+        expect(preview?.querySelector("a, button, input, img, [tabindex]")).toBeNull();
+        expect(preview?.textContent).not.toMatch(/\d/); // no counts, durations, badges or countdown
+        expect(within(hero).queryByText(/\b(free|pro|premium)\b/i, { ignore: "[aria-hidden='true'] *" })).toBeNull();
+    });
+});
+
+describe("stats band", () => {
+    it("follows the hero and comes before Tracks, as a plain list outside the named sections", () => {
+        render(<HomeContent />);
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        const band = screen.getByText(STATS[0].value).closest("ul")!;
+        expect(hero.contains(band)).toBe(false);
+        expect(band.closest("[role='region'], section")).toBeNull();
+        expect(hero.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(band.compareDocumentPosition(tracks()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        for (const item of within(band).getAllByRole("listitem")) expect(item.querySelector("a, button")).toBeNull();
     });
 
     it("shows the restored pre-P0 stats exactly as they were", () => {
         render(<HomeContent />);
-        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        const band = screen.getByText(STATS[0].value).closest("ul")!;
         for (const [value, label] of [["80+", "Design Modules"], ["5K+", "Engineers"], ["90%", "Offer Rate"], ["6", "Tracks"]]) {
-            expect(within(hero).getByText(value).nextElementSibling).toHaveTextContent(label);
+            expect(within(band).getByText(value).nextElementSibling).toHaveTextContent(label);
         }
         expect(STATS).toHaveLength(4);
     });

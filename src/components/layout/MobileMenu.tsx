@@ -44,6 +44,7 @@ export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps
                 </Button>
             </SheetTrigger>
             <SheetContent
+                data-mobile-menu
                 className="gap-0 data-[state=closed]:duration-150 data-[state=open]:duration-200"
                 onOpenAutoFocus={focusFirstDestination}
             >
