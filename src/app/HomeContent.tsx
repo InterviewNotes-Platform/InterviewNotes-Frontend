@@ -5,6 +5,7 @@ import {
    BrainCircuit,
    ChartColumn,
    CheckCircle2,
+   ChevronDown,
    Cpu,
    FlaskConical,
    Layers,
@@ -20,10 +21,9 @@ import { Footer } from "@/components/layout/Footer";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Disclosure } from "@/components/ui/disclosure";
 import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
-import { FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TRACKS } from "./home-copy";
+import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TRACKS } from "./home-copy";
 import { HeroStage } from "./HeroStage";
 import { RotatingTopic } from "./RotatingTopic";
 import { SectionIntro } from "./SectionIntro";
@@ -38,10 +38,10 @@ const TRACK_ICONS: Record<(typeof TRACKS.items)[number]["key"], LucideIcon> = {
    "gen-ai-foundations": BookOpen,
 };
 const KNOWLEDGE_ICONS: Record<(typeof KNOWLEDGE.groups)[number]["key"], LucideIcon> = {
-   core: Lightbulb,
-   technologies: FlaskConical,
+   "core-concepts": Lightbulb,
+   "technologies-research": FlaskConical,
    patterns: Layers,
-   references: BookOpen,
+   "quick-references": BookOpen,
 };
 
 /** Entrance motion for the hero copy only; `motion-safe` leaves the content visible and still when motion is reduced. */
@@ -208,22 +208,28 @@ function Tracks() {
    );
 }
 
-/** Knowledge supports the Tracks: the four editorial groups of the explorer, one link into it. */
+/** Knowledge supports the Tracks: its four editorial groups, each opening the explorer on that group. No catalog read. */
 function Knowledge() {
    return (
       <section id="knowledge" aria-labelledby="home-knowledge-heading" className="scroll-mt-20 border-t border-border/50 bg-surface py-20 md:py-28">
          <PageContainer>
             <SectionIntro id="home-knowledge-heading" label={KNOWLEDGE.label} title={KNOWLEDGE.heading} lead={KNOWLEDGE.lead} />
             <ul className="m-0 mx-auto grid max-w-6xl list-none gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
-               {KNOWLEDGE.groups.map(({ key, title, description }) => {
+               {KNOWLEDGE.groups.map(({ key, href, title, description }) => {
                   const Icon = KNOWLEDGE_ICONS[key];
                   return (
-                     <li key={key} className="flex flex-col rounded-2xl border border-border/60 bg-background/70 p-6 text-left backdrop-blur-md transition-micro hover:bg-background">
-                        <span aria-hidden="true" className="mb-4 flex size-12 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary">
-                           <Icon className="size-6" />
-                        </span>
-                        <h3 className="m-0 mb-2 text-lg font-bold">{title}</h3>
-                        <p className="m-0 text-supporting text-pretty text-muted-foreground">{description}</p>
+                     <li key={key} className="flex">
+                        <Link
+                           href={href}
+                           prefetch={false}
+                           className="group flex w-full flex-col rounded-2xl border border-border/60 bg-background p-6 text-left transition-[color,background-color,border-color,box-shadow] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10"
+                        >
+                           <span aria-hidden="true" className="mb-4 flex size-12 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary">
+                              <Icon className="size-6" />
+                           </span>
+                           <h3 className="m-0 mb-2 text-lg font-bold transition-micro group-hover:text-premium">{title}</h3>
+                           <p className="m-0 text-supporting text-pretty text-muted-foreground">{description}</p>
+                        </Link>
                      </li>
                   );
                })}
@@ -297,6 +303,7 @@ function Pricing() {
    );
 }
 
+/** Native `details`: Enter and Space work, the state is exposed, and every answer opens with JavaScript off. */
 function Faq() {
    return (
       <section id="faq" aria-labelledby="home-faq-heading" className="scroll-mt-20 border-t border-border/50 py-20 md:py-28">
@@ -304,13 +311,34 @@ function Faq() {
             <SectionIntro id="home-faq-heading" label={FAQ.label} title={FAQ.heading} />
             <div className="mx-auto flex max-w-2xl flex-col gap-3">
                {FAQ.items.map(({ q, a }) => (
-                  <div key={q} className="overflow-hidden rounded-xl border border-border/60 bg-card px-5">
-                     <Disclosure level="h3" compact title={q}>
-                        <p className="m-0 pb-4 text-supporting leading-relaxed text-pretty text-muted-foreground">{a}</p>
-                     </Disclosure>
-                  </div>
+                  <details key={q} className="group rounded-xl border border-border/60 bg-card px-5">
+                     <summary className="flex min-h-11 cursor-pointer list-none items-center gap-4 rounded-md py-3 text-left transition-micro -outline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                        <h3 className="m-0 min-w-0 flex-1 text-body font-semibold text-balance">{q}</h3>
+                        <ChevronDown aria-hidden="true" className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+                     </summary>
+                     <p className="m-0 pb-4 text-supporting leading-relaxed text-pretty text-muted-foreground">{a}</p>
+                  </details>
                ))}
             </div>
+         </PageContainer>
+      </section>
+   );
+}
+
+/** The one closing action: Browse Tracks, to the same destination as the hero. */
+function Closing() {
+   return (
+      <section aria-labelledby="home-closing-heading" className="border-t border-border/50 bg-surface py-20 text-center md:py-24">
+         <PageContainer>
+            <h2 id="home-closing-heading" className="m-0 mb-8 text-2xl font-bold tracking-tight text-balance md:text-3xl">
+               {CLOSING.heading}
+            </h2>
+            <Button asChild size="lg" className="h-12 rounded-xl border border-(--home-edge) bg-gold px-8 text-base font-bold text-gold-foreground shadow-xl shadow-gold/25 hover:bg-gold-hover hover:shadow-gold/40 motion-safe:hover:scale-105">
+               <Link href={CLOSING.action.href} prefetch={PREFETCH_PRIMARY}>
+                  {CLOSING.action.label}
+                  <ArrowRight aria-hidden="true" className="size-5" />
+               </Link>
+            </Button>
          </PageContainer>
       </section>
    );
@@ -328,6 +356,7 @@ export function HomeContent() {
             <Testimonials />
             <Pricing />
             <Faq />
+            <Closing />
          </main>
          <Footer />
       </>

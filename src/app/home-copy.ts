@@ -3,6 +3,7 @@ import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 
 // Tracks are the primary product, Knowledge supports them (P2 spec §5.3). STATS and TESTIMONIALS are the pre-P0
 // claims (51b99f3) restored verbatim at the product owner's request, not backed by product data. Prices: spec §5.1.
+// Provenance of every figure and quote: core-experience/design-brief.md §8. All are UNVERIFIED and wait for Harshul's review (RG-2).
 export const HOME_METADATA: Metadata = {
    title: "InterviewNotes: ML interview preparation",
    description:
@@ -31,6 +32,7 @@ export const HERO_TOPICS = ["ML Platform Design", "LLM Platform Design", "GenAI 
 /** Subject areas the library covers; descriptive chips, not links. */
 export const HERO_AREAS = ["GenAI & Agentic Patterns", "ML Platform & MLOps", "LLM Platform Design", "ML System Design"] as const;
 
+/** Pre-P0 51b99f3, unverified, wording unchanged (S6-HOME-6). No user, analytics or outcome data supports these figures. */
 export const STATS = [
    { key: "modules", value: "80+", label: "Design Modules" },
    { key: "engineers", value: "5K+", label: "Engineers" },
@@ -55,26 +57,29 @@ export const TRACKS = {
    action: { label: "Explore Tracks", href: TRACKS_ENTRY },
 };
 
+/** The explorer's own group ids (lib/catalog/knowledge.ts); a test holds each href to `explorerHref`. */
 export const KNOWLEDGE = {
    label: "Knowledge",
    heading: "Build the Foundations",
    lead: "Reusable technical knowledge behind every track. Each topic stands on its own and links to the lessons that rely on it.",
    /** The four editorial groups of the Knowledge explorer (P2 spec §2.3). */
    groups: [
-      { key: "core", title: "Core Concepts", description: "The concepts and key terms behind ML and GenAI systems, explained one at a time." },
-      { key: "technologies", title: "Technologies & Research", description: "The technologies and research that real systems are built on." },
-      { key: "patterns", title: "Patterns", description: "Reusable design patterns you can apply across interview problems." },
-      { key: "references", title: "Quick References", description: "Short references to scan before an interview." },
+      { key: "core-concepts", href: "/knowledge?group=core-concepts", title: "Core Concepts", description: "The concepts and key terms behind ML and GenAI systems, explained one at a time." },
+      { key: "technologies-research", href: "/knowledge?group=technologies-research", title: "Technologies & Research", description: "The technologies and research that real systems are built on." },
+      { key: "patterns", href: "/knowledge?group=patterns", title: "Patterns", description: "Reusable design patterns you can apply across interview problems." },
+      { key: "quick-references", href: "/knowledge?group=quick-references", title: "Quick References", description: "Short references to scan before an interview." },
    ],
    action: { label: "Browse Knowledge", href: "/knowledge" },
 };
 
+/** Pre-P0 51b99f3, unverified, no consent or identity record found, wording unchanged (S6-HOME-6); the "Trusted by" line names companies and implies endorsement. */
 export const TESTIMONIALS_SECTION = {
    label: "Testimonials",
    heading: "Engineers Who Landed Offers",
    lead: "Trusted by engineers at Google, Meta, Amazon, Netflix, Apple & Microsoft.",
 };
 
+/** Emily C. says she paid for Premium, which conflicts with paid access being unavailable: kept verbatim and flagged for Harshul's review (RG-2). */
 export const TESTIMONIALS = [
    { name: "Priya S.", role: "SDE-3", company: "Google", initials: "PS", quote: "The system design modules gave me a structured framework I was missing. Landed my L5 offer in 6 weeks of prep." },
    { name: "Marcus T.", role: "Senior MLE", company: "Meta", initials: "MT", quote: "ML Platform Design track is gold. Covered exactly what came up in my Meta loop — feature stores, model serving, the works." },
@@ -117,7 +122,7 @@ export const FAQ = {
    items: [
       {
          q: "What interview types does InterviewNotes cover?",
-         a: "We cover ML System Design, ML Platform Design, LLM Platform Design, Gen AI Foundations, and Gen AI Native Design — everything you need for MLE, Senior MLE, and Staff AI/ML roles.",
+         a: "The library is for ML and AI engineering interviews: ML system design, LLM platform design and GenAI, with the platform and MLOps work behind them. Each Track shows what is published today.",
       },
       {
          q: "How is the content structured?",
@@ -125,15 +130,21 @@ export const FAQ = {
       },
       {
          q: "Can I try it for free?",
-         a: "Yes. Free content lets you judge the depth for yourself, and premium content is labelled wherever it appears.",
+         a: "Yes. Some Lessons are free to read, so you can judge the depth for yourself, and premium content is labelled wherever it appears.",
       },
       {
          q: "What does Premium include?",
-         a: "Paid access is planned, not available yet. It is planned to open the premium material across the full library; see Pricing for the planned plans. Nothing is for sale today.",
+         a: "Paid access is planned, not available yet. It is planned to open the premium material across the full library; see the Pricing section for where that stands. Nothing is for sale today.",
       },
       {
          q: "How often is new content added?",
          a: "We add new lessons and tracks over time. Each section shows what is available today.",
       },
    ],
+};
+
+/** Browse Tracks only: no waitlist or unavailable action (DF-9). */
+export const CLOSING = {
+   heading: "Pick a Track and start reading",
+   action: { label: "Browse Tracks", href: TRACKS_ENTRY },
 };

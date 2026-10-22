@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HomeContent } from "./HomeContent";
-import { FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
+import { explorerHref, parseGroup } from "@/lib/catalog/knowledge";
+import { TRACKS_ENTRY } from "@/lib/primary-navigation";
+import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
 import HomePage, { metadata } from "./page";
 
 // The homepage is static: importing the catalog client or the legacy course loader would throw here.
@@ -36,7 +38,7 @@ describe("structure", () => {
     it("has one h1 and a heading outline that runs hero, Tracks, Knowledge, testimonials, pricing, FAQ", () => {
         render(<HomeContent />);
         const headings = within(screen.getByRole("main")).getAllByRole("heading");
-        expect(headings.map((h) => h.tagName)).toEqual([1, 2, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 2, 2, 3, 2, 3, 3, 3, 3, 3].map(H));
+        expect(headings.map((h) => h.tagName)).toEqual([1, 2, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 2, 2, 3, 2, 3, 3, 3, 3, 3, 2].map(H));
         expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1); // page-wide, footer included
         expect(headings.filter((h) => h.tagName === "H2").map((h) => h.textContent)).toEqual([
             TRACKS.heading,
@@ -44,21 +46,23 @@ describe("structure", () => {
             TESTIMONIALS_SECTION.heading,
             PRICING.heading,
             FAQ.heading,
+            CLOSING.heading,
         ]);
-        expect(headings.slice(-FAQ.items.length).map((h) => h.textContent)).toEqual(FAQ.items.map((item) => item.q));
+        expect(headings.slice(-FAQ.items.length - 1, -1).map((h) => h.textContent)).toEqual(FAQ.items.map((item) => item.q));
     });
 
     it("places the sections in order inside a single main landmark, Tracks first", () => {
         render(<HomeContent />);
         const regions = within(screen.getByRole("main")).getAllByRole("region");
-        expect(regions).toHaveLength(6);
-        const [hero, tracksSection, knowledgeSection, testimonialsSection, pricingSection, faq] = regions;
+        expect(regions).toHaveLength(7);
+        const [hero, tracksSection, knowledgeSection, testimonialsSection, pricingSection, faq, closing] = regions;
         expect(hero).toHaveAccessibleName(`${HERO.lead} ${HERO.subject} ${HERO.tail}`);
         expect(tracksSection).toHaveAccessibleName(TRACKS.heading);
         expect(knowledgeSection).toHaveAccessibleName(KNOWLEDGE.heading);
         expect(testimonialsSection).toHaveAccessibleName(TESTIMONIALS_SECTION.heading);
         expect(pricingSection).toHaveAccessibleName(PRICING.heading);
         expect(faq).toHaveAccessibleName(FAQ.heading);
+        expect(closing).toHaveAccessibleName(CLOSING.heading);
         regions.slice(1).forEach((s, i) => expect(regions[i].compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy());
     });
 
@@ -255,7 +259,7 @@ describe("tracks", () => {
 });
 
 describe("knowledge", () => {
-    it("presents the four editorial groups and one link into the explorer", () => {
+    it("presents the four editorial groups, each opening the explorer on its group, and one link into the explorer", () => {
         render(<HomeContent />);
         expect(within(knowledge()).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
             "Core Concepts",
@@ -264,9 +268,17 @@ describe("knowledge", () => {
             "Quick References",
         ]);
         const links = within(knowledge()).getAllByRole("link");
-        expect(links.map((l) => l.getAttribute("href"))).toEqual(["/knowledge"]);
-        expect(links[0]).toHaveAccessibleName(KNOWLEDGE.action.label);
+        expect(links.map((l) => l.getAttribute("href"))).toEqual([...KNOWLEDGE.groups.map((group) => group.href), "/knowledge"]);
+        expect(links.at(-1)).toHaveAccessibleName(KNOWLEDGE.action.label);
         expect(document.getElementById("knowledge")).toBe(knowledge());
+    });
+
+    it("links each group to the id the explorer itself parses", () => {
+        for (const { key, href } of KNOWLEDGE.groups) {
+            const group = parseGroup(key);
+            expect(group).not.toBeNull();
+            expect(href).toBe(explorerHref({ group }));
+        }
     });
 
     it("is positioned as supporting the Tracks, after them", () => {
@@ -344,22 +356,63 @@ describe("pricing", () => {
 });
 
 describe("FAQ", () => {
-    const toggles = () => within(section(FAQ.heading)).getAllByRole("button");
+    const disclosures = () => [...section(FAQ.heading).querySelectorAll("details")];
 
-    it("starts collapsed, with one toggle per question", () => {
+    it("starts collapsed, with one native disclosure per question", () => {
         render(<HomeContent />);
-        expect(toggles()).toHaveLength(FAQ.items.length);
-        for (const toggle of toggles()) expect(toggle).toHaveAttribute("aria-expanded", "false");
+        expect(disclosures()).toHaveLength(FAQ.items.length);
+        for (const details of disclosures()) expect(details).not.toHaveAttribute("open");
     });
 
-    it("opens an answer with the keyboard-operable toggle and closes it again", () => {
+    it("holds every answer in the markup, so it can be read and opened without JavaScript", () => {
         render(<HomeContent />);
-        const [first] = toggles();
-        fireEvent.click(first);
-        expect(first).toHaveAttribute("aria-expanded", "true");
-        expect(section(FAQ.heading)).toHaveTextContent(FAQ.items[0].a);
-        fireEvent.click(first);
-        expect(first).toHaveAttribute("aria-expanded", "false");
+        disclosures().forEach((details, i) => {
+            expect(details.querySelector("summary h3")).toHaveTextContent(FAQ.items[i].q);
+            expect(details.querySelector("summary + p")).toHaveTextContent(FAQ.items[i].a);
+        });
+        expect(section(FAQ.heading).querySelector("button, [aria-expanded], [inert]")).toBeNull();
+    });
+
+    it("opens an answer from its keyboard-operable summary and closes it again", () => {
+        render(<HomeContent />);
+        const [first] = disclosures();
+        const summary = first.querySelector("summary")!;
+        fireEvent.click(summary);
+        expect(first).toHaveAttribute("open");
+        fireEvent.click(summary);
+        expect(first).not.toHaveAttribute("open");
+    });
+
+    it("keeps each summary at least 44px high through its minimum-height class", () => {
+        render(<HomeContent />);
+        for (const details of disclosures()) expect(details.querySelector("summary")).toHaveClass("min-h-11");
+    });
+
+    it("says nothing that the product cannot yet support", () => {
+        const answers = FAQ.items.map((item) => item.a).join(" ");
+        expect(answers).not.toMatch(/everything you need|Staff AI\/ML|\$\d/i);
+        expect(FAQ.items[3].a).toMatch(/planned, not available yet/i);
+    });
+});
+
+describe("closing action", () => {
+    it("offers Browse Tracks only, to the same destination as the hero, with no waitlist", () => {
+        render(<HomeContent />);
+        const closing = section(CLOSING.heading);
+        const links = within(closing).getAllByRole("link");
+        expect(links.map((link) => link.getAttribute("href"))).toEqual([TRACKS_ENTRY]);
+        expect(links[0]).toHaveAccessibleName(CLOSING.action.label);
+        expect(within(closing).queryByRole("button")).toBeNull();
+        expect(closing.textContent).not.toMatch(/waitlist|coming soon|notify/i);
+    });
+});
+
+describe("link inventory", () => {
+    it("has no placeholder href and no Learn link that is not the Tracks entry", () => {
+        const { container } = render(<HomeContent />);
+        const hrefs = [...container.querySelectorAll("a")].map((a) => a.getAttribute("href"));
+        expect(hrefs.every((href) => href && href !== "#")).toBe(true);
+        expect(hrefs.filter((href) => href!.startsWith("/learn") && href !== TRACKS_ENTRY && !href!.startsWith(`${TRACKS_ENTRY}/`))).toEqual([]);
     });
 });
 

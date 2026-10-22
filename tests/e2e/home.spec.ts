@@ -6,6 +6,8 @@ import { expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, test } from "./catalog/ha
 const TRACK_HREFS = ["/learn/gen-ai-native-design", "/learn/ml-system-design", "/learn/llm-platform-design", "/learn/ml-platform-design", "/learn/gen-ai-foundations"] as const;
 const TRACK_TITLES = ["Gen AI Native Design", "ML System Design", "LLM Platform Design", "ML Platform Design", "Gen AI Foundations"] as const;
 
+const KNOWLEDGE_HREFS = ["/knowledge?group=core-concepts", "/knowledge?group=technologies-research", "/knowledge?group=patterns", "/knowledge?group=quick-references", "/knowledge"];
+
 const tracks = (page: Page) => page.getByRole("region", { name: "Choose Your Path" });
 const trackCards = (page: Page) => tracks(page).getByRole("list").last().getByRole("link");
 const pricing = (page: Page) => page.locator("#pricing");
@@ -46,7 +48,9 @@ test("offers one h1, the five tracks as links to their courses and Knowledge as 
       await expect(trackCards(page).nth(index)).toHaveAttribute("href", TRACK_HREFS[index]);
       await expect(trackCards(page).nth(index)).toHaveAccessibleName(new RegExp(`^${title}\\b`));
    }
-   await expect(page.locator("#knowledge").getByRole("link")).toHaveAttribute("href", "/knowledge");
+   const knowledgeLinks = page.locator("#knowledge").getByRole("link");
+   await expect(knowledgeLinks).toHaveCount(5);
+   expect(await knowledgeLinks.evaluateAll((links) => links.map((l) => l.getAttribute("href")))).toEqual(KNOWLEDGE_HREFS);
    await expect(page.getByRole("link", { name: /practice/i })).toHaveCount(0);
 });
 
@@ -99,6 +103,50 @@ test("shows the three planned prices, labelled planned, with no purchase control
    await expect(pricing(page).getByText("Paid access is not available yet", { exact: false }).first()).toBeVisible();
    await expect(pricing(page).locator("button, form, input")).toHaveCount(0);
    await expect(pricing(page).getByRole("link")).toHaveCount(1); // Start Learning only
+});
+
+test("every link on the page has a real destination, with no placeholder", async ({ page }) => {
+   await page.goto("/");
+   const hrefs = await page.locator("a").evaluateAll((links) => links.map((l) => l.getAttribute("href")));
+   expect(hrefs.length).toBeGreaterThan(0);
+   expect(hrefs.filter((href) => !href || href === "#")).toEqual([]);
+});
+
+test.describe("FAQ without JavaScript", () => {
+   test.use({ javaScriptEnabled: false });
+
+   test("opens and shows each answer from its summary", async ({ page }) => {
+      await page.goto("/");
+      const faq = page.locator("#faq");
+      await expect(faq.locator("details")).toHaveCount(5);
+      const answer = faq.locator("details").first().locator("p");
+      await expect(answer).toBeHidden();
+      await faq.locator("summary").first().click();
+      await expect(answer).toBeVisible();
+      await expect(answer).toContainText("Each Track shows what is published today");
+   });
+});
+
+test("the FAQ opens from the keyboard and exposes its state", async ({ page }) => {
+   await page.goto("/");
+   const summary = page.locator("#faq summary").nth(2);
+   await summary.focus();
+   await page.keyboard.press("Enter");
+   await expect(page.locator("#faq details").nth(2)).toHaveJSProperty("open", true);
+   await page.keyboard.press("Space");
+   await expect(page.locator("#faq details").nth(2)).toHaveJSProperty("open", false);
+   await expect(page.locator("#faq").getByRole("heading", { level: 3 })).toHaveCount(5);
+});
+
+test.describe("at 390px", () => {
+   test.use({ viewport: { width: 390, height: 844 } });
+
+   test("the testimonial pause button and every FAQ summary are at least 44px high", async ({ page }) => {
+      await page.goto("/");
+      const heights = async (selector: string) => page.locator(selector).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+      expect(Math.min(...(await heights('button:has-text("Pause testimonials")')))).toBeGreaterThanOrEqual(44);
+      expect(Math.min(...(await heights("#faq summary")))).toBeGreaterThanOrEqual(44);
+   });
 });
 
 test("the testimonials drift, and the pause button stops them", async ({ page }) => {
