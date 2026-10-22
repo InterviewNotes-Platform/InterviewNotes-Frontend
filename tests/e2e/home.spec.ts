@@ -58,6 +58,25 @@ test.describe("catalog reads", () => {
       await expect(hero(page).getByRole("link", { name: READ_FREE_CHAPTER })).toHaveAttribute("href", FREE_CHAPTER_HREF);
       await expect(hero(page).getByRole("link")).toHaveText(["Browse Tracks", READ_FREE_CHAPTER]);
    });
+
+   test("keyboard moves from Browse Tracks to Read a free chapter, with a solid 2px focus ring, then to the first Track card", async ({ page }) => {
+      await page.goto("/");
+      await page.keyboard.press("Tab"); // skip link
+      await page.keyboard.press("Enter");
+      await expect(page.locator("#main-content")).toBeFocused();
+
+      await page.keyboard.press("Tab");
+      await expect(hero(page).getByRole("link", { name: "Browse Tracks" })).toBeFocused();
+
+      const freeChapter = hero(page).getByRole("link", { name: READ_FREE_CHAPTER });
+      await page.keyboard.press("Tab");
+      await expect(freeChapter).toBeFocused();
+      await expect(freeChapter).toHaveCSS("outline-style", "solid");
+      await expect(freeChapter).toHaveCSS("outline-width", "2px");
+
+      await page.keyboard.press("Tab");
+      await expect(trackCards(page).first()).toBeFocused();
+   });
 });
 
 test("offers no free chapter when the API does not know the Lesson", async ({ page }) => {
@@ -104,7 +123,7 @@ test("keyboard reaches the hero action, then the Track cards in order, each with
    await page.keyboard.press("Tab");
    await expect(hero(page).getByRole("link", { name: "Browse Tracks" })).toBeFocused();
 
-   for (const index of [0, 1, 2]) {
+   for (const index of CATALOG_TRACKS.keys()) {
       await page.keyboard.press("Tab");
       await expect(trackCards(page).nth(index)).toBeFocused();
       await expect(trackCards(page).nth(index)).toHaveCSS("outline-style", "solid");
