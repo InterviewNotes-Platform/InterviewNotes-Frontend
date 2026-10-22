@@ -243,15 +243,26 @@ function Stage({ tracks, problem }: StageData) {
          <svg className="absolute bottom-0 left-0 z-20 h-[120px] w-full" viewBox="0 0 1440 120" preserveAspectRatio="none" focusable="false">
             <path d="M0 58 C 180 30, 330 70, 520 52 C 700 34, 860 76, 1040 56 C 1200 40, 1330 64, 1440 46 L1440 120 L0 120 Z" fill="var(--background)" />
          </svg>
-         <div className="absolute inset-x-4 top-0 z-30 mx-auto hidden h-full max-w-[1120px] lg:block">
-            <Pop at="top-[470px] right-[-24px] min-[1360px]:right-[-120px]" r={3} depth={14} delay={1900} float={8} slap>
+         <Pop at="right-5 bottom-5 z-30 sm:right-8 lg:hidden" r={-2} depth={14} delay={1900} float={8}>
+            <div className="home-card-shadow flex max-w-60 items-center gap-2.5 rounded-[14px] border border-home-line bg-home-raised px-3.5 py-2.5">
+               <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0" focusable="false">
+                  <path d="M3 1.5h8v11L7 10l-4 2.5v-11z" fill="var(--gold)" stroke={INK} strokeWidth="1.2" strokeLinejoin="round" />
+               </svg>
+               <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="font-mono text-[10px]/3 tracking-widest text-muted-foreground uppercase">{STAGE.problemLabel}</span>
+                  <span className="truncate text-[13px]/4.5 font-medium">{problem.title}</span>
+               </span>
+            </div>
+         </Pop>
+         <div className="absolute inset-0 z-30 hidden lg:block">
+            <Pop at="top-[470px] right-[max(1.5rem,calc(50%_-_680px))] max-[1280px]:hidden" r={3} depth={14} delay={1900} float={8} slap>
                <div className="relative flex w-55 flex-col gap-2.5 rounded-md bg-gold px-5 pt-7 pb-5.5 text-gold-foreground shadow-[0_14px_30px_rgb(var(--home-sh)/0.14),0_1px_2px_rgb(var(--home-sh)/0.08)]">
                   <span className="absolute -top-2.5 left-21 h-5 w-13 -rotate-4 rounded-xs bg-white/60" />
                   <span className="font-mono text-[10px]/3 font-medium tracking-[0.08em] uppercase opacity-70">{`${STAGE.knowledgeLabel} · ${note.title}`}</span>
                   <span className={`${clamp(3)} text-[15px]/5.25 font-medium`}>{note.description}</span>
                </div>
             </Pop>
-            <Pop at="top-[500px] left-[-24px] min-[1360px]:left-[-124px]" r={-3} depth={18} delay={2200} float={9}>
+            <Pop at="top-[500px] left-[max(1.5rem,calc(50%_-_684px))]" r={-3} depth={18} delay={2200} float={9}>
                <div className="home-card-shadow flex w-55 flex-col gap-2 rounded-[14px] border border-home-line bg-home-raised px-4 py-3.5">
                   <div className="flex items-center gap-2">
                      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0" focusable="false">
@@ -268,13 +279,13 @@ function Stage({ tracks, problem }: StageData) {
    );
 }
 
-/** The cards around the headline: wide screens only, anchored to a centred 1440 frame that starts at the page's top edge (the header sits above the hero). */
+/** The cards around the headline, from 1024 px: each hangs from the nearer page edge, in step with the centred content, so none clips; below 1200 px the two lower cards would meet the intro text and are left out; the stage's Knowledge note needs the window's right panel (1280 px) or it would cover the page text. Coordinates start at the page's top edge (the header sits above the hero). */
 function Headline({ tracks }: { tracks: StageData["tracks"] }) {
    const lead = tracks[0] ?? STAGE.trackFallback;
    const core = KNOWLEDGE.groups[0];
    return (
-      <div aria-hidden="true" className="pointer-events-none absolute -top-[65px] bottom-0 left-1/2 hidden w-[1440px] -translate-x-1/2 min-[1360px]:block">
-         <Pop at="top-[176px] left-[96px]" r={-5} depth={22} delay={1150} float={7}>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[65px] bottom-0 hidden min-[1024px]:block">
+         <Pop at="top-[176px] left-[max(1rem,calc(50%_-_624px))]" r={-5} depth={22} delay={1150} float={7}>
             <div className="home-card-shadow flex items-center gap-3 rounded-[14px] border border-home-line bg-home-raised py-3 pr-4.5 pl-3">
                <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-gold text-gold-foreground">
                   <svg width="18" height="18" viewBox="0 0 18 18" focusable="false">
@@ -288,7 +299,7 @@ function Headline({ tracks }: { tracks: StageData["tracks"] }) {
             </div>
          </Pop>
 
-         <Pop at="top-[118px] left-[1192px]" r={4} depth={26} delay={1300} float={8}>
+         <Pop at="top-[118px] right-[max(1rem,calc(50%_-_688px))]" r={4} depth={26} delay={1300} float={8}>
             <div className="home-card-shadow flex w-54 flex-col gap-2.5 rounded-[14px] border border-home-line bg-home-raised px-4.5 py-4">
                <span className="font-mono text-[10px]/3 font-medium tracking-widest text-muted-foreground uppercase">{STAGE.trackLabel}</span>
                <span className={`${clamp(2)} text-[15px]/5 font-semibold`}>{lead.title}</span>
@@ -296,7 +307,7 @@ function Headline({ tracks }: { tracks: StageData["tracks"] }) {
             </div>
          </Pop>
 
-         <Pop at="top-[452px] left-[132px]" r={-3} depth={16} delay={1450} float={6.5}>
+         <Pop at="top-[452px] left-[max(1rem,calc(50%_-_588px))] max-[1200px]:hidden" r={-3} depth={16} delay={1450} float={6.5}>
             <div className="flex items-center gap-2.5 rounded-full bg-foreground py-2.5 pr-4 pl-3 shadow-[0_14px_30px_rgb(var(--home-sh)/0.22)]">
                <span className="font-mono text-[11px]/4 font-medium tracking-[0.06em] text-background uppercase">{STAGE.knowledgeLabel}</span>
                <span className="h-3.5 w-px shrink-0 bg-background/20" />
@@ -304,8 +315,8 @@ function Headline({ tracks }: { tracks: StageData["tracks"] }) {
             </div>
          </Pop>
 
-         <Pop at="top-[430px] left-[1098px]" r={-2} depth={12} delay={1600} float={7.5}>
-            <div className="home-card-shadow flex w-62 flex-col gap-2.5 rounded-[14px] border border-home-line bg-home-raised/90 px-4 py-3.5">
+         <Pop at="top-[430px] right-[max(1rem,calc(50%_-_626px))] max-[1200px]:hidden" r={-2} depth={12} delay={1600} float={7.5}>
+            <div className="home-card-shadow flex w-56 flex-col gap-2.5 rounded-[14px] min-[1360px]:w-62 border border-home-line bg-home-raised/90 px-4 py-3.5">
                <div className="grid grid-cols-3 gap-1">
                   {STAGE.path.map((step, i) => (
                      <span key={step} className={`h-1.5 rounded-[3px] ${i === 1 ? "home-sheen bg-gold" : "bg-foreground"}`} />

@@ -56,6 +56,14 @@ function Hero({ tracks, problem, freeChapterHref }: { tracks: HomeTracks; proble
    return (
       <section aria-labelledby="home-heading">
          <HeroMotion className="relative overflow-clip bg-gradient-to-b from-(--home-sky-a) to-(--home-sky-b) pt-[21px]">
+            {/* Decoration only: the historical hairline grid (24px, low contrast) fading out from the headline; static, behind everything, subdued on small screens. */}
+            <div
+               data-hero-grid
+               aria-hidden="true"
+               className="pointer-events-none absolute inset-0 [--grid:color-mix(in_oklab,var(--foreground)_9%,transparent)] opacity-60 lg:opacity-100"
+            >
+               <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--grid)_1px,transparent_1px),linear-gradient(to_bottom,var(--grid)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_80%_55%_at_50%_30%,#000_45%,transparent_100%)]" />
+            </div>
             <PageContainer className="relative z-10 flex flex-col items-center gap-7 pt-18 pb-16 text-center lg:pt-26">
                <p
                   className="home-fade-up m-0 flex items-center gap-2.5 rounded-full border border-white/80 bg-white/55 px-4 py-2 text-[13px]/4 font-medium dark:border-white/10 dark:bg-white/5"

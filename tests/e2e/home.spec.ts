@@ -388,14 +388,27 @@ test.describe("hero popups", () => {
 
    for (const [width, height, floatingCards] of [
       [1440, 900, 6],
-      [1280, 800, 2],
-      [390, 844, 0],
+      [1360, 900, 6],
+      [1280, 800, 6],
+      [1279, 800, 5],
+      [1200, 800, 5],
+      [1199, 800, 3],
+      [1024, 768, 3],
+      [768, 1024, 1],
+      [390, 844, 1],
    ] as const) {
-      test(`at ${width}px ${floatingCards} cards show, clear of the headline text and the actions and inside the page`, async ({ page }) => {
+      test(`at ${width}px ${floatingCards} cards show, clear of the headline text, the actions and each other, and inside the page`, async ({ page }) => {
          await page.setViewportSize({ width, height });
          await page.goto("/");
          await page.waitForTimeout(2600); // the cards finish popping in
-         const cards = await page.locator(".home-pop-card").evaluateAll((els) => els.filter((el) => el.checkVisibility()).map((el) => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top + window.scrollY, r: r.right, b: r.bottom + window.scrollY }; }));
+         const cards = await page.locator(".home-pop-card").evaluateAll((els) =>
+            els
+               .filter((el) => el.checkVisibility())
+               .map((el) => {
+                  const r = el.getBoundingClientRect();
+                  return { l: r.left, t: r.top + window.scrollY, r: r.right, b: r.bottom + window.scrollY, onStage: !!el.closest("[data-hero-stage]") };
+               }),
+         );
          expect(cards).toHaveLength(floatingCards);
          const protectedRects = await hero(page).evaluate((section) => {
             const lines: DOMRect[] = [];
@@ -405,16 +418,41 @@ test.describe("hero popups", () => {
             for (const el of section.querySelectorAll("a, button, [class*='max-w-[680px]']")) lines.push(el.getBoundingClientRect());
             return lines.filter((r) => r.width > 0).map((r) => ({ l: r.left, t: r.top + window.scrollY, r: r.right, b: r.bottom + window.scrollY }));
          });
-         for (const card of cards) {
-            for (const target of protectedRects) {
-               expect(card.r <= target.l || card.l >= target.r || card.b <= target.t || card.t >= target.b, `a card covers text or an action: ${JSON.stringify({ card, target })}`).toBe(true);
-            }
-            expect(card.l, "a card leaves the page on the left").toBeGreaterThanOrEqual(-1);
-            expect(card.r, "a card leaves the page on the right").toBeLessThanOrEqual(width + 1);
-         }
+         const windowBox = await page.locator("[data-hero-stage] .home-rise").evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            return { l: r.left, t: r.top + window.scrollY, r: r.right, b: r.bottom + window.scrollY };
+         });
+         const apart = (a: { l: number; t: number; r: number; b: number }, c: { l: number; t: number; r: number; b: number }) => a.r <= c.l || a.l >= c.r || a.b <= c.t || a.t >= c.b;
+         cards.forEach((card, i) => {
+            for (const target of protectedRects) expect(apart(card, target), `a card covers text or an action: ${JSON.stringify({ card, target })}`).toBe(true);
+            if (!card.onStage) expect(apart(card, windowBox), `a headline card covers the reader window: ${JSON.stringify(card)}`).toBe(true);
+            for (const other of cards.slice(i + 1)) expect(apart(card, other), `two cards overlap: ${JSON.stringify({ card, other })}`).toBe(true);
+            expect(card.l, "a card leaves the page on the left").toBeGreaterThanOrEqual(0);
+            expect(card.r, "a card leaves the page on the right").toBeLessThanOrEqual(width);
+         });
          expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       });
    }
+
+   test("the hairline grid sits behind the hero, is decorative, takes no pointer and does not animate", async ({ page }) => {
+      await page.goto("/");
+      const grid = page.locator("[data-hero-grid]");
+      await expect(grid).toHaveCount(1);
+      await expect(grid).toHaveAttribute("aria-hidden", "true");
+      await expect(grid).toHaveCSS("pointer-events", "none");
+      const lines = grid.locator("div");
+      await expect(lines).toHaveCSS("background-size", /^24px 24px(, 24px 24px)?$/); // one size per hairline gradient
+      expect(await lines.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain("linear-gradient");
+      expect(await lines.evaluate((el) => getComputedStyle(el).maskImage)).toContain("radial-gradient");
+      expect(await lines.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+      const behind = await page.evaluate(() => {
+         const g = document.querySelector("[data-hero-grid]")!;
+         const h1 = document.querySelector("section h1")!;
+         return !!(g.compareDocumentPosition(h1) & Node.DOCUMENT_POSITION_FOLLOWING) && g.parentElement!.firstElementChild === g;
+      });
+      expect(behind).toBe(true);
+      expect(await page.locator("[data-hero-grid]").count()).toBe(1); // the hero only; no other section has one
+   });
 });
 
 test.describe("when the catalog has no Problem and no Track", () => {

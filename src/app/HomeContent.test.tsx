@@ -171,6 +171,24 @@ describe("hero", () => {
     });
 });
 
+describe("hero grid", () => {
+    it("is one decorative hairline grid inside the hero, first so it sits behind the copy, and nowhere else", () => {
+        const { container } = renderHome();
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        const grids = container.querySelectorAll("[data-hero-grid]");
+        expect(grids).toHaveLength(1);
+        const grid = grids[0];
+        expect(hero.contains(grid)).toBe(true);
+        expect(grid).toHaveAttribute("aria-hidden", "true");
+        expect(grid.className).toContain("pointer-events-none");
+        expect(grid.parentElement!.firstElementChild).toBe(grid);
+        expect(grid.innerHTML).toContain("linear-gradient");
+        expect(grid.innerHTML).toContain("mask-image");
+        expect(grid.querySelector("a, button, [tabindex]")).toBeNull();
+        expect(grid.className + grid.innerHTML).not.toMatch(/animate|transition/);
+    });
+});
+
 describe("hero stage content", () => {
     const stage = (container: HTMLElement) => container.querySelector("[data-hero-stage]")!.parentElement!;
     const STALE = [
