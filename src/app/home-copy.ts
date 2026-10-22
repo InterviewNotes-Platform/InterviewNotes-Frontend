@@ -27,8 +27,31 @@ export const HERO = {
    freeChapterLabel: "Read a free chapter",
 };
 
-/** The animated subject cycles through these once, then rests on the first. */
-export const HERO_TOPICS = ["ML Platform Design", "LLM Platform Design", "GenAI Native Design", "ML System Design"] as const;
+/** The highlighted subject cycles through these in order and wraps from the last to the first, until the hero is paused; the first is also the still state (reduced motion) and the screen-reader subject. P6-D-40. */
+export const HERO_TOPICS = [HERO.subject, "ML platform design", "LLM platform design", "GenAI native design", "ML system design"] as const;
+
+/** The hero stage's words around the real catalog data (P6-D-40): product vocabulary only, no counts, durations, completion or access claims. */
+export const STAGE = {
+   trackLabel: "Track",
+   chooseTrack: { title: "Choose a Track", note: "Follow it module by module" },
+   /** Shown where no Track could be read; the Tracks section says why. */
+   trackFallback: { title: "Choose a Track", summary: "Follow a sequence of modules and lessons." },
+   problemLabel: "Problem",
+   /** Shown where no Problem could be read: a category, never a specific item. */
+   problemFallback: { title: "Interview Problems", summary: "Work through ML and GenAI system design problems." },
+   knowledgeLabel: "Knowledge",
+   path: ["Tracks", "Knowledge", "Problems"],
+   library: "How it works",
+   windowTabs: ["Tracks", "Knowledge", "Problems"],
+   chips: ["Modules", "Lessons", "Knowledge", "Problems"],
+   diagram: {
+      follow: "FOLLOW A TRACK",
+      nodes: ["Track", "Module", "Lesson", "Problem"],
+      lookup: "KNOWLEDGE",
+      lookupNodes: ["Core Concepts", "Patterns", "Topic", "Quick Reference"],
+      link: "linked",
+   },
+};
 
 /** Subject areas the library covers; descriptive chips, not links. */
 export const HERO_AREAS = ["GenAI & Agentic Patterns", "ML Platform & MLOps", "LLM Platform Design", "ML System Design"] as const;

@@ -6,11 +6,12 @@ import { HomeContent } from "./HomeContent";
 import { FREE_CHAPTER_LESSON_SLUG } from "@/lib/catalog/home";
 import { explorerHref, parseGroup } from "@/lib/catalog/knowledge";
 import { TRACKS_ENTRY } from "@/lib/primary-navigation";
-import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, STATS_DISCLOSURE, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
+import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STAGE, STATS, STATS_DISCLOSURE, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
 import HomePage, * as homeModule from "./page";
+import { TOPIC_STEP_MS } from "./RotatingTopic";
 
-const { listCatalogTracks, getCatalogItemMeta } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn() }));
-vi.mock("@/lib/catalog/client", () => ({ listCatalogTracks, getCatalogItemMeta }));
+const { listCatalogTracks, getCatalogItemMeta, listCatalogItems } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn(), listCatalogItems: vi.fn() }));
+vi.mock("@/lib/catalog/client", () => ({ listCatalogTracks, getCatalogItemMeta, listCatalogItems }));
 vi.mock("@/lib/courses", () => {
     throw new Error("the homepage must not import the course loader");
 });
@@ -25,9 +26,10 @@ const CARDS = [
     { id: "track.gamma", title: "Gamma Track", summary: "", href: "/tracks/gamma" },
 ];
 const FREE_HREF = `/lessons/${FREE_CHAPTER_LESSON_SLUG}`;
+const PROBLEM = { title: "Design a Retrieval Service", summary: "Sketch the ingest and query paths." };
 
 function renderHome(props: Partial<ComponentProps<typeof HomeContent>> = {}) {
-    return render(<HomeContent tracks={{ status: "ok", cards: CARDS }} freeChapterHref={FREE_HREF} {...props} />);
+    return render(<HomeContent tracks={{ status: "ok", cards: CARDS }} freeChapterHref={FREE_HREF} problem={PROBLEM} {...props} />);
 }
 
 const NESTED_INTERACTIVE = "a a, a button, button a, button button";
@@ -112,7 +114,8 @@ describe("hero", () => {
         renderHome();
         const h1 = screen.getByRole("heading", { level: 1 });
         expect(h1).toHaveAccessibleName(`${HERO.lead} ${HERO.subject} ${HERO.tail}`);
-        for (const topic of HERO_TOPICS) expect(within(h1).getByText(topic).closest("[aria-hidden='true']")).not.toBeNull();
+        for (const topic of HERO_TOPICS) expect(within(h1).getByText(topic, { selector: "[aria-hidden='true'] > span" })).toBeInTheDocument();
+        expect(within(h1).getByText(HERO.subject, { selector: ".sr-only" })).toBeInTheDocument();
     });
 
     it("offers Browse Tracks to the Tracks section on this page, and a free chapter that opens its Lesson", () => {
@@ -154,47 +157,112 @@ describe("hero", () => {
         const stage = hero.querySelector("[data-hero-stage][aria-hidden='true']");
         expect(stage).not.toBeNull();
         expect(stage?.querySelector("a, button, input, img, [tabindex]")).toBeNull();
-        expect(stage?.textContent).toContain("Design a RAG system for 50M internal docs.");
+        expect(stage?.textContent).toContain("Alpha Track");
         expect(within(hero).queryByText(/\b(free|pro|premium)\b/i, { ignore: "[aria-hidden='true'] *, a[href^='/lessons/']" })).toBeNull(); // the free-chapter action is the one place the hero's own text says free
     });
 
     it("hides the floating cards around the headline from assistive technology too", () => {
         renderHome();
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
-        for (const text of ["Chapter complete", "Next up · 06", "Saved to notes"]) {
-            expect(within(hero).getByText(text).closest("[aria-hidden='true']"), text).not.toBeNull();
+        for (const text of [STAGE.chooseTrack.title, KNOWLEDGE.groups[0].title]) {
+            for (const node of within(hero).getAllByText(text)) expect(node.closest("[aria-hidden='true']"), text).not.toBeNull();
         }
         expect(hero.querySelector("h2, h3, [role='img']")).toBeNull();
     });
 });
 
-describe("hero motion", () => {
-    const clocks = () => screen.getAllByText(/^\d\d:\d\d$/).map((el) => el.textContent);
-    const pause = () => screen.getByRole("button", { name: /animation$/ });
+describe("hero stage content", () => {
+    const stage = (container: HTMLElement) => container.querySelector("[data-hero-stage]")!.parentElement!;
+    const STALE = [
+        "Mock round",
+        "Interviewer",
+        "Round clock",
+        "Chapter complete",
+        "Next up",
+        "Saved to notes",
+        "Deep dive",
+        "Clarify",
+        "Follow-ups",
+        "Gen AI Native Design",
+        "Docs · 50M",
+        "18 · ~8h",
+        "50M",
+        "RAG",
+        "PRO",
+        "FREE",
+        "27:40",
+    ];
 
-    it("ticks the round clocks together, and the pause control stops and restarts them", () => {
+    it("shows the real Track, a real Problem and the Knowledge groups, in cards pinned to the stage and around the headline", () => {
+        const { container } = renderHome();
+        const text = stage(container).textContent!;
+        for (const expected of ["Alpha Track", "Alpha summary.", PROBLEM.title, PROBLEM.summary, ...KNOWLEDGE.groups.slice(0, 3).map((g) => g.title), KNOWLEDGE.groups[2].description]) {
+            expect(text, expected).toContain(expected);
+        }
+        expect(text).toContain(STAGE.chooseTrack.title);
+        for (const step of STAGE.path) expect(text).toContain(step);
+    });
+
+    it("carries no interview-simulation text, chapter data, PRO or FREE tag, timer or invented quantity", () => {
+        const { container } = renderHome();
+        const text = stage(container).textContent!;
+        for (const stale of STALE) expect(text, stale).not.toContain(stale);
+        expect(text).not.toMatch(/\d+\s*(m|min|h|hours?|chapters?)\b|\b\d{2}:\d{2}\b/i);
+    });
+
+    it("never takes the pointer: no card enables pointer events", () => {
+        const { container } = renderHome();
+        expect(container.querySelector("[data-hero-stage] .pointer-events-auto, [data-hero-stage] .home-pop-card.pointer-events-auto")).toBeNull();
+        expect(stage(container).querySelectorAll(".pointer-events-auto")).toHaveLength(0);
+    });
+
+    it("falls back to neutral category cards, not invented items, when no Problem and no Track can be read", () => {
+        const { container } = renderHome({ tracks: { status: "unavailable" }, problem: null });
+        const text = stage(container).textContent!;
+        expect(text).toContain(STAGE.problemFallback.title);
+        expect(text).toContain(STAGE.trackFallback.summary);
+        expect(text).not.toContain("Alpha Track");
+        expect(text).not.toContain(PROBLEM.title);
+    });
+
+    it("shows a Problem without a summary as its title alone", () => {
+        const { container } = renderHome({ problem: { title: "Quiet Problem", summary: "" } });
+        expect(stage(container).textContent).toContain("Quiet Problem");
+    });
+});
+
+describe("hero motion", () => {
+    const pause = () => screen.getByRole("button", { name: /animation$/ });
+    const shown = () => within(screen.getByRole("heading", { level: 1 })).getAllByText(/./, { selector: "[aria-hidden='true'] > span" }).filter((s) => s.className.includes("opacity-100")).map((s) => s.textContent);
+
+    it("pauses and resumes the headline rotation and the ambient loops with one control", () => {
         vi.useFakeTimers();
         renderHome();
-        expect(clocks()).toEqual(["27:40", "27:40"]);
-        act(() => void vi.advanceTimersByTime(3000));
-        expect(clocks()).toEqual(["27:37", "27:37"]);
+        expect(shown()).toEqual([HERO_TOPICS[0]]);
+        act(() => void vi.advanceTimersByTime(TOPIC_STEP_MS));
+        expect(shown()).toEqual([HERO_TOPICS[1]]);
         fireEvent.click(pause());
         expect(pause()).toHaveTextContent("Play animation");
         expect(pause().closest("[data-paused]")).toHaveAttribute("data-paused", "true");
-        act(() => void vi.advanceTimersByTime(5000));
-        expect(clocks()).toEqual(["27:37", "27:37"]);
+        act(() => void vi.advanceTimersByTime(TOPIC_STEP_MS * 4));
+        expect(shown(), "paused: the headline holds still").toEqual([HERO_TOPICS[1]]);
         fireEvent.click(pause());
         expect(pause()).toHaveTextContent("Pause animation");
-        act(() => void vi.advanceTimersByTime(2000));
-        expect(clocks()).toEqual(["27:35", "27:35"]);
+        act(() => void vi.advanceTimersByTime(TOPIC_STEP_MS));
+        expect(shown()).toEqual([HERO_TOPICS[2]]);
     });
 
-    it("keeps the clocks still when the reader prefers reduced motion", () => {
-        stubMotion(true);
-        vi.useFakeTimers();
+    it("names what the control stops in its description, and keeps one control", () => {
         renderHome();
-        act(() => void vi.advanceTimersByTime(5000));
-        expect(clocks()).toEqual(["27:40", "27:40"]);
+        expect(pause()).toHaveAccessibleDescription(/rotating headline.*motion/i);
+        expect(screen.getAllByRole("button", { name: /animation$/ })).toHaveLength(1);
+        fireEvent.click(pause());
+        expect(pause()).toHaveAccessibleDescription(/resumes the rotating headline/i);
+    });
+
+    it("has no round clock left to tick", () => {
+        renderHome();
+        expect(screen.queryByText(/^\d\d:\d\d$/)).toBeNull();
     });
 
     it("offers the pause control as the only button in the hero, after the two actions", () => {
@@ -311,39 +379,52 @@ describe("smooth scrolling", () => {
 
 describe("rotating subject", () => {
     const active = () =>
-        HERO_TOPICS.filter((topic) => within(screen.getByRole("heading", { level: 1 })).getByText(topic).className.includes("opacity-100"));
+        HERO_TOPICS.filter((topic) => within(screen.getByRole("heading", { level: 1 })).getByText(topic, { selector: "[aria-hidden='true'] > span" }).className.includes("opacity-100"));
 
-    it("steps through every topic once, returns to the first and then stops, within five seconds", () => {
+    it("includes ML and AI engineering, with every phrase fitting the sentence and one capitalisation style", () => {
+        expect(HERO_TOPICS).toContain("ML and AI engineering");
+        expect(HERO_TOPICS[0]).toBe(HERO.subject);
+        expect(new Set(HERO_TOPICS).size).toBe(HERO_TOPICS.length);
+        for (const topic of HERO_TOPICS) expect(topic, "words after the first are lower case, acronyms aside").toMatch(/^[A-Z][A-Za-z]*( ([A-Z]{2,}|[a-z]+))+$/);
+    });
+
+    it("steps through every topic in order and wraps from the last back to the first, for more than two full rotations", () => {
         vi.useFakeTimers();
         renderHome();
         expect(active()).toEqual([HERO_TOPICS[0]]);
-        for (let step = 1; step < HERO_TOPICS.length; step++) {
-            act(() => void vi.advanceTimersByTime(1200));
-            expect(active()).toEqual([HERO_TOPICS[step]]);
+        for (let step = 1; step <= HERO_TOPICS.length * 2 + 2; step++) {
+            act(() => void vi.advanceTimersByTime(TOPIC_STEP_MS));
+            expect(active(), `step ${step}`).toEqual([HERO_TOPICS[step % HERO_TOPICS.length]]);
         }
-        act(() => void vi.advanceTimersByTime(1200));
-        expect(active()).toEqual([HERO_TOPICS[0]]);
-        vi.advanceTimersByTime(60_000);
-        expect(active(), "it rests on the first topic").toEqual([HERO_TOPICS[0]]);
-        expect(1200 * HERO_TOPICS.length, "WCAG 2.2.2: moving content that stops within 5s needs no control").toBeLessThanOrEqual(5000);
+    });
+
+    it("keeps one heading name throughout: the animated phrases are hidden from assistive technology", () => {
+        vi.useFakeTimers();
+        renderHome();
+        const h1 = screen.getByRole("heading", { level: 1 });
+        for (let step = 0; step < HERO_TOPICS.length + 1; step++) {
+            expect(h1).toHaveAccessibleName(`${HERO.lead} ${HERO.subject} ${HERO.tail}`);
+            act(() => void vi.advanceTimersByTime(TOPIC_STEP_MS));
+        }
+        expect(h1.querySelector("[aria-live]")).toBeNull();
     });
 
     it("stays on the first topic when the reader prefers reduced motion", () => {
         stubMotion(true);
         vi.useFakeTimers();
         renderHome();
-        act(() => void vi.advanceTimersByTime(1200));
+        act(() => void vi.advanceTimersByTime(TOPIC_STEP_MS));
         expect(active()).toEqual([HERO_TOPICS[0]]);
-        act(() => void vi.advanceTimersByTime(10_000));
+        act(() => void vi.advanceTimersByTime(60_000));
         expect(active()).toEqual([HERO_TOPICS[0]]);
     });
 
-    it("clears its timers when it unmounts", () => {
+    it("clears its interval when it unmounts", () => {
         vi.useFakeTimers();
         const { unmount } = renderHome();
         const pending = vi.getTimerCount();
         unmount();
-        expect(vi.getTimerCount()).toBeLessThanOrEqual(pending - HERO_TOPICS.length);
+        expect(vi.getTimerCount()).toBeLessThan(pending);
     });
 });
 
@@ -650,6 +731,7 @@ describe("link inventory", () => {
 describe("catalog reads", () => {
     const TOKEN = "unit-synthetic-preview-token-0123456789abcdef";
     const FREE_META = { id: `lesson.${FREE_CHAPTER_LESSON_SLUG}`, type: "lesson", slug: FREE_CHAPTER_LESSON_SLUG, title: "Free", summary: "s", tags: [], category: null, difficulty: null, level: null, access: "free" };
+    const PROBLEM_META = { id: "problem.retrieval", type: "problem", slug: "retrieval", title: "Design a Retrieval Service", summary: "Sketch the ingest and query paths.", tags: [], category: "ml_system_design", difficulty: "medium", level: null, access: "premium" };
     const LIST = { tracks: [{ id: "track.alpha", slug: "alpha", title: "Alpha Track", summary: "Alpha summary." }] };
 
     async function page() {
@@ -661,10 +743,11 @@ describe("catalog reads", () => {
         vi.clearAllMocks();
         listCatalogTracks.mockResolvedValue({ status: "ok", data: LIST });
         getCatalogItemMeta.mockResolvedValue({ status: "ok", data: FREE_META });
+        listCatalogItems.mockResolvedValue({ status: "ok", data: { items: [PROBLEM_META], next_cursor: null } });
     });
     afterEach(() => vi.unstubAllEnvs());
 
-    it("makes exactly the two public metadata reads, with no argument that could carry a session or a branch", async () => {
+    it("makes exactly the three public metadata reads, with no argument that could carry a session or a branch", async () => {
         const fetchSpy = vi.fn();
         vi.stubGlobal("fetch", fetchSpy);
         await page();
@@ -672,7 +755,31 @@ describe("catalog reads", () => {
         expect(listCatalogTracks).toHaveBeenCalledWith();
         expect(getCatalogItemMeta).toHaveBeenCalledTimes(1);
         expect(getCatalogItemMeta).toHaveBeenCalledWith("lesson", "anatomy-of-a-model-request");
+        expect(listCatalogItems).toHaveBeenCalledTimes(1);
+        expect(listCatalogItems).toHaveBeenCalledWith({ type: "problem", limit: 1 });
         expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("shows the listed Problem on the stage, and a neutral card when its read fails, is empty or has no title", async () => {
+        const { container, unmount } = await page();
+        expect(container.querySelector("[data-hero-stage]")!.textContent).toContain("Design a Retrieval Service");
+        unmount();
+        for (const answer of [{ status: "unavailable", cause: "upstream" }, { status: "ok", data: { items: [], next_cursor: null } }, { status: "ok", data: { items: [{ ...PROBLEM_META, title: " " }], next_cursor: null } }]) {
+            listCatalogItems.mockResolvedValue(answer);
+            const view = await page();
+            const stage = view.container.querySelector("[data-hero-stage]")!.textContent!;
+            expect(stage).toContain(STAGE.problemFallback.title);
+            expect(stage).not.toContain("Design a Retrieval Service");
+            expect(within(tracks()).getAllByRole("link")).toHaveLength(1);
+            view.unmount();
+        }
+    });
+
+    it("loses no Track card and no free-chapter action when only the Problem read fails", async () => {
+        listCatalogItems.mockResolvedValue({ status: "unavailable", cause: "transport" });
+        await page();
+        expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
+        expect(heroLinks()).toEqual([TRACKS_ENTRY, FREE_HREF]);
     });
 
     it("shows the listed Tracks and the free-chapter action when both reads succeed", async () => {

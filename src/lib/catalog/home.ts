@@ -1,5 +1,5 @@
 import { catalogEntryHref, linkableEntries } from "./routes";
-import type { CatalogMeta, CatalogResult, CatalogTrackList } from "./types";
+import type { CatalogItemPage, CatalogMeta, CatalogResult, CatalogTrackList } from "./types";
 
 /** The first free Lesson of the genai-system-design Track (S6-HOME-4); `freeChapterHref` makes the action true per environment. */
 export const FREE_CHAPTER_LESSON_SLUG = "anatomy-of-a-model-request";
@@ -34,4 +34,17 @@ export function freeChapterHref(result: CatalogResult<CatalogMeta>): string | nu
    const { id, type, slug, access } = result.data;
    if (type !== "lesson" || slug !== FREE_CHAPTER_LESSON_SLUG || access !== "free") return null;
    return catalogEntryHref({ id, type, slug });
+}
+
+/** The Problem the hero stage shows: public list metadata only, never a body. */
+export interface HomeProblem {
+   title: string;
+   summary: string;
+}
+
+/** The first published Problem in the API's order, or null for an empty page, a failure or a Problem with no title: the stage then shows its neutral card. */
+export function homeProblem(result: CatalogResult<CatalogItemPage>): HomeProblem | null {
+   if (result.status !== "ok") return null;
+   const item = result.data.items.find((entry) => entry.type === "problem" && entry.title.trim() !== "");
+   return item ? { title: item.title.trim(), summary: item.summary.trim() } : null;
 }

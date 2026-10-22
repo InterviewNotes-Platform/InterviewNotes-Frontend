@@ -389,11 +389,6 @@
   transition: rotate 0.6s var(--home-spring), scale 0.6s var(--home-spring), box-shadow 0.3s ease;
 }
 
-[data-home] .home-pop-card:hover {
-  rotate: 0deg;
-  scale: 1.04;
-}
-
 [data-home] .home-card-shadow {
   box-shadow: 0 18px 40px rgb(var(--home-sh) / 0.14), 0 1px 2px rgb(var(--home-sh) / 0.08);
 }

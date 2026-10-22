@@ -4,7 +4,7 @@ import { Footer } from "@/components/layout/Footer";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
-import type { HomeTracks } from "@/lib/catalog/home";
+import type { HomeProblem, HomeTracks } from "@/lib/catalog/home";
 import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, STATS_DISCLOSURE, TRACKS } from "./home-copy";
@@ -52,7 +52,7 @@ function Tick() {
  * actions, then the rising reader window. The free-chapter action appears only when the API confirmed the Lesson is
  * free (S6-HOME-4).
  */
-function Hero({ freeChapterHref }: { freeChapterHref: string | null }) {
+function Hero({ tracks, problem, freeChapterHref }: { tracks: HomeTracks; problem: HomeProblem | null; freeChapterHref: string | null }) {
    return (
       <section aria-labelledby="home-heading">
          <HeroMotion className="relative overflow-clip bg-gradient-to-b from-(--home-sky-a) to-(--home-sky-b) pt-[21px]">
@@ -104,7 +104,7 @@ function Hero({ freeChapterHref }: { freeChapterHref: string | null }) {
                </ul>
             </PageContainer>
 
-            <HeroStage />
+            <HeroStage tracks={tracks} problem={problem} />
          </HeroMotion>
       </section>
    );
@@ -419,12 +419,12 @@ function Closing() {
 }
 
 /** The homepage is a vertical sequence of sections: a later section (e.g. learner state) joins the flow without restructuring. */
-export function HomeContent({ tracks, freeChapterHref }: { tracks: HomeTracks; freeChapterHref: string | null }) {
+export function HomeContent({ tracks, freeChapterHref, problem }: { tracks: HomeTracks; freeChapterHref: string | null; problem: HomeProblem | null }) {
    return (
       <>
          <HomeSmoothScroll />
          <main data-home className={HOME_FONT_VARIABLES}>
-            <Hero freeChapterHref={freeChapterHref} />
+            <Hero tracks={tracks} problem={problem} freeChapterHref={freeChapterHref} />
             <Tracks tracks={tracks} />
             <StatsBand />
             <Knowledge />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FREE_CHAPTER_LESSON_SLUG, freeChapterHref, homeTracks } from "./home";
-import type { CatalogMeta, CatalogResult, CatalogTrackList } from "./types";
+import { FREE_CHAPTER_LESSON_SLUG, freeChapterHref, homeProblem, homeTracks } from "./home";
+import type { CatalogItemPage, CatalogMeta, CatalogResult, CatalogTrackList } from "./types";
 
 const track = (slug: string, title = `${slug} title`, summary = `${slug} summary`) => ({ id: `track.${slug}`, slug, title, summary });
 const list = (...tracks: CatalogTrackList["tracks"]): CatalogResult<CatalogTrackList> => ({ status: "ok", data: { tracks } });
@@ -103,5 +103,36 @@ describe("freeChapterHref", () => {
       expect(freeChapterHref(lesson({ slug: "something-else", id: "lesson.something-else" }))).toBeNull();
       expect(freeChapterHref(lesson({ type: "knowledge", id: `knowledge.${FREE_CHAPTER_LESSON_SLUG}` }))).toBeNull();
       expect(freeChapterHref(lesson({ id: "lesson.another" }))).toBeNull();
+   });
+});
+
+describe("homeProblem", () => {
+   const problem = (over: Partial<CatalogMeta> = {}): CatalogMeta => ({
+      id: "problem.p",
+      type: "problem",
+      slug: "p",
+      title: " Design a Feed ",
+      summary: " Rank a feed. ",
+      tags: [],
+      category: "system_design",
+      difficulty: null,
+      level: null,
+      access: "premium",
+      ...over,
+   });
+   const page = (...items: CatalogMeta[]): CatalogResult<CatalogItemPage> => ({ status: "ok", data: { items, next_cursor: null } });
+
+   it("takes the first Problem's title and summary from list metadata, trimmed, with no access or route", () => {
+      expect(homeProblem(page(problem(), problem({ title: "Second" })))).toEqual({ title: "Design a Feed", summary: "Rank a feed." });
+   });
+
+   it("skips an untitled or non-Problem entry and gives null when nothing usable is left", () => {
+      expect(homeProblem(page(problem({ title: "  " }), problem({ type: "lesson", title: "A Lesson" }), problem({ title: "Next" })))).toEqual({ title: "Next", summary: "Rank a feed." });
+      expect(homeProblem(page(problem({ title: "" })))).toBeNull();
+      expect(homeProblem(page())).toBeNull();
+   });
+
+   it.each<CatalogResult<CatalogItemPage>>([{ status: "unavailable", cause: "transport" }, { status: "notFound" }, { status: "unauthenticated" }])("is null for %j", (result) => {
+      expect(homeProblem(result)).toBeNull();
    });
 });

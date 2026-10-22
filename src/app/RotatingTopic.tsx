@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useHeroRunning } from "./HeroMotion";
 
-const STEP_MS = 1200;
+export const TOPIC_STEP_MS = 2400;
 
 interface RotatingTopicProps {
    topics: readonly string[];
@@ -12,18 +13,19 @@ interface RotatingTopicProps {
 }
 
 /**
- * The headline's highlighted subject. It steps through every topic once and comes back to the first, in under
- * five seconds, so it never becomes moving content the reader must be able to pause (WCAG 2.2.2). It stays
- * still for readers who prefer reduced motion. All topics share one grid cell, so the page never shifts.
+ * The headline's highlighted subject. It steps through every topic in order and wraps from the last back to the first,
+ * for as long as the hero runs; the hero's Pause control (HeroMotion) stops it, and it stays on the first topic for readers
+ * who prefer reduced motion. All topics share one grid cell, so the page never shifts. Assistive technology reads `label`.
  */
 export function RotatingTopic({ topics, label }: RotatingTopicProps) {
    const [active, setActive] = useState(0);
+   const running = useHeroRunning();
 
    useEffect(() => {
-      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return; // optional call: jsdom has no matchMedia
-      const timers = topics.map((_, i) => window.setTimeout(() => setActive((i + 1) % topics.length), STEP_MS * (i + 1)));
-      return () => timers.forEach(window.clearTimeout);
-   }, [topics]);
+      if (!running || topics.length < 2) return;
+      const id = window.setInterval(() => setActive((i) => (i + 1) % topics.length), TOPIC_STEP_MS);
+      return () => window.clearInterval(id);
+   }, [running, topics.length]);
 
    return (
       <>

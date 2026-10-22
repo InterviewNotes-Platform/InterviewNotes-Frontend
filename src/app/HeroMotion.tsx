@@ -1,20 +1,26 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Pause, Play } from "lucide-react";
 
 const Running = createContext(true);
 
+/** False while the hero is paused or the reader prefers reduced motion: the headline rotation waits on the same control as the ambient loops. */
+export function useHeroRunning() {
+   return useContext(Running);
+}
+
 /**
  * The hero's ambient motion, from the prototype's `Parallax`: pointer position becomes --mx/--my, and CSS turns that into
- * per-layer depth (fine pointers only). The hero's ambient loops run for good, so a visible control pauses them (WCAG
- * 2.2.2): it freezes the CSS loops (`data-paused`), the packet's SVG animation and the round clock. Reduced motion needs
- * none of it: the CSS is off, the clock stops and the control is hidden.
+ * per-layer depth (fine pointers only). The hero's ambient loops and the rotating headline run for good, so one visible
+ * control pauses them together (WCAG 2.2.2): it freezes the CSS loops (`data-paused`), the packet's SVG animation and, through
+ * `useHeroRunning`, the headline. Reduced motion needs none of it: the CSS is off, the headline stays still, the control is hidden.
  */
 export function HeroMotion({ className, children }: { className?: string; children: ReactNode }) {
    const ref = useRef<HTMLDivElement>(null);
    const [paused, setPaused] = useState(false);
    const [reduced, setReduced] = useState(false);
+   const hintId = useId();
 
    useEffect(() => {
       const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)"); // optional call: jsdom has no matchMedia
@@ -68,55 +74,16 @@ export function HeroMotion({ className, children }: { className?: string; childr
          <Running.Provider value={!paused && !reduced}>{children}</Running.Provider>
          <button
             type="button"
+            aria-describedby={hintId}
             onClick={() => setPaused((p) => !p)}
             className="absolute top-3 left-1/2 z-40 -translate-x-1/2 inline-flex h-11 items-center gap-2 rounded-full border border-home-line bg-card/85 px-4 text-sm font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:text-foreground motion-reduce:hidden"
          >
             {paused ? <Play aria-hidden="true" className="size-4" /> : <Pause aria-hidden="true" className="size-4" />}
             {paused ? "Play animation" : "Pause animation"}
          </button>
+         <span id={hintId} className="sr-only">
+            {paused ? "Resumes the rotating headline and the hero's motion." : "Stops the rotating headline and the hero's motion."}
+         </span>
       </div>
-   );
-}
-
-const ROUND = 45 * 60;
-const START = 27 * 60 + 40;
-
-/** Both clocks mount together on hydration, so separate intervals stay in step; they stop while the hero is paused. */
-function useCountdown(start: number) {
-   const running = useContext(Running);
-   const [left, setLeft] = useState(start);
-   useEffect(() => {
-      if (!running) return;
-      const id = window.setInterval(() => setLeft((s) => (s > 0 ? s - 1 : ROUND)), 1000);
-      return () => window.clearInterval(id);
-   }, [running]);
-   return { left, label: `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}` };
-}
-
-export function Countdown({ start = START }: { start?: number }) {
-   return <>{useCountdown(start).label}</>;
-}
-
-export function RoundTimer({ start = START }: { start?: number }) {
-   const { left, label } = useCountdown(start);
-   return (
-      <>
-         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" className="shrink-0 -rotate-90">
-            <circle cx="9" cy="9" r="7" fill="none" stroke="var(--background)" strokeOpacity="0.25" strokeWidth="2" />
-            <circle
-               cx="9"
-               cy="9"
-               r="7"
-               fill="none"
-               stroke="var(--home-ring)"
-               strokeWidth="2"
-               strokeLinecap="round"
-               pathLength={1}
-               strokeDasharray={`${(1 - left / ROUND).toFixed(4)} 1`}
-               style={{ transition: "stroke-dasharray 1s linear" }}
-            />
-         </svg>
-         <span className="font-mono text-[13px]/4 font-medium tracking-[0.02em] text-background tabular-nums">{label}</span>
-      </>
    );
 }

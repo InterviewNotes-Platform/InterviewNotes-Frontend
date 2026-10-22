@@ -7,6 +7,8 @@ import { EMPTY_ORIGIN, expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, PREVIEW_ORI
 const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 /** What the fake API's `GET /catalog/tracks` returns for the default deployment: every fixture Track, by id. */
 const CATALOG_TRACKS = [...fixture.tracks].sort(byId);
+const FIRST_PROBLEM = fixture.items.filter((item) => item.type === "problem").sort(byId)[0];
+const PROBLEMS_PATH = "/catalog/items";
 const FREE_CHAPTER_PATH = "/catalog/items/lesson/anatomy-of-a-model-request/meta";
 const FREE_CHAPTER_HREF = "/lessons/anatomy-of-a-model-request";
 const READ_FREE_CHAPTER = "Read a free chapter";
@@ -32,7 +34,7 @@ test.describe("catalog reads", () => {
    const catalogLog = async (request: APIRequestContext): Promise<{ path: string; query: string; presented: string | null }[]> =>
       (await request.get(`${ISOLATED_API_ORIGIN}/__catalog-log`)).json();
 
-   test("loading / reads at most the Track list and the free Lesson's metadata, both on the server and neither from the browser", async ({ page, request }) => {
+   test("loading / reads at most the Track list, the free Lesson's metadata and one page of one Problem's metadata, all on the server and none from the browser", async ({ page, request }) => {
       const before = await catalogLog(request);
       const browserRequests: string[] = [];
       page.on("request", (r) => {
@@ -45,11 +47,13 @@ test.describe("catalog reads", () => {
 
       const log = await catalogLog(request);
       const added = log.slice(before.length);
-      expect(added.length, "the homepage read more than two catalog endpoints").toBeLessThanOrEqual(2);
-      expect(added.map((entry) => entry.path).filter((path) => path !== "/catalog/tracks" && path !== FREE_CHAPTER_PATH)).toEqual([]);
-      for (const entry of added) expect(entry).toMatchObject({ query: "", presented: null });
-      // Whether the 60-second data cache was warm decides how many of the two this load made; together they are the only two ever.
-      expect(new Set(log.map((entry) => entry.path))).toEqual(new Set(["/catalog/tracks", FREE_CHAPTER_PATH]));
+      expect(added.length, "the homepage read more than three catalog endpoints").toBeLessThanOrEqual(3);
+      expect(added.map((entry) => entry.path).filter((path) => ![PROBLEMS_PATH, "/catalog/tracks", FREE_CHAPTER_PATH].includes(path))).toEqual([]);
+      for (const entry of added) expect(entry.presented).toBeNull();
+      for (const entry of added.filter((e) => e.path === PROBLEMS_PATH)) expect(new URLSearchParams(entry.query)).toEqual(new URLSearchParams("type=problem&limit=1"));
+      for (const entry of added.filter((e) => e.path !== PROBLEMS_PATH)) expect(entry.query).toBe("");
+      // Whether the 60-second data cache was warm decides how many of the three this load made; together they are the only three ever.
+      expect(new Set(log.map((entry) => entry.path))).toEqual(new Set(["/catalog/tracks", FREE_CHAPTER_PATH, PROBLEMS_PATH]));
       expect(browserRequests, "the browser requested catalog data or prefetched a catalog route").toEqual([]);
    });
 
@@ -300,7 +304,11 @@ test("the testimonials drift, and the pause button stops them", async ({ page })
    await expect(row).toHaveCSS("animation-play-state", "running");
 });
 
-test("the hero rotates its subject once through the topics, animates the stage, and logs no console error", async ({ page }) => {
+const TOPICS = ["ML and AI engineering", "ML platform design", "LLM platform design", "GenAI native design", "ML system design"];
+const topicStep = 2400;
+
+test("the hero's headline loops through every phrase, in order, for more than two rotations, animates the stage and logs no console error", async ({ page }) => {
+   test.setTimeout(60_000);
    const errors: string[] = [];
    page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
    page.on("pageerror", (error) => errors.push(error.message));
@@ -308,27 +316,118 @@ test("the hero rotates its subject once through the topics, animates the stage, 
    const h1 = hero(page).getByRole("heading", { level: 1 });
    await expect(h1).toHaveAccessibleName("Crack Your Next ML and AI engineering Interview");
    const visibleTopic = () => h1.locator("[aria-hidden='true'] > span").evaluateAll((spans) => spans.filter((s) => getComputedStyle(s).opacity === "1").map((s) => s.textContent));
-   await expect.poll(visibleTopic).toEqual(["ML Platform Design"]);
-   await expect.poll(visibleTopic).toEqual(["LLM Platform Design"]);
-   await expect.poll(visibleTopic, { timeout: 8000 }).toEqual(["ML Platform Design"]); // comes back to the first and rests
+   await expect.poll(visibleTopic).toEqual([TOPICS[0]]);
+   const seen: string[] = [];
+   for (let step = 1; step <= TOPICS.length * 2 + 1; step++) {
+      const next = TOPICS[step % TOPICS.length];
+      await expect.poll(visibleTopic, { timeout: topicStep * 2 }).toEqual([next]);
+      seen.push(next);
+   }
+   expect(seen.slice(TOPICS.length - 1, TOPICS.length + 1), "wraps from the last phrase back to the first").toEqual([TOPICS[0], TOPICS[1]]);
+   await expect(h1).toHaveAccessibleName("Crack Your Next ML and AI engineering Interview");
    await expect(page.locator("[data-hero-stage] .home-rise")).toHaveCSS("animation-name", "home-rise");
    await expect(page.locator("[data-hero-stage] .home-node").first()).toBeVisible();
    expect(errors).toEqual([]);
 });
 
-test("the hero's pause control freezes the ambient loops, the packet and the round clock", async ({ page }) => {
+test("the headline does not move the layout while it rotates", async ({ page }) => {
    await page.goto("/");
-   const clock = page.getByText(/^\d\d:\d\d$/).first();
-   await expect(clock).not.toHaveText("27:40"); // the clock ticks only once the page has hydrated, so the click below reaches a live button
+   const h1 = hero(page).getByRole("heading", { level: 1 });
+   const box = () => h1.evaluate((el) => ({ w: el.getBoundingClientRect().width, h: el.getBoundingClientRect().height }));
+   const first = await box();
+   const visibleTopic = () => h1.locator("[aria-hidden='true'] > span").evaluateAll((spans) => spans.filter((s) => getComputedStyle(s).opacity === "1").map((s) => s.textContent));
+   for (const topic of TOPICS.slice(1)) {
+      await expect.poll(visibleTopic, { timeout: topicStep * 2 }).toEqual([topic]);
+      expect(await box()).toEqual(first);
+   }
+});
+
+test("the hero's pause control freezes the headline, the ambient loops and the packet together, and play resumes them", async ({ page }) => {
+   await page.goto("/");
+   const h1 = hero(page).getByRole("heading", { level: 1 });
+   const visibleTopic = () => h1.locator("[aria-hidden='true'] > span").evaluateAll((spans) => spans.filter((s) => getComputedStyle(s).opacity === "1").map((s) => s.textContent));
    const floating = page.locator("[data-hero-stage] .home-pop-in").first();
    await expect(floating).toHaveCSS("animation-play-state", /^running(, running)?$/);
-   await page.getByRole("button", { name: "Pause animation" }).click();
+   await expect.poll(visibleTopic).toEqual([TOPICS[1]]); // the headline has moved on, so the page has hydrated and the click below reaches a live button
+   const pause = page.getByRole("button", { name: "Pause animation" });
+   await expect(pause).toHaveAccessibleDescription(/rotating headline/i);
+   await pause.click();
    await expect(floating).toHaveCSS("animation-play-state", /^paused(, paused)?$/);
-   const frozen = await clock.textContent();
-   await page.waitForTimeout(2200);
-   expect(await clock.textContent()).toBe(frozen);
+   const frozen = await visibleTopic();
+   await page.waitForTimeout(topicStep * 2 + 400);
+   expect(await visibleTopic()).toEqual(frozen);
    await page.getByRole("button", { name: "Play animation" }).click();
    await expect(floating).toHaveCSS("animation-play-state", /^running(, running)?$/);
+   await expect.poll(async () => (await visibleTopic())[0], { timeout: topicStep * 2 }).not.toBe(frozen[0]);
+});
+
+test.describe("hero popups", () => {
+   test.use({ baseURL: ISOLATED_ORIGIN }); // the deployment whose free chapter is confirmed, so both hero actions are present
+   const stageText = (page: Page) => page.locator("[data-hero-stage]").evaluate((el) => el.parentElement!.textContent ?? "");
+
+   test("show the first listed Track and Problem, the Knowledge groups and no interview-simulation content", async ({ page }) => {
+      await page.goto("/");
+      const text = await stageText(page);
+      for (const expected of [CATALOG_TRACKS[0].title, FIRST_PROBLEM.title, "Core Concepts", "Technologies & Research", "Patterns"]) expect(text, expected).toContain(expected);
+      for (const stale of ["Mock round", "Interviewer", "Round clock", "Chapter complete", "Next up", "Saved to notes", "Deep dive", "Clarify", "Docs · 50M", "18 · ~8h", "PRO", "FREE"]) expect(text, stale).not.toContain(stale);
+      expect(text).not.toMatch(/\b\d{2}:\d{2}\b/);
+   });
+
+   test("never intercept the pointer: both hero actions and the pause control are what a click at their centre reaches", async ({ page }) => {
+      await page.goto("/");
+      for (const target of [hero(page).getByRole("link", { name: "Browse Tracks" }), hero(page).getByRole("link", { name: READ_FREE_CHAPTER }), page.getByRole("button", { name: "Pause animation" })]) {
+         const hit = await target.evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return top === el || el.contains(top);
+         });
+         expect(hit).toBe(true);
+      }
+      expect(await page.locator("[data-hero-stage] .home-pop-card, main > section .home-pop-card").evaluateAll((els) => els.map((el) => getComputedStyle(el).pointerEvents))).not.toContain("auto");
+   });
+
+   for (const [width, height, floatingCards] of [
+      [1440, 900, 6],
+      [1280, 800, 2],
+      [390, 844, 0],
+   ] as const) {
+      test(`at ${width}px ${floatingCards} cards show, clear of the headline text and the actions and inside the page`, async ({ page }) => {
+         await page.setViewportSize({ width, height });
+         await page.goto("/");
+         await page.waitForTimeout(2600); // the cards finish popping in
+         const cards = await page.locator(".home-pop-card").evaluateAll((els) => els.filter((el) => el.checkVisibility()).map((el) => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top + window.scrollY, r: r.right, b: r.bottom + window.scrollY }; }));
+         expect(cards).toHaveLength(floatingCards);
+         const protectedRects = await hero(page).evaluate((section) => {
+            const lines: DOMRect[] = [];
+            const range = document.createRange();
+            range.selectNodeContents(section.querySelector("h1")!);
+            lines.push(...range.getClientRects());
+            for (const el of section.querySelectorAll("a, button, [class*='max-w-[680px]']")) lines.push(el.getBoundingClientRect());
+            return lines.filter((r) => r.width > 0).map((r) => ({ l: r.left, t: r.top + window.scrollY, r: r.right, b: r.bottom + window.scrollY }));
+         });
+         for (const card of cards) {
+            for (const target of protectedRects) {
+               expect(card.r <= target.l || card.l >= target.r || card.b <= target.t || card.t >= target.b, `a card covers text or an action: ${JSON.stringify({ card, target })}`).toBe(true);
+            }
+            expect(card.l, "a card leaves the page on the left").toBeGreaterThanOrEqual(-1);
+            expect(card.r, "a card leaves the page on the right").toBeLessThanOrEqual(width + 1);
+         }
+         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      });
+   }
+});
+
+test.describe("when the catalog has no Problem and no Track", () => {
+   test.use({ baseURL: EMPTY_ORIGIN });
+
+   test("the popups fall back to neutral category cards, with no invented item", async ({ page }) => {
+      await page.goto("/");
+      const text = await page.locator("[data-hero-stage]").evaluate((el) => el.parentElement!.textContent ?? "");
+      expect(text).toContain("Interview Problems");
+      expect(text).toContain("Choose a Track");
+      expect(text).not.toContain(FIRST_PROBLEM.title);
+      expect(text).not.toContain(CATALOG_TRACKS[0].title);
+   });
 });
 
 const html = (page: Page) => page.locator("html");
@@ -493,15 +592,19 @@ test.describe("reduced motion", () => {
       expect(shown).toEqual(["80", "5", "90", "6"]);
    });
 
+   test("keeps the headline on ML and AI engineering, with no rotation", async ({ page }) => {
+      await page.goto("/");
+      const h1 = hero(page).getByRole("heading", { level: 1 });
+      const visibleTopic = () => h1.locator("[aria-hidden='true'] > span").evaluateAll((spans) => spans.filter((s) => getComputedStyle(s).opacity === "1").map((s) => s.textContent));
+      await page.waitForTimeout(topicStep * 2 + 600);
+      expect(await visibleTopic()).toEqual(["ML and AI engineering"]);
+   });
+
    test("stops the hero's motion and hides its pause control", async ({ page }) => {
       await page.goto("/");
       await expect(page.getByRole("button", { name: /animation$/ })).toBeHidden();
       await expect(page.locator("[data-hero-stage] .home-rise")).toHaveCSS("animation-name", "none");
       await expect(page.locator("[data-hero-stage] .home-pop-in").first()).toHaveCSS("animation-name", "none");
-      const clock = page.getByText(/^\d\d:\d\d$/).first();
-      const before = await clock.textContent();
-      await page.waitForTimeout(2500);
-      expect(await clock.textContent()).toBe(before);
    });
 
    test("collapses the track cards' hover transitions", async ({ page }) => {

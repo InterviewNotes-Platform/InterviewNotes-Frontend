@@ -20,7 +20,7 @@ describe("public navigation", () => {
     });
 
     it("the Tracks link opens the same place in the header, the mobile menu and the homepage actions", () => {
-        render(<><Header /><HomeContent tracks={{ status: "empty" }} freeChapterHref={null} /></>);
+        render(<><Header /><HomeContent tracks={{ status: "empty" }} freeChapterHref={null} problem={null} /></>);
         const header = within(screen.getByRole("banner"));
         const desktop = header.getByRole("navigation", { name: "Primary" }).querySelector("a[href]")!;
         expect(desktop).toHaveTextContent("Tracks");
