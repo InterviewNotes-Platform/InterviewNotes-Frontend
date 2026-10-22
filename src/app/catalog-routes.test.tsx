@@ -116,23 +116,43 @@ describe("catalog route security boundary", () => {
    it("finds exactly the route files it guards", () => {
       expect(routeFiles.map((f) => relative(APP, f)).sort()).toEqual([
          "_catalog/CatalogItemPage.tsx",
+         "_catalog/CatalogRouteError.tsx",
+         "_catalog/CatalogRouteGuard.tsx",
+         "_catalog/CatalogSkeleton.tsx",
          "_catalog/CatalogStateNotice.tsx",
          "_catalog/ItemContent.tsx",
          "_catalog/KnowledgePage.tsx",
          "_catalog/LessonPage.tsx",
          "_catalog/PreviewMarker.tsx",
          "_catalog/ProblemPage.tsx",
+         "knowledge/[slug]/error.tsx",
+         "knowledge/[slug]/layout.tsx",
+         "knowledge/[slug]/loading.tsx",
          "knowledge/[slug]/page.tsx",
          "knowledge/page.tsx",
+         "lessons/[slug]/error.tsx",
+         "lessons/[slug]/layout.tsx",
+         "lessons/[slug]/loading.tsx",
          "lessons/[slug]/page.tsx",
          "practice/page.tsx",
+         "problems/[slug]/error.tsx",
+         "problems/[slug]/layout.tsx",
+         "problems/[slug]/loading.tsx",
          "problems/[slug]/page.tsx",
+         "tracks/[slug]/error.tsx",
+         "tracks/[slug]/layout.tsx",
+         "tracks/[slug]/loading.tsx",
          "tracks/[slug]/page.tsx",
       ]);
    });
 
+   // Next requires an error boundary to be a client component. Theirs take no catalog data, only `retry`, and may not fetch.
+   const ERROR_BOUNDARIES = ["_catalog/CatalogRouteError.tsx", ...["tracks", "lessons", "problems", "knowledge"].map((dir) => `${dir}/[slug]/error.tsx`)];
    it("runs on the server only: no client component and no browser fetch", () => {
-      for (const file of routeFiles) expect(read(file), file).not.toMatch(/["']use client["']|\bfetch\(|useEffect/);
+      for (const file of routeFiles) {
+         const boundary = ERROR_BOUNDARIES.includes(relative(APP, file));
+         expect(read(file), file).not.toMatch(boundary ? /\bfetch\(|useEffect/ : /["']use client["']|\bfetch\(|useEffect/);
+      }
    });
 
    it("has no Git access, public env var or credential", () => {
