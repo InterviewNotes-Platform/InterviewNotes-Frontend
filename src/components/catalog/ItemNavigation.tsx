@@ -35,14 +35,23 @@ export function FullOutline({
  * Where an item sits in its home Track: previous/next, the module's members, the full outline. `reading` is the
  * Problem page's presentation of the same links and keeps every one of them from prefetching. Nothing without a home Track.
  */
-export function CurriculumNavigation({ navigation, reading = false }: { navigation: ItemNavigationData; reading?: boolean }) {
+export function CurriculumNavigation({
+   navigation,
+   reading = false,
+   outlineClassName,
+}: {
+   navigation: ItemNavigationData;
+   reading?: boolean;
+   /** Layout classes for the full outline, such as hiding it where the Track sidebar shows the same list (S6-RDR-9). */
+   outlineClassName?: string;
+}) {
    const { id, home } = navigation;
    if (!home) return null;
    return (
       <>
          <TrackPrevNext placement={home} reading={reading} />
          <ModuleNavigation module={home.module} currentId={id} prefetch={reading ? false : undefined} quiet={reading} />
-         <FullOutline navigation={navigation} reading={reading} />
+         <FullOutline navigation={navigation} reading={reading} className={outlineClassName} />
       </>
    );
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import type { LessonPosition, Position } from "@/lib/catalog/curriculum";
 import { moduleLocation } from "@/lib/catalog/moduleLocation";
@@ -41,11 +42,14 @@ export function LessonBreadcrumb({
    placement,
    position,
    levels,
+   contents,
 }: {
    placement: TrackPlacement;
    position?: LessonPosition | null;
    /** The number of levels of a level-choice Track (A-9): the position reads "One of N levels", never a sequence number. */
    levels?: number;
+   /** The "Track contents" control for narrow widths (S6-RDR-7), after the breadcrumb and the position line. */
+   contents?: ReactNode;
 }) {
    const href = trackHref(placement.track);
    const moduleHref = moduleLocation(placement.track, placement.module);
@@ -81,6 +85,7 @@ export function LessonBreadcrumb({
             </ol>
          </nav>
          {position ? <p className="m-0">{positionText(position.module, position.lesson, levels)}</p> : null}
+         {contents}
       </div>
    );
 }

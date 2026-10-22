@@ -3,7 +3,8 @@ import { knowledgeCoverage } from "@/components/catalog/knowledgeRefs";
 import { FullOutline } from "@/components/catalog/ItemNavigation";
 import { CurriculumBlock, EndOfTrack, NextLesson, OtherLevels } from "@/components/catalog/LessonClose";
 import { LessonHeader } from "@/components/catalog/LessonHeader";
-import { TrackSidebar } from "@/components/catalog/TrackSidebar";
+import { TrackDrawer } from "@/components/curriculum/TrackDrawer";
+import { TrackSidebar } from "@/components/curriculum/TrackSidebar";
 import { BuildsOn, PracticeTransition, RelationGroup } from "@/components/catalog/LessonRelated";
 import { AlternateTracks, LessonBreadcrumb } from "@/components/catalog/TrackContext";
 import { LessonContents } from "@/components/lesson/LessonContents";
@@ -21,7 +22,7 @@ import { ItemContent } from "./ItemContent";
  * A readable Lesson, in the order a reader needs it: where it sits, what it is, what it builds on, the body, then the
  * close (Next lesson or End of Track, Knowledge, Practice, Problems, Back to module) and secondary context. A level-choice
  * Track (A-9) closes with its other levels instead of Next, Previous and End of Track. From `lg` a Lesson with a home Track also
- * shows that Track's contents beside the column (A-5); below it the page is unchanged. Everything comes from the item the API
+ * shows that Track's contents beside the column (A-5); below it they open in a drawer. Everything comes from the item the API
  * released and its relations; nothing is fetched here and nothing on this page makes a request of its own.
  */
 export function LessonPage({ item, navigation, stayOnDeployment }: { item: CatalogItem; navigation: ItemNavigation | null; stayOnDeployment: boolean }) {
@@ -58,7 +59,12 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
          >
             <div className={cn("mb-10 min-w-0 lg:mb-12 lg:row-start-1", side ? "lg:col-start-2" : "lg:col-start-1")}>
                {navigation && home ? (
-                  <LessonBreadcrumb placement={home} position={lessonPosition(home.track, navigation.id)} levels={levels?.length} />
+                  <LessonBreadcrumb
+                     placement={home}
+                     position={lessonPosition(home.track, navigation.id)}
+                     levels={levels?.length}
+                     contents={outline ? <TrackDrawer outline={outline} className="mt-4" /> : undefined}
+                  />
                ) : null}
                <LessonHeader meta={item} />
                {related ? <BuildsOn rows={related.prerequisites} /> : null}

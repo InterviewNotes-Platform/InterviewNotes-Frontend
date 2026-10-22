@@ -59,3 +59,24 @@ export function outlineOf(track: CatalogTrack, currentId: string): TrackSidebarO
    const opened = groups.some(({ current }) => current) ? groups : groups.map((group, index) => ({ ...group, current: index === 0 }));
    return { title: track.title, href: catalogHref(`track.${track.slug}`), groups: opened };
 }
+
+export interface FilteredOutline {
+   groups: OutlineGroup[];
+   /** Entries that match; 0 means the empty state. */
+   count: number;
+}
+
+/**
+ * The outline narrowed to entries whose title contains `query`, case-insensitively (S6-RDR-4). Order is kept, a Module with no
+ * match is left out, and a blank query returns the groups as they are. Reads nothing: it only filters what was rendered.
+ */
+export function filterOutline(groups: OutlineGroup[], query: string): FilteredOutline {
+   const needle = query.trim().toLocaleLowerCase();
+   const total = (list: OutlineGroup[]) => list.reduce((sum, { entries }) => sum + entries.length, 0);
+   if (needle === "") return { groups, count: total(groups) };
+   const kept = groups.flatMap((group): OutlineGroup[] => {
+      const entries = group.entries.filter(({ title }) => title.toLocaleLowerCase().includes(needle));
+      return entries.length > 0 ? [{ ...group, entries }] : [];
+   });
+   return { groups: kept, count: total(kept) };
+}

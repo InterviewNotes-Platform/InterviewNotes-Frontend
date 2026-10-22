@@ -187,6 +187,17 @@ describe("the Track sidebar (A-5, S6-RDR)", () => {
       expect(screen.getByText("Full outline of Home Track").closest("details")).toHaveClass("lg:hidden");
    });
 
+   it("opens the same outline in a drawer from a Track contents control after the breadcrumb and position line", async () => {
+      await show();
+      const control = screen.getByRole("button", { name: "Track contents" });
+      before(screen.getByRole("navigation", { name: "Breadcrumb" }), control);
+      before(control, heading("Synthetic Lesson", 1));
+      fireEvent.click(control);
+      const drawer = screen.getByRole("dialog", { name: "Home Track" });
+      expect(within(drawer).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/tracks/home", "/lessons/before", "/lessons/item", "/lessons/after"]);
+      expect(getCatalogTrack).toHaveBeenCalledTimes(1);
+   });
+
    it("is absent, with today's layout and bottom outline, when the Track does not place the Lesson", async () => {
       getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.other")] }] } });
       await show();

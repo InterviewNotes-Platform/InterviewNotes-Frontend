@@ -1,7 +1,7 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import fixture from "./fixture.json";
 import { plainHeading } from "../../../src/lib/catalog/lesson";
-import { CANARY, PREVIEW_API_ORIGIN, PREVIEW_ORIGIN, canonical, expect, expectNoCanary, item, test, track } from "./harness";
+import { CANARY, FAKE_API_ORIGIN, PREVIEW_API_ORIGIN, PREVIEW_ORIGIN, canonical, expect, expectNoCanary, item, test, track } from "./harness";
 
 // P2-T5 Lesson reading: layout, contents, headings, relations, technical content, themes, motion and access.
 const LONG = item("lesson.p2-t5-long");
@@ -22,7 +22,7 @@ const CONTENTS = HEADINGS.filter(({ level }) => level === 2 || level === 3);
 const main = (page: Page) => page.getByRole("main");
 const contents = (page: Page) => page.getByRole("navigation", { name: "Contents", exact: true });
 const trackContents = (page: Page) => page.getByRole("navigation", { name: "Track contents" });
-const toggle = (page: Page) => page.getByRole("button", { name: "Contents" });
+const toggle = (page: Page) => page.getByRole("button", { name: "Contents", exact: true });
 const current = (page: Page) => contents(page).locator('[aria-current="location"]');
 const heading = (page: Page, id: string) => page.locator(`[id="${id}"]`);
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
@@ -581,7 +581,7 @@ test.describe("access", () => {
             for (const name of ["Breadcrumb", "Contents", "Track contents", `Next in ${READING.title}`, "Curriculum", `Module: ${DEEPER.title}`]) {
                await expect(page.getByRole("navigation", { name }), name).toHaveCount(0);
             }
-            await expect(page.getByRole("button", { name: "Contents" })).toHaveCount(0);
+            await expect(page.getByRole("button", { name: "Contents", exact: true })).toHaveCount(0);
             await expect(main(page).getByRole("heading", { level: 2 })).toHaveCount(0);
             await expect(page.locator("main [id]")).toHaveCount(0);
             await expect(page.getByRole("heading", { name: "Practice" })).toHaveCount(0);
@@ -688,5 +688,58 @@ test.describe("preview deployment", () => {
             `/catalog/items/lesson/${LONG.slug}/meta`,
          ].sort()
       );
+   });
+});
+
+// P6-T10: the Track contents drawer below 1024 px, on a placed Lesson and a placed Problem, with the title filter.
+test.describe("Track contents drawer (A-5, S6-RDR-4, S6-RDR-7)", () => {
+   const PLACED = [canonical("lesson.p3-seq-one"), canonical("problem.p3-seq-check")];
+   const opener = (page: Page) => page.getByRole("button", { name: "Track contents" });
+
+   for (const width of [390, 768]) {
+      for (const path of PLACED) {
+         test(`${width} ${path}: opens, filters, closes with Escape and returns focus, and picking an entry navigates`, async ({ page, request }) => {
+            await page.setViewportSize({ width, height: 900 });
+            await page.goto(path);
+            await expect(trackContents(page)).toBeHidden();
+            expect((await opener(page).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+            await opener(page).click();
+            const dialog = page.getByRole("dialog");
+            await expect(dialog).toBeVisible();
+            await expect(dialog).toHaveAccessibleName("P3 Sequence Track");
+            await expect(dialog.locator('a[aria-current="page"]')).toHaveAttribute("href", path);
+
+            const reads = async () => (await (await request.get(`${FAKE_API_ORIGIN}/__catalog-log`)).json()).length;
+            const before = await reads();
+            const filter = dialog.getByRole("searchbox", { name: "Filter by title" });
+            await filter.fill("zzz-no-such-title");
+            await expect(dialog.getByRole("status")).toHaveText("No entries match");
+            await filter.fill("");
+            expect(await reads()).toBe(before);
+
+            expect(await overflows(page)).toBe(false);
+            await page.keyboard.press("Escape");
+            await expect(dialog).toBeHidden();
+            await expect(opener(page)).toBeFocused();
+
+            await opener(page).click();
+            const next = page.getByRole("dialog").locator("details[open] ol a:not([aria-current])").first();
+            const href = (await next.getAttribute("href"))!;
+            await next.click();
+            await expect(page).toHaveURL(new RegExp(`${href}$`));
+            await expect(page.getByRole("dialog")).toHaveCount(0);
+            expect(await overflows(page)).toBe(false);
+         });
+      }
+   }
+
+   test("1024: the sidebar shows and the drawer control does not", async ({ page }) => {
+      await page.setViewportSize({ width: 1024, height: 900 });
+      for (const path of PLACED) {
+         await page.goto(path);
+         await expect(trackContents(page)).toBeVisible();
+         await expect(opener(page)).toBeHidden();
+         expect(await overflows(page)).toBe(false);
+      }
    });
 });

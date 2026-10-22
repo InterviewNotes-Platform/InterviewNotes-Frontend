@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { outlineOf } from "./outline";
+import { filterOutline, outlineOf } from "./outline";
 import type { CatalogModule, CatalogOutlineEntry, CatalogTrack } from "./types";
 
 const entry = (id: string, over: Partial<CatalogOutlineEntry> = {}): CatalogOutlineEntry => {
@@ -56,5 +56,34 @@ describe("outlineOf (S6-RDR-3)", () => {
    it("is null when nothing can be linked, so no empty sidebar is drawn", () => {
       expect(outlineOf(track(), "lesson.a")).toBeNull();
       expect(outlineOf(track(mod("a", [entry("lesson.a", { type: "problem" })])), "lesson.a")).toBeNull();
+   });
+});
+
+describe("filterOutline (S6-RDR-4)", () => {
+   const groups = outlineOf(
+      track(
+         mod("a", [entry("lesson.cache", { title: "Caching basics" }), entry("lesson.queue", { title: "Queues" })]),
+         mod("b", [entry("problem.cdn", { title: "Design a CDN cache" }), entry("lesson.other", { title: "Other" })])
+      ),
+      "lesson.queue"
+   )!.groups;
+
+   it("matches a title substring case-insensitively and keeps the API's order", () => {
+      const { groups: kept, count } = filterOutline(groups, "CACHE");
+      expect(kept.flatMap(({ entries }) => entries.map(({ id }) => id))).toEqual(["problem.cdn"]);
+      expect(filterOutline(groups, "cach").groups.flatMap(({ entries }) => entries.map(({ id }) => id))).toEqual(["lesson.cache", "problem.cdn"]);
+      expect(count).toBe(1);
+   });
+
+   it("leaves out a Module with no match, keeps the numbering and never invents or duplicates an entry", () => {
+      const { groups: kept } = filterOutline(groups, "cdn");
+      expect(kept).toHaveLength(1);
+      expect(kept[0]).toMatchObject({ key: "b", number: 2 });
+      expect(kept[0].entries.map(({ id }) => id)).toEqual(["problem.cdn"]);
+   });
+
+   it("returns every group for a blank query and an empty result for no match", () => {
+      expect(filterOutline(groups, "  ")).toEqual({ groups, count: 4 });
+      expect(filterOutline(groups, "zzz")).toEqual({ groups: [], count: 0 });
    });
 });

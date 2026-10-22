@@ -1,5 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { outlineOf } from "@/lib/catalog/outline";
 import type { CatalogOutlineEntry, CatalogTrack } from "@/lib/catalog/types";
 import { TrackSidebar } from "./TrackSidebar";
@@ -61,5 +61,59 @@ describe("TrackSidebar", () => {
       expect(screen.getByRole("link", { name: /Title p/ })).toHaveTextContent("Practice problem");
       expect(screen.getByRole("link", { name: /Title b/ })).toHaveTextContent("Premium");
       expect(screen.getByRole("link", { name: /Title a/ })).not.toHaveTextContent(/Premium|Practice problem/);
+   });
+});
+
+describe("TrackSidebar title filter (S6-RDR-4, S6-A11Y-4)", () => {
+   const filter = () => screen.getByRole("searchbox", { name: "Filter by title" });
+   const type = (value: string) => fireEvent.change(filter(), { target: { value } });
+   const open = (container: HTMLElement) => [...container.querySelectorAll("details")].map((group) => group.open);
+
+   it("has an accessible name and narrows the rendered list case-insensitively, in order, opening the Modules that match", () => {
+      const { container } = renderSidebar("lesson.a");
+      expect(open(container)).toEqual([true, false]);
+      type("TITLE C");
+      expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/tracks/t", "/lessons/c"]);
+      expect(open(container)).toEqual([true]);
+      type("title");
+      expect(open(container)).toEqual([true, true]);
+      expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/tracks/t", "/lessons/a", "/lessons/b", "/lessons/c", "/problems/p"]);
+   });
+
+   it("announces the result politely, says No entries match when empty, and restores the list when cleared", () => {
+      const { container } = renderSidebar("lesson.a");
+      const status = screen.getByRole("status");
+      expect(status).toHaveTextContent("");
+      type("title c");
+      expect(status).toHaveTextContent("1 match");
+      type("zzz");
+      expect(status).toHaveTextContent("No entries match");
+      expect(screen.getAllByText("No entries match")).toHaveLength(2);
+      expect(container.querySelectorAll("details")).toHaveLength(0);
+      type("");
+      expect(open(container)).toEqual([true, false]);
+      expect(status).toHaveTextContent("");
+      expect(screen.queryByText("No entries match")).not.toBeInTheDocument();
+   });
+
+   it("makes no request and does not persist the query", () => {
+      const fetcher = vi.spyOn(globalThis, "fetch");
+      const { unmount } = renderSidebar("lesson.a");
+      type("title b");
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(window.localStorage.length + window.sessionStorage.length).toBe(0);
+      unmount();
+      renderSidebar("lesson.a");
+      expect(filter()).toHaveValue("");
+      fetcher.mockRestore();
+   });
+
+   it("calls onNavigate for a Track or entry link, and gives the drawer's touch targets 44 px", () => {
+      const onNavigate = vi.fn();
+      render(<TrackSidebar outline={outlineOf(TRACK, "lesson.a")!} touch onNavigate={onNavigate} />);
+      fireEvent.click(screen.getByRole("link", { name: /Title b/ }));
+      expect(onNavigate).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("link", { name: /Title b/ })).toHaveClass("min-h-11");
+      expect(filter()).toHaveClass("min-h-11");
    });
 });
