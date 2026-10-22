@@ -22,8 +22,9 @@ export const HERO = {
       emphasis: "ML System Design, LLM Platforms & GenAI",
       after: " interviews. Everything you need to land your dream ML/AI offer.",
    },
-   primaryAction: { label: "Start Learning", href: TRACKS_ENTRY },
-   secondaryAction: { label: "View Pricing", href: "#pricing" },
+   primaryAction: { label: "Browse Tracks", href: TRACKS_ENTRY },
+   /** Shown only when the API confirms the free Lesson (S6-HOME-4); its destination is that Lesson, so it is not set here. */
+   freeChapterLabel: "Read a free chapter",
 };
 
 /** The animated subject cycles through these once, then rests on the first. */
@@ -45,16 +46,11 @@ export const TRACKS = {
    heading: "Choose Your Path",
    lead: "Tracks are the way in: pick one, work through its modules, and explore the lessons, knowledge and practice problems inside it.",
    steps: ["Select a track", "Work through its modules", "Explore lessons, knowledge and problems"],
-   /** Titles, taglines and course links are the pre-P0 track cards; the page is static, so it carries no counts. */
-   items: [
-      { key: "gen-ai-native", href: `${TRACKS_ENTRY}/gen-ai-native-design`, title: "Gen AI Native Design", tagline: "RAG, Agents, LLM Ops & more", grid: "lg:col-span-7 md:col-span-2" },
-      { key: "ml-system-design", href: `${TRACKS_ENTRY}/ml-system-design`, title: "ML System Design", tagline: "Recommendations, search, ranking & more", grid: "lg:col-span-5" },
-      { key: "llm-platform", href: `${TRACKS_ENTRY}/llm-platform-design`, title: "LLM Platform Design", tagline: "Inference serving, fine-tuning & guardrails", grid: "lg:col-span-5" },
-      { key: "ml-platform", href: `${TRACKS_ENTRY}/ml-platform-design`, title: "ML Platform Design", tagline: "MLOps, feature stores & inference", grid: "lg:col-span-7" },
-      { key: "gen-ai-foundations", href: `${TRACKS_ENTRY}/gen-ai-foundations`, title: "Gen AI Foundations", tagline: "Transformers, attention, tokenization & more", grid: "lg:col-span-12 md:col-span-2" },
-   ],
+   /** The cards come from the published catalog Tracks; nothing here describes a particular Track (S6-HOME-3). */
    cardAction: "Explore",
-   action: { label: "Explore Tracks", href: TRACKS_ENTRY },
+   empty: "No Tracks are published yet.",
+   /** Shown with a link to Knowledge when the Track list cannot be read (S6-HOME-2). */
+   unavailable: "Tracks could not be loaded right now.",
 };
 
 /** The explorer's own group ids (lib/catalog/knowledge.ts); a test holds each href to `explorerHref`. */

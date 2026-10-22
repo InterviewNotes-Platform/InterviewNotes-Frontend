@@ -1,8 +1,8 @@
 export type NavArea = "learn" | "knowledge";
 
-/** Where Tracks open. The catalog has published no Track, so `/tracks` is empty and the live courses at `/learn` stand in;
- *  switch this one constant to "/tracks" when the first Track is published (spec §5.3). The header and homepage share it. */
-export const TRACKS_ENTRY = "/learn";
+/** Where Tracks open: the homepage's Tracks section, the one place Tracks are discovered (S6-NAV-1).
+ *  The header, the mobile menu and every Browse Tracks action share it. */
+export const TRACKS_ENTRY = "/#tracks";
 
 /** The catalog Track index, which catalog pages (breadcrumbs, Practice) keep linking to. */
 export const TRACKS_INDEX_HREF = "/tracks";

@@ -2,11 +2,8 @@ import Link from "next/link";
 import {
    ArrowRight,
    BookOpen,
-   BrainCircuit,
-   ChartColumn,
    CheckCircle2,
    ChevronDown,
-   Cpu,
    FlaskConical,
    Layers,
    Lightbulb,
@@ -21,6 +18,7 @@ import { Footer } from "@/components/layout/Footer";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { HomeTracks } from "@/lib/catalog/home";
 import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TRACKS } from "./home-copy";
@@ -30,13 +28,6 @@ import { SectionIntro } from "./SectionIntro";
 import { Testimonials } from "./Testimonials";
 
 const STAT_ICONS: Record<(typeof STATS)[number]["key"], LucideIcon> = { modules: BookOpen, engineers: Users, offers: Trophy, tracks: Zap };
-const TRACK_ICONS: Record<(typeof TRACKS.items)[number]["key"], LucideIcon> = {
-   "gen-ai-native": BrainCircuit,
-   "ml-system-design": ChartColumn,
-   "llm-platform": Zap,
-   "ml-platform": Cpu,
-   "gen-ai-foundations": BookOpen,
-};
 const KNOWLEDGE_ICONS: Record<(typeof KNOWLEDGE.groups)[number]["key"], LucideIcon> = {
    "core-concepts": Lightbulb,
    "technologies-research": FlaskConical,
@@ -56,7 +47,8 @@ function Tick() {
    );
 }
 
-function Hero() {
+/** The free-chapter action appears only when the API confirmed the Lesson is free (S6-HOME-4). */
+function Hero({ freeChapterHref }: { freeChapterHref: string | null }) {
    return (
       <section aria-labelledby="home-heading" className="relative isolate overflow-hidden bg-gradient-to-b from-(--home-sky-a) to-(--home-sky-b)">
          <PageContainer className="flex flex-col items-center pt-16 text-center md:pt-24 lg:pt-28">
@@ -89,14 +81,18 @@ function Hero() {
                      <ArrowRight aria-hidden="true" className="size-5" />
                   </Link>
                </Button>
-               <Button
-                  asChild
-                  size="lg"
-                  variant="outline"
-                  className="h-12 rounded-xl border border-(--home-edge) bg-card px-8 text-base font-bold hover:bg-muted hover:text-foreground"
-               >
-                  <Link href={HERO.secondaryAction.href}>{HERO.secondaryAction.label}</Link>
-               </Button>
+               {freeChapterHref ? (
+                  <Button
+                     asChild
+                     size="lg"
+                     variant="outline"
+                     className="h-12 rounded-xl border border-(--home-edge) bg-card px-8 text-base font-bold hover:bg-muted hover:text-foreground"
+                  >
+                     <Link href={freeChapterHref} prefetch={false}>
+                        {HERO.freeChapterLabel}
+                     </Link>
+                  </Button>
+               ) : null}
             </div>
 
             <ul className={`${ENTER} m-0 flex max-w-5xl list-none flex-wrap justify-center gap-3 p-0 delay-300`}>
@@ -141,8 +137,59 @@ function StatsBand() {
    );
 }
 
-/** Tracks are the primary product: the bento grid of the pre-P0 page, each card opening its course. */
-function Tracks() {
+/** One card per published Track; a lone Track or a pair is centred rather than left in a wider grid. */
+const CARD_GRID = (count: number) => (count === 1 ? "max-w-xl" : count === 2 ? "max-w-4xl md:grid-cols-2" : "max-w-6xl md:grid-cols-2 lg:grid-cols-3");
+
+/** The published catalog Tracks, or one truthful sentence in their place; never a made-up card (S6-HOME-2, -3). */
+function TrackCards({ tracks }: { tracks: HomeTracks }) {
+   if (tracks.status === "ok") {
+      return (
+         <ul className={cn("m-0 mx-auto grid list-none grid-cols-1 gap-5 p-0", CARD_GRID(tracks.cards.length))}>
+            {tracks.cards.map(({ id, title, summary, href }) => (
+               <li key={id} className="flex">
+                  <Link
+                     href={href}
+                     prefetch={false}
+                     className="group relative flex w-full flex-col overflow-hidden wrap-anywhere rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.04] transition-[color,background-color,border-color,box-shadow,transform] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10 motion-safe:hover:scale-[1.02]"
+                  >
+                     <span aria-hidden="true" className="h-1 w-full bg-gradient-to-r from-primary via-gold/70 to-primary/40" />
+                     <span className="flex flex-1 flex-col p-6">
+                        <span
+                           aria-hidden="true"
+                           className="mb-4 flex size-14 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary transition-micro group-hover:border-primary/20 group-hover:bg-primary/15"
+                        >
+                           <BookOpen className="size-7" />
+                        </span>
+                        <h3 className={cn("m-0 text-xl font-bold transition-micro group-hover:text-premium", summary ? "mb-1.5" : "mb-6")}>{title}</h3>
+                        {summary ? <p className="m-0 mb-6 text-supporting font-medium text-pretty text-muted-foreground">{summary}</p> : null}
+                        <span className="mt-auto flex items-center justify-end gap-2 border-t border-border/30 pt-4 text-sm font-bold text-premium">
+                           {TRACKS.cardAction}
+                           <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                     </span>
+                  </Link>
+               </li>
+            ))}
+         </ul>
+      );
+   }
+
+   return (
+      <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 rounded-2xl border border-border/60 bg-card px-6 py-10 text-center">
+         <p className="m-0 text-body text-pretty text-muted-foreground">{tracks.status === "empty" ? TRACKS.empty : TRACKS.unavailable}</p>
+         {tracks.status === "unavailable" ? (
+            <Button asChild variant="outline" size="lg" className="h-11 rounded-xl border-2 border-foreground/20 font-bold hover:bg-muted/60 hover:text-foreground">
+               <Link href={KNOWLEDGE.action.href} prefetch={false}>
+                  {KNOWLEDGE.action.label}
+               </Link>
+            </Button>
+         ) : null}
+      </div>
+   );
+}
+
+/** Tracks are the primary product and the one place they are discovered: `/#tracks` (S6-NAV-1). */
+function Tracks({ tracks }: { tracks: HomeTracks }) {
    return (
       <section id="tracks" aria-labelledby="home-tracks-heading" className="relative scroll-mt-20 overflow-hidden border-t border-border/50 py-20 md:py-28">
          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.03] via-transparent to-gold/[0.04]" />
@@ -164,45 +211,7 @@ function Tracks() {
                ))}
             </ol>
 
-            <ul className="m-0 mx-auto grid max-w-6xl list-none grid-cols-1 gap-5 p-0 md:grid-cols-2 lg:grid-cols-12">
-               {TRACKS.items.map(({ key, href, title, tagline, grid }) => {
-                  const Icon = TRACK_ICONS[key];
-                  return (
-                     <li key={key} className={cn("flex", grid)}>
-                        <Link
-                           href={href}
-                           prefetch={PREFETCH_PRIMARY}
-                           className="group relative flex w-full flex-col overflow-hidden wrap-anywhere rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.04] transition-[color,background-color,border-color,box-shadow,transform] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10 motion-safe:hover:scale-[1.02]"
-                        >
-                           <span aria-hidden="true" className="h-1 w-full bg-gradient-to-r from-primary via-gold/70 to-primary/40" />
-                           <span className="flex flex-1 flex-col p-6">
-                              <span
-                                 aria-hidden="true"
-                                 className="mb-4 flex size-14 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary transition-micro group-hover:border-primary/20 group-hover:bg-primary/15"
-                              >
-                                 <Icon className="size-7" />
-                              </span>
-                              <h3 className="m-0 mb-1.5 text-xl font-bold transition-micro group-hover:text-premium">{title}</h3>
-                              <p className="m-0 mb-6 text-supporting font-medium text-muted-foreground">{tagline}</p>
-                              <span className="mt-auto flex items-center justify-end gap-2 border-t border-border/30 pt-4 text-sm font-bold text-premium">
-                                 {TRACKS.cardAction}
-                                 <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
-                              </span>
-                           </span>
-                        </Link>
-                     </li>
-                  );
-               })}
-            </ul>
-
-            <div className="mt-14 text-center">
-               <Button asChild size="lg" className="h-12 rounded-xl bg-gold px-8 font-bold text-gold-foreground shadow-xl shadow-gold/25 hover:bg-gold-hover hover:shadow-gold/40 motion-safe:hover:scale-105">
-                  <Link href={TRACKS.action.href} prefetch={PREFETCH_PRIMARY}>
-                     {TRACKS.action.label}
-                     <ArrowRight aria-hidden="true" className="size-5" />
-                  </Link>
-               </Button>
-            </div>
+            <TrackCards tracks={tracks} />
          </PageContainer>
       </section>
    );
@@ -345,13 +354,13 @@ function Closing() {
 }
 
 /** The homepage is a vertical sequence of sections: a later section (e.g. learner state) joins the flow without restructuring. */
-export function HomeContent() {
+export function HomeContent({ tracks, freeChapterHref }: { tracks: HomeTracks; freeChapterHref: string | null }) {
    return (
       <>
          <main data-home>
-            <Hero />
+            <Hero freeChapterHref={freeChapterHref} />
             <StatsBand />
-            <Tracks />
+            <Tracks tracks={tracks} />
             <Knowledge />
             <Testimonials />
             <Pricing />

@@ -63,6 +63,7 @@ export default defineConfig({
             command: `node tests/e2e/catalog/fake-api.mjs ${ISOLATED_API_PORT}`,
             url: `${ISOLATED_API_ORIGIN}/health`,
             reuseExistingServer: !process.env.CI,
+            env: { FAKE_API_FREE_CHAPTER: "free" },
         },
         {
             // The production build above, served again with `API_URL` pointing at that private double.
@@ -82,7 +83,7 @@ export default defineConfig({
             command: `node tests/e2e/catalog/fake-api.mjs ${PREVIEW_API_PORT}`,
             url: `${PREVIEW_API_ORIGIN}/health`,
             reuseExistingServer: !process.env.CI,
-            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN, FAKE_API_EMPTY_TOKEN: EMPTY_TOKEN },
+            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN, FAKE_API_EMPTY_TOKEN: EMPTY_TOKEN, FAKE_API_FREE_CHAPTER: "premium" },
         },
         {
             // The preview deployment: its own build, with the synthetic credential present while it is built.

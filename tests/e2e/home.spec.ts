@@ -1,72 +1,110 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Page } from "@playwright/test";
-import { expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, test } from "./catalog/harness";
+import fixture from "./catalog/fixture.json";
+import { EMPTY_ORIGIN, expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, PREVIEW_ORIGIN, REJECTED_ORIGIN, test } from "./catalog/harness";
 
-// Homepage: static and presentation-only (look and feel is validated by hand). Tracks lead, Knowledge supports them.
-const TRACK_HREFS = ["/learn/gen-ai-native-design", "/learn/ml-system-design", "/learn/llm-platform-design", "/learn/ml-platform-design", "/learn/gen-ai-foundations"] as const;
-const TRACK_TITLES = ["Gen AI Native Design", "ML System Design", "LLM Platform Design", "ML Platform Design", "Gen AI Foundations"] as const;
+// Homepage: Tracks lead and are the published catalog Tracks; Knowledge supports them. Look and feel is validated by hand.
+const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+/** What the fake API's `GET /catalog/tracks` returns for the default deployment: every fixture Track, by id. */
+const CATALOG_TRACKS = [...fixture.tracks].sort(byId);
+const FREE_CHAPTER_PATH = "/catalog/items/lesson/anatomy-of-a-model-request/meta";
+const FREE_CHAPTER_HREF = "/lessons/anatomy-of-a-model-request";
+const READ_FREE_CHAPTER = "Read a free chapter";
 
 const KNOWLEDGE_HREFS = ["/knowledge?group=core-concepts", "/knowledge?group=technologies-research", "/knowledge?group=patterns", "/knowledge?group=quick-references", "/knowledge"];
 
+const hero = (page: Page) => page.getByRole("region", { name: /Crack Your Next/ });
 const tracks = (page: Page) => page.getByRole("region", { name: "Choose Your Path" });
 const trackCards = (page: Page) => tracks(page).getByRole("list").last().getByRole("link");
 const pricing = (page: Page) => page.locator("#pricing");
 const plans = (page: Page) => pricing(page).getByRole("list", { name: "Planned pricing" }).getByRole("listitem");
 
-test("is prerendered, so it cannot depend on API data at request time", async ({ request }) => {
+test("is rendered for each request, so a build cannot freeze the catalog's state into it", async ({ request }) => {
    const response = await request.get("/");
    expect(response.status()).toBe(200);
-   expect(response.headers()["cache-control"]).not.toMatch(/no-store|private/);
+   expect(response.headers()["cache-control"]).toMatch(/no-store|no-cache|private/);
 });
 
-test.describe("catalog independence", () => {
-   // The private deployment's API double receives nothing from any other test, so its log is this test's alone.
+test.describe("catalog reads", () => {
+   // The private deployment's API double receives nothing from any other test, so its log is this describe's alone.
    test.use({ baseURL: ISOLATED_ORIGIN });
 
-   const catalogLog = async (request: APIRequestContext): Promise<{ path: string }[]> =>
+   const catalogLog = async (request: APIRequestContext): Promise<{ path: string; query: string; presented: string | null }[]> =>
       (await request.get(`${ISOLATED_API_ORIGIN}/__catalog-log`)).json();
 
-   test("loading / makes no /catalog request, while a catalog route on the same deployment does", async ({ page, request }) => {
+   test("loading / reads at most the Track list and the free Lesson's metadata, both on the server and neither from the browser", async ({ page, request }) => {
       const before = await catalogLog(request);
-      await page.goto("/");
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-      expect(await catalogLog(request), "the homepage requested a /catalog endpoint").toEqual(before);
+      const browserRequests: string[] = [];
+      page.on("request", (r) => {
+         if (/^\/(catalog|tracks|lessons|problems|knowledge)\//.test(new URL(r.url()).pathname)) browserRequests.push(r.url());
+      });
 
-      // Control: the same deployment is wired to this API double, so a request would have been logged.
-      const probe = `p2-t3-log-probe-${Date.now()}`;
-      await request.get(`/lessons/${probe}`);
-      const after = await catalogLog(request);
-      expect(after.filter((entry) => entry.path.includes(probe)).length).toBeGreaterThan(0);
+      await page.goto("/");
+      await expect(trackCards(page).first()).toBeVisible();
+      await page.waitForLoadState("networkidle");
+
+      const log = await catalogLog(request);
+      const added = log.slice(before.length);
+      expect(added.length, "the homepage read more than two catalog endpoints").toBeLessThanOrEqual(2);
+      expect(added.map((entry) => entry.path).filter((path) => path !== "/catalog/tracks" && path !== FREE_CHAPTER_PATH)).toEqual([]);
+      for (const entry of added) expect(entry).toMatchObject({ query: "", presented: null });
+      // Whether the 60-second data cache was warm decides how many of the two this load made; together they are the only two ever.
+      expect(new Set(log.map((entry) => entry.path))).toEqual(new Set(["/catalog/tracks", FREE_CHAPTER_PATH]));
+      expect(browserRequests, "the browser requested catalog data or prefetched a catalog route").toEqual([]);
+   });
+
+   test("offers the free chapter, opening its Lesson, when the API confirms the Lesson is free", async ({ page }) => {
+      await page.goto("/");
+      await expect(hero(page).getByRole("link", { name: READ_FREE_CHAPTER })).toHaveAttribute("href", FREE_CHAPTER_HREF);
+      await expect(hero(page).getByRole("link")).toHaveText(["Browse Tracks", READ_FREE_CHAPTER]);
    });
 });
 
-test("offers one h1, the five tracks as links to their courses and Knowledge as a link to its explorer", async ({ page }) => {
+test("offers no free chapter when the API does not know the Lesson", async ({ page }) => {
+   await page.goto("/");
+   await expect(hero(page).getByRole("link")).toHaveText(["Browse Tracks"]);
+   await expect(page.getByText(READ_FREE_CHAPTER)).toHaveCount(0);
+});
+
+test("offers one h1, a card for every published Track in the API's order, and Knowledge as a link to its explorer", async ({ page }) => {
    await page.goto("/");
    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-   await expect(trackCards(page)).toHaveCount(TRACK_TITLES.length);
-   for (const [index, title] of TRACK_TITLES.entries()) {
-      await expect(trackCards(page).nth(index)).toHaveAttribute("href", TRACK_HREFS[index]);
-      await expect(trackCards(page).nth(index)).toHaveAccessibleName(new RegExp(`^${title}\\b`));
+   await expect(trackCards(page)).toHaveCount(CATALOG_TRACKS.length);
+   for (const [index, catalogTrack] of CATALOG_TRACKS.entries()) {
+      const card = trackCards(page).nth(index);
+      await expect(card).toHaveAttribute("href", `/tracks/${catalogTrack.slug}`);
+      await expect(card.getByRole("heading", { level: 3 })).toHaveText(catalogTrack.title);
+      await expect(card).toContainText(catalogTrack.summary);
+      await expect(card).toContainText("Explore");
    }
    const knowledgeLinks = page.locator("#knowledge").getByRole("link");
    await expect(knowledgeLinks).toHaveCount(5);
    expect(await knowledgeLinks.evaluateAll((links) => links.map((l) => l.getAttribute("href")))).toEqual(KNOWLEDGE_HREFS);
-   await expect(page.getByRole("link", { name: /practice/i })).toHaveCount(0);
+   const hrefs = await page.locator("a").evaluateAll((links) => links.map((l) => l.getAttribute("href")));
+   expect(hrefs.filter((href) => href?.startsWith("/practice") || href?.startsWith("/problems"))).toEqual([]);
 });
 
-test("keyboard reaches the two hero actions, then the track cards in order, each with a solid 2px focus ring", async ({ page }) => {
+test("shows no count, duration or badge on a Track card, and no card the catalog did not list", async ({ page }) => {
+   await page.goto("/");
+   await expect(tracks(page).getByText(/\b\d+\s*(chapters?|lessons?|modules?|problems?|hours?|h)\b/i)).toHaveCount(0);
+   // A card holds its Track's title, its summary and the Explore cue, and nothing else: no badge, count or access claim.
+   for (const [index, catalogTrack] of CATALOG_TRACKS.entries()) {
+      await expect(trackCards(page).nth(index)).toHaveText(`${catalogTrack.title}${catalogTrack.summary}Explore`);
+   }
+   await expect(tracks(page).getByText("Gen AI Native Design")).toHaveCount(0); // a retired static card
+   await expect(tracks(page).getByRole("link", { name: /explore tracks/i })).toHaveCount(0);
+});
+
+test("keyboard reaches the hero action, then the Track cards in order, each with a solid 2px focus ring", async ({ page }) => {
    await page.goto("/");
    await page.keyboard.press("Tab"); // skip link
    await page.keyboard.press("Enter");
    await expect(page.locator("#main-content")).toBeFocused();
 
-   const hero = page.getByRole("region", { name: /Crack Your Next/ });
-   for (const name of ["Start Learning", "View Pricing"]) {
-      await page.keyboard.press("Tab");
-      await expect(hero.getByRole("link", { name })).toBeFocused();
-   }
+   await page.keyboard.press("Tab");
+   await expect(hero(page).getByRole("link", { name: "Browse Tracks" })).toBeFocused();
 
-   for (const index of TRACK_TITLES.keys()) {
+   for (const index of [0, 1, 2]) {
       await page.keyboard.press("Tab");
       await expect(trackCards(page).nth(index)).toBeFocused();
       await expect(trackCards(page).nth(index)).toHaveCSS("outline-style", "solid");
@@ -74,27 +112,79 @@ test("keyboard reaches the two hero actions, then the track cards in order, each
    }
 });
 
-test("a visitor reaches real content: a track card opens its course and a chapter", async ({ page }) => {
+test("a visitor reaches real content: a Track card opens its Track page", async ({ page }) => {
    await page.goto("/");
-   await trackCards(page).filter({ hasText: "ML System Design" }).click();
-   await expect(page).toHaveURL("/learn/ml-system-design");
-   await page.getByRole("link", { name: "E2E Home Card Chapter" }).click();
-   await expect(page).toHaveURL("/learn/ml-system-design/e2e-home-card-free");
-   await expect(page.getByText("Home card chapter marker.")).toBeVisible();
+   await trackCards(page).filter({ hasText: "E2E Home Track" }).click();
+   await expect(page).toHaveURL("/tracks/catalog-e2e-home");
+   await expect(page.getByRole("heading", { level: 1 })).toContainText("E2E Home Track");
 });
 
-test("the hero and Explore Tracks actions open the course index, which lists the courses", async ({ page }) => {
-   await page.goto("/");
-   await page.getByRole("link", { name: "Start Learning" }).first().click();
-   await expect(page).toHaveURL("/learn");
-   await expect(page.getByRole("link", { name: /\d+ chapters ML System Design/ })).toBeVisible();
+test.describe("Browse Tracks", () => {
+   test("in the hero and at the end of the page lands on the Tracks section", async ({ page }) => {
+      await page.goto("/");
+      await hero(page).getByRole("link", { name: "Browse Tracks" }).click();
+      await expect(page).toHaveURL(/\/#tracks$/);
+      await expect(page.locator("#tracks")).toBeInViewport();
+
+      await page.goto("/");
+      await page.getByRole("region", { name: "Pick a Track and start reading" }).getByRole("link", { name: "Browse Tracks" }).click();
+      await expect(page).toHaveURL(/\/#tracks$/);
+      await expect(page.locator("#tracks")).toBeInViewport();
+   });
+
+   test("the header's Tracks link lands on the section from another page, and names it by its heading", async ({ page }) => {
+      await page.goto("/knowledge");
+      await page.getByRole("banner").getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Tracks" }).click();
+      await expect(page).toHaveURL(/\/#tracks$/);
+      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page.getByRole("region", { name: "Choose Your Path" })).toBeVisible();
+   });
+
+   test("no link in the page's main content still sends Track discovery to /learn", async ({ page }) => {
+      await page.goto("/");
+      const hrefs = await page.getByRole("main").locator("a").evaluateAll((links) => links.map((l) => l.getAttribute("href")));
+      expect(hrefs.filter((href) => href?.startsWith("/learn"))).toEqual([]);
+   });
 });
 
-test("the hero's pricing action scrolls to the pricing section", async ({ page }) => {
-   await page.goto("/");
-   await page.getByRole("link", { name: "View Pricing" }).click();
-   await expect(page).toHaveURL(/#pricing$/);
-   await expect(pricing(page)).toBeInViewport();
+test.describe("when the catalog has published nothing", () => {
+   test.use({ baseURL: EMPTY_ORIGIN });
+
+   test("says so, with no card and no free chapter", async ({ page }) => {
+      await page.goto("/");
+      await expect(tracks(page).getByText("No Tracks are published yet.")).toBeVisible();
+      await expect(tracks(page).getByRole("heading", { level: 3 })).toHaveCount(0);
+      await expect(tracks(page).getByRole("link")).toHaveCount(0);
+      await expect(hero(page).getByRole("link")).toHaveText(["Browse Tracks"]);
+      await expect(page.locator("#knowledge")).toBeVisible();
+   });
+});
+
+test.describe("when the catalog cannot be read", () => {
+   test.use({ baseURL: REJECTED_ORIGIN });
+
+   test("says the Tracks could not be loaded and offers Knowledge, with no card and no invented fallback", async ({ page }) => {
+      const response = await page.goto("/");
+      expect(response?.status()).toBe(200);
+      await expect(tracks(page).getByText("Tracks could not be loaded right now.")).toBeVisible();
+      await expect(tracks(page).getByRole("heading", { level: 3 })).toHaveCount(0);
+      await expect(tracks(page).getByRole("link")).toHaveText(["Browse Knowledge"]);
+      await expect(tracks(page).getByRole("link")).toHaveAttribute("href", "/knowledge");
+      await expect(tracks(page).getByText("No Tracks are published yet.")).toHaveCount(0);
+      await expect(hero(page).getByRole("link")).toHaveText(["Browse Tracks"]);
+   });
+});
+
+test.describe("on a preview deployment", () => {
+   test.use({ baseURL: PREVIEW_ORIGIN });
+
+   test("shows the preview's Tracks, offers no free chapter for a Lesson that is not free, and is marked and kept out of search", async ({ page }) => {
+      await page.goto("/");
+      await expect(trackCards(page)).toHaveCount(CATALOG_TRACKS.length);
+      await expect(hero(page).getByRole("link")).toHaveText(["Browse Tracks"]);
+      await expect(page.getByRole("complementary", { name: "Preview" })).toBeVisible();
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+   });
 });
 
 test("shows the three planned prices, labelled planned, with no purchase control", async ({ page }) => {
