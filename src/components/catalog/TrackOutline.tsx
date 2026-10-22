@@ -3,20 +3,41 @@ import { cn } from "@/lib/utils";
 import type { CatalogModule, CatalogOutlineEntry, CatalogTrack } from "@/lib/catalog/types";
 import { EntryRow } from "./EntryRow";
 
-function EntryList({ entries, currentId, prefetch }: { entries: CatalogOutlineEntry[]; currentId?: string; prefetch?: false }) {
+function EntryList({
+   entries,
+   currentId,
+   currentLabel,
+   prefetch,
+}: {
+   entries: CatalogOutlineEntry[];
+   currentId?: string;
+   currentLabel?: string;
+   prefetch?: false;
+}) {
    const rows = linkableEntries(entries);
    if (rows.length === 0) return <p className="text-supporting text-muted-foreground">No published items.</p>;
    return (
       <ol className="list-decimal space-y-2 pl-5 marker:text-muted-foreground">
          {rows.map(({ entry, href }) => (
-            <EntryRow key={entry.id} entry={entry} href={href} current={entry.id === currentId} prefetch={prefetch} />
+            <EntryRow key={entry.id} entry={entry} href={href} current={entry.id === currentId} currentLabel={currentLabel} prefetch={prefetch} />
          ))}
       </ol>
    );
 }
 
 /** A Track's modules and their items exactly as the API ordered them; `currentId` marks one item. */
-export function TrackOutline({ track, currentId, prefetch }: { track: CatalogTrack; currentId?: string; prefetch?: false }) {
+export function TrackOutline({
+   track,
+   currentId,
+   currentLabel,
+   prefetch,
+}: {
+   track: CatalogTrack;
+   currentId?: string;
+   /** Visible text beside the current entry, for a Track whose current item must not rely on colour alone. */
+   currentLabel?: string;
+   prefetch?: false;
+}) {
    if (track.modules.length === 0) {
       return <p className="text-supporting text-muted-foreground">This Track has no published content yet.</p>;
    }
@@ -25,7 +46,7 @@ export function TrackOutline({ track, currentId, prefetch }: { track: CatalogTra
          {track.modules.map((module) => (
             <section key={module.key}>
                <h3 className="mt-0 mb-3 text-subsection">{module.title}</h3>
-               <EntryList entries={module.items} currentId={currentId} prefetch={prefetch} />
+               <EntryList entries={module.items} currentId={currentId} currentLabel={currentLabel} prefetch={prefetch} />
             </section>
          ))}
       </nav>

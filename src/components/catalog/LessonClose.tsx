@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LessonPosition } from "@/lib/catalog/curriculum";
+import { levelsOf } from "@/lib/catalog/levelChoice";
 import { moduleLocation } from "@/lib/catalog/moduleLocation";
 import type { TrackPlacement } from "@/lib/catalog/navigation";
 import { catalogEntryHref } from "@/lib/catalog/routes";
@@ -53,6 +54,49 @@ export function EndOfTrack({ placement }: { placement: TrackPlacement }) {
             <Button asChild variant="default" size="lg" className="mt-5 h-auto min-h-11 px-6 py-2 text-left text-body whitespace-normal">
                <Link href={href} prefetch={false}>
                   Back to {placement.track.title}
+               </Link>
+            </Button>
+         ) : null}
+      </nav>
+   );
+}
+
+/** Replaces Next, Previous and End of Track for a level-choice Track (A-9): the other levels as equals, then the way back. */
+export function OtherLevels({ placement, currentId }: { placement: TrackPlacement; currentId: string }) {
+   const levels = levelsOf(placement.track).flatMap((entry) => {
+      const href = entry.id === currentId ? null : catalogEntryHref(entry);
+      return href ? [{ entry, href }] : [];
+   });
+   const back = trackHref(placement);
+   if (levels.length === 0 && !back) return null;
+   return (
+      <nav aria-label="Other levels">
+         {levels.length > 0 ? (
+            <>
+               <h2 id="other_levels_heading" className="m-0 text-subsection">
+                  Other levels
+               </h2>
+               <ul role="list" className="m-0 mt-3 list-none p-0">
+                  {levels.map(({ entry, href }) => (
+                     <li key={entry.id}>
+                        <Link
+                           href={href}
+                           prefetch={false}
+                           aria-label={entry.access === "premium" ? `${entry.title}, premium` : undefined}
+                           className="inline-flex min-h-11 items-center gap-x-3 text-body font-medium text-foreground transition-micro hover:text-primary"
+                        >
+                           <span>{entry.title}</span>
+                           {entry.access === "premium" ? <PremiumMark /> : null}
+                        </Link>
+                     </li>
+                  ))}
+               </ul>
+            </>
+         ) : null}
+         {back ? (
+            <Button asChild variant="default" size="lg" className="mt-5 h-auto min-h-11 px-6 py-2 text-left text-body whitespace-normal">
+               <Link href={back} prefetch={false}>
+                  Back to Track: {placement.track.title}
                </Link>
             </Button>
          ) : null}

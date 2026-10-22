@@ -157,3 +157,84 @@ describe("Track page", () => {
       expect(screen.getByRole("status")).toHaveTextContent("temporarily unavailable");
    });
 });
+
+describe("a level-choice Track (A-9)", () => {
+   const LEVELS = {
+      ...TRACK,
+      id: "track.behavioral-interview-preparation",
+      slug: "behavioral-interview-preparation",
+      title: "Levels Track",
+      modules: [
+         {
+            key: "choose",
+            title: "Choose",
+            position: 1,
+            items: [entry("lesson.one"), entry("lesson.two", "premium"), entry("lesson.three"), entry("lesson.four")],
+         },
+      ],
+   };
+   const levelView = async () => render(await TrackPage({ params: Promise.resolve({ slug: LEVELS.slug }) }));
+
+   beforeEach(() => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: LEVELS });
+      listCatalogItems.mockResolvedValue(listed(["one", "two", "three", "four"]));
+   });
+
+   it("replaces Start with a Choose your level group of every Lesson, in curriculum order, with titles and summaries", async () => {
+      await levelView();
+      expect(screen.queryByRole("link", { name: /^Start/ })).not.toBeInTheDocument();
+      const group = within(screen.getByRole("region", { name: "Choose your level" }));
+      const links = group.getAllByRole("link");
+      expect(links.map((link) => link.getAttribute("href"))).toEqual(["/lessons/one", "/lessons/two", "/lessons/three", "/lessons/four"]);
+      expect(links.map((link) => link.getAttribute("data-prefetch"))).toEqual(["false", "false", "false", "false"]);
+      for (const slug of ["one", "two", "three", "four"]) {
+         expect(group.getByRole("link", { name: new RegExp(`Title ${slug}.*About ${slug}\\.`) })).toBeInTheDocument();
+      }
+      expect(links[1]).toHaveTextContent("Premium");
+   });
+
+   it("presents no level as recommended, first or preferred, and keeps the curriculum below", async () => {
+      await levelView();
+      expect(screen.queryByText(/recommended|preferred|start with|default/i)).not.toBeInTheDocument();
+      const choice = screen.getByRole("region", { name: "Choose your level" });
+      const outline = screen.getByRole("navigation", { name: "Levels Track outline" });
+      expect(choice.compareDocumentPosition(outline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(within(outline).getAllByRole("link")).toHaveLength(4);
+   });
+
+   it("makes the same reads as any Track: one outline and one Lesson scan", async () => {
+      await levelView();
+      expect(getCatalogTrack).toHaveBeenCalledExactlyOnceWith(LEVELS.slug);
+      expect(listCatalogItems).toHaveBeenCalledExactlyOnceWith({ type: "lesson", track: LEVELS.slug, limit: 100, cursor: undefined });
+      for (const read of [getCatalogItem, getCatalogItemMeta, getCatalogRelated]) expect(read).not.toHaveBeenCalled();
+   });
+
+   it("still lists every level, without summaries, when the scan fails", async () => {
+      listCatalogItems.mockResolvedValue({ status: "unavailable", cause: "upstream" });
+      await levelView();
+      expect(within(screen.getByRole("region", { name: "Choose your level" })).getAllByRole("link")).toHaveLength(4);
+      expect(screen.queryByText(/^About /)).not.toBeInTheDocument();
+   });
+
+   it("never renders Start for a listed Track with no Lesson, empty or holding only Problems", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...LEVELS, modules: [] } });
+      await levelView();
+      expect(screen.queryByRole("link", { name: /^Start/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Choose your level" })).not.toBeInTheDocument();
+      expect(screen.getByText("Nothing is published in this Track yet.")).toBeInTheDocument();
+
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...LEVELS, modules: [{ key: "d", title: "Drills", position: 1, items: [entry("problem.only")] }] } });
+      document.body.innerHTML = "";
+      await levelView();
+      expect(screen.queryByRole("link", { name: /^Start/ })).not.toBeInTheDocument();
+      expect(screen.queryByText("Recommended starting point")).not.toBeInTheDocument();
+      expect(listCatalogItems).not.toHaveBeenCalled();
+   });
+
+   it("leaves an ordinary Track's Start action alone", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: TRACK });
+      await view();
+      expect(screen.getByRole("link", { name: "Start with Title alpha" })).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Choose your level" })).not.toBeInTheDocument();
+   });
+});

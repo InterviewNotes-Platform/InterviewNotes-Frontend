@@ -590,3 +590,75 @@ describe("Knowledge in context (P3-T7)", () => {
       }
    });
 });
+
+describe("a Lesson of a level-choice Track (A-9)", () => {
+   const LEVELS = {
+      ...HOME,
+      id: "track.behavioral-interview-preparation",
+      slug: "behavioral-interview-preparation",
+      title: "Levels Track",
+      modules: [
+         {
+            key: "choose",
+            title: "Choose your level",
+            position: 0,
+            items: [entry("lesson.before"), entry("lesson.item"), entry("lesson.after", { access: "premium" }), entry("lesson.last")],
+         },
+      ],
+   };
+   const RELATED_LEVELS = { ...RELATED, placements: [{ track: LEVELS.slug, module: "choose", position: 2, primary: true }] };
+
+   beforeEach(() => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: RELATED_LEVELS });
+      getCatalogTrack.mockImplementation(async (slug: string) => (slug === LEVELS.slug ? { status: "ok", data: LEVELS } : { status: "notFound" }));
+   });
+
+   it("offers no Next lesson, Previous lesson or End of Track, and reads no Next summary", async () => {
+      await show();
+      expect(screen.queryByRole("navigation", { name: /^Next in / })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: /^End of / })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Next lesson|Previous lesson|last lesson in this track/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^(Next|Previous) lesson/ })).not.toBeInTheDocument();
+      expect(getCatalogItemMeta.mock.calls.some(([type, slug]) => type === "lesson" && slug === "after")).toBe(false);
+   });
+
+   it("lists the other levels as equal links in curriculum order, then Back to Track", async () => {
+      await show();
+      const nav = screen.getByRole("navigation", { name: "Other levels" });
+      const links = within(nav).getAllByRole("link");
+      expect(links.map((link) => link.getAttribute("href"))).toEqual(["/lessons/before", "/lessons/after", "/lessons/last", "/tracks/behavioral-interview-preparation"]);
+      expect(links.map((link) => link.getAttribute("data-prefetch"))).toEqual(["false", "false", "false", "false"]);
+      expect(within(nav).getByRole("link", { name: "Title after, premium" })).toBeInTheDocument();
+      expect(within(nav).getByRole("link", { name: "Back to Track: Levels Track" })).toBeInTheDocument();
+      expect(within(nav).queryByText(/recommended|first|default/i)).not.toBeInTheDocument();
+   });
+
+   it("reads One of N levels instead of a Lesson number", async () => {
+      await show();
+      expect(screen.getByText("Module 1 of 1 · One of 4 levels")).toBeInTheDocument();
+      expect(screen.queryByText(/Lesson \d of \d/)).not.toBeInTheDocument();
+   });
+
+   it("keeps the outline in order, marks the current level and keeps Knowledge and Practice", async () => {
+      await show();
+      const outline = within(screen.getByRole("navigation", { name: "Levels Track outline" }));
+      expect(outline.getAllByRole("link").map((link) => link.textContent)).toEqual(["Title before", "Title item", "Title after", "Title last"]);
+      const current = outline.getByRole("link", { name: "Title item" });
+      expect(current).toHaveAttribute("aria-current", "page");
+      expect(current.parentElement).toHaveTextContent("Current level");
+      expect(outline.getAllByRole("link").filter((link) => link.hasAttribute("aria-current"))).toHaveLength(1);
+      expect(heading("Related Knowledge", 2)).toBeInTheDocument();
+      expect(heading("Practice", 2)).toBeInTheDocument();
+   });
+
+   it("leaves an ordinary Track's Next lesson, Previous lesson and position untouched", async () => {
+      getCatalogRelated.mockResolvedValue({ status: "ok", data: RELATED });
+      getCatalogTrack.mockImplementation(async (slug: string) => (slug === "home" ? { status: "ok", data: HOME } : { status: "notFound" }));
+      await show();
+      expect(screen.getByRole("navigation", { name: "Next in Home Track" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Previous lesson: Title before" })).toBeInTheDocument();
+      expect(screen.getByText("Module 1 of 1 · Lesson 2 of 3")).toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Other levels" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Current level")).not.toBeInTheDocument();
+   });
+});
