@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/layout/BrandMark";
+import { PRIMARY_NAV } from "@/lib/primary-navigation";
 
 export function Footer() {
     return (
@@ -14,34 +15,21 @@ export function Footer() {
                             </span>
                         </Link>
                         <p className="text-sm text-muted-foreground leading-relaxed">
-                            Ace your tech interviews — from System Design and ML to LLD and beyond.
+                            Prepare for ML and AI engineering interviews: ML system design, LLM platform design and GenAI.
                         </p>
                     </div>
 
-                    {/* Learning */}
+                    {/* Explore: the same four destinations as the header */}
                     <div>
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Learning Paths</h3>
+                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Explore</h3>
                         <ul className="space-y-2.5 text-sm text-muted-foreground">
-                            <li>
-                                <Link href="/learn/gen-ai-native-design" className="hover:text-[var(--gold)] transition-colors">
-                                    Gen AI Native Design
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/learn/ml-system-design" className="hover:text-[var(--gold)] transition-colors">
-                                    ML System Design
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/learn/ml-platform-design" className="hover:text-[var(--gold)] transition-colors">
-                                    ML Platform Design
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/learn" className="hover:text-[var(--gold)] transition-colors">
-                                    All courses
-                                </Link>
-                            </li>
+                            {PRIMARY_NAV.map(({ label, href }) => (
+                                <li key={href}>
+                                    <Link href={href} prefetch={false} className="hover:text-[var(--gold)] transition-colors">
+                                        {label}
+                                    </Link>
+                                </li>
+                            ))}
                         </ul>
                     </div>
                 </div>

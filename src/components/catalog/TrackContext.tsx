@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { PremiumMark } from "./EntryRow";
 
 const trackHref = (track: CatalogTrack) => catalogEntryHref({ ...track, type: "track" });
-const LEARN_HREF = TRACKS_INDEX_HREF;
 const CRUMB_LINK = "min-w-0 truncate font-medium text-foreground transition-micro hover:text-primary";
 
 /** Home Track and module above the title: navigation context, not part of the item's URL. */
@@ -34,7 +33,7 @@ export function TrackBreadcrumb({ placement }: { placement: TrackPlacement }) {
 const positionText = (module: Position, lesson: Position) => `Module ${module.index} of ${module.count} · Lesson ${lesson.index} of ${lesson.count}`;
 
 /**
- * A Lesson's place: Learn / Track / Module, then its position, as one block. The Track and the Module link to their
+ * A Lesson's place: Tracks / Track / Module, then its position, as one block. The Track and the Module link to their
  * locations; long names truncate. The position line is left out when the outline gives none.
  */
 export function LessonBreadcrumb({ placement, position }: { placement: TrackPlacement; position?: LessonPosition | null }) {
@@ -45,8 +44,8 @@ export function LessonBreadcrumb({ placement, position }: { placement: TrackPlac
          <nav aria-label="Breadcrumb">
             <ol className="m-0 flex min-w-0 list-none items-center gap-2 p-0">
                <li className="shrink-0">
-                  <Link href={LEARN_HREF} prefetch={false} className="font-medium text-foreground transition-micro hover:text-primary">
-                     Learn
+                  <Link href={TRACKS_INDEX_HREF} prefetch={false} className="font-medium text-foreground transition-micro hover:text-primary">
+                     Tracks
                   </Link>
                </li>
                <li className="flex min-w-0 items-center gap-2">

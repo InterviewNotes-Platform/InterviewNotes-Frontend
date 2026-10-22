@@ -41,7 +41,8 @@ describe("public navigation", () => {
 
     it("footer links are real routes and expose no dead placeholders", () => {
         render(<Footer />);
-        for (const href of hrefs()) expect(href).toMatch(/^\/(learn(\/[a-z-]+)?)?$/);
+        expect(hrefs()).toEqual(["/", "/#tracks", "/knowledge", "/#pricing", "/#faq"]);
+        for (const href of hrefs()) expect(href).not.toMatch(/^\/learn/);
         expect(screen.queryByText(/blog|newsletter|about us|privacy|terms/i)).toBeNull();
     });
 });

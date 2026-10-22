@@ -854,11 +854,12 @@ describe("catalog reads", () => {
     });
 });
 
-describe("legacy courses", () => {
-    it("stay reachable through the page footer, outside the main landmark", () => {
+describe("footer", () => {
+    it("sits outside the main landmark and sends Tracks to the homepage section, never into /learn", () => {
         renderHome();
         const footer = screen.getByRole("contentinfo");
-        expect(within(footer).getByRole("link", { name: "All courses" })).toHaveAttribute("href", "/learn");
+        expect(within(footer).getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
+        for (const a of footer.querySelectorAll("a")) expect(a.getAttribute("href")).not.toMatch(/^\/learn/);
         expect(screen.getByRole("main")).not.toContainElement(footer);
     });
 });

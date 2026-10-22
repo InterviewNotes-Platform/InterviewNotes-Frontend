@@ -4,8 +4,8 @@ export type NavArea = "learn" | "knowledge";
  *  The header, the mobile menu and every Browse Tracks action share it. */
 export const TRACKS_ENTRY = "/#tracks";
 
-/** The catalog Track index, which catalog pages (breadcrumbs, Practice) keep linking to. */
-export const TRACKS_INDEX_HREF = "/tracks";
+/** Where catalog pages (breadcrumbs, Practice) send "all Tracks": the homepage section, not the `/tracks` redirect (S6-RTE-2). */
+export const TRACKS_INDEX_HREF = TRACKS_ENTRY;
 
 /** Pricing and FAQ are homepage sections. Practice is not a product of its own: its routes belong to the Tracks area (spec §5.3). */
 export const PRIMARY_NAV: readonly { area?: NavArea; label: string; href: string }[] = [
@@ -27,7 +27,6 @@ export const PREFETCH_PRIMARY = false;
 const AREA_BY_ROOT = new Map<string, NavArea>([
    ["tracks", "learn"],
    ["lessons", "learn"],
-   ["learn", "learn"],
    ["practice", "learn"],
    ["problems", "learn"],
    ["knowledge", "knowledge"],

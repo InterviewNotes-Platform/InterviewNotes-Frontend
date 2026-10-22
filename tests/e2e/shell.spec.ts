@@ -51,7 +51,7 @@ test.describe("desktop shell", () => {
    });
 
    test("keeps the header the height that legacy layouts are sized against", async ({ page }) => {
-      for (const route of ["/login", `/learn/${legacyCourse.slug}/${freeChapter.slug}`]) {
+      for (const route of ["/login", LESSON]) {
          await page.goto(route);
          expect(await banner(page).boundingBox(), route).toMatchObject({ y: 0, height: 65 });
       }
@@ -60,10 +60,8 @@ test.describe("desktop shell", () => {
 
 test.describe("active area", () => {
    const routes: [string, string | null][] = [
-      ["/tracks", "Tracks"],
       [`/tracks/${track("catalog-e2e-home").slug}`, "Tracks"],
       [LESSON, "Tracks"],
-      ["/learn", "Tracks"],
       [canonical("problem.catalog-e2e-related"), "Tracks"],
       [canonical("knowledge.catalog-e2e-sections"), "Knowledge"],
       ["/login", null],
@@ -137,7 +135,7 @@ test.describe("signed in", () => {
       await page.keyboard.press("Enter");
       const menu = page.getByRole("menu");
       await expect(menu.getByText("entitled@e2e.invalid")).toBeVisible();
-      await expect(menu.getByRole("menuitem", { name: "Courses" })).toHaveAttribute("href", "/learn");
+      await expect(menu.getByRole("menuitem", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
       await expect(menu.getByRole("menuitem", { name: "Log out" })).toBeVisible();
 
       await page.keyboard.press("Escape");
@@ -156,33 +154,38 @@ test.describe("signed in", () => {
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toBeVisible();
    });
 
-   test("legacy courses stay reachable from the account menu", async ({ page }) => {
+   test("the account menu's Tracks opens the homepage Tracks section", async ({ page }) => {
       await page.goto(LESSON);
       await banner(page).getByRole("button", { name: "Account menu" }).click();
-      await page.getByRole("menuitem", { name: "Courses" }).click();
-      await expect(page).toHaveURL("/learn");
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Interview Paths");
+      await page.getByRole("menuitem", { name: "Tracks" }).click();
+      await expect(page).toHaveURL("/#tracks");
+      await expect(page.locator("#tracks")).toBeInViewport();
    });
 });
 
-test.describe("legacy", () => {
-   test("/learn, a legacy chapter and /login render under the new header", async ({ page }) => {
-      for (const [route, marker] of [
-         ["/learn", page.getByRole("heading", { level: 1, name: "Interview Paths" })],
-         [`/learn/${legacyCourse.slug}/${freeChapter.slug}`, page.getByText("Legacy free chapter marker.")],
-         ["/login", page.getByText("Welcome Back")],
-      ] as const) {
+test.describe("retired /learn", () => {
+   test("/login still renders under the new header", async ({ page }) => {
+      await page.goto("/login");
+      await expect(page.getByText("Welcome Back")).toBeVisible();
+      await expect(banner(page)).toBeVisible();
+      await expect(primary(page).getByRole("link")).toHaveText(NAMES);
+   });
+
+   test("/learn, a legacy chapter and /tracks all end on the homepage Tracks section", async ({ page }) => {
+      for (const route of ["/learn", `/learn/${legacyCourse.slug}/${freeChapter.slug}`, "/tracks"]) {
          await page.goto(route);
-         await expect(marker, route).toBeVisible();
-         await expect(banner(page), route).toBeVisible();
-         await expect(primary(page).getByRole("link"), route).toHaveText(NAMES);
+         await expect(page, route).toHaveURL("/#tracks");
+         await expect(page.locator("#tracks"), route).toBeInViewport();
       }
    });
 
-   test("legacy courses stay reachable for a signed-out learner through the footer", async ({ page }) => {
+   test("the footer's Tracks link opens the Tracks section, and no footer link enters /learn", async ({ page }) => {
       await page.goto("/");
-      await page.locator("footer").getByRole("link", { name: "All courses" }).click();
-      await expect(page).toHaveURL("/learn");
+      const footer = page.locator("footer");
+      const hrefs = await footer.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+      expect(hrefs.filter((href) => href?.startsWith("/learn"))).toEqual([]);
+      await footer.getByRole("link", { name: "Tracks" }).click();
+      await expect(page).toHaveURL("/#tracks");
    });
 });
 

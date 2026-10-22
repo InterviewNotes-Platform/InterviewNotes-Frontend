@@ -128,7 +128,6 @@ describe("catalog route security boundary", () => {
          "practice/page.tsx",
          "problems/[slug]/page.tsx",
          "tracks/[slug]/page.tsx",
-         "tracks/page.tsx",
       ]);
    });
 
@@ -167,20 +166,16 @@ describe("catalog route security boundary", () => {
    });
 });
 
-describe("legacy /learn guarantee", () => {
-   it("keeps the /learn routes where they were", () => {
-      const learn = files(join(APP, "learn")).map((f) => relative(join(APP, "learn"), f)).sort();
-      expect(learn).toEqual([
-         "[course]/CourseDetail.tsx",
-         "[course]/[chapter]/page.tsx",
-         "[course]/page.tsx",
-         "[course]/story-bank/StoryBankContent.tsx",
-         "[course]/story-bank/page.tsx",
-         "page.tsx",
-      ].sort());
+describe("retired /learn and /tracks index", () => {
+   it("serves no page or route handler under /learn or at /tracks", () => {
+      const served = [...files(join(APP, "learn")), ...files(join(APP, "tracks"))]
+         .map((f) => relative(APP, f))
+         .filter((f) => /(^|\/)(page|route)\.tsx?$/.test(f));
+      expect(served).toEqual(["tracks/[slug]/page.tsx"]);
    });
 
-   it("keeps /learn off the catalog route framework", () => {
-      for (const file of files(join(APP, "learn"))) expect(read(file), file).not.toMatch(/lib\/catalog|_catalog|components\/catalog/);
+   it("keeps the legacy components and data, which are retired from serving but not deleted", () => {
+      const learn = files(join(APP, "learn")).map((f) => relative(join(APP, "learn"), f)).sort();
+      expect(learn).toEqual(["[course]/CourseDetail.tsx", "[course]/story-bank/StoryBankContent.tsx"]);
    });
 });

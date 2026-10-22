@@ -54,12 +54,14 @@ describe("mobile menu", () => {
         expect(current.map((a) => a.textContent)).toEqual(["Tracks"]);
     });
 
-    it("signed in: shows the email, Courses and Log out instead of Sign in", () => {
+    it("signed in: shows the email, Tracks and Log out instead of Sign in", () => {
         const { open, onSignOut } = setup({ user: member });
         open();
         expect(within(menu()).queryByRole("link", { name: "Sign in" })).toBeNull();
         expect(within(menu()).getByText("grace@example.com")).toBeInTheDocument();
-        expect(within(menu()).getByRole("link", { name: "Courses" })).toHaveAttribute("href", "/learn");
+        const tracks = within(menu()).getAllByRole("link", { name: "Tracks" });
+        expect(tracks.map((a) => a.getAttribute("href"))).toEqual(["/#tracks", "/#tracks"]);
+        expect(within(menu()).queryByRole("link", { name: "Courses" })).toBeNull();
 
         fireEvent.click(within(menu()).getByRole("button", { name: "Log out" }));
         expect(onSignOut).toHaveBeenCalledTimes(1);
@@ -68,6 +70,7 @@ describe("mobile menu", () => {
     it("shows no account control while auth resolves", () => {
         setup({ loading: true }).open();
         expect(within(menu()).queryByRole("link", { name: /sign in|courses/i })).toBeNull();
+        expect(within(menu()).getAllByRole("link", { name: "Tracks" })).toHaveLength(1);
         expect(within(menu()).queryByRole("button", { name: "Log out" })).toBeNull();
         expect(within(menu()).getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
     });

@@ -135,8 +135,8 @@ test.describe("build output", () => {
          test("builds every catalog route dynamic and prerenders none of them", () => {
             expect(findMaterializedRoutes(dist)).toEqual([]);
             const { routes, files } = prerendered(dist);
-            expect(routes, "the manifest reader should see the static pages").toEqual(expect.arrayContaining(["/login", "/learn"]));
-            expect(files, "the file reader should see the static pages").toEqual(expect.arrayContaining(["login.html", "learn.rsc"]));
+            expect(routes, "the manifest reader should see the static pages").toEqual(expect.arrayContaining(["/login", "/signup"]));
+            expect(files, "the file reader should see the static pages").toEqual(expect.arrayContaining(["login.html", "signup.html"]));
          });
       });
    }

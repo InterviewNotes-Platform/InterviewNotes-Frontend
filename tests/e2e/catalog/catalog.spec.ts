@@ -27,7 +27,7 @@ const main = (page: Page) => page.getByRole("main");
 const title = (page: Page) => main(page).getByRole("heading", { level: 1 });
 // What a Problem connects to: its preparation and its related Knowledge, Lessons and Problems (P2-T8; it was one "Related content" region).
 const related = (page: Page) => main(page).getByRole("region", { name: /^(Before you start|Related (Knowledge|Lessons|Problems))$/ });
-// A Problem's quiet Track context ("Part of Track / Module"); Lessons carry their own breadcrumb (Learn / Track / Module).
+// A Problem's quiet Track context ("Part of Track / Module"); Lessons carry their own breadcrumb (Tracks / Track / Module).
 const trackContext = (page: Page) => main(page).getByText(/^Part of/);
 const breadcrumb = (page: Page) => page.getByRole("navigation", { name: "Breadcrumb" });
 const LESSON_RELATED = /^(Builds on|Related Knowledge|Related Lessons|Practice|Related Problems)$/;
@@ -263,7 +263,7 @@ test.describe("Track navigation", () => {
       await expect(page).toHaveURL(canonical(entry.id));
       await expect(title(page)).toHaveText(entry.title);
       if (entry.type === "lesson") {
-         await expect(breadcrumb(page)).toHaveText(`Learn/${HOME.title}/${module.title}`);
+         await expect(breadcrumb(page)).toHaveText(`Tracks/${HOME.title}/${module.title}`);
          await expect(breadcrumb(page).getByRole("link", { name: HOME.title })).toHaveAttribute("href", canonical(HOME.id));
          await expect(trackContext(page)).toHaveCount(0);
       } else {
