@@ -6,7 +6,7 @@ import { HomeContent } from "./HomeContent";
 import { FREE_CHAPTER_LESSON_SLUG } from "@/lib/catalog/home";
 import { explorerHref, parseGroup } from "@/lib/catalog/knowledge";
 import { TRACKS_ENTRY } from "@/lib/primary-navigation";
-import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, PUBLISHED_TESTIMONIALS, STATS, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
+import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, STATS_DISCLOSURE, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
 import HomePage, * as homeModule from "./page";
 
 const { listCatalogTracks, getCatalogItemMeta } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn() }));
@@ -81,6 +81,16 @@ describe("structure", () => {
         regions.slice(1).forEach((s, i) => expect(regions[i].compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy());
     });
 
+    it("puts the Tracks directly after the hero, ahead of the statistics band, and Knowledge after the band", () => {
+        renderHome();
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        const band = screen.getByText(STATS[0].value).closest("ul")!;
+        expect(hero.nextElementSibling).toBe(tracks());
+        expect(tracks().compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(band.compareDocumentPosition(knowledge()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(within(tracks()).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(CARDS.map(({ href }) => href));
+    });
+
     it("marks the page for the pre-P0 palette scope", () => {
         renderHome();
         expect(screen.getByRole("main")).toHaveAttribute("data-home");
@@ -150,14 +160,15 @@ describe("hero", () => {
 });
 
 describe("stats band", () => {
-    it("follows the hero and comes before Tracks, as a plain list outside the named sections", () => {
+    it("follows the Tracks and comes before Knowledge, as a plain list outside the named sections", () => {
         renderHome();
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
         const band = screen.getByText(STATS[0].value).closest("ul")!;
         expect(hero.contains(band)).toBe(false);
         expect(band.closest("[role='region'], section")).toBeNull();
         expect(hero.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-        expect(band.compareDocumentPosition(tracks()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(tracks().compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(band.compareDocumentPosition(knowledge()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         for (const item of within(band).getAllByRole("listitem")) expect(item.querySelector("a, button")).toBeNull();
     });
 
@@ -168,6 +179,17 @@ describe("stats band", () => {
             expect(within(band).getByText(value).nextElementSibling).toHaveTextContent(label);
         }
         expect(STATS).toHaveLength(4);
+    });
+
+    it("says in view of the figures that they are samples, not verified results", () => {
+        renderHome();
+        const band = screen.getByText(STATS[0].value).closest("ul")!;
+        const note = screen.getByText(STATS_DISCLOSURE.text);
+        expect(STATS_DISCLOSURE.text).toMatch(/sample statistics.*illustrative.*not verified results/i);
+        expect(note.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(note).toHaveTextContent(STATS_DISCLOSURE.label);
+        expect(note).toBe(band.previousElementSibling);
+        expect(screen.getByRole("main").textContent).not.toMatch(/verified (results|outcomes)(?!\.)|independently (confirmed|verified)/i);
     });
 });
 
@@ -357,26 +379,36 @@ describe("testimonials", () => {
         for (const figure of within(testimonials()).getAllByRole("figure")) expect(figure).toHaveTextContent(TESTIMONIALS_SECTION.cardLabel);
     });
 
-    it("holds Emily C.'s Premium quote back for review and shows the other seven word for word, in two rows", () => {
+    it("shows all eight testimonials word for word, Emily C. included, in two rows of four", () => {
         renderHome();
         expect(TESTIMONIALS).toHaveLength(8);
-        expect(PUBLISHED_TESTIMONIALS.map(({ name }) => name)).not.toContain("Emily C.");
-        expect(PUBLISHED_TESTIMONIALS).toEqual(TESTIMONIALS.filter(({ name }) => name !== "Emily C."));
         const rows = within(testimonials()).getAllByRole("list");
-        expect(rows.map((row) => within(row).getAllByRole("figure").length)).toEqual([4, 3]);
+        expect(rows.map((row) => within(row).getAllByRole("figure").length)).toEqual([4, 4]);
         const figures = within(testimonials()).getAllByRole("figure"); // the aria-hidden loop copies are not exposed
-        expect(figures).toHaveLength(PUBLISHED_TESTIMONIALS.length);
-        PUBLISHED_TESTIMONIALS.forEach(({ name, quote, role, company }, i) => {
+        expect(figures).toHaveLength(TESTIMONIALS.length);
+        TESTIMONIALS.forEach(({ name, quote, role, company }, i) => {
             expect(figures[i]).toHaveTextContent(quote);
             expect(figures[i]).toHaveTextContent(`${name}${role} at ${company}`);
         });
-        expect(testimonials()).not.toHaveTextContent(/Premium was a no-brainer|Emily C\./);
+        const emily = figures.find((figure) => figure.textContent?.includes("Emily C."))!;
+        expect(emily).toHaveTextContent(TESTIMONIALS.find(({ name }) => name === "Emily C.")!.quote);
+        expect(emily).toHaveTextContent(TESTIMONIALS_SECTION.cardLabel);
+    });
+
+    it("keeps every card visibly a sample and adds no logo or image implying an endorsement", () => {
+        const { container } = renderHome();
+        expect(TESTIMONIALS_SECTION.cardLabel).toMatch(/^Sample\b/);
+        for (const li of container.querySelectorAll("section[aria-labelledby='home-testimonials-heading'] li")) {
+            expect(li).toHaveTextContent(TESTIMONIALS_SECTION.cardLabel);
+        }
+        expect(testimonials().querySelector("img, svg:not([aria-hidden='true']), picture")).toBeNull();
+        expect(testimonials().textContent).not.toMatch(/trusted by|landed offers|verified/i);
     });
 
     it("duplicates each row for a seamless loop, hidden from assistive technology", () => {
         const { container } = renderHome();
         const hidden = container.querySelectorAll("section li[aria-hidden='true']");
-        expect(hidden).toHaveLength(PUBLISHED_TESTIMONIALS.length);
+        expect(hidden).toHaveLength(TESTIMONIALS.length);
         for (const copy of hidden) expect(copy.querySelector("a, button")).toBeNull();
     });
 
@@ -389,6 +421,19 @@ describe("testimonials", () => {
         expect(testimonials()).toHaveAttribute("data-paused", "false");
     });
 
+    it("hides the pause button and the looped copies when the reader prefers reduced motion", () => {
+        stubMotion(true);
+        const { container } = renderHome();
+        expect(within(testimonials()).getByRole("button", { name: "Pause testimonials" }).parentElement).toHaveClass("motion-reduce:hidden");
+        for (const copy of container.querySelectorAll("section li[aria-hidden='true']")) expect(copy).toHaveClass("motion-reduce:hidden");
+        for (const row of within(testimonials()).getAllByRole("list")) expect(row.parentElement).toHaveClass("motion-reduce:overflow-x-auto");
+    });
+
+    it("lets the rows take keyboard focus so they can be scrolled by hand", () => {
+        renderHome();
+        for (const row of within(testimonials()).getAllByRole("list")) expect(row).toHaveAttribute("tabindex", "0");
+    });
+
     it("drifts in opposite directions", () => {
         const { container } = renderHome();
         expect(container.querySelectorAll(".testimonial-scroll-left")).toHaveLength(1);
@@ -397,18 +442,22 @@ describe("testimonials", () => {
 });
 
 describe("pricing", () => {
-    it("shows the three approved planned prices as parallel, informational plans", () => {
+    it("shows the three approved prices, exactly, as parallel informational plans with no Planned label", () => {
         renderHome();
         const plans = within(within(pricing()).getByRole("list", { name: PRICING.listLabel })).getAllByRole("listitem");
-        expect(plans.map((item) => item.textContent)).toEqual(["Annual$50/yearPlanned", "3-year$100/3 yearsPlanned", "Lifetime$150/lifetimePlanned"]);
+        expect(plans.map((item) => item.textContent)).toEqual(["Annual$50/year", "3-year$100/3 years", "Lifetime$150/lifetime"]);
         for (const item of plans) expect(item.querySelector("a, button, input, form")).toBeNull();
+        expect(PRICING).not.toHaveProperty("badge");
+        expect(PRICING.listLabel).not.toMatch(/planned/i);
+        expect(PRICING.included.label).not.toMatch(/planned/i);
+        expect(within(pricing()).queryByText(/^planned$/i)).toBeNull();
     });
 
-    it("says the plans are planned and not yet available, with a free path into the courses", () => {
+    it("says paid access is not currently available and nothing is for sale, with a free path into the courses", () => {
         renderHome();
-        expect(within(pricing()).getByText(PRICING.lead)).toHaveTextContent(/not available yet/i);
-        expect(within(pricing()).getByText(PRICING.note)).toHaveTextContent(/not available yet/i);
-        expect(within(pricing()).getAllByText(PRICING.badge)).toHaveLength(PRICING.plans.length);
+        expect(within(pricing()).getByText(PRICING.lead)).toHaveTextContent(/not available yet.*nothing is for sale/i);
+        expect(within(pricing()).getByText(PRICING.note)).toHaveTextContent(/not currently available.*nothing is for sale/i);
+        expect(pricing().textContent).not.toMatch(/\b(now available|available now|available today|sale now|start your plan|join now)\b/i);
         expect(within(pricing()).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual([TRACKS_ENTRY]);
         expect(within(pricing()).queryByRole("button")).toBeNull();
     });

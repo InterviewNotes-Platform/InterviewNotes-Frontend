@@ -3,7 +3,7 @@ import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 
 // Tracks are the primary product, Knowledge supports them (P2 spec §5.3). STATS and TESTIMONIALS are the pre-P0
 // claims (51b99f3), not backed by product data. Prices: spec §5.1. Provenance: core-experience/design-brief.md §8.
-// All are UNVERIFIED and wait for Harshul's review (RG-2). The quotes are shown only as labelled samples.
+// All are UNVERIFIED and wait for Harshul's review (RG-2). Stats and quotes are shown only as labelled samples (P6-D-37).
 export const HOME_METADATA: Metadata = {
    title: "InterviewNotes: ML interview preparation",
    description:
@@ -34,6 +34,8 @@ export const HERO_TOPICS = ["ML Platform Design", "LLM Platform Design", "GenAI 
 export const HERO_AREAS = ["GenAI & Agentic Patterns", "ML Platform & MLOps", "LLM Platform Design", "ML System Design"] as const;
 
 /** Pre-P0 51b99f3, unverified, wording unchanged (S6-HOME-6). No user, analytics or outcome data supports these figures. */
+export const STATS_DISCLOSURE = { label: "Sample", text: "Sample statistics: illustrative figures, not verified results." };
+
 export const STATS = [
    { key: "modules", value: "80+", label: "Design Modules" },
    { key: "engineers", value: "5K+", label: "Engineers" },
@@ -77,7 +79,7 @@ export const TESTIMONIALS_SECTION = {
    cardLabel: "Sample, not a real customer",
 };
 
-/** Pre-P0 51b99f3 quotes, wording unchanged, with no consent or identity record found. */
+/** Pre-P0 51b99f3 quotes, wording unchanged, with no consent or identity record found. All eight are shown, as samples. */
 export const TESTIMONIALS = [
    { name: "Priya S.", role: "SDE-3", company: "Google", initials: "PS", quote: "The system design modules gave me a structured framework I was missing. Landed my L5 offer in 6 weeks of prep." },
    { name: "Marcus T.", role: "Senior MLE", company: "Meta", initials: "MT", quote: "ML Platform Design track is gold. Covered exactly what came up in my Meta loop — feature stores, model serving, the works." },
@@ -89,28 +91,22 @@ export const TESTIMONIALS = [
    { name: "David W.", role: "Senior SDE", company: "Amazon", initials: "DW", quote: "I prepped with three other platforms before this. InterviewNotes is the only one that covers ML system design properly." },
 ] as const;
 
-/** Not shown until Harshul reviews it (RG-2): Emily C. says she paid for Premium, but nothing is for sale. */
-const HELD_TESTIMONIALS: readonly string[] = ["Emily C."];
-
-export const PUBLISHED_TESTIMONIALS = TESTIMONIALS.filter(({ name }) => !HELD_TESTIMONIALS.includes(name));
-
-/** Planned, informational pricing (P2 spec §5.1). No discount, trial, tax, refund, guarantee or billing term is defined. */
+/** Informational pricing (P2 spec §5.1, P6-D-37: no "Planned" label). No discount, trial, tax, refund, guarantee or billing term is defined. */
 export const PRICING = {
    label: "Pricing",
    heading: "Simple, Transparent Pricing",
    lead: "Three plans are planned for the full library. Paid access is not available yet, and nothing is for sale today.",
-   listLabel: "Planned pricing",
-   badge: "Planned",
+   listLabel: "Pricing plans",
    plans: [
       { name: "Annual", amount: "$50", unit: "/year" },
       { name: "3-year", amount: "$100", unit: "/3 years" },
       { name: "Lifetime", amount: "$150", unit: "/lifetime" },
    ],
    included: {
-      label: "Every planned plan",
+      label: "Every plan",
       points: ["Every Track, Lesson and Knowledge topic in one library", "Premium material open once paid access launches", "Premium content is labelled wherever it appears"],
    },
-   note: "For information only. Paid access is not available yet.",
+   note: "For information only. Paid access is not currently available, and nothing is for sale.",
    free: {
       label: "Free",
       title: "Start with free content",

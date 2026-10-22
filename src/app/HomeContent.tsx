@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import type { HomeTracks } from "@/lib/catalog/home";
 import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
-import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TRACKS } from "./home-copy";
+import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, STATS_DISCLOSURE, TRACKS } from "./home-copy";
 import { HeroStage } from "./HeroStage";
 import { RotatingTopic } from "./RotatingTopic";
 import { SectionIntro } from "./SectionIntro";
@@ -113,11 +113,15 @@ function Hero({ freeChapterHref }: { freeChapterHref: string | null }) {
    );
 }
 
-/** The four existing stats, in their own band after the hero (spec S6-HOME-1); wording is unchanged. */
+/** The four existing stats, in their own band after the Tracks (spec S6-HOME-1); wording is unchanged and the band says they are samples. */
 function StatsBand() {
    return (
-      <div className="bg-background pt-4 pb-16 md:pb-20">
+      <div className="border-t border-border/50 bg-background py-12 md:py-16">
          <PageContainer>
+            <p className="m-0 mb-8 flex flex-wrap items-center justify-center gap-2 text-center text-sm font-medium text-muted-foreground">
+               <span className="rounded-full border border-gold/60 bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-foreground">{STATS_DISCLOSURE.label}</span>
+               {STATS_DISCLOSURE.text}
+            </p>
             <ul className="m-0 mx-auto grid max-w-4xl list-none grid-cols-2 gap-6 p-0 md:grid-cols-4 md:gap-10">
                {STATS.map(({ key, value, label }) => {
                   const Icon = STAT_ICONS[key];
@@ -191,7 +195,7 @@ function TrackCards({ tracks }: { tracks: HomeTracks }) {
 /** Tracks are the primary product and the one place they are discovered: `/#tracks` (S6-NAV-1). */
 function Tracks({ tracks }: { tracks: HomeTracks }) {
    return (
-      <section id="tracks" aria-labelledby="home-tracks-heading" className="relative scroll-mt-20 overflow-hidden border-t border-border/50 py-14 md:py-28">
+      <section id="tracks" aria-labelledby="home-tracks-heading" className="relative scroll-mt-20 overflow-hidden border-t border-border/50 py-12 md:py-20">
          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.03] via-transparent to-gold/[0.04]" />
          <div
             aria-hidden="true"
@@ -200,7 +204,7 @@ function Tracks({ tracks }: { tracks: HomeTracks }) {
          <PageContainer className="relative">
             <SectionIntro id="home-tracks-heading" label={TRACKS.label} title={TRACKS.heading} lead={TRACKS.lead} />
 
-            <ol className="m-0 mx-auto mb-8 flex max-w-4xl list-none flex-col gap-3 p-0 text-center sm:flex-row sm:justify-center sm:gap-4 md:mb-12">
+            <ol className="m-0 mx-auto mb-6 flex max-w-4xl list-none flex-col gap-3 p-0 text-center sm:flex-row sm:justify-center sm:gap-4 md:mb-10">
                {TRACKS.steps.map((step, i) => (
                   <li key={step} className="flex items-center justify-center gap-3 text-sm font-semibold text-foreground">
                      <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold text-xs font-bold text-gold-foreground">
@@ -256,7 +260,7 @@ function Knowledge() {
    );
 }
 
-/** Planned pricing: three parallel plans that differ only in price and period, a shared list, and no purchase action. */
+/** Pricing for information: three parallel plans that differ only in price and period, a shared list, and no purchase action. */
 function Pricing() {
    return (
       <section id="pricing" aria-labelledby="home-pricing-heading" className="scroll-mt-20 border-t border-border/50 bg-surface py-20 md:py-28">
@@ -267,7 +271,7 @@ function Pricing() {
                {PRICING.plans.map(({ name, amount, unit }) => (
                   <li
                      key={name}
-                     className="relative flex flex-col items-center overflow-hidden rounded-2xl border-2 border-gold/40 bg-gradient-to-b from-gold/10 to-transparent px-6 pt-12 pb-8 text-center shadow-2xl ring-1 shadow-gold/10 ring-gold/20"
+                     className="relative flex flex-col items-center overflow-hidden rounded-2xl border-2 border-gold/40 bg-gradient-to-b from-gold/10 to-transparent px-6 py-8 text-center shadow-2xl ring-1 shadow-gold/10 ring-gold/20"
                   >
                      <span className="flex items-center gap-2 text-sm font-bold tracking-wider text-premium uppercase">
                         <Star aria-hidden="true" className="size-4 fill-gold text-gold" />
@@ -277,7 +281,6 @@ function Pricing() {
                         <span className="text-5xl font-extrabold tracking-tight tabular-nums">{amount}</span>
                         <span className="text-supporting font-semibold text-muted-foreground">{unit}</span>
                      </span>
-                     <span className="absolute top-0 right-0 rounded-bl-xl bg-gold px-3 py-1 text-xs font-bold tracking-wide text-gold-foreground uppercase">{PRICING.badge}</span>
                   </li>
                ))}
             </ul>
@@ -359,8 +362,8 @@ export function HomeContent({ tracks, freeChapterHref }: { tracks: HomeTracks; f
       <>
          <main data-home>
             <Hero freeChapterHref={freeChapterHref} />
-            <StatsBand />
             <Tracks tracks={tracks} />
+            <StatsBand />
             <Knowledge />
             <Testimonials />
             <Pricing />

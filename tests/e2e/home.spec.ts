@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import type { APIRequestContext, Page } from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import fixture from "./catalog/fixture.json";
 import { EMPTY_ORIGIN, expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, PREVIEW_ORIGIN, REJECTED_ORIGIN, test } from "./catalog/harness";
 
@@ -17,7 +17,7 @@ const hero = (page: Page) => page.getByRole("region", { name: /Crack Your Next/ 
 const tracks = (page: Page) => page.getByRole("region", { name: "Choose Your Track" });
 const trackCards = (page: Page) => tracks(page).getByRole("list").last().getByRole("link");
 const pricing = (page: Page) => page.locator("#pricing");
-const plans = (page: Page) => pricing(page).getByRole("list", { name: "Planned pricing" }).getByRole("listitem");
+const plans = (page: Page) => pricing(page).getByRole("list", { name: "Pricing plans" }).getByRole("listitem");
 
 test("is rendered for each request, so a build cannot freeze the catalog's state into it", async ({ request }) => {
    const response = await request.get("/");
@@ -206,12 +206,38 @@ test.describe("on a preview deployment", () => {
    });
 });
 
-test("shows the three planned prices, labelled planned, with no purchase control", async ({ page }) => {
+test("shows the three prices with no Planned label, says nothing is for sale, and has no purchase control", async ({ page }) => {
    await page.goto("/");
-   await expect(plans(page)).toHaveText(["Annual$50/yearPlanned", "3-year$100/3 yearsPlanned", "Lifetime$150/lifetimePlanned"]);
-   await expect(pricing(page).getByText("Paid access is not available yet", { exact: false }).first()).toBeVisible();
+   await expect(plans(page)).toHaveText(["Annual$50/year", "3-year$100/3 years", "Lifetime$150/lifetime"]);
+   await expect(pricing(page).getByText("Planned", { exact: true })).toHaveCount(0);
+   await expect(pricing(page).getByText("Paid access is not currently available, and nothing is for sale.")).toBeVisible();
    await expect(pricing(page).locator("button, form, input")).toHaveCount(0);
    await expect(pricing(page).getByRole("link")).toHaveCount(1); // Start Learning only
+});
+
+test("puts the Tracks right after the hero, ahead of the sample statistics", async ({ page }) => {
+   await page.goto("/");
+   const top = (locator: Locator) => locator.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+   const [heroTop, tracksTop, statsTop, knowledgeTop] = [
+      await top(hero(page)),
+      await top(tracks(page)),
+      await top(page.getByText("Sample statistics: illustrative figures, not verified results.")),
+      await top(page.locator("#knowledge")),
+   ];
+   expect(heroTop).toBeLessThan(tracksTop);
+   expect(tracksTop).toBeLessThan(statsTop);
+   expect(statsTop).toBeLessThan(knowledgeTop);
+   await expect(trackCards(page).first()).toBeVisible();
+   await expect(page.getByText("80+", { exact: true })).toBeVisible();
+});
+
+test("shows all eight testimonials, Emily C. included, each marked a sample", async ({ page }) => {
+   await page.goto("/");
+   const section = page.getByRole("region", { name: "Sample Testimonials" });
+   await expect(section.getByText("not real customer testimonials", { exact: false })).toBeVisible();
+   for (const row of ["Testimonials, first row", "Testimonials, second row"]) await expect(section.getByRole("list", { name: row }).getByRole("figure")).toHaveCount(4);
+   await expect(section.getByRole("figure").filter({ hasText: "Emily C." })).toContainText("Premium was a no-brainer");
+   for (const figure of await section.getByRole("figure").all()) await expect(figure).toContainText("Sample, not a real customer");
 });
 
 test("every link on the page has a real destination, with no placeholder", async ({ page }) => {

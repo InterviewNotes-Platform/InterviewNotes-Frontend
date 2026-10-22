@@ -5,13 +5,13 @@ import { Pause, Play, Quote } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { SectionIntro } from "./SectionIntro";
-import { PUBLISHED_TESTIMONIALS, TESTIMONIALS_SECTION } from "./home-copy";
+import { TESTIMONIALS, TESTIMONIALS_SECTION } from "./home-copy";
 
-type Testimonial = (typeof PUBLISHED_TESTIMONIALS)[number];
+type Testimonial = (typeof TESTIMONIALS)[number];
 
 const ROWS = [
-   { track: "testimonial-scroll-left", items: PUBLISHED_TESTIMONIALS.slice(0, 4), label: "Testimonials, first row" },
-   { track: "testimonial-scroll-right", items: PUBLISHED_TESTIMONIALS.slice(4), label: "Testimonials, second row" },
+   { track: "testimonial-scroll-left", items: TESTIMONIALS.slice(0, 4), label: "Testimonials, first row" },
+   { track: "testimonial-scroll-right", items: TESTIMONIALS.slice(4), label: "Testimonials, second row" },
 ] as const;
 
 function Card({ t, copy }: { t: Testimonial; copy?: boolean }) {
@@ -20,7 +20,7 @@ function Card({ t, copy }: { t: Testimonial; copy?: boolean }) {
          <figure className="m-0 w-full rounded-2xl border border-border/60 bg-card p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
                <Quote aria-hidden="true" className="size-5 text-gold/60" />
-               <span className="rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-muted-foreground">{TESTIMONIALS_SECTION.cardLabel}</span>
+               <span className="rounded-full border border-gold/60 bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-foreground">{TESTIMONIALS_SECTION.cardLabel}</span>
             </div>
             <blockquote className="m-0 mb-4 text-sm leading-relaxed text-foreground/90">&ldquo;{t.quote}&rdquo;</blockquote>
             <figcaption className="flex items-center gap-3 border-t border-border/50 pt-3">
