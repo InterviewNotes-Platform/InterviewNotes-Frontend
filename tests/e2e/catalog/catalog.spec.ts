@@ -217,7 +217,8 @@ test.describe("related content", () => {
 
          await page.goto(canonical(PROBLEM.id));
          const inView = main(page).locator('a[href^="/"]').filter({ visible: true }); // page content; header links are not under test
-         await expect(inView.and(page.locator(`a[href="${premium}"]`))).toHaveCount(3);
+         // Related Lessons, the paired Next step, the module list and the Track contents sidebar (T10): all must be rendered before the prefetch check.
+         await expect(inView.and(page.locator(`a[href="${premium}"]`))).toHaveCount(4);
          const targets = await inView.evaluateAll((links) => links.map((a) => new URL((a as HTMLAnchorElement).href).pathname));
          await page.waitForLoadState("networkidle");
          for (const path of new Set(targets)) {
