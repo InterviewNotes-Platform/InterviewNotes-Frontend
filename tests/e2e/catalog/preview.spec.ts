@@ -276,13 +276,15 @@ test.describe("/learn is retired", () => {
       test.describe(name, () => {
          test.use({ baseURL });
 
-         test("the index and a chapter redirect to the Tracks section without a marker or a robots directive", async ({ page }) => {
+         // The homepage is a catalog page, so it carries the Preview marker and robots directive on the preview deployment only.
+         test("the index and a chapter redirect to the Tracks section, which has the marker only on the preview", async ({ page }) => {
+            const expected = name === "preview" ? 1 : 0;
             for (const path of ["/learn", `/learn/${legacyCourse.slug}`, `/learn/${legacyCourse.slug}/${chapter.slug}`]) {
                await page.goto(path);
                await expect(page, path).toHaveURL("/#tracks");
-               await expect(page.getByRole("complementary", { name: "Preview" }), path).toHaveCount(0);
-               await expect(page.getByText(MARKER_TEXT), path).toHaveCount(0);
-               await expect(robots(page), path).toHaveCount(0);
+               await expect(page.getByRole("complementary", { name: "Preview" }), path).toHaveCount(expected);
+               await expect(page.getByText(MARKER_TEXT), path).toHaveCount(expected);
+               await expect(robots(page), path).toHaveCount(expected);
             }
          });
       });
