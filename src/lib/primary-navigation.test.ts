@@ -4,7 +4,7 @@ import { activeArea, PRIMARY_NAV } from "./primary-navigation";
 describe("primary navigation", () => {
    it("lists Tracks, Knowledge, Pricing and FAQ with their exact destinations, and no Practice", () => {
       expect(PRIMARY_NAV.map(({ label, href }) => [label, href])).toEqual([
-         ["Tracks", "/learn"],
+         ["Tracks", "/#tracks"],
          ["Knowledge", "/knowledge"],
          ["Pricing", "/#pricing"],
          ["FAQ", "/#faq"],
@@ -21,9 +21,6 @@ describe("activeArea", () => {
       ["/tracks", "learn"],
       ["/tracks/example", "learn"],
       ["/lessons/example", "learn"],
-      ["/learn", "learn"],
-      ["/learn/example", "learn"],
-      ["/learn/example/chapter", "learn"],
       ["/practice", "learn"],
       ["/practice/example", "learn"],
       ["/problems/example", "learn"],
@@ -33,7 +30,7 @@ describe("activeArea", () => {
       expect(activeArea(pathname)).toBe(area);
    });
 
-   it.each(["/", "/login", "/signup", "/demo", "/auth/callback", "/unknown/tracks", "/not-a-route"])(
+   it.each(["/", "/login", "/signup", "/demo", "/auth/callback", "/unknown/tracks", "/not-a-route", "/learn", "/learn/example", "/learn/example/chapter"])(
       "%s belongs to no area",
       (pathname) => {
          expect(activeArea(pathname)).toBeNull();

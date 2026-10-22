@@ -14,7 +14,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
-import { PREFETCH_PRIMARY, PREMIUM_HREF, PRIMARY_NAV, type NavArea } from "@/lib/primary-navigation";
+import { PREFETCH_PRIMARY, PREMIUM_HREF, PRIMARY_NAV, TRACKS_ENTRY, type NavArea } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 
 interface MobileMenuProps {
@@ -44,6 +44,7 @@ export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps
                 </Button>
             </SheetTrigger>
             <SheetContent
+                data-mobile-menu
                 className="gap-0 data-[state=closed]:duration-150 data-[state=open]:duration-200"
                 onOpenAutoFocus={focusFirstDestination}
             >
@@ -82,7 +83,7 @@ export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps
                     {loading ? null : user ? (
                         <>
                             <p className="truncate py-2 text-supporting text-muted-foreground">{user.email}</p>
-                            <Link href="/learn" onClick={close} className={accountRow}>Courses</Link>
+                            <Link href={TRACKS_ENTRY} onClick={close} className={accountRow}>Tracks</Link>
                             <button
                                 type="button"
                                 onClick={() => { close(); onSignOut(); }}

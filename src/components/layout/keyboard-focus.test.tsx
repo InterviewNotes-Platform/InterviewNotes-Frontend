@@ -51,7 +51,7 @@ describe("mobile menu", () => {
 
 describe("interactive semantics", () => {
     it("header, open menu and homepage nest no interactive controls", () => {
-        render(<><Header /><HomeContent /></>);
+        render(<><Header /><HomeContent tracks={{ status: "empty" }} freeChapterHref={null} problem={null} /></>);
         expect(within(screen.getByRole("banner")).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
 
         fireEvent.click(screen.getByRole("button", { name: "Menu" }));

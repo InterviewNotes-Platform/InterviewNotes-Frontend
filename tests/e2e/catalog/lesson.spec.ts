@@ -48,7 +48,7 @@ test.describe("the long Lesson", () => {
       for (const { id } of HEADINGS) expect(html, `heading ${id}`).toContain(`id="${id}"`);
    });
 
-   test("has one h1, an ordered heading outline and the Learn / Track / Module breadcrumb", async ({ page }) => {
+   test("has one h1, an ordered heading outline and the Tracks / Track / Module breadcrumb", async ({ page }) => {
       await page.goto(route);
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveCount(1);
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(LONG.title);
@@ -57,8 +57,8 @@ test.describe("the long Lesson", () => {
       levels.forEach((level, index) => expect(level, `heading ${index} skips a level`).toBeLessThanOrEqual(index === 0 ? 1 : levels[index - 1] + 1));
 
       const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-      await expect(crumbs).toHaveText(new RegExp(`^Learn\\s*/\\s*${READING.title}\\s*/\\s*${FOUNDATIONS.title}$`));
-      await expect(crumbs.getByRole("link", { name: "Learn" })).toHaveAttribute("href", "/tracks");
+      await expect(crumbs).toHaveText(new RegExp(`^Tracks\\s*/\\s*${READING.title}\\s*/\\s*${FOUNDATIONS.title}$`));
+      await expect(crumbs.getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
       await expect(crumbs.getByRole("link", { name: READING.title })).toHaveAttribute("href", canonical(READING.id));
       await expect(crumbs.getByRole("link", { name: FOUNDATIONS.title })).toHaveAttribute("href", `${canonical(READING.id)}#${FOUNDATIONS.key}`);
       await expect(crumbs.getByRole("link")).toHaveCount(3);
@@ -141,7 +141,7 @@ test.describe("relations", () => {
       await expect(quiet.getByRole("link")).toHaveText(["Related Practice Problem", "T24 Premium Solution Problem"]);
       const hrefs = await main(page).locator('a[href^="/"]').evaluateAll((links) => links.map((link) => link.getAttribute("href")!));
       // the breadcrumb's Module location is the one fragment link (S-MOD-4)
-      for (const href of hrefs.filter((candidate) => candidate !== "/tracks" && candidate !== `${canonical(READING.id)}#${FOUNDATIONS.key}`)) {
+      for (const href of hrefs.filter((candidate) => candidate !== "/#tracks" && candidate !== `${canonical(READING.id)}#${FOUNDATIONS.key}`)) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
       // an authored inline reference may name a Problem the relations also list; the relation groups may not repeat one
@@ -255,8 +255,8 @@ test.describe("desktop contents", () => {
          order.push(await page.evaluate(() => document.activeElement?.getAttribute("href") ?? document.activeElement?.tagName ?? ""));
       }
       const at = (href: string) => order.indexOf(href);
-      expect(at("/tracks")).toBeGreaterThan(-1);
-      expect(at(canonical(READING.id))).toBeGreaterThan(at("/tracks"));
+      expect(at("/#tracks")).toBeGreaterThan(-1);
+      expect(at(canonical(READING.id))).toBeGreaterThan(at("/#tracks"));
       expect(at("/knowledge/catalog-e2e-sections")).toBeGreaterThan(at(canonical(READING.id)));
       expect(at(`#${CONTENTS[0].id}`)).toBeGreaterThan(at(canonical(PRIMER.id)));
    });

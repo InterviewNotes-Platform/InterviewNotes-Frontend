@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 
 // Tracks are the primary product, Knowledge supports them (P2 spec §5.3). STATS and TESTIMONIALS are the pre-P0
-// claims (51b99f3) restored verbatim at the product owner's request, not backed by product data. Prices: spec §5.1.
+// claims (51b99f3), not backed by product data. Prices: spec §5.1. Provenance: core-experience/design-brief.md §8.
+// All are UNVERIFIED. Stats and quotes are shown only as labelled samples (P6-D-37); RG-2 is resolved by the product owner (P6-D-38).
 export const HOME_METADATA: Metadata = {
    title: "InterviewNotes: ML interview preparation",
    description:
@@ -21,15 +22,42 @@ export const HERO = {
       emphasis: "ML System Design, LLM Platforms & GenAI",
       after: " interviews. Everything you need to land your dream ML/AI offer.",
    },
-   primaryAction: { label: "Start Learning", href: TRACKS_ENTRY },
-   secondaryAction: { label: "View Pricing", href: "#pricing" },
+   primaryAction: { label: "Browse Tracks", href: TRACKS_ENTRY },
+   /** Shown only when the API confirms the free Lesson (S6-HOME-4); its destination is that Lesson, so it is not set here. */
+   freeChapterLabel: "Read a free chapter",
 };
 
-/** The animated subject cycles through these once, then rests on the first. */
-export const HERO_TOPICS = ["ML Platform Design", "LLM Platform Design", "GenAI Native Design", "ML System Design"] as const;
+/** The highlighted subject cycles through these in order and wraps from the last to the first, until the hero is paused; the first is also the still state (reduced motion) and the screen-reader subject. P6-D-40. */
+export const HERO_TOPICS = [HERO.subject, "ML platform design", "LLM platform design", "GenAI native design", "ML system design"] as const;
+
+/** The hero stage's words around the real catalog data (P6-D-40): product vocabulary only, no counts, durations, completion or access claims. */
+export const STAGE = {
+   trackLabel: "Track",
+   chooseTrack: { title: "Choose a Track", note: "Follow it module by module" },
+   /** Shown where no Track could be read; the Tracks section says why. */
+   trackFallback: { title: "Choose a Track", summary: "Follow a sequence of modules and lessons." },
+   problemLabel: "Problem",
+   /** Shown where no Problem could be read: a category, never a specific item. */
+   problemFallback: { title: "Interview Problems", summary: "Work through ML and GenAI system design problems." },
+   knowledgeLabel: "Knowledge",
+   path: ["Tracks", "Knowledge", "Problems"],
+   library: "How it works",
+   windowTabs: ["Tracks", "Knowledge", "Problems"],
+   chips: ["Modules", "Lessons", "Knowledge", "Problems"],
+   diagram: {
+      follow: "FOLLOW A TRACK",
+      nodes: ["Track", "Module", "Lesson", "Problem"],
+      lookup: "KNOWLEDGE",
+      lookupNodes: ["Core Concepts", "Patterns", "Topic", "Quick Reference"],
+      link: "linked",
+   },
+};
 
 /** Subject areas the library covers; descriptive chips, not links. */
 export const HERO_AREAS = ["GenAI & Agentic Patterns", "ML Platform & MLOps", "LLM Platform Design", "ML System Design"] as const;
+
+/** Pre-P0 51b99f3, unverified, wording unchanged (S6-HOME-6). No user, analytics or outcome data supports these figures. */
+export const STATS_DISCLOSURE = { label: "Sample", text: "Sample statistics: illustrative figures, not verified results." };
 
 export const STATS = [
    { key: "modules", value: "80+", label: "Design Modules" },
@@ -40,41 +68,41 @@ export const STATS = [
 
 export const TRACKS = {
    label: "Tracks",
-   heading: "Choose Your Path",
+   heading: "Choose Your Track",
    lead: "Tracks are the way in: pick one, work through its modules, and explore the lessons, knowledge and practice problems inside it.",
    steps: ["Select a track", "Work through its modules", "Explore lessons, knowledge and problems"],
-   /** Titles, taglines and course links are the pre-P0 track cards; the page is static, so it carries no counts. */
-   items: [
-      { key: "gen-ai-native", href: `${TRACKS_ENTRY}/gen-ai-native-design`, title: "Gen AI Native Design", tagline: "RAG, Agents, LLM Ops & more", grid: "lg:col-span-7 md:col-span-2" },
-      { key: "ml-system-design", href: `${TRACKS_ENTRY}/ml-system-design`, title: "ML System Design", tagline: "Recommendations, search, ranking & more", grid: "lg:col-span-5" },
-      { key: "llm-platform", href: `${TRACKS_ENTRY}/llm-platform-design`, title: "LLM Platform Design", tagline: "Inference serving, fine-tuning & guardrails", grid: "lg:col-span-5" },
-      { key: "ml-platform", href: `${TRACKS_ENTRY}/ml-platform-design`, title: "ML Platform Design", tagline: "MLOps, feature stores & inference", grid: "lg:col-span-7" },
-      { key: "gen-ai-foundations", href: `${TRACKS_ENTRY}/gen-ai-foundations`, title: "Gen AI Foundations", tagline: "Transformers, attention, tokenization & more", grid: "lg:col-span-12 md:col-span-2" },
-   ],
+   /** The cards come from the published catalog Tracks; nothing here describes a particular Track (S6-HOME-3). */
    cardAction: "Explore",
-   action: { label: "Explore Tracks", href: TRACKS_ENTRY },
+   empty: "No Tracks are published yet.",
+   /** Shown with a link to Knowledge when the Track list cannot be read (S6-HOME-2). */
+   unavailable: "Tracks could not be loaded right now.",
 };
 
+/** The explorer's own group ids (lib/catalog/knowledge.ts); a test holds each href to `explorerHref`. */
 export const KNOWLEDGE = {
    label: "Knowledge",
    heading: "Build the Foundations",
    lead: "Reusable technical knowledge behind every track. Each topic stands on its own and links to the lessons that rely on it.",
    /** The four editorial groups of the Knowledge explorer (P2 spec §2.3). */
    groups: [
-      { key: "core", title: "Core Concepts", description: "The concepts and key terms behind ML and GenAI systems, explained one at a time." },
-      { key: "technologies", title: "Technologies & Research", description: "The technologies and research that real systems are built on." },
-      { key: "patterns", title: "Patterns", description: "Reusable design patterns you can apply across interview problems." },
-      { key: "references", title: "Quick References", description: "Short references to scan before an interview." },
+      { key: "core-concepts", href: "/knowledge?group=core-concepts", title: "Core Concepts", description: "The concepts and key terms behind ML and GenAI systems, explained one at a time." },
+      { key: "technologies-research", href: "/knowledge?group=technologies-research", title: "Technologies & Research", description: "The technologies and research that real systems are built on." },
+      { key: "patterns", href: "/knowledge?group=patterns", title: "Patterns", description: "Reusable design patterns you can apply across interview problems." },
+      { key: "quick-references", href: "/knowledge?group=quick-references", title: "Quick References", description: "Short references to scan before an interview." },
    ],
    action: { label: "Browse Knowledge", href: "/knowledge" },
 };
 
+/** The pre-P0 section ("Engineers Who Landed Offers", "Trusted by engineers at Google, Meta, ...") named employers and
+ *  outcomes no record supports, so it now says plainly that these are samples (P6-D-37, -38). */
 export const TESTIMONIALS_SECTION = {
-   label: "Testimonials",
-   heading: "Engineers Who Landed Offers",
-   lead: "Trusted by engineers at Google, Meta, Amazon, Netflix, Apple & Microsoft.",
+   label: "Samples",
+   heading: "Sample Testimonials",
+   lead: "Illustrative examples only. These are not real customer testimonials, and the people, employers and results shown are placeholders.",
+   cardLabel: "Sample, not a real customer",
 };
 
+/** Pre-P0 51b99f3 quotes, wording unchanged, with no consent or identity record found. All eight are shown, as samples. */
 export const TESTIMONIALS = [
    { name: "Priya S.", role: "SDE-3", company: "Google", initials: "PS", quote: "The system design modules gave me a structured framework I was missing. Landed my L5 offer in 6 weeks of prep." },
    { name: "Marcus T.", role: "Senior MLE", company: "Meta", initials: "MT", quote: "ML Platform Design track is gold. Covered exactly what came up in my Meta loop — feature stores, model serving, the works." },
@@ -86,23 +114,22 @@ export const TESTIMONIALS = [
    { name: "David W.", role: "Senior SDE", company: "Amazon", initials: "DW", quote: "I prepped with three other platforms before this. InterviewNotes is the only one that covers ML system design properly." },
 ] as const;
 
-/** Planned, informational pricing (P2 spec §5.1). No discount, trial, tax, refund, guarantee or billing term is defined. */
+/** Informational pricing (P2 spec §5.1, P6-D-37: no "Planned" label). No discount, trial, tax, refund, guarantee or billing term is defined. */
 export const PRICING = {
    label: "Pricing",
    heading: "Simple, Transparent Pricing",
    lead: "Three plans are planned for the full library. Paid access is not available yet, and nothing is for sale today.",
-   listLabel: "Planned pricing",
-   badge: "Planned",
+   listLabel: "Pricing plans",
    plans: [
       { name: "Annual", amount: "$50", unit: "/year" },
       { name: "3-year", amount: "$100", unit: "/3 years" },
       { name: "Lifetime", amount: "$150", unit: "/lifetime" },
    ],
    included: {
-      label: "Every planned plan",
+      label: "Every plan",
       points: ["Every Track, Lesson and Knowledge topic in one library", "Premium material open once paid access launches", "Premium content is labelled wherever it appears"],
    },
-   note: "For information only. Paid access is not available yet.",
+   note: "For information only. Paid access is not currently available, and nothing is for sale.",
    free: {
       label: "Free",
       title: "Start with free content",
@@ -117,7 +144,7 @@ export const FAQ = {
    items: [
       {
          q: "What interview types does InterviewNotes cover?",
-         a: "We cover ML System Design, ML Platform Design, LLM Platform Design, Gen AI Foundations, and Gen AI Native Design — everything you need for MLE, Senior MLE, and Staff AI/ML roles.",
+         a: "The library is for ML and AI engineering interviews: ML system design, LLM platform design and GenAI, with the platform and MLOps work behind them. Each Track shows what is published today.",
       },
       {
          q: "How is the content structured?",
@@ -125,15 +152,21 @@ export const FAQ = {
       },
       {
          q: "Can I try it for free?",
-         a: "Yes. Free content lets you judge the depth for yourself, and premium content is labelled wherever it appears.",
+         a: "Yes. Some Lessons are free to read, so you can judge the depth for yourself, and premium content is labelled wherever it appears.",
       },
       {
          q: "What does Premium include?",
-         a: "Paid access is planned, not available yet. It is planned to open the premium material across the full library; see Pricing for the planned plans. Nothing is for sale today.",
+         a: "Paid access is planned, not available yet. It is planned to open the premium material across the full library; see the Pricing section for where that stands. Nothing is for sale today.",
       },
       {
          q: "How often is new content added?",
          a: "We add new lessons and tracks over time. Each section shows what is available today.",
       },
    ],
+};
+
+/** Browse Tracks only: no waitlist or unavailable action (DF-9). */
+export const CLOSING = {
+   heading: "Pick a Track and start reading",
+   action: { label: "Browse Tracks", href: TRACKS_ENTRY },
 };

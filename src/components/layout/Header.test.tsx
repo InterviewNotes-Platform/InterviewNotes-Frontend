@@ -36,7 +36,7 @@ describe("desktop shell", () => {
         render(<Header />);
         expect(within(banner()).getByRole("link", { name: "InterviewNotes" })).toHaveAttribute("href", "/");
         expect(within(primary()).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Tracks", "/learn"],
+            ["Tracks", "/#tracks"],
             ["Knowledge", "/knowledge"],
             ["Pricing", "/#pricing"],
             ["FAQ", "/#faq"],
@@ -69,8 +69,6 @@ describe("active area", () => {
         ["/tracks", "Tracks"],
         ["/tracks/example", "Tracks"],
         ["/lessons/example", "Tracks"],
-        ["/learn", "Tracks"],
-        ["/learn/ml-system-design/intro", "Tracks"],
         ["/practice", "Tracks"],
         ["/practice/example", "Tracks"],
         ["/problems/example", "Tracks"],
@@ -83,7 +81,7 @@ describe("active area", () => {
         expect(current.map((a) => [a.textContent, a.getAttribute("aria-current")])).toEqual([[label, "page"]]);
     });
 
-    it.each(["/", "/login", "/signup", "/demo", "/not-a-route"])("marks nothing on %s", (pathname) => {
+    it.each(["/", "/login", "/signup", "/demo", "/not-a-route", "/learn", "/learn/ml-system-design/intro"])("marks nothing on %s", (pathname) => {
         mocks.pathname = pathname;
         render(<Header />);
         expect(within(primary()).getAllByRole("link").filter((a) => a.hasAttribute("aria-current"))).toEqual([]);
@@ -105,7 +103,7 @@ describe("account", () => {
         expect(within(banner()).queryByRole("button", { name: "Account menu" })).toBeNull();
     });
 
-    it("signed in: shows initials, then email, Courses and Log out from the keyboard", () => {
+    it("signed in: shows initials, then email, Tracks and Log out from the keyboard", () => {
         signedIn({ email: "ada.lovelace@example.com", user_metadata: { full_name: "Ada Lovelace" } });
         render(<Header />);
         expect(within(banner()).queryByRole("link", { name: "Sign in" })).toBeNull();
@@ -116,7 +114,7 @@ describe("account", () => {
 
         const menu = screen.getByRole("menu");
         expect(within(menu).getByText("ada.lovelace@example.com")).toBeInTheDocument();
-        expect(within(menu).getByRole("menuitem", { name: "Courses" })).toHaveAttribute("href", "/learn");
+        expect(within(menu).getByRole("menuitem", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
         expect(within(menu).getByRole("menuitem", { name: "Log out" })).toBeInTheDocument();
     });
 

@@ -90,7 +90,7 @@ describe("a readable Lesson", () => {
    it("leads with where it sits, its title, its summary and one quiet metadata line", async () => {
       await show();
       const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
-      expect(crumbs).toHaveTextContent(/Learn\s*\/\s*Home Track\s*\/\s*First Module/);
+      expect(crumbs).toHaveTextContent(/Tracks\s*\/\s*Home Track\s*\/\s*First Module/);
       expect(screen.getByText("Synthetic summary.")).toBeInTheDocument();
       expect(screen.getByText("Intermediate").closest("p")).toHaveTextContent(/Level: Intermediate\s*·\s*Difficulty: Easy/);
       before(crumbs, heading("Synthetic Lesson", 1));
@@ -434,9 +434,9 @@ describe("a Lesson's close", () => {
       expect(screen.queryByRole("heading", { name: /Related|Practice/ })).not.toBeInTheDocument();
    });
 
-   it("is a type-based route for every link except the Learn index", async () => {
+   it("is a type-based route for every link except the Tracks index", async () => {
       await show();
-      for (const href of screen.getAllByRole("link").map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/tracks" && href !== "/tracks/home#m1")) {
+      for (const href of screen.getAllByRole("link").map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/#tracks" && href !== "/tracks/home#m1")) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
    });

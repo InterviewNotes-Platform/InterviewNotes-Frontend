@@ -1,10 +1,7 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
-import fixture from "./fixture.json";
 import {
-   EMPTY_ORIGIN,
    PREVIEW_API_ORIGIN,
    PREVIEW_ORIGIN,
-   REJECTED_ORIGIN,
    CANARY,
    canonical,
    expect,
@@ -15,7 +12,7 @@ import {
    type FixtureTrack,
 } from "./harness";
 
-// P2-T4 Learn: the /tracks discovery page and the curriculum-first Track page.
+// P2-T4 Learn: the curriculum-first Track page; `/tracks` itself redirects to the homepage Tracks section (P6-T7).
 const CURRICULUM = track("p2-t4-curriculum");
 const EMPTY_TRACK = track("p2-t4-empty");
 const HOME = track("catalog-e2e-home");
@@ -24,7 +21,6 @@ const LESSON = item("lesson.p2-t4-foundations");
 const PRACTICE = item("problem.p2-t4-practice");
 const PREMIUM = item("lesson.p2-t4-premium-depth");
 const PREMIUM_FIRST = track("p2-t4-premium-first");
-const ALL_TRACKS: FixtureTrack[] = [...fixture.tracks].sort((a, b) => (a.id < b.id ? -1 : 1));
 
 const main = (page: Page) => page.getByRole("main");
 const h1 = (page: Page) => main(page).getByRole("heading", { level: 1 });
@@ -41,13 +37,6 @@ const countsOf = (ids: string[]) => {
 };
 const panelOf = async (page: Page, control: Locator) => page.locator(`[id="${await control.getAttribute("aria-controls")}"]`);
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-const marker = (page: Page) => page.getByRole("complementary", { name: "Preview" });
-const robots = (page: Page) => page.locator('meta[name="robots"]');
-const columns = (page: Page) =>
-   main(page)
-      .getByRole("list")
-      .getByRole("listitem")
-      .evaluateAll((cards) => new Set(cards.map((card) => Math.round(card.getBoundingClientRect().left))).size);
 
 /** Tab until `target` has focus, so any focus ring comes from real keyboard modality. */
 async function tabTo(page: Page, target: Locator) {
@@ -62,171 +51,15 @@ const typesIn = (t: FixtureTrack) => t.modules.flatMap((m) => m.items).map((id) 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
 test.describe("/tracks", () => {
-   test("opens with the Learn proposition, then a card for every Track in the API's order", async ({ page }) => {
-      const response = await page.goto("/tracks");
-      expect(response?.status()).toBe(200);
-      await expect(h1(page)).toHaveText("Learn, one Track at a time.");
-      await expect(main(page).getByRole("heading", { level: 2, name: "Tracks" })).toBeVisible();
+   test("is a temporary redirect to the homepage Tracks section and no longer renders a Track grid", async ({ page, request }) => {
+      const redirect = await request.get("/tracks", { maxRedirects: 0 });
+      expect(redirect.status()).toBe(307);
+      expect(redirect.headers().location).toBe("/#tracks");
 
-      const cards = main(page).getByRole("list").getByRole("listitem");
-      await expect(cards.getByRole("heading", { level: 3 })).toHaveText(ALL_TRACKS.map((t) => t.title));
-      for (const [index, t] of ALL_TRACKS.entries()) {
-         await expect(cards.nth(index).getByRole("link")).toHaveCount(1);
-         await expect(cards.nth(index).getByRole("link", { name: t.title })).toHaveAttribute("href", canonical(t.id));
-         await expect(cards.nth(index)).toContainText(t.summary);
-      }
-   });
-
-   test("is server-rendered, with the proposition and every Track in the HTML", async ({ request }) => {
-      const html = await (await request.get("/tracks")).text();
-      expect(html).toContain("Learn, one Track at a time.");
-      for (const t of ALL_TRACKS) expect(html, `${t.title} missing from the server HTML`).toContain(t.title);
-   });
-
-   test("cards carry only what the list response has: no counts, hours, ratings or progress", async ({ page }) => {
       await page.goto("/tracks");
-      const text = await main(page).getByRole("list").innerText();
-      expect(text).not.toMatch(/\d+\s*(modules?|lessons?|hours?|min|learners?|students?|reviews?)|%|★/i);
-   });
-
-   test("a card opens its Track with one click, from the keyboard too", async ({ page }) => {
-      await page.goto("/tracks");
-      await main(page).getByRole("link", { name: CURRICULUM.title }).click();
-      await expect(page).toHaveURL(canonical(CURRICULUM.id));
-      await expect(h1(page)).toHaveText(CURRICULUM.title);
-
-      await page.goBack();
-      const card = main(page).getByRole("link", { name: HOME.title });
-      await tabTo(page, card);
-      const article = main(page).locator("article", { has: page.getByRole("link", { name: HOME.title }) });
-      await expect(article).toHaveCSS("outline-style", "solid");
-      await expect(article).toHaveCSS("outline-width", "2px");
-      await page.keyboard.press("Enter");
-      await expect(page).toHaveURL(canonical(HOME.id));
-   });
-
-   test("the Tracks destination is the current area", async ({ page }) => {
-      await page.goto("/tracks");
-      await expect(page.getByRole("banner").getByRole("navigation", { name: "Primary" }).locator("[aria-current]")).toHaveText("Tracks");
-   });
-
-   const viewports = [
-      { width: 1440, height: 900, columns: 3 },
-      { width: 1024, height: 768, columns: 3 },
-      { width: 768, height: 1024, columns: 2 },
-      { width: 390, height: 844, columns: 1 },
-   ];
-   for (const { width, height, columns: expected } of viewports) {
-      test(`is ${expected} column${expected > 1 ? "s" : ""} with no horizontal overflow at ${width}x${height}`, async ({ page }) => {
-         await page.setViewportSize({ width, height });
-         await page.goto("/tracks");
-         await expect(main(page).getByRole("link", { name: HOME.title })).toBeVisible();
-         expect(await columns(page)).toBe(expected);
-         expect(await overflows(page)).toBe(false);
-      });
-   }
-
-   test("keeps comfortable 44px targets on a phone", async ({ page }) => {
-      await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto("/tracks");
-      for (const card of await main(page).getByRole("list").getByRole("listitem").all()) {
-         expect((await card.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      }
-   });
-
-   test.describe("dark", () => {
-      test.use({ colorScheme: "dark" });
-
-      test("uses the dark tokens for the page and the cards", async ({ page }) => {
-         await page.goto("/tracks");
-         await expect(page.locator("html")).toHaveClass(/dark/);
-         await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 15, 17)");
-         await expect(main(page).locator("article").first()).toHaveCSS("background-color", "rgb(26, 26, 29)");
-      });
-   });
-});
-
-test.describe("/tracks deployments and states", () => {
-   test.describe("preview", () => {
-      test.use({ baseURL: PREVIEW_ORIGIN });
-
-      test("is marked, noindex, never publicly cacheable, with every link on this deployment", async ({ page, request }) => {
-         await page.goto("/tracks");
-         await expect(h1(page)).toBeVisible();
-         await expect(marker(page)).toBeVisible();
-         await expect(robots(page)).toHaveAttribute("content", "noindex, nofollow");
-
-         const response = await request.get("/tracks");
-         const html = await response.text();
-         expect(html).toContain('aria-label="Preview"');
-         expect(html).toMatch(/<meta name="robots" content="noindex, nofollow"\/?>/);
-         expect(response.headers()["cache-control"] ?? "").toMatch(/no-store|private/);
-         expect(html).not.toMatch(/<link[^>]+rel="(canonical|alternate)"/);
-
-         const hrefs = await page.locator("a[href]").evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
-         for (const href of hrefs) expect(href, `${href} leaves the deployment`).toMatch(/^(\/(?!\/)|#)/);
-         const cardHrefs = await main(page).locator("a[href]").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
-         expect(cardHrefs).toEqual(ALL_TRACKS.map((t) => canonical(t.id)));
-      });
-
-      test("reads the shared list endpoint and never a Track outline or an item, whatever the card count", async ({ page, request }) => {
-         const log = async (): Promise<{ path: string; query: string }[]> =>
-            (await request.get(`${PREVIEW_API_ORIGIN}/__catalog-log`)).json();
-         const before = (await log()).length;
-         await page.goto("/tracks");
-         const card = main(page).getByRole("link", { name: CURRICULUM.title });
-         await expect(card).toBeVisible();
-         await card.hover();
-         await page.waitForTimeout(1000); // prefetches, if any, are scheduled once links are in view or hovered
-
-         // Other specs share this API double, so only requests naming this task's own records can be attributed.
-         const mine = (await log()).slice(before).filter(({ path }) => path.includes("p2-t4-"));
-         expect(mine, "/tracks fetched a Track or an item per card").toEqual([]);
-         const reads = (await log()).filter(({ path }) => path === "/catalog/tracks");
-         expect(reads.length, "/tracks never called the Track list endpoint").toBeGreaterThan(0);
-      });
-   });
-
-   test("production has neither the marker nor a robots directive", async ({ page, request }) => {
-      await page.goto("/tracks");
-      await expect(page.getByRole("complementary")).toHaveCount(0);
-      await expect(robots(page)).toHaveCount(0);
-      const html = await (await request.get("/tracks")).text();
-      expect(html).not.toContain('aria-label="Preview"');
-      expect(html).not.toMatch(/noindex/i);
-   });
-
-   test.describe("a catalog with nothing published", () => {
-      test.use({ baseURL: EMPTY_ORIGIN });
-
-      test("keeps the proposition and says so calmly, with no Track card", async ({ page }) => {
-         expect((await page.goto("/tracks"))?.status()).toBe(200);
-         await expect(h1(page)).toHaveText("Learn, one Track at a time.");
-         await expect(main(page).getByRole("status")).toHaveText("No Tracks are published yet. Please check back soon.");
-         await expect(main(page).getByRole("list")).toHaveCount(0);
-         await expect(main(page).getByRole("heading", { level: 3 })).toHaveCount(0);
-         await expect(marker(page)).toBeVisible();
-         await expect(robots(page)).toHaveAttribute("content", "noindex, nofollow");
-         expect(await overflows(page)).toBe(false);
-      });
-   });
-
-   test.describe("a catalog the API refuses", () => {
-      test.use({ baseURL: REJECTED_ORIGIN });
-
-      test("keeps the proposition, shows the unavailable notice and none of another environment's Tracks", async ({ page }) => {
-         const response = await page.goto("/tracks");
-         expect(response?.status()).toBe(200);
-         const html = await response!.text();
-         for (const t of ALL_TRACKS) expect(html, `${t.title} leaked into an unavailable page`).not.toContain(t.title);
-         expect(html).not.toContain("Forbidden");
-         await expect(h1(page)).toHaveText("Learn, one Track at a time.");
-         await expect(main(page).getByRole("status")).toHaveText("This content is temporarily unavailable. Please try again later.");
-         await expect(main(page).getByRole("list")).toHaveCount(0);
-         await expect(marker(page)).toBeVisible();
-         await expect(robots(page)).toHaveAttribute("content", "noindex, nofollow");
-         expect(await main(page).innerText()).not.toMatch(/403|forbidden|postgres|traceback|token/i);
-      });
+      await expect(page).toHaveURL("/#tracks");
+      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page.getByRole("heading", { level: 1, name: "Learn, one Track at a time." })).toHaveCount(0);
    });
 });
 
@@ -259,7 +92,7 @@ test.describe("Track page", () => {
       await start.click();
       await expect(page).toHaveURL(canonical(LESSON.id));
       await expect(h1(page)).toHaveText(LESSON.title);
-      await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(`Learn/${CURRICULUM.title}/${FOUNDATIONS.title}`);
+      await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(`Tracks/${CURRICULUM.title}/${FOUNDATIONS.title}`);
    });
 
    test("Start on another Track follows that Track's own order", async ({ page }) => {
@@ -619,9 +452,9 @@ test.describe("Track page responsive", () => {
 });
 
 test.describe("Learn flow", () => {
-   test("/tracks to a Track, a module, a Lesson, and back to open a Problem", async ({ page }) => {
-      await page.goto("/tracks");
-      await main(page).getByRole("link", { name: CURRICULUM.title }).click();
+   test("the homepage Tracks to a Track, a module, a Lesson, and back to open a Problem", async ({ page }) => {
+      await page.goto("/#tracks");
+      await page.locator("#tracks").getByRole("link", { name: new RegExp(CURRICULUM.title) }).first().click();
       await expect(page).toHaveURL(canonical(CURRICULUM.id));
 
       const depth = moduleControl(page, CURRICULUM, DEPTH.key);
@@ -634,7 +467,7 @@ test.describe("Learn flow", () => {
       await expect(h1(page)).toHaveText(LESSON.title);
 
       const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
-      await expect(breadcrumb).toHaveText(`Learn/${CURRICULUM.title}/${FOUNDATIONS.title}`);
+      await expect(breadcrumb).toHaveText(`Tracks/${CURRICULUM.title}/${FOUNDATIONS.title}`);
       await breadcrumb.getByRole("link", { name: CURRICULUM.title }).click();
       await expect(page).toHaveURL(canonical(CURRICULUM.id));
 
@@ -651,7 +484,7 @@ test.describe("Learn flow", () => {
 
 test.describe("Learn smoke", () => {
    test("neighbouring routes still render", async ({ page }) => {
-      for (const route of [canonical(LESSON.id), canonical(PRACTICE.id), canonical("knowledge.catalog-e2e-sections"), "/learn"]) {
+      for (const route of [canonical(LESSON.id), canonical(PRACTICE.id), canonical("knowledge.catalog-e2e-sections")]) {
          expect((await page.goto(route))?.status(), route).toBe(200);
          await expect(page.getByRole("heading").first()).toBeVisible();
       }

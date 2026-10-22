@@ -10,6 +10,9 @@ const HOST = "127.0.0.1";
 const previewToken = process.env.FAKE_API_PREVIEW_TOKEN;
 // Set: a second credential the preview API accepts, for a catalog with nothing published (empty states).
 const emptyToken = process.env.FAKE_API_EMPTY_TOKEN;
+// Set: the homepage's free-chapter Lesson (`anatomy-of-a-model-request`) exists with this access, "free" or "premium". Unset: unknown (404).
+const freeChapterAccess = process.env.FAKE_API_FREE_CHAPTER;
+const FREE_CHAPTER_META = "/catalog/items/lesson/anatomy-of-a-model-request/meta";
 const PRIVATE = "private, no-store";
 /** Every /catalog request, with its query string and the preview credential it presented, served or refused. */
 const catalogLog = [];
@@ -193,6 +196,10 @@ function catalog(req, res, path, query) {
    if (track) {
       const found = tracks.get(decodeURIComponent(track[1]));
       return found ? send(res, 200, trackOut(found)) : send(res, 404, { detail: "Track not found" });
+   }
+   if (freeChapterAccess && path === FREE_CHAPTER_META) {
+      const home = { id: "lesson.anatomy-of-a-model-request", type: "lesson", slug: "anatomy-of-a-model-request", title: "Anatomy of a Model Request", summary: "Home free-chapter marker.", tags: [], difficulty: null, level: null };
+      return send(res, 200, meta({ ...home, access: freeChapterAccess }));
    }
    const match = /^\/catalog\/items\/([^/]+)\/([^/]+)(\/meta|\/related)?$/.exec(path);
    const item = match && items.get(`${decodeURIComponent(match[1])}.${decodeURIComponent(match[2])}`);

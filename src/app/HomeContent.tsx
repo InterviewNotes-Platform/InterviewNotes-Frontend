@@ -1,50 +1,42 @@
 import Link from "next/link";
-import {
-   ArrowRight,
-   BookOpen,
-   BrainCircuit,
-   ChartColumn,
-   CheckCircle2,
-   Cpu,
-   FlaskConical,
-   Layers,
-   Lightbulb,
-   Sparkles,
-   Star,
-   Trophy,
-   Users,
-   Zap,
-   type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, FlaskConical, Layers, Lightbulb, Sparkles, Star, type LucideIcon } from "lucide-react";
 import { Footer } from "@/components/layout/Footer";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Disclosure } from "@/components/ui/disclosure";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
+import type { HomeProblem, HomeTracks } from "@/lib/catalog/home";
 import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
-import { FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TRACKS } from "./home-copy";
+import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, STATS_DISCLOSURE, TRACKS } from "./home-copy";
+import { HeroMotion } from "./HeroMotion";
+import { HomeSmoothScroll } from "./HomeSmoothScroll";
+import { HeroStage } from "./HeroStage";
+import { HOME_FONT_VARIABLES } from "./home-font";
 import { RotatingTopic } from "./RotatingTopic";
 import { SectionIntro } from "./SectionIntro";
 import { Testimonials } from "./Testimonials";
 
-const STAT_ICONS: Record<(typeof STATS)[number]["key"], LucideIcon> = { modules: BookOpen, engineers: Users, offers: Trophy, tracks: Zap };
-const TRACK_ICONS: Record<(typeof TRACKS.items)[number]["key"], LucideIcon> = {
-   "gen-ai-native": BrainCircuit,
-   "ml-system-design": ChartColumn,
-   "llm-platform": Zap,
-   "ml-platform": Cpu,
-   "gen-ai-foundations": BookOpen,
-};
 const KNOWLEDGE_ICONS: Record<(typeof KNOWLEDGE.groups)[number]["key"], LucideIcon> = {
-   core: Lightbulb,
-   technologies: FlaskConical,
+   "core-concepts": Lightbulb,
+   "technologies-research": FlaskConical,
    patterns: Layers,
-   references: BookOpen,
+   "quick-references": BookOpen,
 };
 
-/** Entrance motion for the hero only; `motion-safe` leaves the content visible and still when motion is reduced. */
-const ENTER = "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:fill-mode-backwards motion-safe:duration-500";
+const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
+
+/** The prototype's headline motion: each word blurs and rises in, one after another. */
+function Words({ text, from }: { text: string; from: number }) {
+   return text.split(" ").map((word, i) => (
+      <Fragment key={i}>
+         <span className="home-word" style={delay(from + i * 45)}>
+            {word}
+         </span>{" "}
+      </Fragment>
+   ));
+}
+
+const BUTTON = "home-btn inline-flex h-auto rounded-full px-6 py-3.5 text-[15px]/4.5 font-medium";
 
 /** The gold tick chip used by the pricing lists. */
 function Tick() {
@@ -55,102 +47,221 @@ function Tick() {
    );
 }
 
-function Hero() {
+/**
+ * The hero keeps the prototype's composition (homepage/): the pill, the serif headline whose subject rotates, the two
+ * actions, then the rising reader window. The free-chapter action appears only when the API confirmed the Lesson is
+ * free (S6-HOME-4).
+ */
+function Hero({ tracks, problem, freeChapterHref }: { tracks: HomeTracks; problem: HomeProblem | null; freeChapterHref: string | null }) {
    return (
-      <section aria-labelledby="home-heading" className="relative isolate overflow-hidden">
-         {/* Decoration only: a hairline grid that fades out, and a soft spotlight from the accent. */}
-         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 [--grid:color-mix(in_oklab,var(--foreground)_7%,transparent)]">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--grid)_1px,transparent_1px),linear-gradient(to_bottom,var(--grid)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-            <div className="absolute top-0 left-1/2 h-[400px] w-[1000px] -translate-x-1/2 rounded-full bg-primary/20 opacity-50 blur-[120px] dark:mix-blend-screen" />
-         </div>
-
-         <PageContainer className="flex flex-col items-center py-20 text-center md:py-28 lg:py-32">
-            <div className={ENTER}>
-               <Badge variant="outline" className="gap-2 border-primary/30 bg-primary/10 px-4 py-2 text-sm font-bold text-(--primary-text) shadow-sm [&>svg]:size-4">
-                  <Sparkles aria-hidden="true" />
+      <section aria-labelledby="home-heading">
+         <HeroMotion className="relative overflow-clip bg-gradient-to-b from-(--home-sky-a) to-(--home-sky-b) pt-[21px]">
+            {/* Decoration only: the historical hairline grid (24px, low contrast) fading out from the headline; static, behind everything, subdued on small screens. */}
+            <div
+               data-hero-grid
+               aria-hidden="true"
+               className="pointer-events-none absolute inset-0 [--grid:color-mix(in_oklab,var(--foreground)_9%,transparent)] opacity-60 lg:opacity-100"
+            >
+               <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--grid)_1px,transparent_1px),linear-gradient(to_bottom,var(--grid)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_80%_55%_at_50%_30%,#000_45%,transparent_100%)]" />
+            </div>
+            <PageContainer className="relative z-10 flex flex-col items-center gap-7 pt-18 pb-16 text-center lg:pt-26">
+               <p
+                  className="home-fade-up m-0 flex items-center gap-2.5 rounded-full border border-white/80 bg-white/55 px-4 py-2 text-[13px]/4 font-medium dark:border-white/10 dark:bg-white/5"
+                  style={delay(80)}
+               >
+                  <Sparkles aria-hidden="true" className="size-4 text-primary" />
                   {HERO.eyebrow}
-               </Badge>
-            </div>
+               </p>
 
-            <h1 id="home-heading" className={`${ENTER} mt-6 mb-4 max-w-5xl text-4xl leading-[1.1] font-extrabold tracking-tight text-balance delay-100 md:text-5xl lg:text-6xl`}>
-               {HERO.lead} <br className="hidden md:block" />
-               <RotatingTopic topics={HERO_TOPICS} label={HERO.subject} /> {HERO.tail}
-            </h1>
+               <h1 id="home-heading" className="m-0 max-w-235 font-home-heading text-[clamp(40px,4.4vw+8px,68px)] leading-[1.09] font-normal tracking-[-0.02em] text-balance">
+                  <Words text={HERO.lead} from={160} /> <br className="hidden md:block" />
+                  <span className="home-word" style={delay(160 + HERO.lead.split(" ").length * 45)}>
+                     <RotatingTopic topics={HERO_TOPICS} label={HERO.subject} />
+                  </span>{" "}
+                  <Words text={HERO.tail} from={160 + (HERO.lead.split(" ").length + 1) * 45} />
+               </h1>
 
-            <p className={`${ENTER} mt-0 mb-8 max-w-2xl text-base leading-relaxed font-medium text-pretty text-muted-foreground delay-150 md:text-lg`}>
-               {HERO.intro.before}
-               <strong className="font-semibold text-foreground">{HERO.intro.emphasis}</strong>
-               {HERO.intro.after}
-            </p>
+               <p className="home-fade-up m-0 max-w-[680px] text-base/7 text-pretty text-muted-foreground sm:text-lg/7" style={delay(560)}>
+                  {HERO.intro.before}
+                  <strong className="font-semibold text-foreground">{HERO.intro.emphasis}</strong>
+                  {HERO.intro.after}
+               </p>
 
-            <ul className={`${ENTER} m-0 mb-10 flex max-w-5xl list-none flex-wrap justify-center gap-3 p-0 delay-200`}>
-               {HERO_AREAS.map((area) => (
-                  <li
-                     key={area}
-                     className="inline-flex cursor-default items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1.5 text-sm font-medium transition-micro hover:bg-secondary"
-                  >
-                     <CheckCircle2 aria-hidden="true" className="size-4 text-primary" />
-                     {area}
-                  </li>
-               ))}
-            </ul>
-
-            <div className={`${ENTER} mb-12 flex w-full flex-col items-stretch justify-center gap-3 delay-300 sm:w-auto sm:flex-row sm:items-center`}>
-               <Button
-                  asChild
-                  size="lg"
-                  className="h-12 rounded-xl bg-gold px-8 text-base font-bold text-gold-foreground shadow-xl shadow-gold/25 hover:bg-gold-hover hover:shadow-gold/40 motion-safe:hover:scale-105"
-               >
-                  <Link href={HERO.primaryAction.href} prefetch={PREFETCH_PRIMARY}>
+               <div className="home-fade-up flex flex-wrap justify-center gap-3 pt-2" style={delay(660)}>
+                  <Link href={HERO.primaryAction.href} prefetch={PREFETCH_PRIMARY} className={`${BUTTON} bg-foreground text-background hover:bg-foreground/90`}>
                      {HERO.primaryAction.label}
-                     <ArrowRight aria-hidden="true" className="size-5" />
+                     <ArrowRight aria-hidden="true" className="ml-2 size-4" />
                   </Link>
-               </Button>
-               <Button
-                  asChild
-                  size="lg"
-                  variant="outline"
-                  className="h-12 rounded-xl border-2 border-foreground/20 px-8 text-base font-bold hover:border-foreground/40 hover:bg-muted/60 hover:text-foreground"
-               >
-                  <Link href={HERO.secondaryAction.href}>{HERO.secondaryAction.label}</Link>
-               </Button>
-            </div>
+                  {freeChapterHref ? (
+                     <Link
+                        href={freeChapterHref}
+                        prefetch={false}
+                        className={`${BUTTON} bg-card text-foreground shadow-[0_1px_2px_rgb(var(--home-sh)/0.08)] dark:bg-home-raised dark:shadow-[inset_0_0_0_1px_var(--home-line)]`}
+                     >
+                        {HERO.freeChapterLabel}
+                     </Link>
+                  ) : null}
+               </div>
 
-            <ul className={`${ENTER} m-0 grid max-w-4xl list-none grid-cols-2 gap-6 p-0 delay-500 md:grid-cols-4 md:gap-10`}>
-               {STATS.map(({ key, value, label }) => {
-                  const Icon = STAT_ICONS[key];
-                  return (
-                     <li key={key} className="group cursor-default text-center">
-                        <span aria-hidden="true" className="mx-auto mb-3 block w-fit rounded-xl border border-primary/10 bg-primary/5 p-3 transition-micro group-hover:bg-primary/15">
-                           <Icon className="size-5 text-primary md:size-6" />
-                        </span>
-                        <span className="mb-1 block text-2xl font-extrabold md:text-3xl lg:text-4xl">{value}</span>
-                        <span className="block text-xs font-semibold text-muted-foreground md:text-sm">{label}</span>
+               <ul className="home-fade-up m-0 flex max-w-5xl list-none flex-wrap justify-center gap-2.5 p-0" style={delay(760)}>
+                  {HERO_AREAS.map((area) => (
+                     <li key={area} className="cursor-default rounded-full border border-home-line bg-card/70 px-3 py-1.5 text-[13px]/4 font-medium text-muted-foreground">
+                        {area}
                      </li>
-                  );
-               })}
-            </ul>
-         </PageContainer>
+                  ))}
+               </ul>
+            </PageContainer>
+
+            <HeroStage tracks={tracks} problem={problem} />
+         </HeroMotion>
       </section>
    );
 }
 
-/** Tracks are the primary product: the bento grid of the pre-P0 page, each card opening its course. */
-function Tracks() {
+/**
+ * One statistic. Assistive technology reads the stable final value; the visible digits count up from 0 as the band scrolls into
+ * view (the prototype's `Count`: a CSS counter driven by a scroll timeline, so no script and no intermediate frame is exposed).
+ * Without scroll-timeline support, without CSS, or under reduced motion, the final value is simply shown.
+ */
+function Figure({ value }: { value: string }) {
+   const [, prefix, digits, suffix] = /^(\D*)(\d+)(.*)$/.exec(value) ?? ["", "", "", value];
    return (
-      <section id="tracks" aria-labelledby="home-tracks-heading" className="relative scroll-mt-20 overflow-hidden border-t border-border/50 py-20 md:py-28">
-         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.03] via-transparent to-gold/[0.04]" />
-         <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 [--grid:color-mix(in_oklab,var(--foreground)_4%,transparent)] bg-[linear-gradient(to_right,var(--grid)_1px,transparent_1px),linear-gradient(to_bottom,var(--grid)_1px,transparent_1px)] bg-[size:32px_32px]"
-         />
-         <PageContainer className="relative">
-            <SectionIntro id="home-tracks-heading" label={TRACKS.label} title={TRACKS.heading} lead={TRACKS.lead} />
+      <span className="text-[32px]/10 tracking-[-0.03em] tabular-nums sm:text-[40px]/12">
+         <span className="sr-only">{value}</span>
+         <span aria-hidden="true">
+            {prefix}
+            {digits ? <span className="home-count" style={{ "--to": digits } as CSSProperties} /> : null}
+            {suffix}
+         </span>
+      </span>
+   );
+}
 
-            <ol className="m-0 mx-auto mb-12 flex max-w-4xl list-none flex-col gap-3 p-0 text-center sm:flex-row sm:justify-center sm:gap-4">
+/** The four existing stats, in their own band after the Tracks (spec S6-HOME-1); wording is unchanged and the band says they are samples. */
+function StatsBand() {
+   return (
+      <div className="bg-background pt-12 pb-6 md:pt-16">
+         <PageContainer>
+            <p className="m-0 mb-8 flex flex-wrap items-center justify-center gap-2 text-center text-sm font-medium text-muted-foreground">
+               <span className="rounded-full border border-gold/60 bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-foreground">{STATS_DISCLOSURE.label}</span>
+               {STATS_DISCLOSURE.text}
+            </p>
+            <ul className="m-0 mx-auto grid max-w-4xl list-none grid-cols-2 gap-y-8 p-0 md:grid-cols-4">
+               {STATS.map(({ key, value, label }) => (
+                  <li key={key} className="flex cursor-default flex-col items-center gap-1.5 py-2 text-center md:border-l md:border-home-mist md:first:border-l-0">
+                     <Figure value={value} />
+                     <span className="font-mono text-[11px]/3.5 tracking-[0.08em] text-muted-foreground uppercase">{label}</span>
+                  </li>
+               ))}
+            </ul>
+         </PageContainer>
+      </div>
+   );
+}
+
+/** One card per published Track; a lone Track or a pair is centred rather than left in a wider grid. */
+const CARD_GRID = (count: number) => (count === 1 ? "max-w-xl" : count === 2 ? "max-w-4xl md:grid-cols-2" : "max-w-6xl md:grid-cols-2 lg:grid-cols-3");
+
+/** The prototype's track icons, cycled by position: decoration only, they say nothing about a Track. */
+function TrackIcon({ index }: { index: number }) {
+   const line = { fill: "none", stroke: "var(--foreground)", strokeWidth: 1.2 } as const;
+   const accent = { className: "home-accent", fill: "none", stroke: "var(--home-sky)", strokeWidth: 1.2 } as const;
+   const glyphs: ReactNode[] = [
+      <>
+         <rect x="12" y="13" width="18" height="24" rx="3" {...line} />
+         <path d="M16 20h10M16 25h10M16 30h6" {...accent} strokeLinecap="round" />
+         <circle cx="35" cy="35" r="7" fill="var(--card)" stroke="var(--foreground)" strokeWidth="1.2" />
+         <path d="M40 40l5 5" {...line} strokeLinecap="round" />
+      </>,
+      <>
+         {[13, 24, 35].map((y) => (
+            <rect key={y} x="13" y={y} width="30" height="8" rx="2.5" {...line} />
+         ))}
+         {[17, 28, 39].map((cy) => (
+            <circle key={cy} cx="18" cy={cy} r="1.3" fill="var(--foreground)" />
+         ))}
+         <path d="M24 17h14M24 28h14M24 39h8" {...accent} strokeLinecap="round" />
+      </>,
+      <>
+         <rect x="10" y="22" width="11" height="11" rx="3" {...line} />
+         <rect x="35" y="12" width="11" height="11" rx="3" {...line} />
+         <rect x="35" y="33" width="11" height="11" rx="3" {...line} />
+         <path d="M21 27.5H28V17.5H35M28 27.5V38.5H35" {...accent} />
+         <circle cx="28" cy="27.5" r="2" fill="var(--card)" stroke="var(--foreground)" strokeWidth="1.2" />
+      </>,
+      <>
+         <path d="M12 14H44L33 28V40L23 44V28L12 14Z" {...line} strokeLinejoin="round" />
+         <path d="M18 20H38" {...accent} strokeLinecap="round" />
+      </>,
+   ];
+   return (
+      <svg width="48" height="48" viewBox="0 0 56 56" aria-hidden="true" focusable="false" className="shrink-0">
+         <rect x="0.6" y="0.6" width="54.8" height="54.8" rx="14" fill="none" stroke="var(--home-mist)" strokeWidth="1.2" />
+         {glyphs[index % glyphs.length]}
+      </svg>
+   );
+}
+
+/** The published catalog Tracks, or one truthful sentence in their place; never a made-up card (S6-HOME-2, -3). */
+function TrackCards({ tracks }: { tracks: HomeTracks }) {
+   if (tracks.status === "ok") {
+      return (
+         <ul className={cn("m-0 mx-auto grid list-none grid-cols-1 gap-5 p-0", CARD_GRID(tracks.cards.length))}>
+            {tracks.cards.map(({ id, title, summary, href }, i) => (
+               <li key={id} className="flex">
+                  <Link
+                     href={href}
+                     prefetch={false}
+                     style={{ "--s": `${(i % 3) * 4}%` } as CSSProperties}
+                     className="home-lift home-reveal group flex w-full flex-col gap-8 wrap-anywhere rounded-[20px] border border-home-line bg-card p-7"
+                  >
+                     <TrackIcon index={i} />
+                     <span className="flex flex-1 flex-col gap-2.5">
+                        <h3 className="m-0 text-xl/6 font-semibold tracking-[-0.02em]">{title}</h3>
+                        {summary ? <p className="m-0 text-sm/5.5 text-pretty text-muted-foreground">{summary}</p> : null}
+                        <span className="mt-auto flex items-center justify-end gap-2 pt-4 text-sm font-semibold text-foreground">
+                           {TRACKS.cardAction}
+                           <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                     </span>
+                  </Link>
+               </li>
+            ))}
+         </ul>
+      );
+   }
+
+   return (
+      <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 rounded-[20px] border border-home-line bg-card px-6 py-10 text-center">
+         <p className="m-0 text-body text-pretty text-muted-foreground">{tracks.status === "empty" ? TRACKS.empty : TRACKS.unavailable}</p>
+         {tracks.status === "unavailable" ? (
+            <Link href={KNOWLEDGE.action.href} prefetch={false} className={`${BUTTON} bg-card text-foreground shadow-[0_0_0_1px_var(--home-rule)]`}>
+               {KNOWLEDGE.action.label}
+            </Link>
+         ) : null}
+      </div>
+   );
+}
+
+/** Tracks are the primary product and the one place they are discovered: `/#tracks` (S6-NAV-1). */
+function Tracks({ tracks }: { tracks: HomeTracks }) {
+   return (
+      <section id="tracks" aria-labelledby="home-tracks-heading" className="scroll-mt-28 py-16 md:py-24">
+         <PageContainer>
+            <div className="home-reveal mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+               <div className="flex flex-col gap-4">
+                  <p className="m-0 font-mono text-[11px]/3.5 tracking-[0.08em] text-muted-foreground uppercase">{TRACKS.label}</p>
+                  <h2 id="home-tracks-heading" className="m-0 max-w-140 text-[32px]/10 font-medium tracking-[-0.03em] text-balance sm:text-[40px]/11.5">
+                     {TRACKS.heading}
+                  </h2>
+               </div>
+               <p className="m-0 max-w-96 shrink-0 text-[15px]/6 text-pretty text-muted-foreground">{TRACKS.lead}</p>
+            </div>
+
+            <ol className="m-0 mx-auto mb-8 flex max-w-4xl list-none flex-col gap-3 p-0 text-center sm:flex-row sm:justify-center sm:gap-4">
                {TRACKS.steps.map((step, i) => (
-                  <li key={step} className="flex items-center justify-center gap-3 text-sm font-semibold text-foreground">
-                     <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold text-xs font-bold text-gold-foreground">
+                  <li key={step} className="flex items-center justify-center gap-3 text-sm font-medium text-foreground">
+                     <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold font-mono text-xs font-medium text-gold-foreground">
                         {i + 1}
                      </span>
                      {step}
@@ -158,66 +269,35 @@ function Tracks() {
                ))}
             </ol>
 
-            <ul className="m-0 mx-auto grid max-w-6xl list-none grid-cols-1 gap-5 p-0 md:grid-cols-2 lg:grid-cols-12">
-               {TRACKS.items.map(({ key, href, title, tagline, grid }) => {
-                  const Icon = TRACK_ICONS[key];
-                  return (
-                     <li key={key} className={cn("flex", grid)}>
-                        <Link
-                           href={href}
-                           prefetch={PREFETCH_PRIMARY}
-                           className="group relative flex w-full flex-col overflow-hidden wrap-anywhere rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/[0.04] transition-[color,background-color,border-color,box-shadow,transform] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10 motion-safe:hover:scale-[1.02]"
-                        >
-                           <span aria-hidden="true" className="h-1 w-full bg-gradient-to-r from-primary via-gold/70 to-primary/40" />
-                           <span className="flex flex-1 flex-col p-6">
-                              <span
-                                 aria-hidden="true"
-                                 className="mb-4 flex size-14 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary transition-micro group-hover:border-primary/20 group-hover:bg-primary/15"
-                              >
-                                 <Icon className="size-7" />
-                              </span>
-                              <h3 className="m-0 mb-1.5 text-xl font-bold transition-micro group-hover:text-premium">{title}</h3>
-                              <p className="m-0 mb-6 text-supporting font-medium text-muted-foreground">{tagline}</p>
-                              <span className="mt-auto flex items-center justify-end gap-2 border-t border-border/30 pt-4 text-sm font-bold text-premium">
-                                 {TRACKS.cardAction}
-                                 <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
-                              </span>
-                           </span>
-                        </Link>
-                     </li>
-                  );
-               })}
-            </ul>
-
-            <div className="mt-14 text-center">
-               <Button asChild size="lg" className="h-12 rounded-xl bg-gold px-8 font-bold text-gold-foreground shadow-xl shadow-gold/25 hover:bg-gold-hover hover:shadow-gold/40 motion-safe:hover:scale-105">
-                  <Link href={TRACKS.action.href} prefetch={PREFETCH_PRIMARY}>
-                     {TRACKS.action.label}
-                     <ArrowRight aria-hidden="true" className="size-5" />
-                  </Link>
-               </Button>
-            </div>
+            <TrackCards tracks={tracks} />
          </PageContainer>
       </section>
    );
 }
 
-/** Knowledge supports the Tracks: the four editorial groups of the explorer, one link into it. */
+/** Knowledge supports the Tracks: its four editorial groups, each opening the explorer on that group. No catalog read. */
 function Knowledge() {
    return (
       <section id="knowledge" aria-labelledby="home-knowledge-heading" className="scroll-mt-20 border-t border-border/50 bg-surface py-20 md:py-28">
          <PageContainer>
             <SectionIntro id="home-knowledge-heading" label={KNOWLEDGE.label} title={KNOWLEDGE.heading} lead={KNOWLEDGE.lead} />
             <ul className="m-0 mx-auto grid max-w-6xl list-none gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
-               {KNOWLEDGE.groups.map(({ key, title, description }) => {
+               {KNOWLEDGE.groups.map(({ key, href, title, description }, i) => {
                   const Icon = KNOWLEDGE_ICONS[key];
                   return (
-                     <li key={key} className="flex flex-col rounded-2xl border border-border/60 bg-background/70 p-6 text-left backdrop-blur-md transition-micro hover:bg-background">
-                        <span aria-hidden="true" className="mb-4 flex size-12 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary">
-                           <Icon className="size-6" />
-                        </span>
-                        <h3 className="m-0 mb-2 text-lg font-bold">{title}</h3>
-                        <p className="m-0 text-supporting text-pretty text-muted-foreground">{description}</p>
+                     <li key={key} className="flex">
+                        <Link
+                           href={href}
+                           prefetch={false}
+                           style={{ "--s": `${i * 3}%` } as CSSProperties}
+                           className="home-reveal group flex w-full flex-col rounded-2xl border border-border/60 bg-background p-6 text-left transition-[color,background-color,border-color,box-shadow] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10"
+                        >
+                           <span aria-hidden="true" className="mb-4 flex size-12 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary">
+                              <Icon className="size-6" />
+                           </span>
+                           <h3 className="m-0 mb-2 text-lg font-bold transition-micro group-hover:text-premium">{title}</h3>
+                           <p className="m-0 text-supporting text-pretty text-muted-foreground">{description}</p>
+                        </Link>
                      </li>
                   );
                })}
@@ -235,7 +315,7 @@ function Knowledge() {
    );
 }
 
-/** Planned pricing: three parallel plans that differ only in price and period, a shared list, and no purchase action. */
+/** Pricing for information: three parallel plans that differ only in price and period, a shared list, and no purchase action. */
 function Pricing() {
    return (
       <section id="pricing" aria-labelledby="home-pricing-heading" className="scroll-mt-20 border-t border-border/50 bg-surface py-20 md:py-28">
@@ -243,10 +323,11 @@ function Pricing() {
             <SectionIntro id="home-pricing-heading" label={PRICING.label} title={PRICING.heading} lead={PRICING.lead} gold />
 
             <ul aria-label={PRICING.listLabel} className="m-0 mx-auto grid max-w-5xl list-none gap-5 p-0 md:grid-cols-3">
-               {PRICING.plans.map(({ name, amount, unit }) => (
+               {PRICING.plans.map(({ name, amount, unit }, i) => (
                   <li
                      key={name}
-                     className="relative flex flex-col items-center overflow-hidden rounded-2xl border-2 border-gold/40 bg-gradient-to-b from-gold/10 to-transparent px-6 pt-12 pb-8 text-center shadow-2xl ring-1 shadow-gold/10 ring-gold/20"
+                     style={{ "--s": `${i * 4}%` } as CSSProperties}
+                     className="home-reveal relative flex flex-col items-center overflow-hidden rounded-2xl border-2 border-gold/40 bg-gradient-to-b from-gold/10 to-transparent px-6 py-8 text-center shadow-2xl ring-1 shadow-gold/10 ring-gold/20"
                   >
                      <span className="flex items-center gap-2 text-sm font-bold tracking-wider text-premium uppercase">
                         <Star aria-hidden="true" className="size-4 fill-gold text-gold" />
@@ -256,7 +337,6 @@ function Pricing() {
                         <span className="text-5xl font-extrabold tracking-tight tabular-nums">{amount}</span>
                         <span className="text-supporting font-semibold text-muted-foreground">{unit}</span>
                      </span>
-                     <span className="absolute top-0 right-0 rounded-bl-xl bg-gold px-3 py-1 text-xs font-bold tracking-wide text-gold-foreground uppercase">{PRICING.badge}</span>
                   </li>
                ))}
             </ul>
@@ -291,18 +371,24 @@ function Pricing() {
    );
 }
 
+/** Native `details`: Enter and Space work, the state is exposed, and every answer opens with JavaScript off. */
 function Faq() {
    return (
       <section id="faq" aria-labelledby="home-faq-heading" className="scroll-mt-20 border-t border-border/50 py-20 md:py-28">
          <PageContainer>
             <SectionIntro id="home-faq-heading" label={FAQ.label} title={FAQ.heading} />
-            <div className="mx-auto flex max-w-2xl flex-col gap-3">
+            <div className="home-reveal mx-auto flex max-w-2xl flex-col gap-3">
                {FAQ.items.map(({ q, a }) => (
-                  <div key={q} className="overflow-hidden rounded-xl border border-border/60 bg-card px-5">
-                     <Disclosure level="h3" compact title={q}>
-                        <p className="m-0 pb-4 text-supporting leading-relaxed text-pretty text-muted-foreground">{a}</p>
-                     </Disclosure>
-                  </div>
+                  <details key={q} className="group rounded-xl border border-border/60 bg-card px-5">
+                     <summary className="flex min-h-11 cursor-pointer list-none items-center gap-4 rounded-md py-3 text-left transition-micro -outline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                        <h3 className="m-0 min-w-0 flex-1 text-body font-semibold text-balance">{q}</h3>
+                        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false" className="shrink-0">
+                           <path d="M5 10h10" fill="none" stroke="var(--foreground)" strokeWidth="1.4" strokeLinecap="round" />
+                           <path className="home-faq-v" d="M10 5v10" fill="none" stroke="var(--foreground)" strokeWidth="1.4" strokeLinecap="round" />
+                        </svg>
+                     </summary>
+                     <p className="m-0 pb-4 text-supporting leading-relaxed text-pretty text-muted-foreground">{a}</p>
+                  </details>
                ))}
             </div>
          </PageContainer>
@@ -310,17 +396,50 @@ function Faq() {
    );
 }
 
+/** The one closing action: Browse Tracks, to the same destination as the hero, on the prototype's sky card with drifting hills. */
+function Closing() {
+   const hill = (dx: string, d: string, fill: string, opacity?: number) => (
+      <path className="home-drift" style={{ "--dx": dx } as CSSProperties} d={d} fill={fill} opacity={opacity} />
+   );
+   return (
+      <section aria-labelledby="home-closing-heading" className="py-16 md:py-24">
+         <PageContainer>
+            <div className="home-reveal relative flex flex-col items-center gap-5 overflow-clip rounded-[28px] bg-gradient-to-b from-(--home-sky-a) to-(--home-sky-b) px-6 pt-22 pb-34 text-center sm:px-20">
+               <svg className="pointer-events-none absolute bottom-0 left-[-6%] h-[120px] w-[112%]" viewBox="0 0 1120 120" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                  {hill("-24px", "M0 50 C 120 20, 230 46, 360 34 C 500 20, 620 56, 760 40 C 880 26, 1000 44, 1120 24 L1120 120 L0 120 Z", "var(--home-hill-sky)", 0.8)}
+                  {hill("36px", "M760 70 C 840 52, 920 62, 1000 50 C 1060 42, 1100 52, 1120 46 L1120 120 L720 120 Z", "var(--home-hill-sun)")}
+                  {hill("-14px", "M0 78 C 140 58, 280 86, 440 72 C 600 58, 720 90, 880 78 C 980 70, 1060 82, 1120 74 L1120 120 L0 120 Z", "var(--home-hill-mist)")}
+                  <path d="M0 102 C 180 88, 360 110, 560 98 C 760 86, 940 108, 1120 96 L1120 120 L0 120 Z" fill="var(--home-hill-top)" />
+               </svg>
+               <h2 id="home-closing-heading" className="relative m-0 max-w-155 text-[34px]/10.5 font-medium tracking-[-0.03em] text-balance sm:text-[44px]/12.5">
+                  {CLOSING.heading}
+               </h2>
+               <div className="relative flex flex-wrap justify-center gap-3 pt-3">
+                  <Link href={CLOSING.action.href} prefetch={PREFETCH_PRIMARY} className={`${BUTTON} bg-foreground text-background hover:bg-foreground/90`}>
+                     {CLOSING.action.label}
+                     <ArrowRight aria-hidden="true" className="ml-2 size-4" />
+                  </Link>
+               </div>
+            </div>
+         </PageContainer>
+      </section>
+   );
+}
+
 /** The homepage is a vertical sequence of sections: a later section (e.g. learner state) joins the flow without restructuring. */
-export function HomeContent() {
+export function HomeContent({ tracks, freeChapterHref, problem }: { tracks: HomeTracks; freeChapterHref: string | null; problem: HomeProblem | null }) {
    return (
       <>
-         <main data-home>
-            <Hero />
-            <Tracks />
+         <HomeSmoothScroll />
+         <main data-home className={HOME_FONT_VARIABLES}>
+            <Hero tracks={tracks} problem={problem} freeChapterHref={freeChapterHref} />
+            <Tracks tracks={tracks} />
+            <StatsBand />
             <Knowledge />
             <Testimonials />
             <Pricing />
             <Faq />
+            <Closing />
          </main>
          <Footer />
       </>

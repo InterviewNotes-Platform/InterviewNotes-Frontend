@@ -24,8 +24,13 @@ describe("LoginPage Google sign-in redirect", () => {
     const callback = `${window.location.origin}/auth/callback`;
 
     it("carries a valid internal redirect to the callback", () => {
-        const redirectTo = signInFrom("?redirect=/learn/ml-system-design/chapter-name");
-        expect(redirectTo).toBe(`${callback}?next=%2Flearn%2Fml-system-design%2Fchapter-name`);
+        const redirectTo = signInFrom("?redirect=%2Flessons%2Fdynamic-batching");
+        expect(redirectTo).toBe(`${callback}?next=%2Flessons%2Fdynamic-batching`);
+    });
+
+    it("encodes a redirect with a query and fragment as one next value", () => {
+        const redirectTo = signInFrom("?redirect=%2Fproblems%2Fdesign-a-feed%3Fpart%3D2%23hints");
+        expect(redirectTo).toBe(`${callback}?next=%2Fproblems%2Fdesign-a-feed%3Fpart%3D2%23hints`);
     });
 
     it("uses the bare callback when no redirect is given", () => {
@@ -36,6 +41,8 @@ describe("LoginPage Google sign-in redirect", () => {
         ["an external URL", "?redirect=https%3A%2F%2Fevil.example"],
         ["a protocol-relative URL", "?redirect=%2F%2Fevil.example"],
         ["a backslash host", "?redirect=%2F%5Cevil.example"],
+        ["a legacy /learn path", "?redirect=%2Flearn%2Fml-system-design%2Fchapter-name"],
+        ["a non-catalog path", "?redirect=%2Fdemo"],
     ])("drops %s", (_case, search) => {
         expect(signInFrom(search)).toBe(callback);
     });
