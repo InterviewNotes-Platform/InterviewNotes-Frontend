@@ -53,12 +53,15 @@ export function LessonContents({
    className,
    trackScroll = true,
    label = "Contents",
+   beside = false,
 }: {
    entries: ContentsEntry[];
    className?: string;
    trackScroll?: boolean;
    /** What the list is of: the name of the control, both landmarks and the desktop heading. */
    label?: string;
+   /** The page has a Track sidebar beside the column, so the rail waits for `xl` and the disclosure covers `lg` (S6-RDR-6). */
+   beside?: boolean;
 }) {
    // Off for a short list of bands: the last would never reach the top of a short page, so the wrong entry would stay current.
    const [tracked, choose] = useActiveHeading(trackScroll ? entries.map(({ id }) => id) : []);
@@ -76,14 +79,17 @@ export function LessonContents({
 
    return (
       <div className={className}>
-         <div className="mb-10 border-y border-border lg:hidden">
+         <div className={cn("mb-10 border-y border-border", beside ? "xl:hidden" : "lg:hidden")}>
             <Disclosure compact title={label} open={open} onOpenChange={setOpen}>
                <nav aria-label={label} className="pb-3">
                   <Links entries={entries} active={active} onJump={collapseThenJump} touch />
                </nav>
             </Disclosure>
          </div>
-         <nav aria-label={label} className="sticky top-28 hidden max-h-[calc(100vh-8rem)] overflow-y-auto lg:block">
+         <nav
+            aria-label={label}
+            className={cn("sticky top-28 hidden max-h-[calc(100vh-8rem)] overflow-y-auto", beside ? "xl:block" : "lg:block")}
+         >
             <p className="m-0 mb-2 text-supporting font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
             <Links entries={entries} active={active} onJump={jump} />
          </nav>

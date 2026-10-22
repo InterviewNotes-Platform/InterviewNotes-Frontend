@@ -1,10 +1,12 @@
-import type { Locator, Page } from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import {
    CANARY,
    canonical,
    expect,
    expectNoCanary,
    exposures,
+   FAULT_API_ORIGIN,
+   FAULT_ORIGIN,
    item,
    test,
    track,
@@ -215,7 +217,8 @@ test.describe("related content", () => {
 
          await page.goto(canonical(PROBLEM.id));
          const inView = main(page).locator('a[href^="/"]').filter({ visible: true }); // page content; header links are not under test
-         await expect(inView.and(page.locator(`a[href="${premium}"]`))).toHaveCount(3);
+         // Related Lessons, the paired Next step, the module list and the Track contents sidebar (T10): all must be rendered before the prefetch check.
+         await expect(inView.and(page.locator(`a[href="${premium}"]`))).toHaveCount(4);
          const targets = await inView.evaluateAll((links) => links.map((a) => new URL((a as HTMLAnchorElement).href).pathname));
          await page.waitForLoadState("networkidle");
          for (const path of new Set(targets)) {
@@ -331,5 +334,68 @@ test.describe("Track navigation", () => {
       await expect(title(page)).toHaveText(first.title);
       const outline = page.getByRole("navigation", { name: `${first.title} outline` });
       await expect(outline.getByRole("link")).toContainText(first.modules.flatMap((m) => m.items.map((id) => item(id).title)));
+   });
+});
+
+// A private preview deployment whose API double a test slows or fails (`PUT /__fault`). A preview reads uncached, so a fault always lands.
+test.describe("slow and failing reads", () => {
+   test.use({ baseURL: FAULT_ORIGIN });
+
+   const inject = (request: APIRequestContext, path: string, params: { delayMs?: number; status?: number }) =>
+      request.put(`${FAULT_API_ORIGIN}/__fault`, { params: { path, ...params } });
+   test.afterEach(async ({ request }) => void (await request.delete(`${FAULT_API_ORIGIN}/__fault`)));
+   // Next's own route announcer is an alert too, so the boundary is looked for in the page's main.
+   const skeleton = (page: Page) => page.getByRole("status").filter({ hasText: /^Loading / });
+   const boundary = (page: Page) => main(page).getByRole("alert");
+   const UNAVAILABLE = "This content is temporarily unavailable. Please try again later.";
+
+   const DELAYED = [
+      { label: "Track", loading: "Loading Track", read: "/catalog/items", route: canonical(track("p3-single").id), heading: track("p3-single").title },
+      { label: "Lesson", loading: "Loading Lesson", read: "/catalog/items/lesson/catalog-e2e-free", route: canonical(FREE_LESSON.id), heading: FREE_LESSON.title },
+      { label: "Problem", loading: "Loading Problem", read: "/catalog/items/problem/catalog-e2e-related", route: canonical(PROBLEM.id), heading: PROBLEM.title },
+      { label: "Knowledge", loading: "Loading Knowledge entry", read: "/catalog/items/knowledge/catalog-e2e-sections", route: canonical(SECTIONED.id), heading: SECTIONED.title },
+   ];
+
+   for (const { label, loading, read, route, heading } of DELAYED) {
+      test(`${label}: a slow read shows the layout skeleton, then the page`, async ({ page, request }) => {
+         await inject(request, read, { delayMs: 1500 });
+         await page.goto(route, { waitUntil: "commit" });
+
+         await expect(skeleton(page)).toHaveText(loading);
+         await expect(main(page)).toHaveAttribute("aria-busy", "true");
+         await expect(title(page)).toHaveCount(0);
+
+         await expect(title(page)).toHaveText(heading);
+         await expect(main(page)).not.toHaveAttribute("aria-busy", "true");
+         await expect(skeleton(page)).toHaveCount(0);
+      });
+   }
+
+   test("a failed read keeps the state notice, not the error boundary, and recovers on reload", async ({ page, request }) => {
+      await inject(request, "/catalog/items/knowledge/catalog-e2e-sections", { status: 500 });
+      await page.goto(canonical(SECTIONED.id));
+      await expect(page.getByRole("status")).toHaveText(UNAVAILABLE);
+      await expect(boundary(page)).toHaveCount(0);
+
+      await request.delete(`${FAULT_API_ORIGIN}/__fault`);
+      await page.reload();
+      await expect(title(page)).toHaveText(SECTIONED.title);
+      await expect(page.getByText(UNAVAILABLE)).toHaveCount(0);
+   });
+
+   test("a failed Track read removes only the sidebar, never the Lesson", async ({ page, request }) => {
+      const lesson = item("lesson.p3-seq-one");
+      const sidebar = page.getByRole("navigation", { name: "Track contents" });
+      await inject(request, "/catalog/tracks/p3-sequence", { status: 500 });
+      await page.goto(canonical(lesson.id));
+      await expect(title(page)).toHaveText(lesson.title);
+      await expect(sidebar).toHaveCount(0);
+      await expect(boundary(page)).toHaveCount(0);
+      await expect(page.getByText(UNAVAILABLE)).toHaveCount(0);
+
+      await request.delete(`${FAULT_API_ORIGIN}/__fault`);
+      await page.reload();
+      await expect(title(page)).toHaveText(lesson.title);
+      await expect(sidebar.first()).toBeVisible();
    });
 });

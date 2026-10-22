@@ -3,6 +3,10 @@ import {
     EMPTY_ORIGIN,
     EMPTY_PORT,
     EMPTY_TOKEN,
+    FAULT_API_ORIGIN,
+    FAULT_API_PORT,
+    FAULT_ORIGIN,
+    FAULT_PORT,
     FAKE_API_ORIGIN,
     FAKE_API_PORT,
     FAKE_AUTH_ORIGIN,
@@ -123,6 +127,27 @@ export default defineConfig({
                 NEXT_DIST_DIR: PREVIEW_DIST,
                 API_URL: PREVIEW_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: EMPTY_TOKEN,
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // A private preview API double whose reads catalog.spec.ts slows or fails on demand, so no other test sees a fault.
+            command: `node tests/e2e/catalog/fake-api.mjs ${FAULT_API_PORT}`,
+            url: `${FAULT_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN },
+        },
+        {
+            // The preview build again. A preview sends every read uncached, so an injected fault is never masked by the data cache.
+            command: `npx next start -p ${FAULT_PORT}`,
+            url: `${FAULT_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                NEXT_DIST_DIR: PREVIEW_DIST,
+                API_URL: FAULT_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: PREVIEW_TOKEN,
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
                 NEXT_TELEMETRY_DISABLED: "1",

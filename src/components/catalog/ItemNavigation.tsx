@@ -9,15 +9,18 @@ export function FullOutline({
    navigation,
    reading = false,
    currentLabel,
+   className,
 }: {
    navigation: ItemNavigationData;
    reading?: boolean;
    currentLabel?: string;
+   /** Layout classes for the disclosure, such as hiding it where the Track sidebar shows the same outline (S6-RDR-9). */
+   className?: string;
 }) {
    const { id, home } = navigation;
    if (!home) return null;
    return (
-      <details className={reading ? "border-t border-border pt-2" : "rounded-lg border border-border p-4"}>
+      <details className={cn(reading ? "border-t border-border pt-2" : "rounded-lg border border-border p-4", className)}>
          <summary className={cn("cursor-pointer font-semibold", reading && "flex min-h-11 items-center")}>
             Full outline of {home.track.title}
          </summary>
@@ -32,14 +35,23 @@ export function FullOutline({
  * Where an item sits in its home Track: previous/next, the module's members, the full outline. `reading` is the
  * Problem page's presentation of the same links and keeps every one of them from prefetching. Nothing without a home Track.
  */
-export function CurriculumNavigation({ navigation, reading = false }: { navigation: ItemNavigationData; reading?: boolean }) {
+export function CurriculumNavigation({
+   navigation,
+   reading = false,
+   outlineClassName,
+}: {
+   navigation: ItemNavigationData;
+   reading?: boolean;
+   /** Layout classes for the full outline, such as hiding it where the Track sidebar shows the same list (S6-RDR-9). */
+   outlineClassName?: string;
+}) {
    const { id, home } = navigation;
    if (!home) return null;
    return (
       <>
          <TrackPrevNext placement={home} reading={reading} />
          <ModuleNavigation module={home.module} currentId={id} prefetch={reading ? false : undefined} quiet={reading} />
-         <FullOutline navigation={navigation} reading={reading} />
+         <FullOutline navigation={navigation} reading={reading} className={outlineClassName} />
       </>
    );
 }

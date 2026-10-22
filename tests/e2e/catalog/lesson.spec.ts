@@ -1,7 +1,7 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import fixture from "./fixture.json";
 import { plainHeading } from "../../../src/lib/catalog/lesson";
-import { CANARY, PREVIEW_API_ORIGIN, PREVIEW_ORIGIN, canonical, expect, expectNoCanary, item, test, track } from "./harness";
+import { CANARY, FAKE_API_ORIGIN, PREVIEW_API_ORIGIN, PREVIEW_ORIGIN, canonical, expect, expectNoCanary, item, test, track } from "./harness";
 
 // P2-T5 Lesson reading: layout, contents, headings, relations, technical content, themes, motion and access.
 const LONG = item("lesson.p2-t5-long");
@@ -20,8 +20,9 @@ const HEADINGS = (fixture.items.find(({ id }) => id === LONG.id) as unknown as {
 const CONTENTS = HEADINGS.filter(({ level }) => level === 2 || level === 3);
 
 const main = (page: Page) => page.getByRole("main");
-const contents = (page: Page) => page.getByRole("navigation", { name: "Contents" });
-const toggle = (page: Page) => page.getByRole("button", { name: "Contents" });
+const contents = (page: Page) => page.getByRole("navigation", { name: "Contents", exact: true });
+const trackContents = (page: Page) => page.getByRole("navigation", { name: "Track contents" });
+const toggle = (page: Page) => page.getByRole("button", { name: "Contents", exact: true });
 const current = (page: Page) => contents(page).locator('[aria-current="location"]');
 const heading = (page: Page, id: string) => page.locator(`[id="${id}"]`);
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
@@ -157,7 +158,7 @@ test.describe("relations", () => {
       for (const name of ["Builds on", "Related Knowledge", "Related Lessons", "Practice", "Related Problems"]) {
          await expect(main(page).getByRole("heading", { name })).toHaveCount(0);
       }
-      await expect(page.getByRole("navigation", { name: "Contents" })).toHaveCount(0); // one heading: no contents
+      await expect(page.getByRole("navigation", { name: "Contents", exact: true })).toHaveCount(0); // one heading: no contents
    });
 
    test("following the Practice transition opens the Problem at its own canonical URL", async ({ page }) => {
@@ -186,13 +187,14 @@ test.describe("curriculum", () => {
 test.describe("desktop contents", () => {
    test.use({ viewport: { width: 1440, height: 900 } });
 
-   test("is a two-column layout: a ~736px reading column and a sticky Contents beside it", async ({ page }) => {
+   test("is a three-column layout: the Track sidebar, a reading column of at most 46rem, and a sticky Contents beside it", async ({ page }) => {
       await page.goto(route);
       const column = (await page.locator("main > div > div").first().boundingBox())!;
-      expect(column.width).toBeGreaterThanOrEqual(720);
-      expect(column.width).toBeLessThanOrEqual(760);
+      expect(column.width).toBeGreaterThanOrEqual(640);
+      expect(column.width).toBeLessThanOrEqual(736);
       const side = (await contents(page).boundingBox())!;
       expect(side.x).toBeGreaterThan(column.x + column.width);
+      expect((await trackContents(page).boundingBox())!.x + 256).toBeLessThanOrEqual(column.x);
       expect(await overflows(page)).toBe(false);
 
       const before = await top(contents(page));
@@ -263,13 +265,14 @@ test.describe("desktop contents", () => {
 });
 
 test.describe("at 1024px and 768px", () => {
-   test("1024: two columns with a reading column of 720px or more, and no page overflow", async ({ page }) => {
+   test("1024: the Track sidebar and a reading column of 640px or more, with Contents collapsed above the body, and no page overflow", async ({ page }) => {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.goto(route);
       const column = (await page.locator("main > div > div").first().boundingBox())!;
-      expect(column.width).toBeGreaterThanOrEqual(720);
-      await expect(contents(page)).toBeVisible();
-      await expect(toggle(page)).toHaveCount(0);
+      expect(column.width).toBeGreaterThanOrEqual(640);
+      await expect(trackContents(page)).toBeVisible();
+      await expect(toggle(page)).toBeVisible();
+      await expect(page.locator("nav[aria-label='Contents'].sticky")).toBeHidden();
       expect(await overflows(page)).toBe(false);
    });
 
@@ -279,6 +282,84 @@ test.describe("at 1024px and 768px", () => {
       await expect(toggle(page)).toBeVisible();
       await expect(page.locator("nav[aria-label='Contents'].sticky")).toBeHidden();
       expect(await overflows(page)).toBe(false);
+   });
+});
+
+test.describe("Track sidebar (A-5, S6-RDR)", () => {
+   test.use({ viewport: { width: 1440, height: 900 } });
+   const ENTRY_TITLES = [FOUNDATIONS, DEEPER].map((module) => module.items.map((id) => item(id).title));
+
+   test("is server-rendered with every Module's entries, in the Track's order, collapsed Modules included", async ({ request }) => {
+      const html = await (await request.get(route)).text();
+      expect(html).toContain('aria-label="Track contents"');
+      const positions = ENTRY_TITLES.flat().map((title) => html.indexOf(`>${title}`, html.indexOf('aria-label="Track contents"')));
+      positions.forEach((position, index) => expect(position, `entry ${index}`).toBeGreaterThan(index === 0 ? 0 : positions[index - 1]));
+   });
+
+   test("names the Track, groups Modules with their counts, opens the current Module only and marks the current entry", async ({ page }) => {
+      await page.goto(route);
+      const nav = trackContents(page);
+      await expect(nav.getByRole("link", { name: READING.title })).toHaveAttribute("href", canonical(READING.id));
+      const groups = nav.locator("details");
+      await expect(groups).toHaveCount(2);
+      for (const [index, module] of [FOUNDATIONS, DEEPER].entries()) {
+         const summary = groups.nth(index).locator("summary");
+         await expect(summary).toContainText(`Module ${index + 1}`);
+         await expect(summary).toContainText(module.title);
+         await expect(summary).toContainText(`${module.items.length} item`);
+      }
+      await expect(groups.nth(0)).toHaveJSProperty("open", true);
+      await expect(groups.nth(1)).toHaveJSProperty("open", false);
+      await expect(nav.locator("[aria-current='page']")).toHaveCount(1);
+      await expect(nav.locator("[aria-current='page']")).toContainText(LONG.title);
+      await expect(nav.locator("[aria-current='page']")).toHaveAttribute("href", route);
+   });
+
+   test("opens and closes a Module from the keyboard, and shows the premium marker on its entry", async ({ page }) => {
+      await page.goto(route);
+      const summary = trackContents(page).locator("summary").nth(1);
+      await summary.focus();
+      await page.keyboard.press("Enter");
+      await expect(trackContents(page).locator("details").nth(1)).toHaveJSProperty("open", true);
+      await expect(trackContents(page).getByRole("link", { name: new RegExp(PREMIUM.title) })).toContainText("Premium");
+      await page.keyboard.press("Enter");
+      await expect(trackContents(page).locator("details").nth(1)).toHaveJSProperty("open", false);
+   });
+
+   test("is sticky below the header with its own scroll, and the bottom-of-page outline is not drawn beside it", async ({ page }) => {
+      await page.goto(route);
+      const before = await top(trackContents(page));
+      await page.evaluate(() => window.scrollTo({ top: 2400, behavior: "instant" }));
+      await expect.poll(() => top(trackContents(page))).toBeLessThanOrEqual(115);
+      expect(before).toBeGreaterThan(0);
+      await expect(page.getByText(`Full outline of ${READING.title}`)).toBeHidden();
+   });
+
+   test("keeps Contents as a rail at 1280px and above and collapses it from 1279px down to 1024px, with no overflow at any width", async ({ page }) => {
+      for (const [width, rail] of [[1440, true], [1280, true], [1279, false], [1024, false]] as const) {
+         await page.setViewportSize({ width, height: 900 });
+         await page.goto(route);
+         await expect(trackContents(page), `${width}: sidebar`).toBeVisible();
+         if (rail) await expect(contents(page).first(), `${width}: rail`).toBeVisible();
+         await expect(toggle(page), `${width}: collapsed Contents`).toHaveCount(rail ? 0 : 1);
+         expect(await overflows(page), `${width}: overflow`).toBe(false);
+      }
+   });
+
+   test("below 1024px the page is unchanged: no sidebar, and the Full outline disclosure stays", async ({ page }) => {
+      for (const width of [1023, 768, 390]) {
+         await page.setViewportSize({ width, height: 900 });
+         await page.goto(route);
+         await expect(trackContents(page), `${width}`).toBeHidden();
+         await expect(page.getByText(`Full outline of ${READING.title}`), `${width}`).toBeVisible();
+         expect(await overflows(page), `${width}: overflow`).toBe(false);
+      }
+   });
+
+   test("a Knowledge page takes no Track sidebar", async ({ page }) => {
+      await page.goto(canonical("knowledge.catalog-e2e-sections"));
+      await expect(main(page).getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(trackContents(page)).toHaveCount(0);
    });
 });
 
@@ -497,10 +578,10 @@ test.describe("access", () => {
             await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(PREMIUM.title);
             await expect(page.getByText("Level: Advanced")).toBeVisible();
             await expect(main(page).getByRole("status")).toBeVisible();
-            for (const name of ["Breadcrumb", "Contents", `Next in ${READING.title}`, "Curriculum", `Module: ${DEEPER.title}`]) {
+            for (const name of ["Breadcrumb", "Contents", "Track contents", `Next in ${READING.title}`, "Curriculum", `Module: ${DEEPER.title}`]) {
                await expect(page.getByRole("navigation", { name }), name).toHaveCount(0);
             }
-            await expect(page.getByRole("button", { name: "Contents" })).toHaveCount(0);
+            await expect(page.getByRole("button", { name: "Contents", exact: true })).toHaveCount(0);
             await expect(main(page).getByRole("heading", { level: 2 })).toHaveCount(0);
             await expect(page.locator("main [id]")).toHaveCount(0);
             await expect(page.getByRole("heading", { name: "Practice" })).toHaveCount(0);
@@ -607,5 +688,58 @@ test.describe("preview deployment", () => {
             `/catalog/items/lesson/${LONG.slug}/meta`,
          ].sort()
       );
+   });
+});
+
+// P6-T10: the Track contents drawer below 1024 px, on a placed Lesson and a placed Problem, with the title filter.
+test.describe("Track contents drawer (A-5, S6-RDR-4, S6-RDR-7)", () => {
+   const PLACED = [canonical("lesson.p3-seq-one"), canonical("problem.p3-seq-check")];
+   const opener = (page: Page) => page.getByRole("button", { name: "Track contents" });
+
+   for (const width of [390, 768]) {
+      for (const path of PLACED) {
+         test(`${width} ${path}: opens, filters, closes with Escape and returns focus, and picking an entry navigates`, async ({ page, request }) => {
+            await page.setViewportSize({ width, height: 900 });
+            await page.goto(path);
+            await expect(trackContents(page)).toBeHidden();
+            expect((await opener(page).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+            await opener(page).click();
+            const dialog = page.getByRole("dialog");
+            await expect(dialog).toBeVisible();
+            await expect(dialog).toHaveAccessibleName("P3 Sequence Track");
+            await expect(dialog.locator('a[aria-current="page"]')).toHaveAttribute("href", path);
+
+            const reads = async () => (await (await request.get(`${FAKE_API_ORIGIN}/__catalog-log`)).json()).length;
+            const before = await reads();
+            const filter = dialog.getByRole("searchbox", { name: "Filter by title" });
+            await filter.fill("zzz-no-such-title");
+            await expect(dialog.getByRole("status")).toHaveText("No entries match");
+            await filter.fill("");
+            expect(await reads()).toBe(before);
+
+            expect(await overflows(page)).toBe(false);
+            await page.keyboard.press("Escape");
+            await expect(dialog).toBeHidden();
+            await expect(opener(page)).toBeFocused();
+
+            await opener(page).click();
+            const next = page.getByRole("dialog").locator("details[open] ol a:not([aria-current])").first();
+            const href = (await next.getAttribute("href"))!;
+            await next.click();
+            await expect(page).toHaveURL(new RegExp(`${href}$`));
+            await expect(page.getByRole("dialog")).toHaveCount(0);
+            expect(await overflows(page)).toBe(false);
+         });
+      }
+   }
+
+   test("1024: the sidebar shows and the drawer control does not", async ({ page }) => {
+      await page.setViewportSize({ width: 1024, height: 900 });
+      for (const path of PLACED) {
+         await page.goto(path);
+         await expect(trackContents(page)).toBeVisible();
+         await expect(opener(page)).toBeHidden();
+         expect(await overflows(page)).toBe(false);
+      }
    });
 });
