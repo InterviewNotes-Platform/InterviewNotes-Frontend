@@ -1,13 +1,14 @@
 import { headingIds, parseBlocks } from "@/components/catalog/blocks";
 import { knowledgeCoverage } from "@/components/catalog/knowledgeRefs";
 import { FullOutline } from "@/components/catalog/ItemNavigation";
-import { CurriculumBlock, EndOfTrack, NextLesson } from "@/components/catalog/LessonClose";
+import { CurriculumBlock, EndOfTrack, NextLesson, OtherLevels } from "@/components/catalog/LessonClose";
 import { LessonHeader } from "@/components/catalog/LessonHeader";
 import { BuildsOn, PracticeTransition, RelationGroup } from "@/components/catalog/LessonRelated";
 import { AlternateTracks, LessonBreadcrumb } from "@/components/catalog/TrackContext";
 import { LessonContents } from "@/components/lesson/LessonContents";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { lessonPosition } from "@/lib/catalog/curriculum";
+import { isLevelChoiceTrack, levelsOf } from "@/lib/catalog/levelChoice";
 import { contentsOf, knowledgeSupport, lessonRelations } from "@/lib/catalog/lesson";
 import type { ItemNavigation } from "@/lib/catalog/navigation";
 import type { CatalogItem } from "@/lib/catalog/types";
@@ -16,14 +17,16 @@ import { ItemContent } from "./ItemContent";
 
 /**
  * A readable Lesson, in the order a reader needs it: where it sits, what it is, what it builds on, the body, then the
- * close (Next lesson or End of Track, Knowledge, Practice, Problems, Back to module) and secondary context. Everything comes from the item the API
+ * close (Next lesson or End of Track, Knowledge, Practice, Problems, Back to module) and secondary context. A level-choice
+ * Track (A-9) closes with its other levels instead of Next, Previous and End of Track. Everything comes from the item the API
  * released and its relations; nothing is fetched here and nothing on this page makes a request of its own.
  */
 export function LessonPage({ item, navigation, stayOnDeployment }: { item: CatalogItem; navigation: ItemNavigation | null; stayOnDeployment: boolean }) {
    const home = navigation?.home ?? null;
-   const related = navigation
-      ? lessonRelations(navigation.relations, [...(home?.nextLesson ? [home.nextLesson.id] : []), ...navigation.practice.map(({ id }) => id)])
-      : null;
+   const levels = home && isLevelChoiceTrack(home.track) ? levelsOf(home.track) : null;
+   // Another level is offered once, in Other levels; a Next Lesson is offered once, in the close.
+   const offeredLessons = levels ? levels.map(({ id }) => id) : home?.nextLesson ? [home.nextLesson.id] : [];
+   const related = navigation ? lessonRelations(navigation.relations, [...offeredLessons, ...navigation.practice.map(({ id }) => id)]) : null;
    // Contents link to heading ids, so they exist only while the rendered headings carry the API's ids.
    const { body, headings } = item;
    const blocks = body?.format === "markdown@1" ? parseBlocks(body.text) : null;
@@ -44,7 +47,7 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
          >
             <div className="mb-10 min-w-0 lg:col-start-1 lg:row-start-1 lg:mb-12">
                {navigation && home ? (
-                  <LessonBreadcrumb placement={home} position={lessonPosition(home.track, navigation.id)} />
+                  <LessonBreadcrumb placement={home} position={lessonPosition(home.track, navigation.id)} levels={levels?.length} />
                ) : null}
                <LessonHeader meta={item} />
                {related ? <BuildsOn rows={related.prerequisites} /> : null}
@@ -55,18 +58,29 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
                {navigation && related ? (
                   <div className="mt-16 space-y-12 empty:hidden">
                      {home ? (
-                        home.nextLesson ? <NextLesson placement={home} summary={navigation.nextSummary} /> : <EndOfTrack placement={home} />
+                        levels ? (
+                           <OtherLevels placement={home} currentId={navigation.id} />
+                        ) : home.nextLesson ? (
+                           <NextLesson placement={home} summary={navigation.nextSummary} />
+                        ) : (
+                           <EndOfTrack placement={home} />
+                        )
                      ) : null}
                      <RelationGroup id="lesson_related_knowledge" label="Related Knowledge" rows={related.knowledge} withSummary summaryOffered={offered} />
                      <PracticeTransition problems={navigation.practice} />
                      <RelationGroup id="lesson_related_problems" label="Related Problems" rows={related.problems} />
-                     {home ? <CurriculumBlock placement={home} position={lessonPosition(home.track, navigation.id)} /> : null}
+                     {home ? (
+                        <CurriculumBlock
+                           placement={levels ? { ...home, previousLesson: null } : home}
+                           position={lessonPosition(home.track, navigation.id)}
+                        />
+                     ) : null}
                   </div>
                ) : null}
                {navigation && related ? (
                   <div className="mt-16 space-y-12 empty:hidden">
                      <RelationGroup id="lesson_related_lessons" label="Related Lessons" rows={related.lessons} withSummary />
-                     <FullOutline navigation={navigation} reading />
+                     <FullOutline navigation={navigation} reading currentLabel={levels ? "Current level" : undefined} />
                      <AlternateTracks placements={navigation.alternates} />
                   </div>
                ) : null}

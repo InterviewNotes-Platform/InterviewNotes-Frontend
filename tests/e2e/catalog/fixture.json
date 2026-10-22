@@ -2109,6 +2109,66 @@
         {"id": "reference-design", "type": "reference_design", "title": "Reference design", "access": "free", "text": "P4 today reference marker. One keyed store and a cache.", "spine_position": "reference_solution"}
       ],
       "relations": {}
+    },
+    {
+      "id": "lesson.p6-level-one",
+      "type": "lesson",
+      "slug": "p6-level-one",
+      "title": "P6 Level One",
+      "summary": "Synthetic P6 level one: who this level is for.",
+      "tags": ["e2e", "p6"],
+      "difficulty": null,
+      "level": null,
+      "access": "free",
+      "home": "behavioral-interview-preparation",
+      "body": "## P6 Level One heading\n\nP6 Level One body marker.\n",
+      "headings": [{ "id": "p6-level-one-heading", "level": 2, "text": "P6 Level One heading" }],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p6-level-two",
+      "type": "lesson",
+      "slug": "p6-level-two",
+      "title": "P6 Level Two",
+      "summary": "Synthetic P6 level two: who this level is for.",
+      "tags": ["e2e", "p6"],
+      "difficulty": null,
+      "level": null,
+      "access": "free",
+      "home": "behavioral-interview-preparation",
+      "body": "## P6 Level Two heading\n\nP6 Level Two body marker.\n",
+      "headings": [{ "id": "p6-level-two-heading", "level": 2, "text": "P6 Level Two heading" }],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p6-level-three",
+      "type": "lesson",
+      "slug": "p6-level-three",
+      "title": "P6 Level Three",
+      "summary": "Synthetic P6 level three: who this level is for.",
+      "tags": ["e2e", "p6"],
+      "difficulty": null,
+      "level": null,
+      "access": "free",
+      "home": "behavioral-interview-preparation",
+      "body": "## P6 Level Three heading\n\nP6 Level Three body marker.\n",
+      "headings": [{ "id": "p6-level-three-heading", "level": 2, "text": "P6 Level Three heading" }],
+      "relations": {}
+    },
+    {
+      "id": "lesson.p6-level-four",
+      "type": "lesson",
+      "slug": "p6-level-four",
+      "title": "P6 Level Four",
+      "summary": "Synthetic P6 level four: who this level is for.",
+      "tags": ["e2e", "p6"],
+      "difficulty": null,
+      "level": null,
+      "access": "free",
+      "home": "behavioral-interview-preparation",
+      "body": "## P6 Level Four heading\n\nP6 Level Four body marker.\n",
+      "headings": [{ "id": "p6-level-four-heading", "level": 2, "text": "P6 Level Four heading" }],
+      "relations": {}
     }
   ],
   "tracks": [
@@ -2309,6 +2369,19 @@
       "summary": "One Lesson with every Practice selection shape.",
       "modules": [
         { "key": "practice-core", "title": "Practice core", "items": ["lesson.p3-prac-lesson", "problem.p3-prac-a", "problem.p3-prac-b", "problem.p3-prac-premium", "lesson.p3-prac-next"] }
+      ]
+    },
+    {
+      "id": "track.behavioral-interview-preparation",
+      "slug": "behavioral-interview-preparation",
+      "title": "P6 Level-Choice Track",
+      "summary": "Synthetic Track whose four Lessons are levels, not a sequence (A-9).",
+      "modules": [
+        {
+          "key": "choose-your-level",
+          "title": "Choose Your Level",
+          "items": ["lesson.p6-level-one", "lesson.p6-level-two", "lesson.p6-level-three", "lesson.p6-level-four"]
+        }
       ]
     }
   ],

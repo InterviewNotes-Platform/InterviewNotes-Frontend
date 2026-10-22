@@ -19,12 +19,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
    return withPreviewRobots({ title: result.data.title, description: result.data.summary });
 }
 
-// Proposition, then the one Start action, then the curriculum, then context read from the same outline.
+// Proposition, then the one Start action (or the level choice), then the curriculum, then context read from the same outline.
 function TrackBody({ track, summaries }: { track: CatalogTrack; summaries: ReadonlyMap<string, string> | null }) {
    const curriculum = curriculumOf(track);
    return (
       <>
-         <TrackHeader track={track} curriculum={curriculum} />
+         <TrackHeader track={track} curriculum={curriculum} summaries={summaries} />
          <div className="mt-12 md:mt-16">
             <TrackCurriculum track={track} curriculum={curriculum} summaries={summaries} />
          </div>

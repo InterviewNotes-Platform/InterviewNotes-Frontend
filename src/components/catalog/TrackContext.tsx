@@ -30,13 +30,23 @@ export function TrackBreadcrumb({ placement }: { placement: TrackPlacement }) {
 }
 
 /** "Module 2 of 4 · Lesson 3 of 7": structural position over the home Track's outline, never progress. */
-const positionText = (module: Position, lesson: Position) => `Module ${module.index} of ${module.count} · Lesson ${lesson.index} of ${lesson.count}`;
+const positionText = (module: Position, lesson: Position, levels?: number) =>
+   `Module ${module.index} of ${module.count} · ${levels === undefined ? `Lesson ${lesson.index} of ${lesson.count}` : `One of ${levels} ${levels === 1 ? "level" : "levels"}`}`;
 
 /**
  * A Lesson's place: Tracks / Track / Module, then its position, as one block. The Track and the Module link to their
  * locations; long names truncate. The position line is left out when the outline gives none.
  */
-export function LessonBreadcrumb({ placement, position }: { placement: TrackPlacement; position?: LessonPosition | null }) {
+export function LessonBreadcrumb({
+   placement,
+   position,
+   levels,
+}: {
+   placement: TrackPlacement;
+   position?: LessonPosition | null;
+   /** The number of levels of a level-choice Track (A-9): the position reads "One of N levels", never a sequence number. */
+   levels?: number;
+}) {
    const href = trackHref(placement.track);
    const moduleHref = moduleLocation(placement.track, placement.module);
    return (
@@ -70,7 +80,7 @@ export function LessonBreadcrumb({ placement, position }: { placement: TrackPlac
                </li>
             </ol>
          </nav>
-         {position ? <p className="m-0">{positionText(position.module, position.lesson)}</p> : null}
+         {position ? <p className="m-0">{positionText(position.module, position.lesson, levels)}</p> : null}
       </div>
    );
 }

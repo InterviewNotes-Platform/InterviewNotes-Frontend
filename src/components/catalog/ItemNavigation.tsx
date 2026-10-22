@@ -5,7 +5,15 @@ import { AlternateTracks, TrackPrevNext } from "./TrackContext";
 import { ModuleNavigation, TrackOutline } from "./TrackOutline";
 
 /** The Track's whole outline as a collapsed disclosure. `reading` is the Lesson's open presentation and never prefetches. */
-export function FullOutline({ navigation, reading = false }: { navigation: ItemNavigationData; reading?: boolean }) {
+export function FullOutline({
+   navigation,
+   reading = false,
+   currentLabel,
+}: {
+   navigation: ItemNavigationData;
+   reading?: boolean;
+   currentLabel?: string;
+}) {
    const { id, home } = navigation;
    if (!home) return null;
    return (
@@ -14,7 +22,7 @@ export function FullOutline({ navigation, reading = false }: { navigation: ItemN
             Full outline of {home.track.title}
          </summary>
          <div className="mt-4">
-            <TrackOutline track={home.track} currentId={id} prefetch={reading ? false : undefined} />
+            <TrackOutline track={home.track} currentId={id} currentLabel={currentLabel} prefetch={reading ? false : undefined} />
          </div>
       </details>
    );

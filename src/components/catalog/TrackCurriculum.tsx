@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, PencilRuler, type LucideIcon } from "lucide-react";
 import { ModuleSection } from "@/components/track/ModuleSection";
 import { Button } from "@/components/ui/button";
+import { isLevelChoiceTrack } from "@/lib/catalog/levelChoice";
 import { moduleFragmentId } from "@/lib/catalog/moduleLocation";
 import type { Curriculum, PlacedEntry } from "@/lib/catalog/track";
 import type { CatalogTrack } from "@/lib/catalog/types";
@@ -52,8 +53,51 @@ function TrackStart({ curriculum: { start, counts } }: { curriculum: Curriculum 
    );
 }
 
-/** The proposition (title, summary, what the curriculum holds) and the one primary action. */
-export function TrackHeader({ track, curriculum }: { track: CatalogTrack; curriculum: Curriculum }) {
+/** A level-choice Track (A-9): every Lesson as an equal choice, in curriculum order, with no recommended or first level. */
+function LevelChoice({ curriculum, summaries }: { curriculum: Curriculum; summaries?: ReadonlyMap<string, string> | null }) {
+   const levels = curriculum.modules.flatMap(({ rows }) => rows).filter(({ entry }) => entry.type === "lesson");
+   if (levels.length === 0) {
+      // Never a Start action here, even for a listed Track with no Lesson entry.
+      return curriculum.counts.problem === 0 ? <p className="mt-8 mb-0 text-body text-muted-foreground">Nothing is published in this Track yet.</p> : null;
+   }
+   return (
+      <section aria-labelledby="track_levels_heading" className="mt-8">
+         <h2 id="track_levels_heading" className="m-0 text-subsection">
+            Choose your level
+         </h2>
+         <ul role="list" className="m-0 mt-3 list-none p-0">
+            {levels.map(({ entry, href }) => (
+               <li key={entry.id}>
+                  <Link
+                     href={href}
+                     prefetch={false}
+                     className="group -mx-2 block min-h-11 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-surface"
+                  >
+                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="text-body font-medium text-foreground transition-micro group-hover:text-primary">{entry.title}</span>
+                        {entry.access === "premium" ? <PremiumMark /> : null}
+                     </span>
+                     {summaries?.get(entry.id) ? (
+                        <span className="mt-1 block text-supporting text-pretty text-muted-foreground">{summaries.get(entry.id)}</span>
+                     ) : null}
+                  </Link>
+               </li>
+            ))}
+         </ul>
+      </section>
+   );
+}
+
+/** The proposition (title, summary, what the curriculum holds) and the one primary action, or the level choice (A-9). */
+export function TrackHeader({
+   track,
+   curriculum,
+   summaries,
+}: {
+   track: CatalogTrack;
+   curriculum: Curriculum;
+   summaries?: ReadonlyMap<string, string> | null;
+}) {
    const summary = curriculumSummary(curriculum);
    return (
       <header>
@@ -70,7 +114,7 @@ export function TrackHeader({ track, curriculum }: { track: CatalogTrack; curric
                ))}
             </p>
          ) : null}
-         <TrackStart curriculum={curriculum} />
+         {isLevelChoiceTrack(track) ? <LevelChoice curriculum={curriculum} summaries={summaries} /> : <TrackStart curriculum={curriculum} />}
       </header>
    );
 }

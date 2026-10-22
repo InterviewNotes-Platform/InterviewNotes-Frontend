@@ -2,6 +2,7 @@ import "server-only";
 
 import { getCatalogItemMeta, getCatalogRelated, getCatalogTrack } from "./client";
 import { homePlacement, lessonNeighbours, type LessonNeighbours } from "./curriculum";
+import { isLevelChoiceTrack } from "./levelChoice";
 import { prerequisitesOf } from "./lesson";
 import { practiceCandidates, practiceRow, sharedKnowledge, type PracticeCandidate, type PracticeRow } from "./practiceStep";
 import { catalogHref } from "./routes";
@@ -83,7 +84,8 @@ export async function loadItemNavigation(
    const candidates =
       type === "lesson" ? practiceCandidates(home?.track ?? null, id, relations, prerequisitesOf(relations).map(({ entry }) => entry.id)) : [];
    const [nextSummary, practice] = await Promise.all([
-      type === "lesson" ? loadNextSummary(home?.nextLesson ?? undefined) : null,
+      // A level-choice Track shows no Next Lesson (A-9), so its summary is not read.
+      type === "lesson" && home && !isLevelChoiceTrack(home.track) ? loadNextSummary(home.nextLesson ?? undefined) : null,
       Promise.all(candidates.map((candidate) => loadPracticeRow(candidate, relations.applies ?? []))),
    ]);
    return { id, relations, home, alternates: contexts.filter((entry) => !entry.isHome).map((entry) => entry.context), nextSummary, practice };
