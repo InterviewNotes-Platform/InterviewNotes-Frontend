@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 
 // Tracks are the primary product, Knowledge supports them (P2 spec §5.3). STATS and TESTIMONIALS are the pre-P0
-// claims (51b99f3) restored verbatim at the product owner's request, not backed by product data. Prices: spec §5.1.
-// Provenance of every figure and quote: core-experience/design-brief.md §8. All are UNVERIFIED and wait for Harshul's review (RG-2).
+// claims (51b99f3), not backed by product data. Prices: spec §5.1. Provenance: core-experience/design-brief.md §8.
+// All are UNVERIFIED and wait for Harshul's review (RG-2). The quotes are shown only as labelled samples.
 export const HOME_METADATA: Metadata = {
    title: "InterviewNotes: ML interview preparation",
    description:
@@ -43,7 +43,7 @@ export const STATS = [
 
 export const TRACKS = {
    label: "Tracks",
-   heading: "Choose Your Path",
+   heading: "Choose Your Track",
    lead: "Tracks are the way in: pick one, work through its modules, and explore the lessons, knowledge and practice problems inside it.",
    steps: ["Select a track", "Work through its modules", "Explore lessons, knowledge and problems"],
    /** The cards come from the published catalog Tracks; nothing here describes a particular Track (S6-HOME-3). */
@@ -68,14 +68,16 @@ export const KNOWLEDGE = {
    action: { label: "Browse Knowledge", href: "/knowledge" },
 };
 
-/** Pre-P0 51b99f3, unverified, no consent or identity record found, wording unchanged (S6-HOME-6); the "Trusted by" line names companies and implies endorsement. */
+/** The pre-P0 section ("Engineers Who Landed Offers", "Trusted by engineers at Google, Meta, ...") named employers and
+ *  outcomes no record supports (RG-2), so it now says plainly that these are samples. */
 export const TESTIMONIALS_SECTION = {
-   label: "Testimonials",
-   heading: "Engineers Who Landed Offers",
-   lead: "Trusted by engineers at Google, Meta, Amazon, Netflix, Apple & Microsoft.",
+   label: "Samples",
+   heading: "Sample Testimonials",
+   lead: "Illustrative examples only. These are not real customer testimonials, and the people, employers and results shown are placeholders.",
+   cardLabel: "Sample, not a real customer",
 };
 
-/** Emily C. says she paid for Premium, which conflicts with paid access being unavailable: kept verbatim and flagged for Harshul's review (RG-2). */
+/** Pre-P0 51b99f3 quotes, wording unchanged, with no consent or identity record found. */
 export const TESTIMONIALS = [
    { name: "Priya S.", role: "SDE-3", company: "Google", initials: "PS", quote: "The system design modules gave me a structured framework I was missing. Landed my L5 offer in 6 weeks of prep." },
    { name: "Marcus T.", role: "Senior MLE", company: "Meta", initials: "MT", quote: "ML Platform Design track is gold. Covered exactly what came up in my Meta loop — feature stores, model serving, the works." },
@@ -86,6 +88,11 @@ export const TESTIMONIALS = [
    { name: "Emily C.", role: "SDE-2", company: "Google", initials: "EC", quote: "Worth every penny. The depth of each article is closer to a textbook chapter than a blog post. Premium was a no-brainer." },
    { name: "David W.", role: "Senior SDE", company: "Amazon", initials: "DW", quote: "I prepped with three other platforms before this. InterviewNotes is the only one that covers ML system design properly." },
 ] as const;
+
+/** Not shown until Harshul reviews it (RG-2): Emily C. says she paid for Premium, but nothing is for sale. */
+const HELD_TESTIMONIALS: readonly string[] = ["Emily C."];
+
+export const PUBLISHED_TESTIMONIALS = TESTIMONIALS.filter(({ name }) => !HELD_TESTIMONIALS.includes(name));
 
 /** Planned, informational pricing (P2 spec §5.1). No discount, trial, tax, refund, guarantee or billing term is defined. */
 export const PRICING = {

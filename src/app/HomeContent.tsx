@@ -191,7 +191,7 @@ function TrackCards({ tracks }: { tracks: HomeTracks }) {
 /** Tracks are the primary product and the one place they are discovered: `/#tracks` (S6-NAV-1). */
 function Tracks({ tracks }: { tracks: HomeTracks }) {
    return (
-      <section id="tracks" aria-labelledby="home-tracks-heading" className="relative scroll-mt-20 overflow-hidden border-t border-border/50 py-20 md:py-28">
+      <section id="tracks" aria-labelledby="home-tracks-heading" className="relative scroll-mt-20 overflow-hidden border-t border-border/50 py-14 md:py-28">
          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.03] via-transparent to-gold/[0.04]" />
          <div
             aria-hidden="true"
@@ -200,7 +200,7 @@ function Tracks({ tracks }: { tracks: HomeTracks }) {
          <PageContainer className="relative">
             <SectionIntro id="home-tracks-heading" label={TRACKS.label} title={TRACKS.heading} lead={TRACKS.lead} />
 
-            <ol className="m-0 mx-auto mb-12 flex max-w-4xl list-none flex-col gap-3 p-0 text-center sm:flex-row sm:justify-center sm:gap-4">
+            <ol className="m-0 mx-auto mb-8 flex max-w-4xl list-none flex-col gap-3 p-0 text-center sm:flex-row sm:justify-center sm:gap-4 md:mb-12">
                {TRACKS.steps.map((step, i) => (
                   <li key={step} className="flex items-center justify-center gap-3 text-sm font-semibold text-foreground">
                      <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold text-xs font-bold text-gold-foreground">

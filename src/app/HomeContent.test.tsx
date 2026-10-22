@@ -6,7 +6,7 @@ import { HomeContent } from "./HomeContent";
 import { FREE_CHAPTER_LESSON_SLUG } from "@/lib/catalog/home";
 import { explorerHref, parseGroup } from "@/lib/catalog/knowledge";
 import { TRACKS_ENTRY } from "@/lib/primary-navigation";
-import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
+import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, PUBLISHED_TESTIMONIALS, STATS, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
 import HomePage, * as homeModule from "./page";
 
 const { listCatalogTracks, getCatalogItemMeta } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn() }));
@@ -179,13 +179,8 @@ describe("historical provenance", () => {
         expect(createHash("sha256").update(JSON.stringify(fields)).digest("hex")).toBe("e4e9271f3ddb6e701868b51dabbc4fcdf548c532c97d279bc13e3f2eebeb9ce6");
     });
 
-    it("keeps the four stats and the section wording as in the pre-P0 source", () => {
+    it("keeps the four stats as in the pre-P0 source", () => {
         expect(STATS.map(({ value, label }) => `${value} ${label}`)).toEqual(["80+ Design Modules", "5K+ Engineers", "90% Offer Rate", "6 Tracks"]);
-        expect(TESTIMONIALS_SECTION).toEqual({
-            label: "Testimonials",
-            heading: "Engineers Who Landed Offers",
-            lead: "Trusted by engineers at Google, Meta, Amazon, Netflix, Apple & Microsoft.",
-        });
         expect(HERO.eyebrow).toBe("Your complete interview prep");
         expect(`${HERO.intro.before}${HERO.intro.emphasis}${HERO.intro.after}`).toBe(
             "One platform for ML System Design, LLM Platforms & GenAI interviews. Everything you need to land your dream ML/AI offer.",
@@ -286,6 +281,13 @@ describe("tracks", () => {
         expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([[KNOWLEDGE.action.label, "/knowledge"]]);
     });
 
+    it("names the Tracks in its heading, so the list reads as the courses to browse", () => {
+        renderHome();
+        expect(TRACKS.heading).toBe("Choose Your Track");
+        expect(within(tracks()).getByRole("heading", { level: 2 })).toHaveTextContent(/track/i);
+        expect(tracks()).toHaveAttribute("id", "tracks");
+    });
+
     it("explains the path as Tracks, then modules, then content, in order", () => {
         renderHome();
         const steps = within(tracks()).getAllByRole("listitem").slice(0, TRACKS.steps.length);
@@ -346,24 +348,35 @@ describe("knowledge", () => {
 });
 
 describe("testimonials", () => {
-    it("restores all eight pre-P0 testimonials once for assistive technology, in two rows", () => {
+    it("presents the quotes as labelled samples, never as customer endorsements", () => {
+        renderHome();
+        expect(TESTIMONIALS_SECTION.heading).toBe("Sample Testimonials");
+        expect(TESTIMONIALS_SECTION.lead).toMatch(/not real customer testimonials/i);
+        expect(`${TESTIMONIALS_SECTION.heading} ${TESTIMONIALS_SECTION.lead}`).not.toMatch(/trusted|landed offers/i);
+        expect(within(testimonials()).getByText(TESTIMONIALS_SECTION.lead)).toBeInTheDocument();
+        for (const figure of within(testimonials()).getAllByRole("figure")) expect(figure).toHaveTextContent(TESTIMONIALS_SECTION.cardLabel);
+    });
+
+    it("holds Emily C.'s Premium quote back for review and shows the other seven word for word, in two rows", () => {
         renderHome();
         expect(TESTIMONIALS).toHaveLength(8);
+        expect(PUBLISHED_TESTIMONIALS.map(({ name }) => name)).not.toContain("Emily C.");
+        expect(PUBLISHED_TESTIMONIALS).toEqual(TESTIMONIALS.filter(({ name }) => name !== "Emily C."));
         const rows = within(testimonials()).getAllByRole("list");
-        expect(rows.map((row) => within(row).getAllByRole("figure").length)).toEqual([4, 4]);
+        expect(rows.map((row) => within(row).getAllByRole("figure").length)).toEqual([4, 3]);
         const figures = within(testimonials()).getAllByRole("figure"); // the aria-hidden loop copies are not exposed
-        expect(figures).toHaveLength(TESTIMONIALS.length);
-        TESTIMONIALS.forEach(({ name, quote, role, company }, i) => {
+        expect(figures).toHaveLength(PUBLISHED_TESTIMONIALS.length);
+        PUBLISHED_TESTIMONIALS.forEach(({ name, quote, role, company }, i) => {
             expect(figures[i]).toHaveTextContent(quote);
             expect(figures[i]).toHaveTextContent(`${name}${role} at ${company}`);
         });
-        expect(within(testimonials()).getByText(TESTIMONIALS_SECTION.lead)).toBeInTheDocument();
+        expect(testimonials()).not.toHaveTextContent(/Premium was a no-brainer|Emily C\./);
     });
 
     it("duplicates each row for a seamless loop, hidden from assistive technology", () => {
         const { container } = renderHome();
         const hidden = container.querySelectorAll("section li[aria-hidden='true']");
-        expect(hidden).toHaveLength(TESTIMONIALS.length);
+        expect(hidden).toHaveLength(PUBLISHED_TESTIMONIALS.length);
         for (const copy of hidden) expect(copy.querySelector("a, button")).toBeNull();
     });
 

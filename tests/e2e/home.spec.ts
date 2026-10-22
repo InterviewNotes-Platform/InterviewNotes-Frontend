@@ -14,7 +14,7 @@ const READ_FREE_CHAPTER = "Read a free chapter";
 const KNOWLEDGE_HREFS = ["/knowledge?group=core-concepts", "/knowledge?group=technologies-research", "/knowledge?group=patterns", "/knowledge?group=quick-references", "/knowledge"];
 
 const hero = (page: Page) => page.getByRole("region", { name: /Crack Your Next/ });
-const tracks = (page: Page) => page.getByRole("region", { name: "Choose Your Path" });
+const tracks = (page: Page) => page.getByRole("region", { name: "Choose Your Track" });
 const trackCards = (page: Page) => tracks(page).getByRole("list").last().getByRole("link");
 const pricing = (page: Page) => page.locator("#pricing");
 const plans = (page: Page) => pricing(page).getByRole("list", { name: "Planned pricing" }).getByRole("listitem");
@@ -156,7 +156,7 @@ test.describe("Browse Tracks", () => {
       await page.getByRole("banner").getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Tracks" }).click();
       await expect(page).toHaveURL(/\/#tracks$/);
       await expect(page.locator("#tracks")).toBeInViewport();
-      await expect(page.getByRole("region", { name: "Choose Your Path" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Choose Your Track" })).toBeVisible();
    });
 
    test("no link in the page's main content still sends Track discovery to /learn", async ({ page }) => {
