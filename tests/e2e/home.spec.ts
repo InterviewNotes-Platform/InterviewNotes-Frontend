@@ -59,7 +59,7 @@ test.describe("catalog reads", () => {
       await expect(hero(page).getByRole("link")).toHaveText(["Browse Tracks", READ_FREE_CHAPTER]);
    });
 
-   test("keyboard moves from Browse Tracks to Read a free chapter, with a solid 2px focus ring, then to the first Track card", async ({ page }) => {
+   test("keyboard moves from Browse Tracks to Read a free chapter, with a solid 2px focus ring, past the animation pause control, then to the first Track card", async ({ page }) => {
       await page.goto("/");
       await page.keyboard.press("Tab"); // skip link
       await page.keyboard.press("Enter");
@@ -73,6 +73,9 @@ test.describe("catalog reads", () => {
       await expect(freeChapter).toBeFocused();
       await expect(freeChapter).toHaveCSS("outline-style", "solid");
       await expect(freeChapter).toHaveCSS("outline-width", "2px");
+
+      await page.keyboard.press("Tab");
+      await expect(hero(page).getByRole("button", { name: "Pause animation" })).toBeFocused();
 
       await page.keyboard.press("Tab");
       await expect(trackCards(page).first()).toBeFocused();
@@ -114,7 +117,7 @@ test("shows no count, duration or badge on a Track card, and no card the catalog
    await expect(tracks(page).getByRole("link", { name: /explore tracks/i })).toHaveCount(0);
 });
 
-test("keyboard reaches the hero action, then the Track cards in order, each with a solid 2px focus ring", async ({ page }) => {
+test("keyboard reaches the hero action, the animation pause control, then the Track cards in order, each with a solid 2px focus ring", async ({ page }) => {
    await page.goto("/");
    await page.keyboard.press("Tab"); // skip link
    await page.keyboard.press("Enter");
@@ -122,6 +125,9 @@ test("keyboard reaches the hero action, then the Track cards in order, each with
 
    await page.keyboard.press("Tab");
    await expect(hero(page).getByRole("link", { name: "Browse Tracks" })).toBeFocused();
+
+   await page.keyboard.press("Tab");
+   await expect(hero(page).getByRole("button", { name: "Pause animation" })).toBeFocused();
 
    for (const index of CATALOG_TRACKS.keys()) {
       await page.keyboard.press("Tab");
@@ -294,6 +300,37 @@ test("the testimonials drift, and the pause button stops them", async ({ page })
    await expect(row).toHaveCSS("animation-play-state", "running");
 });
 
+test("the hero rotates its subject once through the topics, animates the stage, and logs no console error", async ({ page }) => {
+   const errors: string[] = [];
+   page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
+   page.on("pageerror", (error) => errors.push(error.message));
+   await page.goto("/");
+   const h1 = hero(page).getByRole("heading", { level: 1 });
+   await expect(h1).toHaveAccessibleName("Crack Your Next ML and AI engineering Interview");
+   const visibleTopic = () => h1.locator("[aria-hidden='true'] > span").evaluateAll((spans) => spans.filter((s) => getComputedStyle(s).opacity === "1").map((s) => s.textContent));
+   await expect.poll(visibleTopic).toEqual(["ML Platform Design"]);
+   await expect.poll(visibleTopic).toEqual(["LLM Platform Design"]);
+   await expect.poll(visibleTopic, { timeout: 8000 }).toEqual(["ML Platform Design"]); // comes back to the first and rests
+   await expect(page.locator("[data-hero-stage] .home-rise")).toHaveCSS("animation-name", "home-rise");
+   await expect(page.locator("[data-hero-stage] .home-node").first()).toBeVisible();
+   expect(errors).toEqual([]);
+});
+
+test("the hero's pause control freezes the ambient loops, the packet and the round clock", async ({ page }) => {
+   await page.goto("/");
+   const clock = page.getByText(/^\d\d:\d\d$/).first();
+   await expect(clock).not.toHaveText("27:40"); // the clock ticks only once the page has hydrated, so the click below reaches a live button
+   const floating = page.locator("[data-hero-stage] .home-pop-in").first();
+   await expect(floating).toHaveCSS("animation-play-state", /^running(, running)?$/);
+   await page.getByRole("button", { name: "Pause animation" }).click();
+   await expect(floating).toHaveCSS("animation-play-state", /^paused(, paused)?$/);
+   const frozen = await clock.textContent();
+   await page.waitForTimeout(2200);
+   expect(await clock.textContent()).toBe(frozen);
+   await page.getByRole("button", { name: "Play animation" }).click();
+   await expect(floating).toHaveCSS("animation-play-state", /^running(, running)?$/);
+});
+
 test.describe("reduced motion", () => {
    test.use({ reducedMotion: "reduce" });
 
@@ -304,6 +341,17 @@ test.describe("reduced motion", () => {
       const row = page.getByRole("list", { name: "Testimonials, first row" });
       expect(await row.evaluate((el) => el.parentElement!.scrollWidth > el.parentElement!.clientWidth)).toBe(true);
       await expect(row.getByRole("figure")).toHaveCount(4);
+   });
+
+   test("stops the hero's motion and hides its pause control", async ({ page }) => {
+      await page.goto("/");
+      await expect(page.getByRole("button", { name: /animation$/ })).toBeHidden();
+      await expect(page.locator("[data-hero-stage] .home-rise")).toHaveCSS("animation-name", "none");
+      await expect(page.locator("[data-hero-stage] .home-pop-in").first()).toHaveCSS("animation-name", "none");
+      const clock = page.getByText(/^\d\d:\d\d$/).first();
+      const before = await clock.textContent();
+      await page.waitForTimeout(2500);
+      expect(await clock.textContent()).toBe(before);
    });
 
    test("collapses the track cards' hover transitions", async ({ page }) => {

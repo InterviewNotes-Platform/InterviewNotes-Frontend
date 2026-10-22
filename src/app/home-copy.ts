@@ -3,7 +3,7 @@ import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 
 // Tracks are the primary product, Knowledge supports them (P2 spec §5.3). STATS and TESTIMONIALS are the pre-P0
 // claims (51b99f3), not backed by product data. Prices: spec §5.1. Provenance: core-experience/design-brief.md §8.
-// All are UNVERIFIED and wait for Harshul's review (RG-2). Stats and quotes are shown only as labelled samples (P6-D-37).
+// All are UNVERIFIED. Stats and quotes are shown only as labelled samples (P6-D-37); RG-2 is resolved by the product owner (P6-D-38).
 export const HOME_METADATA: Metadata = {
    title: "InterviewNotes: ML interview preparation",
    description:
@@ -71,7 +71,7 @@ export const KNOWLEDGE = {
 };
 
 /** The pre-P0 section ("Engineers Who Landed Offers", "Trusted by engineers at Google, Meta, ...") named employers and
- *  outcomes no record supports (RG-2), so it now says plainly that these are samples. */
+ *  outcomes no record supports, so it now says plainly that these are samples (P6-D-37, -38). */
 export const TESTIMONIALS_SECTION = {
    label: "Samples",
    heading: "Sample Testimonials",

@@ -39,6 +39,13 @@
   --color-surface: var(--surface);
   --color-code-surface: var(--code-surface);
   --color-premium: var(--premium);
+  --color-home-line: var(--home-line);
+  --color-home-rule: var(--home-rule);
+  --color-home-mist: var(--home-mist);
+  --color-home-raised: var(--home-raised);
+  --color-home-sky: var(--home-sky);
+  --color-home-sky-2: var(--home-sky-2);
+  --font-home-heading: var(--font-home-serif), Georgia, serif;
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -95,6 +102,13 @@
 :root {
   color-scheme: light;
   --radius: 0.5rem;
+  /* The homepage's neutral hairlines, card and sky tones (read as home-* colour utilities; the homepage scope below sets the rest). */
+  --home-line: #e1e6eb;
+  --home-rule: #c9d2db;
+  --home-mist: #d5dde4;
+  --home-raised: #ffffff;
+  --home-sky: #9fb3c8;
+  --home-sky-2: #b9ccdd;
   --font-geist-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
@@ -163,6 +177,12 @@
 
 .dark {
   color-scheme: dark;
+  --home-line: #2a2a28;
+  --home-rule: #3b3a37;
+  --home-mist: #31312e;
+  --home-raised: #222221;
+  --home-sky: #7f93a8;
+  --home-sky-2: #46525f;
   --background: #0f0f11;
   --foreground: #f5f5f7;
 
@@ -259,6 +279,11 @@
   --home-hill-mist: #d5dde4;
   --home-hill-top: #ffffff;
   --home-window-shadow: 0 30px 80px rgb(30 42 54 / 0.16), 0 2px 6px rgb(30 42 54 / 0.06);
+  --home-sh: 30 42 54;
+  --home-shine: 0.75;
+  --home-ring: #f2db8c;
+  --home-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --home-spring: linear(0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%, 0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%, 1.015 55%, 1.017 63.9%, 1.001 85.9%, 1);
 }
 
 .dark:has([data-home]) {
@@ -291,6 +316,9 @@
   --home-hill-mist: #1a1a19;
   --home-hill-top: #191918;
   --home-window-shadow: 0 30px 80px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
+  --home-sh: 0 0 0;
+  --home-shine: 0.1;
+  --home-ring: #c9a53e;
 }
 
 /* The shared header and mobile menu, restyled inside the homepage scope only; the header keeps its 64px + 1px border. */
@@ -305,30 +333,152 @@
 }
 
 /*
- * Homepage motion is decoration: CSS only, inside @supports and no-preference, and the page is complete (and visible)
- * without it, without JavaScript and under reduced motion. Nothing here starts at opacity 0.
+ * Homepage motion, ported from the prototype (homepage/src/app/globals.css): CSS only, and decoration. Everything animates
+ * from a keyframe, so the page is complete without it, without JavaScript and under reduced motion (the whole block sits
+ * inside no-preference). The scroll-driven reveals sit inside @supports as well. HeroMotion's pause control sets
+ * data-paused, which freezes the ambient loops (float, shimmer, march).
  */
+[data-home] .home-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+[data-home] .home-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-home] .home-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  translate: -100% 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / var(--home-shine)), transparent);
+}
+
+[data-home] .home-pop {
+  translate: calc(var(--mx, 0) * var(--depth, 10) * 1px) calc(var(--my, 0) * var(--depth, 10) * 1px);
+}
+
+[data-home] .home-pop-card {
+  rotate: var(--r, 0deg);
+  transition: rotate 0.6s var(--home-spring), scale 0.6s var(--home-spring), box-shadow 0.3s ease;
+}
+
+[data-home] .home-pop-card:hover {
+  rotate: 0deg;
+  scale: 1.04;
+}
+
+[data-home] .home-card-shadow {
+  box-shadow: 0 18px 40px rgb(var(--home-sh) / 0.14), 0 1px 2px rgb(var(--home-sh) / 0.08);
+}
+
+.dark [data-home] .home-card-shadow {
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+[data-home] .home-btn {
+  transition: translate 0.25s var(--home-ease), scale 0.15s ease, box-shadow 0.25s ease, background-color 0.2s ease;
+}
+
+[data-home] .home-btn:hover {
+  translate: 0 -1px;
+  box-shadow: 0 8px 20px rgb(var(--home-sh) / 0.16);
+}
+
+[data-home] .home-btn:active {
+  translate: 0 0;
+  scale: 0.97;
+}
+
+[data-home] .home-lift {
+  transition: translate 0.4s var(--home-ease), box-shadow 0.4s var(--home-ease), border-color 0.3s ease;
+}
+
+[data-home] .home-lift:hover {
+  translate: 0 -4px;
+  border-color: var(--home-mist);
+  box-shadow: 0 22px 44px rgb(var(--home-sh) / 0.08);
+}
+
+[data-home] .home-lift .home-accent {
+  transition: stroke 0.3s ease;
+}
+
+[data-home] .home-lift:hover .home-accent {
+  stroke: var(--foreground);
+}
+
+[data-home] .home-node rect {
+  transition: fill 0.25s ease;
+}
+
+[data-home] .home-node:hover rect {
+  fill: color-mix(in oklab, var(--gold) 30%, var(--card));
+}
+
+[data-home] .home-row {
+  transition: background-color 0.2s ease;
+}
+
+[data-home] .home-row:hover {
+  background-color: color-mix(in srgb, var(--card) 70%, transparent);
+}
+
 @media (prefers-reduced-motion: no-preference) {
+  @keyframes home-fade-up { from { opacity: 0; translate: 0 var(--fy, 14px); } }
+  @keyframes home-fade { from { opacity: 0; } }
+  @keyframes home-word-in { from { opacity: 0; translate: 0 0.3em; filter: blur(8px); } }
+  @keyframes home-rise { from { opacity: 0; translate: 0 80px; scale: 0.97; } }
+  @keyframes home-layer-rise { from { translate: 0 var(--ly, 80px); } }
+  @keyframes home-pop { from { opacity: 0; scale: 0.8; } }
+  @keyframes home-slap { from { opacity: 0; scale: 1.18; rotate: 12deg; } }
+  @keyframes home-float { 50% { translate: 0 -7px; } }
+  @keyframes home-draw { from { stroke-dashoffset: 1; } }
+  @keyframes home-grow-x { from { scale: 0 1; } }
+  @keyframes home-march { to { stroke-dashoffset: -16; } }
+  @keyframes home-sweep { to { translate: 100% 0; } }
+  @keyframes home-drift {
+    from { translate: calc(var(--dx, 30px) * -1) 0; }
+    to { translate: var(--dx, 30px) 0; }
+  }
+
+  [data-home] .home-fade-up { animation: home-fade-up 0.9s var(--home-ease) var(--d, 0ms) backwards; }
+  [data-home] .home-fade { animation: home-fade 0.8s ease-out var(--d, 0ms) backwards; }
+  [data-home] .home-rise { animation: home-rise 1.2s var(--home-ease) var(--d, 0ms) backwards; }
+  [data-home] .home-grow-x { transform-origin: left; animation: home-grow-x 1.1s var(--home-ease) var(--d, 0ms) backwards; }
+  [data-home] .home-word { display: inline-block; animation: home-word-in 0.9s var(--home-ease) var(--d, 0ms) backwards; }
+  [data-home] .home-layer { animation: home-layer-rise 1.6s var(--home-ease) var(--d, 0ms) backwards; }
+  [data-home] .home-draw { animation: home-draw 0.7s var(--home-ease) var(--d, 0ms) backwards; }
+  [data-home] .home-march { animation: home-fade 0.6s ease-out var(--d, 0ms) backwards, home-march 1.2s linear calc(var(--d, 0ms) + 0.6s) infinite; }
+  [data-home] .home-pop { transition: translate 1s var(--home-ease); }
+  [data-home] .home-pop-in { animation: home-pop 0.9s var(--home-spring) var(--d, 0ms) backwards, home-float var(--fdur, 7s) ease-in-out calc(var(--d, 0ms) + 0.9s) infinite; }
+  [data-home] .home-pop-in.home-slap { animation: home-slap 0.8s var(--home-spring) var(--d, 0ms) backwards, home-float var(--fdur, 7s) ease-in-out calc(var(--d, 0ms) + 0.8s) infinite; }
+  [data-home] .home-sheen::after { animation: home-sweep 2.4s ease-in-out 3s infinite; }
+
+  [data-home] [data-paused="true"] :is(.home-pop-in, .home-march),
+  [data-home] [data-paused="true"] .home-sheen::after {
+    animation-play-state: paused;
+  }
+
   @supports (animation-timeline: view()) {
-    @keyframes home-rise {
-      from { transform: translateY(40px) scale(0.97); }
-      to { transform: none; }
-    }
-
-    @keyframes home-hill {
-      to { transform: translateY(var(--home-hill-shift, -16px)); }
-    }
-
-    [data-home] .home-rise {
-      animation: home-rise linear both;
+    [data-home] .home-reveal {
+      animation: home-fade-up linear backwards;
       animation-timeline: view();
-      animation-range: entry 0% entry 60%;
+      animation-range: entry calc(5% + var(--s, 0%)) entry calc(55% + var(--s, 0%));
     }
 
-    [data-home] .home-hill {
-      animation: home-hill linear both;
-      animation-timeline: scroll(root);
-      animation-range: 0 70vh;
+    [data-home] .home-reveal-x {
+      transform-origin: left;
+      animation: home-grow-x var(--home-ease) backwards;
+      animation-timeline: view();
+      animation-range: entry calc(20% + var(--s, 0%)) cover calc(35% + var(--s, 0%));
+    }
+
+    [data-home] .home-drift {
+      animation: home-drift linear both;
+      animation-timeline: view();
     }
   }
 }

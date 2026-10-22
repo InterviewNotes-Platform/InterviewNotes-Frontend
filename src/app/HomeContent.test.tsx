@@ -133,10 +133,11 @@ describe("hero", () => {
         expect(screen.queryByText(HERO.freeChapterLabel)).toBeNull();
     });
 
-    it("keeps the gold accent on the primary action", () => {
+    it("styles Browse Tracks as the prototype's dark primary pill and the free chapter as its light pill", () => {
         renderHome();
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
-        expect(within(hero).getByRole("link", { name: HERO.primaryAction.label }).className).toMatch(/\bbg-gold\b/);
+        expect(within(hero).getByRole("link", { name: HERO.primaryAction.label }).className).toMatch(/\bbg-foreground\b.*\btext-background\b/);
+        expect(within(hero).getByRole("link", { name: HERO.freeChapterLabel }).className).toMatch(/\bbg-card\b/);
     });
 
     it("lists the subject areas as plain items, not controls", () => {
@@ -147,15 +148,60 @@ describe("hero", () => {
         for (const item of items) expect(item.querySelector("a, button")).toBeNull();
     });
 
-    it("keeps a decorative reader-window preview in the hero: hidden from assistive technology, with no link, figure or timer", () => {
+    it("keeps the prototype's reader-window stage in the hero as decoration: hidden from assistive technology, with no link, control or figure", () => {
         renderHome();
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
-        const preview = hero.querySelector("[data-hero-stage][aria-hidden='true']");
-        expect(preview).not.toBeNull();
-        expect(preview?.querySelector("a, button, input, img, [tabindex]")).toBeNull();
-        expect(preview?.textContent).not.toMatch(/\d/); // no counts, durations, badges or countdown
-        expect(preview?.textContent).not.toMatch(/\b(free|pro|premium)\b/i);
-        expect(within(hero).queryByText(/\b(free|pro|premium)\b/i, { ignore: "[aria-hidden='true'] *, a[href^='/lessons/']" })).toBeNull(); // the free-chapter action is the one place the hero says free
+        const stage = hero.querySelector("[data-hero-stage][aria-hidden='true']");
+        expect(stage).not.toBeNull();
+        expect(stage?.querySelector("a, button, input, img, [tabindex]")).toBeNull();
+        expect(stage?.textContent).toContain("Design a RAG system for 50M internal docs.");
+        expect(within(hero).queryByText(/\b(free|pro|premium)\b/i, { ignore: "[aria-hidden='true'] *, a[href^='/lessons/']" })).toBeNull(); // the free-chapter action is the one place the hero's own text says free
+    });
+
+    it("hides the floating cards around the headline from assistive technology too", () => {
+        renderHome();
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        for (const text of ["Chapter complete", "Next up · 06", "Saved to notes"]) {
+            expect(within(hero).getByText(text).closest("[aria-hidden='true']"), text).not.toBeNull();
+        }
+        expect(hero.querySelector("h2, h3, [role='img']")).toBeNull();
+    });
+});
+
+describe("hero motion", () => {
+    const clocks = () => screen.getAllByText(/^\d\d:\d\d$/).map((el) => el.textContent);
+    const pause = () => screen.getByRole("button", { name: /animation$/ });
+
+    it("ticks the round clocks together, and the pause control stops and restarts them", () => {
+        vi.useFakeTimers();
+        renderHome();
+        expect(clocks()).toEqual(["27:40", "27:40"]);
+        act(() => void vi.advanceTimersByTime(3000));
+        expect(clocks()).toEqual(["27:37", "27:37"]);
+        fireEvent.click(pause());
+        expect(pause()).toHaveTextContent("Play animation");
+        expect(pause().closest("[data-paused]")).toHaveAttribute("data-paused", "true");
+        act(() => void vi.advanceTimersByTime(5000));
+        expect(clocks()).toEqual(["27:37", "27:37"]);
+        fireEvent.click(pause());
+        expect(pause()).toHaveTextContent("Pause animation");
+        act(() => void vi.advanceTimersByTime(2000));
+        expect(clocks()).toEqual(["27:35", "27:35"]);
+    });
+
+    it("keeps the clocks still when the reader prefers reduced motion", () => {
+        stubMotion(true);
+        vi.useFakeTimers();
+        renderHome();
+        act(() => void vi.advanceTimersByTime(5000));
+        expect(clocks()).toEqual(["27:40", "27:40"]);
+    });
+
+    it("offers the pause control as the only button in the hero, after the two actions", () => {
+        renderHome();
+        const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
+        expect(within(hero).getAllByRole("button")).toEqual([pause()]);
+        expect(within(hero).getAllByRole("link").at(-1)!.compareDocumentPosition(pause()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 });
 
