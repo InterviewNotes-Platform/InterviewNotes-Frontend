@@ -331,6 +331,146 @@ test("the hero's pause control freezes the ambient loops, the packet and the rou
    await expect(floating).toHaveCSS("animation-play-state", /^running(, running)?$/);
 });
 
+const html = (page: Page) => page.locator("html");
+const header = (page: Page) => page.getByRole("banner");
+/** Distance from the viewport top to the section, less its scroll margin: 0 when the section sits exactly where an anchor should leave it. */
+const offBy = (page: Page, selector: string) =>
+   page.locator(selector).evaluate((el) => Math.round(el.getBoundingClientRect().top - parseFloat(getComputedStyle(el).scrollMarginTop)));
+
+test("the homepage uses the prototype's three self-hosted faces, and the shared header and other routes do not", async ({ page }) => {
+   await page.goto("/");
+   await page.evaluate(() => document.fonts.ready);
+   const family = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).fontFamily);
+   const loaded = await page.evaluate(() => [...document.fonts].filter((face) => face.status === "loaded").map((face) => face.family));
+   expect(loaded.length).toBeGreaterThanOrEqual(2); // Newsreader and Inter load for the first view; JetBrains Mono loads on use
+   expect(await family("main[data-home] p")).not.toBe(await family("[data-site-header] a"));
+   const requests: string[] = [];
+   page.on("request", (request) => requests.push(request.url()));
+   await page.goto("/login");
+   expect(requests.filter((url) => /\.woff2/.test(url))).toEqual([]);
+});
+
+test.describe("smooth scrolling (Lenis, homepage only)", () => {
+   test("exists while the homepage is mounted and is destroyed by a client navigation away", async ({ page }) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
+      await page.goto("/");
+      await expect(html(page)).toHaveClass(/\blenis\b/);
+      await header(page).getByRole("link", { name: "Knowledge", exact: true }).first().click();
+      await expect(page).toHaveURL(/\/knowledge$/);
+      await expect(html(page)).not.toHaveClass(/lenis/);
+      await page.goBack();
+      await expect(html(page)).toHaveClass(/\blenis\b/);
+      expect(await page.evaluate(() => document.querySelectorAll("html.lenis").length)).toBe(1);
+      expect(errors).toEqual([]);
+   });
+
+   test("other routes keep native scrolling: no instance, and the reader's own fragment handling is untouched", async ({ page }) => {
+      await page.goto("/knowledge");
+      await expect(page.locator("main")).toBeVisible();
+      await expect(html(page)).not.toHaveClass(/lenis/);
+      await page.goto("/login");
+      await expect(html(page)).not.toHaveClass(/lenis/);
+   });
+
+   for (const [name, selector] of [
+      ["Tracks", "#tracks"],
+      ["Pricing", "#pricing"],
+      ["FAQ", "#faq"],
+   ] as const) {
+      test(`the header's ${name} link scrolls with easing, lands the section at its scroll margin, and keeps #${selector.slice(1)} in the URL`, async ({ page }) => {
+         await page.goto("/");
+         await expect(html(page)).toHaveClass(/\blenis\b/);
+         await header(page).getByRole("link", { name, exact: true }).first().click();
+         const seen = await page.evaluate(
+            () =>
+               new Promise<number[]>((resolve) => {
+                  const values: number[] = [];
+                  const end = performance.now() + 1200;
+                  const tick = () => (values.push(Math.round(scrollY)), performance.now() < end ? requestAnimationFrame(tick) : resolve(values));
+                  tick();
+               }),
+         );
+         const final = seen.at(-1)!;
+         expect(final).toBeGreaterThan(900);
+         expect(seen.some((y) => y > 0 && y < final - 50), "an intermediate position was drawn").toBe(true);
+         await expect.poll(() => offBy(page, selector)).toBeLessThanOrEqual(2);
+         expect(Math.abs(await offBy(page, selector))).toBeLessThanOrEqual(2);
+         await expect(page).toHaveURL(new RegExp(`${selector}$`));
+      });
+   }
+
+   test("the hero and closing Browse Tracks actions land on the Tracks section", async ({ page }) => {
+      await page.goto("/");
+      await expect(html(page)).toHaveClass(/\blenis\b/);
+      await hero(page).getByRole("link", { name: "Browse Tracks" }).click();
+      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
+      await page.evaluate(() => scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+      await page.getByRole("region", { name: "Pick a Track and start reading" }).getByRole("link", { name: "Browse Tracks" }).click();
+      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
+   });
+
+   test("a direct load with a fragment lands on the section", async ({ page }) => {
+      await page.goto("/#pricing");
+      await expect(html(page)).toHaveClass(/\blenis\b/);
+      await expect.poll(() => offBy(page, "#pricing")).toBeLessThanOrEqual(2);
+   });
+
+   test("a link from another route lands on the fragment, and back and forward move through the history", async ({ page }) => {
+      await page.goto("/knowledge");
+      await header(page).getByRole("link", { name: "Tracks", exact: true }).first().click();
+      await expect(page).toHaveURL(/\/#tracks$/);
+      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
+      await page.goBack();
+      await expect(page).toHaveURL(/\/knowledge$/);
+      await page.goForward();
+      await expect(page).toHaveURL(/\/#tracks$/);
+      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
+      await expect(html(page)).toHaveClass(/\blenis\b/);
+   });
+
+   test("keyboard scrolling and focus are native: Tab reaches the skip link first, and End and Home move the page", async ({ page }) => {
+      await page.goto("/");
+      await expect(html(page)).toHaveClass(/\blenis\b/);
+      await page.keyboard.press("Tab");
+      await expect(page.getByRole("link", { name: /skip to/i })).toBeFocused();
+      await page.locator("body").click({ position: { x: 5, y: 300 } });
+      await page.keyboard.press("End");
+      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(3000);
+      await page.keyboard.press("Home");
+      await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+   });
+});
+
+test("the statistics count up with CSS only and end on the exact existing values", async ({ page }) => {
+   await page.goto("/");
+   const figures = page.locator("li:has(.home-count)");
+   await expect(figures).toHaveCount(4);
+   const shown = () => page.locator(".home-count").evaluateAll((els) => els.map((el) => getComputedStyle(el).getPropertyValue("--n")));
+   expect(await shown(), "below the fold, the digits wait at 0").toEqual(["0", "0", "0", "0"]);
+   await figures.first().scrollIntoViewIfNeeded();
+   await page.evaluate(() => scrollBy({ top: 400, behavior: "instant" }));
+   await expect.poll(shown).toEqual(["80", "5", "90", "6"]);
+   await expect(figures.nth(0)).toContainText("80+");
+   await expect(figures.nth(1)).toContainText("5K+");
+   await expect(figures.nth(2)).toContainText("90%");
+   await expect(figures.nth(3)).toContainText("6");
+   await expect(page.getByText("Sample statistics: illustrative figures, not verified results.")).toBeVisible();
+});
+
+test.describe("statistics without JavaScript", () => {
+   test.use({ javaScriptEnabled: false });
+
+   test("show every final value", async ({ page }) => {
+      await page.goto("/");
+      const band = page.locator("ul:has(.home-count)");
+      for (const value of ["80+", "5K+", "90%", "6"]) await expect(band.getByText(value, { exact: true })).toHaveCount(1);
+      await band.scrollIntoViewIfNeeded();
+      await expect(band).toBeVisible();
+   });
+});
+
 test.describe("reduced motion", () => {
    test.use({ reducedMotion: "reduce" });
 
@@ -341,6 +481,16 @@ test.describe("reduced motion", () => {
       const row = page.getByRole("list", { name: "Testimonials, first row" });
       expect(await row.evaluate((el) => el.parentElement!.scrollWidth > el.parentElement!.clientWidth)).toBe(true);
       await expect(row.getByRole("figure")).toHaveCount(4);
+   });
+
+   test("creates no Lenis instance, so anchors, keyboard and touch scroll natively and the statistics show their final values at once", async ({ page }) => {
+      await page.goto("/");
+      await expect(html(page)).not.toHaveClass(/lenis/);
+      await header(page).getByRole("link", { name: "FAQ", exact: true }).first().click();
+      await expect(page).toHaveURL(/#faq$/);
+      await expect.poll(() => offBy(page, "#faq")).toBeLessThanOrEqual(2);
+      const shown = await page.locator(".home-count").evaluateAll((els) => els.map((el) => getComputedStyle(el).getPropertyValue("--n")));
+      expect(shown).toEqual(["80", "5", "90", "6"]);
    });
 
    test("stops the hero's motion and hides its pause control", async ({ page }) => {

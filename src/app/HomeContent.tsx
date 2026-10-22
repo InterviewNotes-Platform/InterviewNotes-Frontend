@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CheckCircle2, ChevronDown, FlaskConical, Layers, Lightbulb, Sparkles, Star, type LucideIcon } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, FlaskConical, Layers, Lightbulb, Sparkles, Star, type LucideIcon } from "lucide-react";
 import { Footer } from "@/components/layout/Footer";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,9 @@ import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, STATS_DISCLOSURE, TRACKS } from "./home-copy";
 import { HeroMotion } from "./HeroMotion";
+import { HomeSmoothScroll } from "./HomeSmoothScroll";
 import { HeroStage } from "./HeroStage";
-import { homeSerif } from "./home-font";
+import { HOME_FONT_VARIABLES } from "./home-font";
 import { RotatingTopic } from "./RotatingTopic";
 import { SectionIntro } from "./SectionIntro";
 import { Testimonials } from "./Testimonials";
@@ -109,6 +110,25 @@ function Hero({ freeChapterHref }: { freeChapterHref: string | null }) {
    );
 }
 
+/**
+ * One statistic. Assistive technology reads the stable final value; the visible digits count up from 0 as the band scrolls into
+ * view (the prototype's `Count`: a CSS counter driven by a scroll timeline, so no script and no intermediate frame is exposed).
+ * Without scroll-timeline support, without CSS, or under reduced motion, the final value is simply shown.
+ */
+function Figure({ value }: { value: string }) {
+   const [, prefix, digits, suffix] = /^(\D*)(\d+)(.*)$/.exec(value) ?? ["", "", "", value];
+   return (
+      <span className="text-[32px]/10 tracking-[-0.03em] tabular-nums sm:text-[40px]/12">
+         <span className="sr-only">{value}</span>
+         <span aria-hidden="true">
+            {prefix}
+            {digits ? <span className="home-count" style={{ "--to": digits } as CSSProperties} /> : null}
+            {suffix}
+         </span>
+      </span>
+   );
+}
+
 /** The four existing stats, in their own band after the Tracks (spec S6-HOME-1); wording is unchanged and the band says they are samples. */
 function StatsBand() {
    return (
@@ -121,7 +141,7 @@ function StatsBand() {
             <ul className="m-0 mx-auto grid max-w-4xl list-none grid-cols-2 gap-y-8 p-0 md:grid-cols-4">
                {STATS.map(({ key, value, label }) => (
                   <li key={key} className="flex cursor-default flex-col items-center gap-1.5 py-2 text-center md:border-l md:border-home-mist md:first:border-l-0">
-                     <span className="text-[32px]/10 tracking-[-0.03em] tabular-nums sm:text-[40px]/12">{value}</span>
+                     <Figure value={value} />
                      <span className="font-mono text-[11px]/3.5 tracking-[0.08em] text-muted-foreground uppercase">{label}</span>
                   </li>
                ))}
@@ -254,14 +274,15 @@ function Knowledge() {
          <PageContainer>
             <SectionIntro id="home-knowledge-heading" label={KNOWLEDGE.label} title={KNOWLEDGE.heading} lead={KNOWLEDGE.lead} />
             <ul className="m-0 mx-auto grid max-w-6xl list-none gap-5 p-0 sm:grid-cols-2 lg:grid-cols-4">
-               {KNOWLEDGE.groups.map(({ key, href, title, description }) => {
+               {KNOWLEDGE.groups.map(({ key, href, title, description }, i) => {
                   const Icon = KNOWLEDGE_ICONS[key];
                   return (
                      <li key={key} className="flex">
                         <Link
                            href={href}
                            prefetch={false}
-                           className="group flex w-full flex-col rounded-2xl border border-border/60 bg-background p-6 text-left transition-[color,background-color,border-color,box-shadow] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10"
+                           style={{ "--s": `${i * 3}%` } as CSSProperties}
+                           className="home-reveal group flex w-full flex-col rounded-2xl border border-border/60 bg-background p-6 text-left transition-[color,background-color,border-color,box-shadow] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10"
                         >
                            <span aria-hidden="true" className="mb-4 flex size-12 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary">
                               <Icon className="size-6" />
@@ -294,10 +315,11 @@ function Pricing() {
             <SectionIntro id="home-pricing-heading" label={PRICING.label} title={PRICING.heading} lead={PRICING.lead} gold />
 
             <ul aria-label={PRICING.listLabel} className="m-0 mx-auto grid max-w-5xl list-none gap-5 p-0 md:grid-cols-3">
-               {PRICING.plans.map(({ name, amount, unit }) => (
+               {PRICING.plans.map(({ name, amount, unit }, i) => (
                   <li
                      key={name}
-                     className="relative flex flex-col items-center overflow-hidden rounded-2xl border-2 border-gold/40 bg-gradient-to-b from-gold/10 to-transparent px-6 py-8 text-center shadow-2xl ring-1 shadow-gold/10 ring-gold/20"
+                     style={{ "--s": `${i * 4}%` } as CSSProperties}
+                     className="home-reveal relative flex flex-col items-center overflow-hidden rounded-2xl border-2 border-gold/40 bg-gradient-to-b from-gold/10 to-transparent px-6 py-8 text-center shadow-2xl ring-1 shadow-gold/10 ring-gold/20"
                   >
                      <span className="flex items-center gap-2 text-sm font-bold tracking-wider text-premium uppercase">
                         <Star aria-hidden="true" className="size-4 fill-gold text-gold" />
@@ -347,12 +369,15 @@ function Faq() {
       <section id="faq" aria-labelledby="home-faq-heading" className="scroll-mt-20 border-t border-border/50 py-20 md:py-28">
          <PageContainer>
             <SectionIntro id="home-faq-heading" label={FAQ.label} title={FAQ.heading} />
-            <div className="mx-auto flex max-w-2xl flex-col gap-3">
+            <div className="home-reveal mx-auto flex max-w-2xl flex-col gap-3">
                {FAQ.items.map(({ q, a }) => (
                   <details key={q} className="group rounded-xl border border-border/60 bg-card px-5">
                      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-4 rounded-md py-3 text-left transition-micro -outline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
                         <h3 className="m-0 min-w-0 flex-1 text-body font-semibold text-balance">{q}</h3>
-                        <ChevronDown aria-hidden="true" className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+                        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false" className="shrink-0">
+                           <path d="M5 10h10" fill="none" stroke="var(--foreground)" strokeWidth="1.4" strokeLinecap="round" />
+                           <path className="home-faq-v" d="M10 5v10" fill="none" stroke="var(--foreground)" strokeWidth="1.4" strokeLinecap="round" />
+                        </svg>
                      </summary>
                      <p className="m-0 pb-4 text-supporting leading-relaxed text-pretty text-muted-foreground">{a}</p>
                   </details>
@@ -397,7 +422,8 @@ function Closing() {
 export function HomeContent({ tracks, freeChapterHref }: { tracks: HomeTracks; freeChapterHref: string | null }) {
    return (
       <>
-         <main data-home className={homeSerif.variable}>
+         <HomeSmoothScroll />
+         <main data-home className={HOME_FONT_VARIABLES}>
             <Hero freeChapterHref={freeChapterHref} />
             <Tracks tracks={tracks} />
             <StatsBand />

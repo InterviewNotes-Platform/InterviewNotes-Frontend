@@ -321,6 +321,13 @@
   --home-ring: #c9a53e;
 }
 
+/* The prototype's faces apply inside <main data-home> only (Inter for text, JetBrains Mono for labels); other routes keep the system stacks. */
+[data-home] {
+  --font-geist-sans: var(--font-home-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: var(--font-home-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-geist-sans);
+}
+
 /* The shared header and mobile menu, restyled inside the homepage scope only; the header keeps its 64px + 1px border. */
 :root:has([data-home]) [data-site-header] {
   background: color-mix(in oklab, var(--background) 88%, transparent);
@@ -341,6 +348,23 @@
 [data-home] .home-draw {
   stroke-dasharray: 1;
   stroke-dashoffset: 0;
+}
+
+@property --n {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* The counter shows its final value (--to) by default: with no script, no timeline support or reduced motion nothing changes. */
+[data-home] .home-count {
+  --n: var(--to);
+  counter-reset: n var(--n);
+}
+
+[data-home] .home-count::after {
+  content: counter(n);
+  content: counter(n) / "";
 }
 
 [data-home] .home-sheen {
@@ -418,6 +442,30 @@
   fill: color-mix(in oklab, var(--gold) 30%, var(--card));
 }
 
+/* FAQ: the prototype's native <details>, whose height animates where ::details-content is supported and which otherwise just toggles. */
+:root:has([data-home]) {
+  interpolate-size: allow-keywords;
+}
+
+[data-home] details::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size 0.4s var(--home-ease), content-visibility 0.4s allow-discrete;
+}
+
+[data-home] details[open]::details-content {
+  block-size: auto;
+}
+
+[data-home] .home-faq-v {
+  transform-origin: center;
+  transition: rotate 0.35s var(--home-ease);
+}
+
+[data-home] details[open] .home-faq-v {
+  rotate: 90deg;
+}
+
 [data-home] .home-row {
   transition: background-color 0.2s ease;
 }
@@ -439,6 +487,7 @@
   @keyframes home-grow-x { from { scale: 0 1; } }
   @keyframes home-march { to { stroke-dashoffset: -16; } }
   @keyframes home-sweep { to { translate: 100% 0; } }
+  @keyframes home-count { from { --n: 0; } }
   @keyframes home-drift {
     from { translate: calc(var(--dx, 30px) * -1) 0; }
     to { translate: var(--dx, 30px) 0; }
@@ -474,6 +523,12 @@
       animation: home-grow-x var(--home-ease) backwards;
       animation-timeline: view();
       animation-range: entry calc(20% + var(--s, 0%)) cover calc(35% + var(--s, 0%));
+    }
+
+    [data-home] .home-count {
+      animation: home-count var(--home-ease) backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
     }
 
     [data-home] .home-drift {

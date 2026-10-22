@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ComponentProps } from "react";
+import { useEffect, type ComponentProps } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HomeContent } from "./HomeContent";
@@ -222,9 +222,23 @@ describe("stats band", () => {
         renderHome();
         const band = screen.getByText(STATS[0].value).closest("ul")!;
         for (const [value, label] of [["80+", "Design Modules"], ["5K+", "Engineers"], ["90%", "Offer Rate"], ["6", "Tracks"]]) {
-            expect(within(band).getByText(value).nextElementSibling).toHaveTextContent(label);
+            expect(within(band).getByText(value).closest("li")).toHaveTextContent(label);
         }
         expect(STATS).toHaveLength(4);
+    });
+
+    it("counts the digits up with CSS only: each figure's final value is stable text for assistive technology and the animated part is hidden", () => {
+        renderHome();
+        const band = screen.getByText(STATS[0].value).closest("ul")!;
+        for (const { value } of STATS) {
+            const figure = within(band).getByText(value);
+            expect(figure).toHaveClass("sr-only");
+            const visual = figure.nextElementSibling!;
+            expect(visual).toHaveAttribute("aria-hidden", "true");
+            const [, prefix, digits, suffix] = /^(\D*)(\d+)(.*)$/.exec(value)!;
+            expect(visual.textContent).toBe(prefix + suffix); // the digits are CSS-generated, so no intermediate frame is ever text
+            expect(visual.querySelector<HTMLElement>(".home-count")!.style.getPropertyValue("--to")).toBe(digits);
+        }
     });
 
     it("says in view of the figures that they are samples, not verified results", () => {
@@ -253,6 +267,45 @@ describe("historical provenance", () => {
         expect(`${HERO.intro.before}${HERO.intro.emphasis}${HERO.intro.after}`).toBe(
             "One platform for ML System Design, LLM Platforms & GenAI interviews. Everything you need to land your dream ML/AI offer.",
         );
+    });
+});
+
+describe("smooth scrolling", () => {
+    const query = (reduce: boolean) => (q: string) => ({ matches: q.includes("no-preference") ? !reduce : reduce, addEventListener() {}, removeEventListener() {} });
+
+    it("mounts one Lenis instance on the homepage with the prototype's settings, and destroys it on unmount", async () => {
+        const instances: { destroy: ReturnType<typeof vi.fn>; options: unknown }[] = [];
+        vi.resetModules();
+        vi.doMock("lenis/react", () => ({
+            ReactLenis: ({ options }: { options: unknown }) => {
+                useEffect(() => {
+                    const instance = { destroy: vi.fn(), options };
+                    instances.push(instance);
+                    return () => instance.destroy();
+                }, [options]);
+                return null;
+            },
+        }));
+        vi.stubGlobal("matchMedia", query(false));
+        const { HomeSmoothScroll } = await import("./HomeSmoothScroll");
+        const { unmount, rerender } = render(<HomeSmoothScroll />);
+        rerender(<HomeSmoothScroll />);
+        expect(instances).toHaveLength(1);
+        expect(instances[0].options).toMatchObject({ autoRaf: true, anchors: true, lerp: 0.09 });
+        unmount();
+        expect(instances[0].destroy).toHaveBeenCalledTimes(1);
+        vi.doUnmock("lenis/react");
+    });
+
+    it("creates no instance when the reader prefers reduced motion", async () => {
+        const created = vi.fn();
+        vi.resetModules();
+        vi.doMock("lenis/react", () => ({ ReactLenis: () => (created(), null) }));
+        vi.stubGlobal("matchMedia", query(true));
+        const { HomeSmoothScroll } = await import("./HomeSmoothScroll");
+        render(<HomeSmoothScroll />);
+        expect(created).not.toHaveBeenCalled();
+        vi.doUnmock("lenis/react");
     });
 });
 
