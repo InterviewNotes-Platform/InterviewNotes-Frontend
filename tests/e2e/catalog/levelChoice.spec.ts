@@ -37,7 +37,18 @@ test("a level closes with Other levels and Back to Track, never Next, Previous o
    await expect(page).toHaveURL(canonical(ids[3]));
 });
 
-test("the outline keeps the levels in order and marks only the current one", async ({ page }) => {
+test("the Track sidebar lists the levels in order and marks only the current one (S6-RDR-16)", async ({ page }) => {
+   await page.setViewportSize({ width: 1280, height: 900 });
+   await page.goto(canonical(ids[2]));
+   const sidebar = page.getByRole("navigation", { name: "Track contents" });
+   await expect(sidebar.getByRole("link").filter({ hasNotText: levels.title })).toHaveText(ids.map((id) => item(id).title));
+   await expect(sidebar.locator('[aria-current="page"]')).toHaveCount(1);
+   await expect(sidebar.getByRole("link", { name: item(ids[2]).title })).toHaveAttribute("aria-current", "page");
+   await expect(page.getByText(`Full outline of ${levels.title}`)).toBeHidden();
+});
+
+test("below 1024px the outline keeps the levels in order and marks only the current one", async ({ page }) => {
+   await page.setViewportSize({ width: 800, height: 900 });
    await page.goto(canonical(ids[2]));
    await page.getByText(`Full outline of ${levels.title}`).click();
    const outline = page.getByRole("navigation", { name: `${levels.title} outline` });

@@ -9,15 +9,18 @@ export function FullOutline({
    navigation,
    reading = false,
    currentLabel,
+   className,
 }: {
    navigation: ItemNavigationData;
    reading?: boolean;
    currentLabel?: string;
+   /** Layout classes for the disclosure, such as hiding it where the Track sidebar shows the same outline (S6-RDR-9). */
+   className?: string;
 }) {
    const { id, home } = navigation;
    if (!home) return null;
    return (
-      <details className={reading ? "border-t border-border pt-2" : "rounded-lg border border-border p-4"}>
+      <details className={cn(reading ? "border-t border-border pt-2" : "rounded-lg border border-border p-4", className)}>
          <summary className={cn("cursor-pointer font-semibold", reading && "flex min-h-11 items-center")}>
             Full outline of {home.track.title}
          </summary>

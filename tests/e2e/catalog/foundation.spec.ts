@@ -82,7 +82,8 @@ test.describe("reading measure", () => {
    test("is ~736px on desktop", async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(LESSON);
-      const column = await page.locator("main > div").first().boundingBox();
+      // The wrapper also holds the Track sidebar from 1024px (A-5); its first child is the reading column.
+      const column = await page.locator("main > div > div").first().boundingBox();
       expect(column?.width).toBeGreaterThanOrEqual(720);
       expect(column?.width).toBeLessThanOrEqual(760);
    });
