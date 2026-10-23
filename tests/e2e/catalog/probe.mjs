@@ -245,11 +245,23 @@ const MOTION_INIT = () => {
    };
 };
 
-/** Values that must never reach the output: header values and any credential or query carried by the base URL. */
+/** Credentials that must never reach the output: header values and URL userinfo. Shorter than 4 characters is not a credential and would garble text. */
 const secrets = [];
-const scrub = (text) => secrets.reduce((clean, secret) => clean.split(secret).join("[redacted]"), String(text));
-const render = (value) => scrub(JSON.stringify(value, null, 2));
+const scrub = (text) => secrets.reduce((clean, secret) => (secret.length < 4 ? clean : clean.split(secret).join("[redacted]")), String(text));
+// Only strings are scrubbed, so a numeric measurement can never be rewritten.
+const render = (value) => JSON.stringify(value, (_, part) => (typeof part === "string" ? scrub(part) : part), 2);
 const pathOf = (route) => route.split(/[?#]/)[0];
+const originOf = (url) => {
+   try {
+      return new URL(url).origin;
+   } catch {
+      return "[invalid URL]";
+   }
+};
+/** The first line of an error with every URL cut back to origin and path, since Playwright quotes the full URL including its query. */
+const errorText = (error) =>
+   scrub(error.message.split("\n")[0].replace(/https?:\/\/[^\s"'<>]+/g, (url) => (URL.canParse(url) ? new URL(url).origin + new URL(url).pathname : "[url]"))).slice(0, 200);
+const reportOf = (config, routes) => ({ probe: "p3-probe/1", base: originOf(config.base), api: originOf(config.api), routes: routes.map(pathOf), results: {}, findings: 0 });
 
 /** PROBE_HEADERS: a JSON object of request header names to string values. The parser's own message could quote the value, so it is never shown. */
 function runtimeHeaders(raw = process.env.PROBE_HEADERS) {
@@ -363,7 +375,7 @@ async function measureInteraction(page, kind) {
       const ms = await page.evaluate(() => window.__interaction);
       return ms === null ? { status: "failed", reason: "expected state not shown within 5s" } : { status: "measured", ms: round(ms) };
    } catch (error) {
-      return { status: "failed", reason: scrub(error.message.split("\n")[0]).slice(0, 200) };
+      return { status: "failed", reason: errorText(error) };
    }
 }
 
@@ -473,6 +485,7 @@ async function timingSelfCheck(browser) {
    const listen = (handler) => new Promise((resolve) => { const server = createServer(handler).listen(0, "127.0.0.1", () => resolve(server)); });
    const stray = await listen((_, res) => (seen.strayHits++, res.end("x")));
    const target = await listen((req, res) => {
+      if (req.url.startsWith("/boom")) return req.socket.destroy();
       seen.headers.add(req.headers["x-probe-secret"]);
       if (req.url === "/app.js") return (res.writeHead(200, { "content-type": "text/javascript" }), res.end("document.title = 'ok'"));
       res.writeHead(200, { "content-type": "text/html" });
@@ -488,6 +501,15 @@ async function timingSelfCheck(browser) {
       const raw = JSON.stringify({ cells, meta: timingMeta(check, browser, started) });
       const stats = [percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.5), percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.75), percentile([4, 1, 3, 2, 5], 0.5), percentile([4, 1, 3, 2, 5], 0.75), percentile([7], 0.75), percentile([], 0.5)];
       const runs = cells.flatMap((cell) => cell.runs);
+      // A route whose query carries a secret and whose navigation fails: Playwright quotes the whole URL in its error.
+      const query = "route-query-secret-4d82e0";
+      const apiUrl = `http://user:api-password-5b17c3@127.0.0.1:3101/path?key=api-query-secret-8e64f1`;
+      const failing = await MODES.timing({ browser, config: { ...check, runs: "1", profiles: "desktop", conditions: "cold" }, routes: [`/boom?key=${query}`] });
+      const report = { ...reportOf({ ...check, api: apiUrl }, ["/boom?key=" + query]), results: { timing: [...cells, ...failing] } };
+      const text = render(report);
+      const ok = { status: 200, interactions: { drawerOpen: { status: "not-applicable" }, moduleToggle: { status: "measured", ms: 31.8 } } };
+      const failed = { status: 200, interactions: { drawerOpen: { status: "failed" }, moduleToggle: { status: "measured", ms: 31.8 } } };
+      const finding = (...cellRuns) => FINDING.timing({ failedRuns: 0, runs: cellRuns });
       const checks = {
          percentiles: JSON.stringify(stats) === JSON.stringify([5.5, 7.75, 3, 4, 7, null]),
          clsWindows: cumulativeShift([[0, 0.1], [500, 0.1], [3000, 0.15]]) === 0.2,
@@ -496,6 +518,10 @@ async function timingSelfCheck(browser) {
          secretNotSerialized: !raw.includes(dummy) && !render({ failure: `request with ${dummy} failed` }).includes(dummy),
          strayOriginBlocked: seen.strayHits === 0 && runs.every((run) => run.blockedOrigins.length === 1),
          requestsCounted: runs.every((run) => run.metrics.requestCount === 2),
+         failedInteractionIsFinding: finding(ok) === false && finding(ok, failed) === true && finding({ ...ok, status: 500 }) === true && cells.every((cell) => !FINDING.timing(cell)),
+         routeQueryNotReported: failing[0].failedRuns === 1 && failing[0].runs[0].error.includes("/boom") && !JSON.stringify(failing).includes(query) && !text.includes(query),
+         apiUrlSanitized: report.api === "http://127.0.0.1:3101" && !text.includes("api-query-secret") && !text.includes("api-password"),
+         measurementsIntact: JSON.stringify(stats) === JSON.stringify([5.5, 7.75, 3, 4, 7, null]) && cells.every((cell) => cell.runs.every((run) => run.metrics.requestCount === 2)) && text.includes('"requestCount": 2'),
          inapplicableNotZero: runs.every((run) => Object.values(run.interactions).every((outcome) => outcome.status === "not-applicable" && !("ms" in outcome))),
       };
       return { checks, ok: Object.values(checks).every(Boolean) };
@@ -1466,7 +1492,7 @@ const MODES = {
                const runs = [];
                for (let run = 1; run <= Number(config.runs); run++) {
                   const startedAt = new Date().toISOString();
-                  runs.push({ run, startedAt, ...(await timedRun(browser, config, route, PROFILES[profile], condition).catch((error) => ({ error: scrub(error.message.split("\n")[0]).slice(0, 200) }))) });
+                  runs.push({ run, startedAt, ...(await timedRun(browser, config, route, PROFILES[profile], condition).catch((error) => ({ error: errorText(error) }))) });
                }
                cells.push({ route: pathOf(route), profile, condition, failedRuns: runs.filter((run) => run.error).length, summary: summarizeCell(runs), runs });
             }
@@ -1482,8 +1508,8 @@ const FINDING = {
    requests: () => false,
    offset: (row) => !row.matched,
    console: (row) => row.errors.length > 0,
-   // A failed run, or a page that did not answer 200, makes the cell's medians untrustworthy.
-   timing: (cell) => cell.failedRuns > 0 || cell.runs.some((run) => run.status !== undefined && run.status !== 200),
+   // A failed run, a page that did not answer 200 or an interaction that failed (not one that does not apply) makes the cell's medians untrustworthy.
+   timing: (cell) => cell.failedRuns > 0 || cell.runs.some((run) => (run.status !== undefined && run.status !== 200) || Object.values(run.interactions ?? {}).some((outcome) => outcome.status === "failed")),
    // Only the challenge may be showing at load; a Problem without a spine (a backend before P4) shows no body at all.
    reveal: (row) => row.errors > 0 || row.status !== 200 || !row.themeApplied || row.open > 0 || row.outlineOpen > 0 || row.referenceBodies > 0 || row.challengeBodies > (row.staged ? 1 : 0) || row.overflowPx > 0,
    // P2 contrast standard: 4.5:1 for text.
@@ -1541,7 +1567,7 @@ try {
    console.error("the base URL is not a valid URL");
    process.exit(2);
 }
-secrets.push(...[baseUrl.username, baseUrl.password, ...baseUrl.searchParams.values()].filter(Boolean));
+for (const url of [config.base, config.api].filter(URL.canParse)) secrets.push(...[new URL(url).username, new URL(url).password].filter(Boolean));
 try {
    config.headers = runtimeHeaders();
 } catch (error) {
@@ -1557,7 +1583,7 @@ if (modes.includes("timing") && (!(Number(config.runs) >= 10) || !Number.isInteg
 
 const browser = await chromium.launch();
 const startedAt = new Date().toISOString();
-const output = { probe: "p3-probe/1", base: baseUrl.origin, api: config.api, routes: routes.map(pathOf), results: {}, findings: 0 };
+const output = reportOf(config, routes);
 try {
    if (selfCheck) {
       const result = await timingSelfCheck(browser);
@@ -1573,6 +1599,10 @@ try {
       console.log(render(output));
       process.exitCode = config.strict && output.findings > 0 ? 1 : 0;
    }
+} catch (error) {
+   if (!modes.includes("timing")) throw error;
+   console.error(errorText(error));
+   process.exitCode = 1;
 } finally {
    await browser.close();
 }
