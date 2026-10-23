@@ -6,18 +6,48 @@
 //     [--base http://localhost:3100] [--api http://127.0.0.1:3101]
 //     [--viewports 390,768,1024,1440] [--themes light,dark] [--settle 500] [--body-selector <css>] [--identity entitled] [--strict]
 //
-// Modes: overflow, requests, offset, console, panel, syntax, expand, order, axe, interact, keys, motion, reveal, problem. Add a mode by writing an async function in MODES; no new loop script.
+// Modes: overflow, requests, offset, console, panel, syntax, expand, order, axe, interact, keys, motion, reveal, problem, timing. Add a mode by writing an async function in MODES; no new loop script.
 // `requests` reads the fake API's /__catalog-log. The production build caches signed-out catalog reads for 60s, so a route
 // whose count is 0 was served from that cache (`cached: true`). `--identity entitled` sends a session, which is never cached: exact counts.
+//
+// `timing` (P6 S6-PERF-4, -6) records TTFB, FCP, LCP, CLS, JavaScript transferred and request count per load, plus the latency of
+// a Module toggle, a Problem reveal and the Track drawer where the route has that control, for every route x profile x condition.
+//   node tests/e2e/catalog/probe.mjs timing --routes /,/lessons/p3-seq-one [--runs 10] [--profiles desktop,mobile-slow4g-cpu4x] [--conditions cold,warm]
+//   node tests/e2e/catalog/probe.mjs timing --self-check      (local proof: stats, secret handling, origin confinement)
+//   Profiles: `desktop` is 1280x900, unthrottled. `mobile-slow4g-cpu4x` is a Pixel 5 (393x727, touch) with 4x CPU slowdown and Slow 4G
+//   (150ms latency, 1.6 Mbps down, 750 kbps up). Conditions: `cold` is an empty browser cache; `warm` is a second load after one uncounted priming load.
+//   Request count is the requests that reached the network (a resource served from the browser's memory cache is none), plus the document.
+//   Every run is kept under `results.timing[].runs`; `summary` has the median and p75 (linear interpolation) of the runs that produced the metric.
+//   A metric or interaction the page does not produce is `null` / `not-applicable`, never 0. Interaction latency runs from the click event to the paint after
+//   the expected state shows (within a frame). `--runs` must be at least 10; `--settle` is the wait after `load` before reading (default 500ms).
+//   Runtime configuration stays in the environment, never in source or output: PROBE_BASE (the target, overridden by --base) and PROBE_HEADERS
+//   (a JSON object of request headers, e.g. a Cookie for an entitled session). Headers go to the target origin only; any other origin is blocked and counted.
+// API latency is measured with curl, not this script (S6-PERF-4):
+//   curl -s -o /dev/null -H "Authorization: Bearer $TOKEN" -w 'connect %{time_connect} tls %{time_appconnect} ttfb %{time_starttransfer} total %{time_total}s %{size_download}B\n' "$API/catalog/items/lesson/<slug>"
+//   for endpoint in "items/lesson/<slug>" "items/lesson/<slug>/meta" "items/lesson/<slug>/related" "tracks/<slug>"; do curl ... "$API/catalog/$endpoint"; done
 import { readFileSync } from "node:fs";
-import { chromium } from "@playwright/test";
+import { createServer } from "node:http";
+import { createRequire } from "node:module";
+import os from "node:os";
+import { chromium, devices } from "@playwright/test";
 
+const PROFILES = {
+   desktop: { context: {} },
+   "mobile-slow4g-cpu4x": {
+      context: devices["Pixel 5"],
+      cpuRate: 4,
+      network: { offline: false, latency: 150, downloadThroughput: (1.6 * 1024 * 1024) / 8, uploadThroughput: (750 * 1024) / 8 },
+   },
+};
 const DEFAULTS = {
-   base: "http://localhost:3100",
+   base: process.env.PROBE_BASE ?? "http://localhost:3100",
    api: "http://127.0.0.1:3101",
    viewports: "390,768,1024,1440",
    themes: "light,dark",
    settle: "500",
+   runs: "10",
+   profiles: Object.keys(PROFILES).join(","),
+   conditions: "cold,warm",
    // Lesson layout: main > grid > body column > CatalogBody wrapper > first body element.
    "body-selector": "main > div > div:last-child > div > :first-child",
 };
@@ -31,6 +61,7 @@ function parseArgs(argv) {
    for (let index = 0; index < argv.length; index++) {
       const arg = argv[index];
       if (arg === "--strict") options.strict = true;
+      else if (arg === "--self-check") options.selfCheck = true;
       else if (arg.startsWith("--")) options[arg.slice(2)] = argv[++index];
       else positional.push(arg);
    }
@@ -38,11 +69,11 @@ function parseArgs(argv) {
 }
 
 /** A fresh page at one viewport and theme (next-themes reads `theme` from localStorage). */
-async function open(browser, { width = 1280, height = 900, theme = "light", cookies = [] } = {}) {
-   const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme });
+async function open(browser, { width = 1280, height = 900, theme = "light", cookies = [], ...contextOptions } = {}) {
+   const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme, ...contextOptions });
    await context.addInitScript((value) => localStorage.setItem("theme", value), theme);
    if (cookies.length > 0) await context.addCookies(cookies);
-   return { page: await context.newPage(), close: () => context.close() };
+   return { context, page: await context.newPage(), close: () => context.close() };
 }
 
 /** The session cookie of a fixture identity, in the shape the e2e harness sends. Signed-in reads are never served from the data cache. */
@@ -213,6 +244,266 @@ const MOTION_INIT = () => {
       return { declaredMs: Math.round(declared * 100) / 100, running };
    };
 };
+
+/** Values that must never reach the output: header values and any credential or query carried by the base URL. */
+const secrets = [];
+const scrub = (text) => secrets.reduce((clean, secret) => clean.split(secret).join("[redacted]"), String(text));
+const render = (value) => scrub(JSON.stringify(value, null, 2));
+const pathOf = (route) => route.split(/[?#]/)[0];
+
+/** PROBE_HEADERS: a JSON object of request header names to string values. The parser's own message could quote the value, so it is never shown. */
+function runtimeHeaders(raw = process.env.PROBE_HEADERS) {
+   if (!raw) return {};
+   let parsed;
+   try {
+      parsed = JSON.parse(raw);
+   } catch {}
+   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !Object.values(parsed).every((value) => typeof value === "string")) {
+      throw new Error("PROBE_HEADERS must be a JSON object of header names to string values");
+   }
+   return parsed;
+}
+
+const TIMING_METRICS = ["ttfbMs", "fcpMs", "lcpMs", "cls", "jsTransferredBytes", "requestCount"];
+const INTERACTIONS = {
+   moduleToggle: (page) => page.locator("main button[aria-expanded]").filter({ hasText: /^Module \d/ }).first(),
+   problemReveal: (page) => page.locator("main details[data-reveal] > summary").filter({ visible: true }).first(),
+   drawerOpen: (page) => page.getByRole("button", { name: "Track contents" }).first(),
+};
+
+/** Linear interpolation between closest ranks (the NumPy default), so the median of an even count is the mean of the middle two. */
+function percentile(values, fraction) {
+   if (values.length === 0) return null;
+   const sorted = values.toSorted((a, b) => a - b);
+   const at = (sorted.length - 1) * fraction;
+   const low = Math.floor(at);
+   return sorted[low] + (sorted[Math.ceil(at)] - sorted[low]) * (at - low);
+}
+const round = (value) => (value === null ? null : Math.round(value * 1000) / 1000);
+const summarize = (values) => ({ n: values.length, median: round(percentile(values, 0.5)), p75: round(percentile(values, 0.75)) });
+
+/** Cumulative Layout Shift as the largest session window: shifts less than 1s apart, a window no longer than 5s. */
+function cumulativeShift(shifts) {
+   let best = 0;
+   let sum = 0;
+   let first = 0;
+   let last = 0;
+   for (const [time, value] of shifts) {
+      if (sum > 0 && (time - last > 1000 || time - first > 5000)) sum = 0;
+      if (sum === 0) first = time;
+      sum += value;
+      last = time;
+      best = Math.max(best, sum);
+   }
+   return best;
+}
+
+/** Installed in every document: the paint-time and layout-shift entries, and room for every resource entry. */
+const TIMING_INIT = () => {
+   const state = (window.__timing = { lcp: [], shifts: [], supported: {} });
+   performance.setResourceTimingBufferSize(2000);
+   const watch = (key, type, collect) => {
+      try {
+         new PerformanceObserver((entries) => collect(entries.getEntries())).observe({ type, buffered: true });
+         state.supported[key] = true;
+      } catch {
+         state.supported[key] = false;
+      }
+   };
+   watch("lcp", "largest-contentful-paint", (entries) => state.lcp.push(...entries.map((entry) => entry.startTime)));
+   watch("cls", "layout-shift", (entries) => state.shifts.push(...entries.filter((entry) => !entry.hadRecentInput).map((entry) => [entry.startTime, entry.value])));
+};
+
+const readTimings = () => {
+   const nav = performance.getEntriesByType("navigation")[0];
+   const fcp = performance.getEntriesByType("paint").find((entry) => entry.name === "first-contentful-paint");
+   const scripts = performance.getEntriesByType("resource").filter((entry) => entry.initiatorType === "script" || /\.m?js$/.test(new URL(entry.name).pathname));
+   const { lcp, shifts, supported } = window.__timing;
+   return {
+      path: location.pathname,
+      ttfb: nav ? nav.responseStart - nav.startTime : null,
+      fcp: fcp ? fcp.startTime : null,
+      lcp: lcp.length > 0 ? lcp.at(-1) : null,
+      shifts,
+      supported,
+      jsBytes: scripts.reduce((sum, entry) => sum + entry.transferSize, 0),
+   };
+};
+
+/** Arms a click timer on the control: the latency is the click event to the frame after the expected state shows. */
+const ARM_INTERACTION = (control, kind) => {
+   const was = control.getAttribute("aria-expanded");
+   const done = {
+      moduleToggle: () => control.getAttribute("aria-expanded") !== was && (was === "true" || document.getElementById(control.getAttribute("aria-controls")).checkVisibility()),
+      problemReveal: () => control.parentElement.open,
+      drawerOpen: () => document.querySelector('[role="dialog"][data-state="open"]')?.checkVisibility() === true,
+   }[kind];
+   window.__interaction = new Promise((resolve) => {
+      control.addEventListener(
+         "click",
+         (event) => {
+            const check = () => {
+               if (done()) requestAnimationFrame(() => setTimeout(() => resolve(performance.now() - event.timeStamp)));
+               else if (performance.now() - event.timeStamp < 5000) requestAnimationFrame(check);
+               else resolve(null);
+            };
+            check();
+         },
+         { capture: true, once: true }
+      );
+   });
+};
+
+async function measureInteraction(page, kind) {
+   const control = INTERACTIONS[kind](page);
+   if (!(await control.isVisible())) return { status: "not-applicable", reason: "control not present on this route and profile" };
+   try {
+      await control.evaluate(ARM_INTERACTION, kind);
+      await control.click({ timeout: 5000 });
+      const ms = await page.evaluate(() => window.__interaction);
+      return ms === null ? { status: "failed", reason: "expected state not shown within 5s" } : { status: "measured", ms: round(ms) };
+   } catch (error) {
+      return { status: "failed", reason: scrub(error.message.split("\n")[0]).slice(0, 200) };
+   }
+}
+
+/** One load of one route in a fresh context. Only the target origin is reachable, and the operator headers are sent to it alone. */
+async function timedRun(browser, config, route, profile, condition) {
+   const origin = new URL(config.base).origin;
+   const { context, page, close } = await open(browser, { cookies: identityCookies(config), ...profile.context });
+   try {
+      await context.addInitScript(TIMING_INIT);
+      const session = await context.newCDPSession(page);
+      const traffic = { counting: false, requests: 0, blocked: new Set() };
+      await session.send("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
+      session.on("Fetch.requestPaused", async ({ requestId, request }) => {
+         const url = new URL(request.url);
+         const web = url.protocol === "http:" || url.protocol === "https:";
+         const outside = web && url.origin !== origin;
+         if (outside) traffic.blocked.add(url.origin);
+         else if (web && traffic.counting) traffic.requests++;
+         const sent = Object.fromEntries(Object.entries(request.headers).filter(([name]) => !Object.keys(config.headers).some((own) => own.toLowerCase() === name.toLowerCase())));
+         const headers = Object.entries({ ...sent, ...config.headers }).map(([name, value]) => ({ name, value }));
+         // A request that settles while the context closes rejects here; there is nothing left to continue.
+         await (outside ? session.send("Fetch.failRequest", { requestId, errorReason: "BlockedByClient" }) : session.send("Fetch.continueRequest", { requestId, ...(web && { headers }) })).catch(() => {});
+      });
+      if (profile.cpuRate) await session.send("Emulation.setCPUThrottlingRate", { rate: profile.cpuRate });
+      if (profile.network) {
+         await session.send("Network.enable");
+         await session.send("Network.emulateNetworkConditions", profile.network);
+      }
+      const load = async () => {
+         const response = await page.goto(new URL(route, origin).href, { waitUntil: "load", timeout: 90_000 });
+         await page.waitForTimeout(Number(config.settle));
+         return response;
+      };
+      if (condition === "warm") {
+         await load();
+         await page.goto("about:blank");
+      }
+      traffic.counting = true;
+      const response = await load();
+      const read = await page.evaluate(readTimings);
+      traffic.counting = false;
+      if (read.path !== new URL(response.url()).pathname) throw new Error("measured a different document than the one requested");
+      const unavailable = {};
+      const value = (key, measured, reason) => (measured === null ? ((unavailable[key] = reason), null) : measured);
+      const metrics = {
+         ttfbMs: value("ttfbMs", round(read.ttfb), "no navigation timing entry"),
+         fcpMs: value("fcpMs", round(read.fcp), "no first-contentful-paint entry"),
+         lcpMs: value("lcpMs", round(read.lcp), read.supported.lcp ? "no largest-contentful-paint entry" : "not supported by this browser"),
+         cls: value("cls", read.supported.cls ? round(cumulativeShift(read.shifts)) : null, "layout-shift not supported by this browser"),
+         jsTransferredBytes: read.jsBytes,
+         requestCount: traffic.requests,
+      };
+      const interactions = {};
+      for (const kind of Object.keys(INTERACTIONS)) interactions[kind] = await measureInteraction(page, kind);
+      return { status: response.status(), metrics, unavailable, interactions, blockedOrigins: [...traffic.blocked] };
+   } finally {
+      await close();
+   }
+}
+
+function summarizeCell(runs) {
+   const done = runs.filter((run) => !run.error);
+   const metrics = Object.fromEntries(
+      TIMING_METRICS.map((key) => {
+         const values = done.map((run) => run.metrics[key]).filter((measured) => measured !== null);
+         return [key, { ...summarize(values), unavailable: done.length - values.length }];
+      })
+   );
+   const interactions = Object.fromEntries(
+      Object.keys(INTERACTIONS).map((kind) => {
+         const outcomes = done.map((run) => run.interactions[kind]);
+         const count = (status) => outcomes.filter((outcome) => outcome.status === status).length;
+         const measured = outcomes.filter((outcome) => outcome.status === "measured").map((outcome) => outcome.ms);
+         return [kind, { ...summarize(measured), notApplicable: count("not-applicable"), failed: count("failed") }];
+      })
+   );
+   return { metrics, interactions };
+}
+
+/** What a reader needs to reproduce or compare a timing run: the target origin, the profiles' definitions and the machine and browser. */
+function timingMeta(config, browser, startedAt) {
+   let playwright = null;
+   try {
+      playwright = createRequire(import.meta.url)("@playwright/test/package.json").version;
+   } catch {}
+   const profiles = Object.fromEntries(list(config.profiles).map((name) => [name, { ...(PROFILES[name].context.viewport && { viewport: PROFILES[name].context.viewport }), cpuRate: PROFILES[name].cpuRate ?? 1, network: PROFILES[name].network ?? "unthrottled" }]));
+   return {
+      schema: "p6-timing/1",
+      targetOrigin: new URL(config.base).origin,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      runsPerCell: Number(config.runs),
+      settleMs: Number(config.settle),
+      conditions: list(config.conditions),
+      profiles,
+      identity: config.identity ?? "signed-out",
+      headerNames: Object.keys(config.headers).sort(),
+      percentiles: "linear interpolation between closest ranks",
+      runner: { browser: browser.version(), playwright, node: process.version, platform: `${os.platform()} ${os.arch()}`, cpu: os.cpus()[0]?.model, cores: os.cpus().length },
+   };
+}
+
+/** Local proof of T19's guarantees: percentile arithmetic, a dummy header value kept out of the output, and no request outside the target origin. */
+async function timingSelfCheck(browser) {
+   const dummy = "self-check-secret-9f3a1c";
+   const seen = { headers: new Set(), strayHits: 0 };
+   const listen = (handler) => new Promise((resolve) => { const server = createServer(handler).listen(0, "127.0.0.1", () => resolve(server)); });
+   const stray = await listen((_, res) => (seen.strayHits++, res.end("x")));
+   const target = await listen((req, res) => {
+      seen.headers.add(req.headers["x-probe-secret"]);
+      if (req.url === "/app.js") return (res.writeHead(200, { "content-type": "text/javascript" }), res.end("document.title = 'ok'"));
+      res.writeHead(200, { "content-type": "text/html" });
+      res.end(`<!doctype html><title>t</title><h1>self-check</h1><script src="/app.js"></script><img src="http://127.0.0.1:${stray.address().port}/x.png">`);
+   });
+   try {
+      const headers = runtimeHeaders(JSON.stringify({ "X-Probe-Secret": dummy }));
+      secrets.push(dummy);
+      const base = `http://127.0.0.1:${target.address().port}/`;
+      const check = { ...DEFAULTS, base, headers, settle: "100" };
+      const started = new Date().toISOString();
+      const cells = await MODES.timing({ browser, config: check, routes: ["/"] });
+      const raw = JSON.stringify({ cells, meta: timingMeta(check, browser, started) });
+      const stats = [percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.5), percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.75), percentile([4, 1, 3, 2, 5], 0.5), percentile([4, 1, 3, 2, 5], 0.75), percentile([7], 0.75), percentile([], 0.5)];
+      const runs = cells.flatMap((cell) => cell.runs);
+      const checks = {
+         percentiles: JSON.stringify(stats) === JSON.stringify([5.5, 7.75, 3, 4, 7, null]),
+         clsWindows: cumulativeShift([[0, 0.1], [500, 0.1], [3000, 0.15]]) === 0.2,
+         cellsCovered: cells.length === 4 && cells.every((cell) => cell.runs.length === 10 && cell.failedRuns === 0),
+         headerReachedTarget: seen.headers.size === 1 && seen.headers.has(dummy),
+         secretNotSerialized: !raw.includes(dummy) && !render({ failure: `request with ${dummy} failed` }).includes(dummy),
+         strayOriginBlocked: seen.strayHits === 0 && runs.every((run) => run.blockedOrigins.length === 1),
+         requestsCounted: runs.every((run) => run.metrics.requestCount === 2),
+         inapplicableNotZero: runs.every((run) => Object.values(run.interactions).every((outcome) => outcome.status === "not-applicable" && !("ms" in outcome))),
+      };
+      return { checks, ok: Object.values(checks).every(Boolean) };
+   } finally {
+      target.close();
+      stray.close();
+   }
+}
 
 const MODES = {
    async overflow({ browser, config, routes }) {
@@ -1164,6 +1455,25 @@ const MODES = {
       await close();
       return rows;
    },
+
+   /** P6-T19 (S6-PERF-4, -5, -6): one cell per route, profile and condition, holding every run and the median and p75 of each metric. */
+   async timing({ browser, config, routes }) {
+      const cells = [];
+      for (const route of routes) {
+         for (const profile of list(config.profiles)) {
+            for (const condition of list(config.conditions)) {
+               console.error(`probe: timing ${pathOf(route)} ${profile} ${condition} x${config.runs}`);
+               const runs = [];
+               for (let run = 1; run <= Number(config.runs); run++) {
+                  const startedAt = new Date().toISOString();
+                  runs.push({ run, startedAt, ...(await timedRun(browser, config, route, PROFILES[profile], condition).catch((error) => ({ error: scrub(error.message.split("\n")[0]).slice(0, 200) }))) });
+               }
+               cells.push({ route: pathOf(route), profile, condition, failedRuns: runs.filter((run) => run.error).length, summary: summarizeCell(runs), runs });
+            }
+         }
+      }
+      return cells;
+   },
 };
 
 /** A finding is a row the caller should look at; `--strict` turns any finding into a non-zero exit. */
@@ -1172,6 +1482,8 @@ const FINDING = {
    requests: () => false,
    offset: (row) => !row.matched,
    console: (row) => row.errors.length > 0,
+   // A failed run, or a page that did not answer 200, makes the cell's medians untrustworthy.
+   timing: (cell) => cell.failedRuns > 0 || cell.runs.some((run) => run.status !== undefined && run.status !== 200),
    // Only the challenge may be showing at load; a Problem without a spine (a backend before P4) shows no body at all.
    reveal: (row) => row.errors > 0 || row.status !== 200 || !row.themeApplied || row.open > 0 || row.outlineOpen > 0 || row.referenceBodies > 0 || row.challengeBodies > (row.staged ? 1 : 0) || row.overflowPx > 0,
    // P2 contrast standard: 4.5:1 for text.
@@ -1216,21 +1528,51 @@ const FINDING = {
 const { options: config, modes } = parseArgs(process.argv.slice(2));
 const routes = list(config.routes ?? "");
 const unknown = modes.filter((mode) => !(mode in MODES));
-if (modes.length === 0 || unknown.length > 0 || routes.length === 0) {
+const selfCheck = config.selfCheck && modes.join() === "timing";
+if (modes.length === 0 || unknown.length > 0 || (routes.length === 0 && !selfCheck)) {
    console.error(`usage: probe.mjs <${Object.keys(MODES).join("|")}>[,...] --routes /a,/b${unknown.length ? ` (unknown mode: ${unknown})` : ""}`);
    process.exit(2);
 }
 
-const browser = await chromium.launch();
-const output = { probe: "p3-probe/1", base: config.base, api: config.api, routes, results: {}, findings: 0 };
+let baseUrl;
 try {
-   for (const mode of modes) {
-      console.error(`probe: ${mode} (${routes.length} routes)`);
-      output.results[mode] = await MODES[mode]({ browser, config, routes });
-      output.findings += output.results[mode].filter(FINDING[mode]).length;
+   baseUrl = new URL(config.base);
+} catch {
+   console.error("the base URL is not a valid URL");
+   process.exit(2);
+}
+secrets.push(...[baseUrl.username, baseUrl.password, ...baseUrl.searchParams.values()].filter(Boolean));
+try {
+   config.headers = runtimeHeaders();
+} catch (error) {
+   console.error(error.message);
+   process.exit(2);
+}
+secrets.push(...Object.values(config.headers).filter(Boolean));
+const unsupported = [...list(config.profiles).filter((name) => !(name in PROFILES)), ...list(config.conditions).filter((name) => !["cold", "warm"].includes(name))];
+if (modes.includes("timing") && (!(Number(config.runs) >= 10) || !Number.isInteger(Number(config.runs)) || unsupported.length > 0)) {
+   console.error(`timing needs --runs of at least 10 and known profiles (${Object.keys(PROFILES)}) and conditions (cold, warm)${unsupported.length ? `; unknown: ${unsupported}` : ""}`);
+   process.exit(2);
+}
+
+const browser = await chromium.launch();
+const startedAt = new Date().toISOString();
+const output = { probe: "p3-probe/1", base: baseUrl.origin, api: config.api, routes: routes.map(pathOf), results: {}, findings: 0 };
+try {
+   if (selfCheck) {
+      const result = await timingSelfCheck(browser);
+      console.log(render(result));
+      process.exitCode = result.ok ? 0 : 1;
+   } else {
+      for (const mode of modes) {
+         console.error(`probe: ${mode} (${routes.length} routes)`);
+         output.results[mode] = await MODES[mode]({ browser, config, routes });
+         output.findings += output.results[mode].filter(FINDING[mode]).length;
+      }
+      if (modes.includes("timing")) output.timing = timingMeta(config, browser, startedAt);
+      console.log(render(output));
+      process.exitCode = config.strict && output.findings > 0 ? 1 : 0;
    }
 } finally {
    await browser.close();
 }
-console.log(JSON.stringify(output, null, 2));
-process.exit(config.strict && output.findings > 0 ? 1 : 0);
