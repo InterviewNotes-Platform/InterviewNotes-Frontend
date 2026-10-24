@@ -13,7 +13,7 @@ import { ItemRouteGuard, TrackRouteGuard } from "./CatalogRouteGuard";
 
 beforeEach(() => vi.clearAllMocks());
 
-// The guard runs above the loading boundary, so these are the states that must stay a real 404 and nothing else.
+// Only an unknown entry is a 404 here; every other read state is rendered by the page.
 describe("route guards", () => {
    it("404s an unknown item and an unknown Track", async () => {
       getCatalogItemMeta.mockResolvedValue({ status: "notFound" });
