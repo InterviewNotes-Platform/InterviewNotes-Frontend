@@ -337,39 +337,16 @@ test.describe("Track navigation", () => {
    });
 });
 
-// A private preview deployment whose API double a test slows or fails (`PUT /__fault`). A preview reads uncached, so a fault always lands.
-test.describe("slow and failing reads", () => {
+// A private preview deployment whose API double a test fails (`PUT /__fault`). A preview reads uncached, so a fault always lands.
+test.describe("failing reads", () => {
    test.use({ baseURL: FAULT_ORIGIN });
 
    const inject = (request: APIRequestContext, path: string, params: { delayMs?: number; status?: number }) =>
       request.put(`${FAULT_API_ORIGIN}/__fault`, { params: { path, ...params } });
    test.afterEach(async ({ request }) => void (await request.delete(`${FAULT_API_ORIGIN}/__fault`)));
    // Next's own route announcer is an alert too, so the boundary is looked for in the page's main.
-   const skeleton = (page: Page) => page.getByRole("status").filter({ hasText: /^Loading / });
    const boundary = (page: Page) => main(page).getByRole("alert");
    const UNAVAILABLE = "This content is temporarily unavailable. Please try again later.";
-
-   const DELAYED = [
-      { label: "Track", loading: "Loading Track", read: "/catalog/items", route: canonical(track("p3-single").id), heading: track("p3-single").title },
-      { label: "Lesson", loading: "Loading Lesson", read: "/catalog/items/lesson/catalog-e2e-free", route: canonical(FREE_LESSON.id), heading: FREE_LESSON.title },
-      { label: "Problem", loading: "Loading Problem", read: "/catalog/items/problem/catalog-e2e-related", route: canonical(PROBLEM.id), heading: PROBLEM.title },
-      { label: "Knowledge", loading: "Loading Knowledge entry", read: "/catalog/items/knowledge/catalog-e2e-sections", route: canonical(SECTIONED.id), heading: SECTIONED.title },
-   ];
-
-   for (const { label, loading, read, route, heading } of DELAYED) {
-      test(`${label}: a slow read shows the layout skeleton, then the page`, async ({ page, request }) => {
-         await inject(request, read, { delayMs: 1500 });
-         await page.goto(route, { waitUntil: "commit" });
-
-         await expect(skeleton(page)).toHaveText(loading);
-         await expect(main(page)).toHaveAttribute("aria-busy", "true");
-         await expect(title(page)).toHaveCount(0);
-
-         await expect(title(page)).toHaveText(heading);
-         await expect(main(page)).not.toHaveAttribute("aria-busy", "true");
-         await expect(skeleton(page)).toHaveCount(0);
-      });
-   }
 
    test("a failed read keeps the state notice, not the error boundary, and recovers on reload", async ({ page, request }) => {
       await inject(request, "/catalog/items/knowledge/catalog-e2e-sections", { status: 500 });

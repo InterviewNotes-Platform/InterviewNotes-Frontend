@@ -4,8 +4,8 @@ import { getCatalogItemMeta, getCatalogTrack } from "@/lib/catalog/client";
 import type { CatalogItemType } from "@/lib/catalog/types";
 
 /**
- * A loading boundary fixes the response status at 200 before the page runs, so an unknown entry must 404 in the layout
- * above it. Both reads are ones the segment already makes (metadata, the Track page), shared within the request.
+ * An unknown entry 404s in the layout, before the page runs. Both reads are ones the segment already makes
+ * (metadata, the Track page), shared within the request.
  */
 export async function ItemRouteGuard({ type, slug, children }: { type: CatalogItemType; slug: string; children: ReactNode }) {
    if ((await getCatalogItemMeta(type, slug)).status === "notFound") notFound();
