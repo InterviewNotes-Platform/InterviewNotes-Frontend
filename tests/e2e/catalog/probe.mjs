@@ -11,7 +11,7 @@
 // whose count is 0 was served from that cache (`cached: true`). `--identity entitled` sends a session, which is never cached: exact counts.
 //
 // `timing` (P6 S6-PERF-4, -6) records TTFB, FCP, LCP, CLS, JavaScript transferred and request count per load, plus the latency of
-// a Module toggle, a Problem reveal and the Track drawer where the route has that control, for every route x profile x condition.
+// a Module toggle, a Problem reveal, the Track drawer and the soft navigation to the next Lesson (J7) where the route has that control, for every route x profile x condition.
 //   node tests/e2e/catalog/probe.mjs timing --routes /,/lessons/p3-seq-one [--runs 10] [--profiles desktop,mobile-slow4g-cpu4x] [--conditions cold,warm]
 //   node tests/e2e/catalog/probe.mjs timing --self-check      (local proof: stats, secret handling, origin confinement)
 //   Profiles: `desktop` is 1280x900, unthrottled. `mobile-slow4g-cpu4x` is a Pixel 5 (393x727, touch) with 4x CPU slowdown and Slow 4G
@@ -281,6 +281,8 @@ const INTERACTIONS = {
    moduleToggle: (page) => page.locator("main button[aria-expanded]").filter({ hasText: /^Module \d/ }).first(),
    problemReveal: (page) => page.locator("main details[data-reveal] > summary").filter({ visible: true }).first(),
    drawerOpen: (page) => page.getByRole("button", { name: "Track contents" }).first(),
+   // J7 (S6-PERF-2): a soft navigation from a Lesson to the next one. It runs last, because it leaves the page it started on.
+   nextLesson: (page) => page.getByRole("link", { name: /^Next lesson: / }).first(),
 };
 
 /** Linear interpolation between closest ranks (the NumPy default), so the median of an even count is the mean of the middle two. */
@@ -345,10 +347,15 @@ const readTimings = () => {
 /** Arms a click timer on the control: the latency is the click event to the frame after the expected state shows. */
 const ARM_INTERACTION = (control, kind) => {
    const was = control.getAttribute("aria-expanded");
+   const wasPath = location.pathname;
+   const wasTitle = document.querySelector("h1")?.textContent;
+   // A soft navigation waits for the next Lesson to be rendered by the server, so it gets a longer limit than a local state change.
+   const limit = kind === "nextLesson" ? 60000 : 5000;
    const done = {
       moduleToggle: () => control.getAttribute("aria-expanded") !== was && (was === "true" || document.getElementById(control.getAttribute("aria-controls")).checkVisibility()),
       problemReveal: () => control.parentElement.open,
       drawerOpen: () => document.querySelector('[role="dialog"][data-state="open"]')?.checkVisibility() === true,
+      nextLesson: () => location.pathname !== wasPath && document.querySelector("h1")?.textContent !== wasTitle && document.querySelector("h1")?.checkVisibility() === true,
    }[kind];
    window.__interaction = new Promise((resolve) => {
       control.addEventListener(
@@ -356,7 +363,7 @@ const ARM_INTERACTION = (control, kind) => {
          (event) => {
             const check = () => {
                if (done()) requestAnimationFrame(() => setTimeout(() => resolve(performance.now() - event.timeStamp)));
-               else if (performance.now() - event.timeStamp < 5000) requestAnimationFrame(check);
+               else if (performance.now() - event.timeStamp < limit) requestAnimationFrame(check);
                else resolve(null);
             };
             check();
@@ -373,7 +380,7 @@ async function measureInteraction(page, kind) {
       await control.evaluate(ARM_INTERACTION, kind);
       await control.click({ timeout: 5000 });
       const ms = await page.evaluate(() => window.__interaction);
-      return ms === null ? { status: "failed", reason: "expected state not shown within 5s" } : { status: "measured", ms: round(ms) };
+      return ms === null ? { status: "failed", reason: `expected state not shown within ${kind === "nextLesson" ? 60 : 5}s` } : { status: "measured", ms: round(ms) };
    } catch (error) {
       return { status: "failed", reason: errorText(error) };
    }
@@ -487,6 +494,10 @@ async function timingSelfCheck(browser) {
    const target = await listen((req, res) => {
       if (req.url.startsWith("/boom")) return req.socket.destroy();
       seen.headers.add(req.headers["x-probe-secret"]);
+      if (req.url === "/soft") {
+         res.writeHead(200, { "content-type": "text/html" });
+         return res.end(`<!doctype html><title>t</title><main><h1>one</h1><a href="/two" onclick="event.preventDefault();setTimeout(()=>{history.pushState({},'','/two');document.querySelector('h1').textContent='two'},150)">Next lesson: two</a></main>`);
+      }
       if (req.url === "/app.js") return (res.writeHead(200, { "content-type": "text/javascript" }), res.end("document.title = 'ok'"));
       res.writeHead(200, { "content-type": "text/html" });
       res.end(`<!doctype html><title>t</title><h1>self-check</h1><script src="/app.js"></script><img src="http://127.0.0.1:${stray.address().port}/x.png">`);
@@ -505,6 +516,8 @@ async function timingSelfCheck(browser) {
       const query = "route-query-secret-4d82e0";
       const apiUrl = `http://user:api-password-5b17c3@127.0.0.1:3101/path?key=api-query-secret-8e64f1`;
       const failing = await MODES.timing({ browser, config: { ...check, runs: "1", profiles: "desktop", conditions: "cold" }, routes: [`/boom?key=${query}`] });
+      const soft = await MODES.timing({ browser, config: { ...check, runs: "1", profiles: "desktop", conditions: "cold" }, routes: ["/soft"] });
+      const nextLesson = soft[0].runs[0].interactions?.nextLesson;
       const report = { ...reportOf({ ...check, api: apiUrl }, ["/boom?key=" + query]), results: { timing: [...cells, ...failing] } };
       const text = render(report);
       const ok = { status: 200, interactions: { drawerOpen: { status: "not-applicable" }, moduleToggle: { status: "measured", ms: 31.8 } } };
@@ -522,6 +535,7 @@ async function timingSelfCheck(browser) {
          routeQueryNotReported: failing[0].failedRuns === 1 && failing[0].runs[0].error.includes("/boom") && !JSON.stringify(failing).includes(query) && !text.includes(query),
          apiUrlSanitized: report.api === "http://127.0.0.1:3101" && !text.includes("api-query-secret") && !text.includes("api-password"),
          measurementsIntact: JSON.stringify(stats) === JSON.stringify([5.5, 7.75, 3, 4, 7, null]) && cells.every((cell) => cell.runs.every((run) => run.metrics.requestCount === 2)) && text.includes('"requestCount": 2'),
+         softNavigationMeasured: nextLesson?.status === "measured" && nextLesson.ms >= 140 && nextLesson.ms < 2000 && soft[0].failedRuns === 0,
          inapplicableNotZero: runs.every((run) => Object.values(run.interactions).every((outcome) => outcome.status === "not-applicable" && !("ms" in outcome))),
       };
       return { checks, ok: Object.values(checks).every(Boolean) };
