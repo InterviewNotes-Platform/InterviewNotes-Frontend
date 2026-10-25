@@ -282,7 +282,7 @@ const INTERACTIONS = {
    problemReveal: (page) => page.locator("main details[data-reveal] > summary").filter({ visible: true }).first(),
    drawerOpen: (page) => page.getByRole("button", { name: "Track contents" }).first(),
    // J7 (S6-PERF-2): a soft navigation from a Lesson to the next one. It runs last, because it leaves the page it started on.
-   nextLesson: (page) => page.getByRole("link", { name: /^Next lesson: / }).first(),
+   nextLesson: (page) => page.getByRole("link", { name: /^Next lesson: / }).filter({ visible: true }).first(),
 };
 
 /** Linear interpolation between closest ranks (the NumPy default), so the median of an even count is the mean of the middle two. */
@@ -380,6 +380,11 @@ async function measureInteraction(page, kind) {
       await control.evaluate(ARM_INTERACTION, kind);
       await control.click({ timeout: 5000 });
       const ms = await page.evaluate(() => window.__interaction);
+      // The drawer is a modal that hides the rest of the page from the accessibility tree, so close it after it is measured; the interactions that follow find their controls by role.
+      if (kind === "drawerOpen") {
+         await page.keyboard.press("Escape");
+         await page.locator('[role="dialog"][data-state="open"]').waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+      }
       return ms === null ? { status: "failed", reason: `expected state not shown within ${kind === "nextLesson" ? 60 : 5}s` } : { status: "measured", ms: round(ms) };
    } catch (error) {
       return { status: "failed", reason: errorText(error) };
