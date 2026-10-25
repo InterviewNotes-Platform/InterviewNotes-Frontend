@@ -15,6 +15,10 @@ import {
     ISOLATED_API_PORT,
     ISOLATED_ORIGIN,
     ISOLATED_PORT,
+    JOURNEY_API_ORIGIN,
+    JOURNEY_API_PORT,
+    JOURNEY_ORIGIN,
+    JOURNEY_PORT,
     PREVIEW_API_ORIGIN,
     PREVIEW_API_PORT,
     PREVIEW_DIST,
@@ -76,6 +80,26 @@ export default defineConfig({
             reuseExistingServer: !process.env.CI,
             env: {
                 API_URL: ISOLATED_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: "",
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // A second private double knowing the free chapter, so the journeys can open it without adding to the log above.
+            command: `node tests/e2e/catalog/fake-api.mjs ${JOURNEY_API_PORT}`,
+            url: `${JOURNEY_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+            env: { FAKE_API_FREE_CHAPTER: "free" },
+        },
+        {
+            // The production build above, served again with `API_URL` pointing at that double.
+            command: `npx next start -p ${JOURNEY_PORT}`,
+            url: `${JOURNEY_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                API_URL: JOURNEY_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: "",
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",

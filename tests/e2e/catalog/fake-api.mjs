@@ -1,5 +1,6 @@
 // Test-only stand-in for the backend catalog/content API and Supabase's user endpoint, serving fixture.json.
 // Access decisions mirror backend `app/routers/catalog.py`: the API decides, the frontend only renders.
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
@@ -12,7 +13,20 @@ const previewToken = process.env.FAKE_API_PREVIEW_TOKEN;
 const emptyToken = process.env.FAKE_API_EMPTY_TOKEN;
 // Set: the homepage's free-chapter Lesson (`anatomy-of-a-model-request`) exists with this access, "free" or "premium". Unset: unknown (404).
 const freeChapterAccess = process.env.FAKE_API_FREE_CHAPTER;
-const FREE_CHAPTER_META = "/catalog/items/lesson/anatomy-of-a-model-request/meta";
+// Unplaced, so the reader shows it without a Track; its meta is what the homepage reads.
+const FREE_CHAPTER = freeChapterAccess && {
+   id: "lesson.anatomy-of-a-model-request",
+   type: "lesson",
+   slug: "anatomy-of-a-model-request",
+   title: "Anatomy of a Model Request",
+   summary: "Home free-chapter marker.",
+   tags: [],
+   difficulty: null,
+   level: null,
+   access: freeChapterAccess,
+   body: "## Anatomy heading\n\nFree chapter body marker.\n",
+   headings: [{ id: "anatomy-heading", level: 2, text: "Anatomy heading" }],
+};
 const PRIVATE = "private, no-store";
 /** Every /catalog request, with its query string and the preview credential it presented, served or refused. */
 const catalogLog = [];
@@ -199,12 +213,9 @@ function catalog(req, res, path, query) {
       const found = tracks.get(decodeURIComponent(track[1]));
       return found ? send(res, 200, trackOut(found)) : send(res, 404, { detail: "Track not found" });
    }
-   if (freeChapterAccess && path === FREE_CHAPTER_META) {
-      const home = { id: "lesson.anatomy-of-a-model-request", type: "lesson", slug: "anatomy-of-a-model-request", title: "Anatomy of a Model Request", summary: "Home free-chapter marker.", tags: [], difficulty: null, level: null };
-      return send(res, 200, meta({ ...home, access: freeChapterAccess }));
-   }
    const match = /^\/catalog\/items\/([^/]+)\/([^/]+)(\/meta|\/related)?$/.exec(path);
-   const item = match && items.get(`${decodeURIComponent(match[1])}.${decodeURIComponent(match[2])}`);
+   const id = match && `${decodeURIComponent(match[1])}.${decodeURIComponent(match[2])}`;
+   const item = id && (FREE_CHAPTER?.id === id ? FREE_CHAPTER : items.get(id));
    if (!item) return send(res, 404, { detail: "Item not found" });
 
    if (match[3] === "/meta") return send(res, 200, meta(item));
@@ -294,6 +305,23 @@ const api = createServer((req, res) => {
    return send(res, 404, { detail: "Not found" });
 });
 
+/**
+ * Supabase Auth `POST /auth/v1/token?grant_type=pkce`, called by `/auth/callback`. A journey's stubbed provider issues
+ * `<identity>.<code_challenge>`; the code is honoured only for a fixture identity whose S256 challenge matches the verifier sent.
+ */
+function exchange(req, res) {
+   let raw = "";
+   req.on("data", (chunk) => (raw += chunk));
+   req.on("end", () => {
+      const { auth_code: code, code_verifier: verifier } = JSON.parse(raw || "{}");
+      const [name, challenge] = String(code).split(".");
+      const proven = Object.hasOwn(fixture.identities, name) && challenge === createHash("sha256").update(String(verifier)).digest("base64url");
+      if (!proven) return send(res, 400, { code: 400, error_code: "flow_state_not_found", msg: "invalid flow state" });
+      const { token, user } = fixture.identities[name];
+      send(res, 200, { access_token: token, refresh_token: "e2e-unused-refresh-token", token_type: "bearer", expires_in: 3600, expires_at: 4102444800, user });
+   });
+}
+
 /** Supabase Auth `GET /auth/v1/user`, called by the proxy and the browser client. */
 const auth = createServer((req, res) => {
    const cors = {
@@ -303,6 +331,7 @@ const auth = createServer((req, res) => {
    };
    if (req.method === "OPTIONS") return res.writeHead(204, cors).end();
    const path = new URL(req.url, `http://${HOST}`).pathname;
+   if (req.method === "POST" && path === "/auth/v1/token") return exchange(req, res);
    const identity = path === "/auth/v1/user" ? identityOf(req) : null;
    if (!identity) return send(res, 401, { code: 401, error_code: "bad_jwt", msg: "invalid JWT" }, cors);
    return send(res, 200, identity.user, cors);
