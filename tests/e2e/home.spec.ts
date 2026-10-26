@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
+import { STAGE } from "../../src/app/home-copy";
 import fixture from "./catalog/fixture.json";
 import { EMPTY_ORIGIN, expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, PREVIEW_ORIGIN, REJECTED_ORIGIN, test } from "./catalog/harness";
 
@@ -7,8 +8,6 @@ import { EMPTY_ORIGIN, expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, PREVIEW_ORI
 const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 /** What the fake API's `GET /catalog/tracks` returns for the default deployment: every fixture Track, by id. */
 const CATALOG_TRACKS = [...fixture.tracks].sort(byId);
-const FIRST_PROBLEM = fixture.items.filter((item) => item.type === "problem").sort(byId)[0];
-const PROBLEMS_PATH = "/catalog/items";
 const FREE_CHAPTER_PATH = "/catalog/items/lesson/anatomy-of-a-model-request/meta";
 const FREE_CHAPTER_HREF = "/lessons/anatomy-of-a-model-request";
 const READ_FREE_CHAPTER = "Read a free chapter";
@@ -34,7 +33,7 @@ test.describe("catalog reads", () => {
    const catalogLog = async (request: APIRequestContext): Promise<{ path: string; query: string; presented: string | null }[]> =>
       (await request.get(`${ISOLATED_API_ORIGIN}/__catalog-log`)).json();
 
-   test("loading / reads at most the Track list, the free Lesson's metadata and one page of one Problem's metadata, all on the server and none from the browser", async ({ page, request }) => {
+   test("loading / reads at most the Track list and the free Lesson's metadata, all on the server and none from the browser; the hero stage reads nothing (P6-D-50)", async ({ page, request }) => {
       const before = await catalogLog(request);
       const browserRequests: string[] = [];
       page.on("request", (r) => {
@@ -47,13 +46,12 @@ test.describe("catalog reads", () => {
 
       const log = await catalogLog(request);
       const added = log.slice(before.length);
-      expect(added.length, "the homepage read more than three catalog endpoints").toBeLessThanOrEqual(3);
-      expect(added.map((entry) => entry.path).filter((path) => ![PROBLEMS_PATH, "/catalog/tracks", FREE_CHAPTER_PATH].includes(path))).toEqual([]);
+      expect(added.length, "the homepage read more than two catalog endpoints").toBeLessThanOrEqual(2);
+      expect(added.map((entry) => entry.path).filter((path) => !["/catalog/tracks", FREE_CHAPTER_PATH].includes(path))).toEqual([]);
       for (const entry of added) expect(entry.presented).toBeNull();
-      for (const entry of added.filter((e) => e.path === PROBLEMS_PATH)) expect(new URLSearchParams(entry.query)).toEqual(new URLSearchParams("type=problem&limit=1"));
-      for (const entry of added.filter((e) => e.path !== PROBLEMS_PATH)) expect(entry.query).toBe("");
-      // Whether the 60-second data cache was warm decides how many of the three this load made; together they are the only three ever.
-      expect(new Set(log.map((entry) => entry.path))).toEqual(new Set(["/catalog/tracks", FREE_CHAPTER_PATH, PROBLEMS_PATH]));
+      for (const entry of added) expect(entry.query).toBe("");
+      // Whether the 60-second data cache was warm decides how many of the two this load made; together they are the only two ever.
+      expect(new Set(log.map((entry) => entry.path))).toEqual(new Set(["/catalog/tracks", FREE_CHAPTER_PATH]));
       expect(browserRequests, "the browser requested catalog data or prefetched a catalog route").toEqual([]);
    });
 
@@ -365,10 +363,12 @@ test.describe("hero popups", () => {
    test.use({ baseURL: ISOLATED_ORIGIN }); // the deployment whose free chapter is confirmed, so both hero actions are present
    const stageText = (page: Page) => page.locator("[data-hero-stage]").evaluate((el) => el.parentElement!.textContent ?? "");
 
-   test("show the first listed Track and Problem, the Knowledge groups and no interview-simulation content", async ({ page }) => {
+   test("show the fixed GenAI System Design copy, not a listed Track, and no interview-simulation content", async ({ page }) => {
       await page.goto("/");
       const text = await stageText(page);
-      for (const expected of [CATALOG_TRACKS[0].title, FIRST_PROBLEM.title, "Core Concepts", "Technologies & Research", "Patterns"]) expect(text, expected).toContain(expected);
+      for (const expected of [STAGE.track.title, STAGE.problem.title, ...STAGE.lessons, ...STAGE.knowledge.map((k) => k.title), "Core Concepts"]) expect(text, expected).toContain(expected);
+      for (const listed of CATALOG_TRACKS) expect(text, listed.title).not.toContain(listed.title);
+      expect(text).not.toMatch(/behaviou?ral/i);
       for (const stale of ["Mock round", "Interviewer", "Round clock", "Chapter complete", "Next up", "Saved to notes", "Deep dive", "Clarify", "Docs · 50M", "18 · ~8h", "PRO", "FREE"]) expect(text, stale).not.toContain(stale);
       expect(text).not.toMatch(/\b\d{2}:\d{2}\b/);
    });
@@ -455,16 +455,15 @@ test.describe("hero popups", () => {
    });
 });
 
-test.describe("when the catalog has no Problem and no Track", () => {
+test.describe("when the catalog has no Track", () => {
    test.use({ baseURL: EMPTY_ORIGIN });
 
-   test("the popups fall back to neutral category cards, with no invented item", async ({ page }) => {
+   test("the popups keep their fixed GenAI copy, since the stage reads nothing", async ({ page }) => {
       await page.goto("/");
       const text = await page.locator("[data-hero-stage]").evaluate((el) => el.parentElement!.textContent ?? "");
-      expect(text).toContain("Interview Problems");
-      expect(text).toContain("Choose a Track");
-      expect(text).not.toContain(FIRST_PROBLEM.title);
-      expect(text).not.toContain(CATALOG_TRACKS[0].title);
+      expect(text).toContain(STAGE.track.title);
+      expect(text).toContain(STAGE.problem.title);
+      expect(text).toContain(STAGE.chooseTrack.title);
    });
 });
 

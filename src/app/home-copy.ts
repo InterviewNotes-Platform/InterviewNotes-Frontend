@@ -30,25 +30,51 @@ export const HERO = {
 /** The highlighted subject cycles through these in order and wraps from the last to the first, until the hero is paused; the first is also the still state (reduced motion) and the screen-reader subject. P6-D-40. */
 export const HERO_TOPICS = [HERO.subject, "ML platform design", "LLM platform design", "GenAI native design", "ML system design"] as const;
 
-/** The hero stage's words around the real catalog data (P6-D-40): product vocabulary only, no counts, durations, completion or access claims. */
+/**
+ * The hero stage's words (P6-D-50): fixed copy taken from the GenAI System Design Track as the catalog describes it, so
+ * the stage needs no catalog read and is never about another Track. No counts, durations, completion or access claims.
+ * When the Track's catalog wording changes, change it here too.
+ */
 export const STAGE = {
    trackLabel: "Track",
    chooseTrack: { title: "Choose a Track", note: "Follow it module by module" },
-   /** Shown where no Track could be read; the Tracks section says why. */
-   trackFallback: { title: "Choose a Track", summary: "Follow a sequence of modules and lessons." },
+   track: {
+      title: "GenAI System Design",
+      summary:
+         "For engineers preparing for ML and GenAI system design interviews, from how a model request behaves to the trade-offs senior interviewers probe. Covers cost, grounding, evaluation, serving and failure, with a worked design problem to apply them.",
+   },
+   lessonsLabel: "Lessons",
+   lessons: [
+      "Anatomy of a model request: tokens, context and latency",
+      "Grounding answers in your own data",
+      "Evaluating output you cannot unit-test",
+      "Serving a model within a latency and cost budget",
+      "Containing failure: checks, fallbacks and human review",
+   ],
+   /** What the Track covers, in its own summary's words. */
+   topics: ["Cost", "Grounding", "Evaluation", "Serving", "Failure"],
    problemLabel: "Problem",
-   /** Shown where no Problem could be read: a category, never a specific item. */
-   problemFallback: { title: "Interview Problems", summary: "Work through ML and GenAI system design problems." },
+   problem: {
+      title: "Design a live incident summary that an on-call engineer can trust",
+      summary: "Design a system that condenses chat, alerts and deploy events from a live incident into a handoff summary, and decide how to tell whether the summary can be trusted.",
+   },
    knowledgeLabel: "Knowledge",
+   /** Knowledge entries the Track's Lessons and Problems link to. */
+   knowledge: [
+      { title: "Hybrid search with rank fusion", summary: "Run lexical (BM25) and vector retrieval on the same query and merge the two ranked lists with reciprocal rank fusion." },
+      { title: "Comparing two system versions on an evaluation set", summary: "How to put an interval on a pass rate, compare two versions scored on the same cases with a paired analysis, and plan how many cases a comparison needs." },
+   ],
+   knowledgeStrip: "The key-value cache: what it stores, what it costs and what it limits",
+   note: { kind: "Pattern", title: "Chunking long inputs for models" },
    path: ["Tracks", "Knowledge", "Problems"],
    library: "How it works",
    windowTabs: ["Tracks", "Knowledge", "Problems"],
-   chips: ["Modules", "Lessons", "Knowledge", "Problems"],
+   /** The Track's first Lesson, step by step, with the Knowledge entries beside it. */
    diagram: {
-      follow: "FOLLOW A TRACK",
-      nodes: ["Track", "Module", "Lesson", "Problem"],
+      follow: "ANATOMY OF A MODEL REQUEST",
+      nodes: ["Tokenize", "Context window", "Prefill", "Decode"],
       lookup: "KNOWLEDGE",
-      lookupNodes: ["Core Concepts", "Patterns", "Topic", "Quick Reference"],
+      lookupNodes: ["Chunking", "Hybrid search", "KV cache", "Eval sets"],
       link: "linked",
    },
 };

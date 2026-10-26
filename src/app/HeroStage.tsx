@@ -1,12 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { HomeProblem, HomeTracks } from "@/lib/catalog/home";
 import { KNOWLEDGE, STAGE, TRACKS } from "./home-copy";
 
 /*
  * The hero's stage, ported from the prototype (homepage/src/app/page.tsx): paper hills, a reader window that rises in and
- * draws its diagram, and floating cards that follow the pointer. Its words are the product's own (P6-D-40): the Track and
- * Problem shown are the first the catalog returned, the Knowledge words are the explorer's own groups, and nothing counts,
- * times, grades or prices anything. It is decoration, so every part is aria-hidden and holds no link or control, and the
+ * draws its diagram, and floating cards that follow the pointer. Its words are fixed copy from the GenAI System Design Track
+ * (P6-D-50): the Track, its Lessons, a Problem and Knowledge entries as the catalog describes them, read from nothing, and
+ * nothing counts, times, grades or prices anything. It is decoration, so every part is aria-hidden and holds no link or control, and the
  * cards never take the pointer. Motion is CSS in globals.css (`.home-*`) plus the pointer parallax in HeroMotion. Spec S6-HOME-5.
  */
 
@@ -14,12 +13,6 @@ const d = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 const v = (vars: Record<string, string | number>) => vars as CSSProperties;
 
 const INK = "var(--foreground)";
-
-interface StageData {
-   /** The Tracks as listed, or none when the list is empty or unavailable. */
-   tracks: { title: string; summary: string }[];
-   problem: HomeProblem;
-}
 
 const mono = "font-mono text-[11px]/3.5 text-muted-foreground";
 const caps = `${mono} tracking-[0.06em] uppercase`;
@@ -106,7 +99,7 @@ function Diagram() {
 
 const clamp = (lines: 2 | 3) => (lines === 2 ? "line-clamp-2" : "line-clamp-3");
 
-/** A Track, Knowledge or Problem row of the window's side panels. */
+/** A Lesson row of the window's side panel. */
 function Row({ children, active = false, delay }: { children: ReactNode; active?: boolean; delay: number }) {
    return (
       <div
@@ -120,9 +113,8 @@ function Row({ children, active = false, delay }: { children: ReactNode; active?
    );
 }
 
-function AppWindow({ tracks, problem }: StageData) {
-   const lead = tracks[0] ?? STAGE.trackFallback;
-   const groups = KNOWLEDGE.groups;
+function AppWindow() {
+   const { track, problem } = STAGE;
    return (
       <div className="flex flex-col overflow-clip rounded-[20px] border border-home-line bg-card text-left shadow-(--home-window-shadow) lg:h-[640px]">
          <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-home-line px-5">
@@ -134,7 +126,7 @@ function AppWindow({ tracks, problem }: StageData) {
                </div>
                <span className="hidden text-muted-foreground sm:inline">{TRACKS.label}</span>
                <span className="hidden text-home-rule sm:inline">/</span>
-               <span className="truncate font-medium">{lead.title}</span>
+               <span className="truncate font-medium">{track.title}</span>
             </div>
             <div className="hidden shrink-0 items-center gap-1 rounded-lg bg-background p-0.75 text-xs/4 sm:flex">
                {STAGE.windowTabs.map((tab, i) => (
@@ -151,11 +143,11 @@ function AppWindow({ tracks, problem }: StageData) {
          <div className="flex min-h-0 grow">
             <aside className="hidden w-64 shrink-0 flex-col gap-0.5 border-r border-home-line px-3 py-5 lg:flex">
                <div className="px-3 pb-3">
-                  <span className={caps}>{TRACKS.label}</span>
+                  <span className={caps}>{STAGE.lessonsLabel}</span>
                </div>
-               {(tracks.length > 0 ? tracks.slice(0, 5) : [STAGE.trackFallback]).map((t, i) => (
-                  <Row key={`${i}-${t.title}`} active={i === 0} delay={900 + i * 50}>
-                     <span className="grow truncate">{t.title}</span>
+               {STAGE.lessons.map((title, i) => (
+                  <Row key={title} active={i === 0} delay={900 + i * 50}>
+                     <span className="grow truncate">{title}</span>
                   </Row>
                ))}
                <div className="home-fade mt-3 flex flex-col gap-2.5 border-t border-home-line px-3 pt-4" style={d(1300)}>
@@ -175,15 +167,13 @@ function AppWindow({ tracks, problem }: StageData) {
                   <span className={caps}>{STAGE.trackLabel}</span>
                </div>
                <p className="home-fade-up m-0 text-[22px]/7.5 font-light tracking-[-0.01em] sm:text-[26px]/8.5" style={d(1060)}>
-                  {lead.title}
+                  {track.title}
                </p>
-               {lead.summary ? (
-                  <p className="home-fade-up m-0 -mt-2 max-w-xl text-[13px]/5 text-muted-foreground" style={d(1100)}>
-                     {lead.summary}
-                  </p>
-               ) : null}
+               <p className="home-fade-up m-0 -mt-2 max-w-xl text-[13px]/5 text-muted-foreground" style={d(1100)}>
+                  {track.summary}
+               </p>
                <div className="flex flex-wrap gap-2">
-                  {STAGE.chips.map((t, i) => (
+                  {STAGE.topics.map((t, i) => (
                      <span key={t} className="home-fade-up rounded-md bg-background px-2.5 py-1.25 font-mono text-[11px]/3.5 text-muted-foreground" style={v({ "--d": `${1120 + i * 50}ms`, "--fy": "6px" })}>
                         {t}
                      </span>
@@ -194,7 +184,7 @@ function AppWindow({ tracks, problem }: StageData) {
                </div>
                <div className="home-fade-up flex items-start gap-3 rounded-[10px] border border-home-line px-4 py-3.5" style={d(2600)}>
                   <span className={`${caps} shrink-0 pt-0.5`}>{STAGE.knowledgeLabel}</span>
-                  <p className="m-0 text-[13px]/5 text-muted-foreground">{groups[0].description}</p>
+                  <p className="m-0 text-[13px]/5 text-muted-foreground">{STAGE.knowledgeStrip}</p>
                </div>
             </div>
 
@@ -203,15 +193,15 @@ function AppWindow({ tracks, problem }: StageData) {
                   <span className={caps}>{STAGE.problemLabel}</span>
                   <div className="flex flex-col gap-2 rounded-xl bg-gold/25 p-4 shadow-[inset_0_0_0_1px_var(--gold)]">
                      <span className="text-sm/5 font-medium">{problem.title}</span>
-                     {problem.summary ? <span className={`${clamp(3)} text-xs/4.5 text-muted-foreground`}>{problem.summary}</span> : null}
+                     <span className={`${clamp(3)} text-xs/4.5 text-muted-foreground`}>{problem.summary}</span>
                   </div>
                </div>
                <div className="flex flex-col gap-3 border-t border-home-line pt-4">
                   <span className={caps}>{STAGE.knowledgeLabel}</span>
-                  {groups.slice(0, 2).map((g, i) => (
-                     <div key={g.key} className="home-fade-up flex flex-col gap-0.5" style={v({ "--d": `${1300 + i * 70}ms`, "--fy": "6px" })}>
-                        <span className="text-[13px]/4 font-medium">{g.title}</span>
-                        <span className={`${clamp(2)} text-xs/4.5 text-muted-foreground`}>{g.description}</span>
+                  {STAGE.knowledge.map((k, i) => (
+                     <div key={k.title} className="home-fade-up flex flex-col gap-0.5" style={v({ "--d": `${1300 + i * 70}ms`, "--fy": "6px" })}>
+                        <span className="text-[13px]/4 font-medium">{k.title}</span>
+                        <span className={`${clamp(2)} text-xs/4.5 text-muted-foreground`}>{k.summary}</span>
                      </div>
                   ))}
                </div>
@@ -222,8 +212,8 @@ function AppWindow({ tracks, problem }: StageData) {
 }
 
 /** The hills, the rising reader window and the cards pinned to it, with the page's own colour curving over the window's foot. */
-function Stage({ tracks, problem }: StageData) {
-   const note = KNOWLEDGE.groups[2];
+function Stage() {
+   const { note, problem } = STAGE;
    return (
       <div data-hero-stage aria-hidden="true" className="pointer-events-none relative px-4 pb-24 lg:h-[640px] lg:pb-0">
          <svg className="absolute top-[60px] left-0 h-[580px] w-full" viewBox="0 0 1440 580" preserveAspectRatio="none" focusable="false">
@@ -236,7 +226,7 @@ function Stage({ tracks, problem }: StageData) {
 
          <div className="home-pop relative z-10 mx-auto w-full max-w-[1120px]" style={v({ "--depth": 3 })}>
             <div className="home-rise" style={d(450)}>
-               <AppWindow tracks={tracks} problem={problem} />
+               <AppWindow />
             </div>
          </div>
 
@@ -258,8 +248,8 @@ function Stage({ tracks, problem }: StageData) {
             <Pop at="top-[470px] right-[max(1.5rem,calc(50%_-_680px))] max-[1280px]:hidden" r={3} depth={14} delay={1900} float={8} slap>
                <div className="relative flex w-55 flex-col gap-2.5 rounded-md bg-gold px-5 pt-7 pb-5.5 text-gold-foreground shadow-[0_14px_30px_rgb(var(--home-sh)/0.14),0_1px_2px_rgb(var(--home-sh)/0.08)]">
                   <span className="absolute -top-2.5 left-21 h-5 w-13 -rotate-4 rounded-xs bg-white/60" />
-                  <span className="font-mono text-[10px]/3 font-medium tracking-[0.08em] uppercase opacity-70">{`${STAGE.knowledgeLabel} · ${note.title}`}</span>
-                  <span className={`${clamp(3)} text-[15px]/5.25 font-medium`}>{note.description}</span>
+                  <span className="font-mono text-[10px]/3 font-medium tracking-[0.08em] uppercase opacity-70">{`${STAGE.knowledgeLabel} · ${note.kind}`}</span>
+                  <span className={`${clamp(3)} text-[15px]/5.25 font-medium`}>{note.title}</span>
                </div>
             </Pop>
             <Pop at="top-[500px] left-[max(1.5rem,calc(50%_-_684px))]" r={-3} depth={18} delay={2200} float={9}>
@@ -271,7 +261,7 @@ function Stage({ tracks, problem }: StageData) {
                      <span className="text-xs/4 font-semibold">{STAGE.problemLabel}</span>
                   </div>
                   <p className="m-0 text-[13px]/4.5 font-medium">{problem.title}</p>
-                  {problem.summary ? <p className={`m-0 ${clamp(2)} text-xs/4.5 text-muted-foreground`}>{problem.summary}</p> : null}
+                  <p className={`m-0 ${clamp(2)} text-xs/4.5 text-muted-foreground`}>{problem.summary}</p>
                </div>
             </Pop>
          </div>
@@ -280,8 +270,8 @@ function Stage({ tracks, problem }: StageData) {
 }
 
 /** The cards around the headline, from 1024 px: each hangs from the nearer page edge, in step with the centred content, so none clips; below 1200 px the two lower cards would meet the intro text and are left out; the stage's Knowledge note needs the window's right panel (1280 px) or it would cover the page text. Coordinates start at the page's top edge (the header sits above the hero). */
-function Headline({ tracks }: { tracks: StageData["tracks"] }) {
-   const lead = tracks[0] ?? STAGE.trackFallback;
+function Headline() {
+   const lead = STAGE.track;
    const core = KNOWLEDGE.groups[0];
    return (
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[65px] bottom-0 hidden min-[1024px]:block">
@@ -303,7 +293,7 @@ function Headline({ tracks }: { tracks: StageData["tracks"] }) {
             <div className="home-card-shadow flex w-54 flex-col gap-2.5 rounded-[14px] border border-home-line bg-home-raised px-4.5 py-4">
                <span className="font-mono text-[10px]/3 font-medium tracking-widest text-muted-foreground uppercase">{STAGE.trackLabel}</span>
                <span className={`${clamp(2)} text-[15px]/5 font-semibold`}>{lead.title}</span>
-               {lead.summary ? <span className={`${clamp(2)} text-xs/4.5 text-muted-foreground`}>{lead.summary}</span> : null}
+               <span className={`${clamp(2)} text-xs/4.5 text-muted-foreground`}>{lead.summary}</span>
             </div>
          </Pop>
 
@@ -334,15 +324,11 @@ function Headline({ tracks }: { tracks: StageData["tracks"] }) {
 }
 
 /** Both parts sit inside HeroMotion's relative frame: the cards around the headline, then the stage below the copy. */
-export function HeroStage({ tracks, problem }: { tracks: HomeTracks; problem: HomeProblem | null }) {
-   const data: StageData = {
-      tracks: tracks.status === "ok" ? tracks.cards.map(({ title, summary }) => ({ title, summary })) : [],
-      problem: problem ?? STAGE.problemFallback,
-   };
+export function HeroStage() {
    return (
       <>
-         <Headline tracks={data.tracks} />
-         <Stage {...data} />
+         <Headline />
+         <Stage />
       </>
    );
 }
