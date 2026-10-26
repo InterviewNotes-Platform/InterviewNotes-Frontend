@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ElementType } from "react";
+import { Children, type ComponentPropsWithoutRef, type ElementType, type ReactNode } from "react";
 import Link from "next/link";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -66,6 +66,15 @@ const HEADING_STYLE = {
    h6: "mt-6 mb-2 text-supporting font-semibold",
 } as const;
 
+/** An authored heading's rendered text ends with its own `{#id}`; hide it. The API id and text already exclude it. */
+function withoutIdentifier(children: ReactNode, id: string): ReactNode {
+   const nodes = Children.toArray(children);
+   const last = nodes.at(-1);
+   const suffix = `{#${id}}`;
+   if (typeof last !== "string" || !last.endsWith(suffix)) return children;
+   return [...nodes.slice(0, -1), last.slice(0, -suffix.length).trimEnd()];
+}
+
 /**
  * A heading. When the API has a heading for its source line it carries that exact id and is a focus target for
  * the contents (tabIndex -1 is no tab stop); h2/h3 also offer a quiet anchor. The name stays the heading's own text.
@@ -77,7 +86,7 @@ function heading(Tag: HeadingTag, ids?: Map<number, CatalogHeading>) {
       if (!found) return <Tag className={style} {...props}>{children}</Tag>;
       return (
          <Tag id={found.id} tabIndex={-1} aria-labelledby={`${found.id}_text`} className={cn(style, "group w-fit max-w-full scroll-mt-28")} {...props}>
-            <span id={`${found.id}_text`}>{children}</span>
+            <span id={`${found.id}_text`}>{found.authored ? withoutIdentifier(children, found.id) : children}</span>
             {Tag === "h2" || Tag === "h3" ? (
                <a
                   href={`#${found.id}`}

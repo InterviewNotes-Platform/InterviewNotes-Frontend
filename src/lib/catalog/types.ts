@@ -110,6 +110,8 @@ export interface CatalogHeading {
    id: string;
    level: number;
    text: string;
+   /** True when `id` is an identifier the author wrote as a trailing `{#id}`; `text` excludes it. Absent from an older backend: treat as false. */
+   authored?: boolean;
 }
 
 /** A Problem section's link to another section: `target` is null exactly when it is withheld from this caller. */
