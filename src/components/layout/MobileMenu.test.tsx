@@ -7,9 +7,9 @@ const member = { email: "grace@example.com" } as User;
 
 function setup(props: Partial<React.ComponentProps<typeof MobileMenu>> = {}) {
     const onSignOut = vi.fn();
-    render(<MobileMenu active={null} user={null} loading={false} onSignOut={onSignOut} {...props} />);
+    const { unmount } = render(<MobileMenu active={null} user={null} loading={false} onSignOut={onSignOut} {...props} />);
     const trigger = screen.getByRole("button", { name: "Menu" });
-    return { trigger, onSignOut, open: () => fireEvent.click(trigger) };
+    return { trigger, onSignOut, unmount, open: () => fireEvent.click(trigger) };
 }
 
 const menu = () => screen.getByRole("dialog", { name: "Menu" });
@@ -105,6 +105,51 @@ describe("mobile menu", () => {
 
         await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
         await waitFor(() => expect(trigger).toHaveFocus());
+    });
+
+    it("makes the page behind inert while open, including a page with a live region, and releases it on every close", async () => {
+        const page = document.createElement("div");
+        page.innerHTML = '<span role="status" aria-live="polite"></span>';
+        document.body.appendChild(page);
+        const { trigger, open } = setup();
+
+        open();
+        expect(page).toHaveAttribute("inert");
+        expect(trigger.closest("[inert]")).not.toBeNull();
+        expect(menu()).not.toHaveAttribute("inert");
+        expect(menu().closest("[inert]")).toBeNull();
+
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        expect(page).not.toHaveAttribute("inert");
+        expect(trigger.closest("[inert]")).toBeNull();
+        await waitFor(() => expect(trigger).toHaveFocus());
+
+        open();
+        expect(page).toHaveAttribute("inert");
+        fireEvent.click(within(menu()).getByRole("button", { name: "Close" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        expect(page).not.toHaveAttribute("inert");
+
+        open();
+        const link = within(menu()).getByRole("link", { name: "FAQ" });
+        link.addEventListener("click", (event) => event.preventDefault());
+        fireEvent.click(link);
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        expect(page).not.toHaveAttribute("inert");
+        page.remove();
+    });
+
+    it("releases the inert page when the menu unmounts while open", () => {
+        const page = document.createElement("div");
+        document.body.appendChild(page);
+        const { unmount, open } = setup();
+
+        open();
+        expect(page).toHaveAttribute("inert");
+        unmount();
+        expect(page).not.toHaveAttribute("inert");
+        page.remove();
     });
 
     it.each(["Tracks", "Knowledge", "Pricing", "FAQ", "Premium", "Sign in"])("closes after choosing %s", async (name) => {

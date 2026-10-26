@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
+import { inertPage } from "@/lib/inertPage";
 import { PREFETCH_PRIMARY, PREMIUM_HREF, PRIMARY_NAV, TRACKS_ENTRY, type NavArea } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 
@@ -34,10 +35,19 @@ const accountRow = "flex min-h-11 w-full items-center text-body text-foreground 
 
 export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps) {
     const [open, setOpen] = useState(false);
-    const close = () => setOpen(false);
+    const releasePage = useRef<() => void>(undefined);
+
+    // Radix's `aria-hidden` spares a page with a live region, so the page is made inert before the sheet's layers mount.
+    function changeOpen(next: boolean) {
+        releasePage.current?.();
+        releasePage.current = next ? inertPage() : undefined;
+        setOpen(next);
+    }
+    const close = () => changeOpen(false);
+    useEffect(() => () => releasePage.current?.(), []);
 
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
+        <Sheet open={open} onOpenChange={changeOpen}>
             <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Menu" className="-mr-3 size-11 hover:bg-secondary md:hidden">
                     <Menu className="size-6" />
