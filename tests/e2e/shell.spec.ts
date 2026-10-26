@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { canonical, expect, FAKE_AUTH_ORIGIN, legacyCourse, test, track } from "./catalog/harness";
 
@@ -248,6 +249,25 @@ test.describe("mobile menu at 390px", () => {
       await menu.getByRole("button", { name: "Close" }).click();
       await expect(menu).toHaveCount(0);
       await expect(trigger).toBeFocused();
+   });
+
+   test("keeps the page behind inert while open, has no WCAG A or AA violation, and restores focus on close (X-12)", async ({ page }) => {
+      await page.goto(LESSON);
+      const trigger = page.getByRole("button", { name: "Menu" });
+      const menu = page.getByRole("dialog", { name: "Menu" });
+
+      await trigger.click();
+      await expect(menu).toBeVisible();
+      // An inert page leaves the accessibility tree, so the page is found by selector, not role.
+      expect(await page.locator("button[aria-label=Menu]").evaluate((el) => !!el.closest("[inert]"))).toBe(true);
+      expect(await page.locator("main").evaluate((el) => !!el.closest("[inert]"))).toBe(true);
+      const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(violations.map(({ id, nodes }) => `${id} on ${nodes.length} node(s)`)).toEqual([]);
+
+      await page.keyboard.press("Escape");
+      await expect(menu).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+      expect(await page.evaluate(() => document.querySelectorAll("[inert]").length)).toBe(0);
    });
 
    test("closes after a destination is chosen", async ({ page }) => {
