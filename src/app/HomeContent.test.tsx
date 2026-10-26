@@ -26,10 +26,9 @@ const CARDS = [
     { id: "track.gamma", title: "Gamma Track", summary: "", href: "/tracks/gamma" },
 ];
 const FREE_HREF = `/lessons/${FREE_CHAPTER_LESSON_SLUG}`;
-const PROBLEM = { title: "Design a Retrieval Service", summary: "Sketch the ingest and query paths." };
 
 function renderHome(props: Partial<ComponentProps<typeof HomeContent>> = {}) {
-    return render(<HomeContent tracks={{ status: "ok", cards: CARDS }} freeChapterHref={FREE_HREF} problem={PROBLEM} {...props} />);
+    return render(<HomeContent tracks={{ status: "ok", cards: CARDS }} freeChapterHref={FREE_HREF} {...props} />);
 }
 
 const NESTED_INTERACTIVE = "a a, a button, button a, button button";
@@ -157,7 +156,7 @@ describe("hero", () => {
         const stage = hero.querySelector("[data-hero-stage][aria-hidden='true']");
         expect(stage).not.toBeNull();
         expect(stage?.querySelector("a, button, input, img, [tabindex]")).toBeNull();
-        expect(stage?.textContent).toContain("Alpha Track");
+        expect(stage?.textContent).toContain(STAGE.track.title);
         expect(within(hero).queryByText(/\b(free|pro|premium)\b/i, { ignore: "[aria-hidden='true'] *, a[href^='/lessons/']" })).toBeNull(); // the free-chapter action is the one place the hero's own text says free
     });
 
@@ -211,10 +210,11 @@ describe("hero stage content", () => {
         "27:40",
     ];
 
-    it("shows the real Track, a real Problem and the Knowledge groups, in cards pinned to the stage and around the headline", () => {
+    it("shows the GenAI System Design Track, its Lessons, a Problem and Knowledge entries, in cards pinned to the stage and around the headline", () => {
         const { container } = renderHome();
         const text = stage(container).textContent!;
-        for (const expected of ["Alpha Track", "Alpha summary.", PROBLEM.title, PROBLEM.summary, ...KNOWLEDGE.groups.slice(0, 3).map((g) => g.title), KNOWLEDGE.groups[2].description]) {
+        const { track, problem, note } = STAGE;
+        for (const expected of [track.title, track.summary, ...STAGE.lessons, problem.title, problem.summary, ...STAGE.knowledge.map((k) => k.title), STAGE.knowledgeStrip, note.title, KNOWLEDGE.groups[0].title]) {
             expect(text, expected).toContain(expected);
         }
         expect(text).toContain(STAGE.chooseTrack.title);
@@ -234,18 +234,17 @@ describe("hero stage content", () => {
         expect(stage(container).querySelectorAll(".pointer-events-auto")).toHaveLength(0);
     });
 
-    it("falls back to neutral category cards, not invented items, when no Problem and no Track can be read", () => {
-        const { container } = renderHome({ tracks: { status: "unavailable" }, problem: null });
-        const text = stage(container).textContent!;
-        expect(text).toContain(STAGE.problemFallback.title);
-        expect(text).toContain(STAGE.trackFallback.summary);
-        expect(text).not.toContain("Alpha Track");
-        expect(text).not.toContain(PROBLEM.title);
-    });
-
-    it("shows a Problem without a summary as its title alone", () => {
-        const { container } = renderHome({ problem: { title: "Quiet Problem", summary: "" } });
-        expect(stage(container).textContent).toContain("Quiet Problem");
+    it("is fixed GenAI copy: the listed Tracks never reach it, and nothing in it is about Behavioral (P6-D-50)", () => {
+        const behavioral = { id: "track.behavioral-interview-preparation", title: "Behavioral Interview Preparation", summary: "Behavioral summary.", href: "/tracks/behavioral-interview-preparation" };
+        for (const tracks of [{ status: "ok", cards: [behavioral, ...CARDS] }, { status: "unavailable" }, { status: "empty" }] as const) {
+            const view = renderHome({ tracks: tracks.status === "ok" ? { status: "ok", cards: [...tracks.cards] } : tracks });
+            const text = stage(view.container).textContent!;
+            expect(text).toContain(STAGE.track.title);
+            expect(text).toContain(STAGE.problem.title);
+            expect(text).not.toMatch(/behaviou?ral|STAR\b/i);
+            for (const card of CARDS) expect(text).not.toContain(card.title);
+            view.unmount();
+        }
     });
 });
 
@@ -749,7 +748,6 @@ describe("link inventory", () => {
 describe("catalog reads", () => {
     const TOKEN = "unit-synthetic-preview-token-0123456789abcdef";
     const FREE_META = { id: `lesson.${FREE_CHAPTER_LESSON_SLUG}`, type: "lesson", slug: FREE_CHAPTER_LESSON_SLUG, title: "Free", summary: "s", tags: [], category: null, difficulty: null, level: null, access: "free" };
-    const PROBLEM_META = { id: "problem.retrieval", type: "problem", slug: "retrieval", title: "Design a Retrieval Service", summary: "Sketch the ingest and query paths.", tags: [], category: "ml_system_design", difficulty: "medium", level: null, access: "premium" };
     const LIST = { tracks: [{ id: "track.alpha", slug: "alpha", title: "Alpha Track", summary: "Alpha summary." }] };
 
     async function page() {
@@ -761,11 +759,10 @@ describe("catalog reads", () => {
         vi.clearAllMocks();
         listCatalogTracks.mockResolvedValue({ status: "ok", data: LIST });
         getCatalogItemMeta.mockResolvedValue({ status: "ok", data: FREE_META });
-        listCatalogItems.mockResolvedValue({ status: "ok", data: { items: [PROBLEM_META], next_cursor: null } });
     });
     afterEach(() => vi.unstubAllEnvs());
 
-    it("makes exactly the three public metadata reads, with no argument that could carry a session or a branch", async () => {
+    it("makes exactly the two public metadata reads, with no argument that could carry a session or a branch, and no Problem read (P6-D-50)", async () => {
         const fetchSpy = vi.fn();
         vi.stubGlobal("fetch", fetchSpy);
         await page();
@@ -773,31 +770,8 @@ describe("catalog reads", () => {
         expect(listCatalogTracks).toHaveBeenCalledWith();
         expect(getCatalogItemMeta).toHaveBeenCalledTimes(1);
         expect(getCatalogItemMeta).toHaveBeenCalledWith("lesson", "anatomy-of-a-model-request");
-        expect(listCatalogItems).toHaveBeenCalledTimes(1);
-        expect(listCatalogItems).toHaveBeenCalledWith({ type: "problem", limit: 1 });
+        expect(listCatalogItems).not.toHaveBeenCalled();
         expect(fetchSpy).not.toHaveBeenCalled();
-    });
-
-    it("shows the listed Problem on the stage, and a neutral card when its read fails, is empty or has no title", async () => {
-        const { container, unmount } = await page();
-        expect(container.querySelector("[data-hero-stage]")!.textContent).toContain("Design a Retrieval Service");
-        unmount();
-        for (const answer of [{ status: "unavailable", cause: "upstream" }, { status: "ok", data: { items: [], next_cursor: null } }, { status: "ok", data: { items: [{ ...PROBLEM_META, title: " " }], next_cursor: null } }]) {
-            listCatalogItems.mockResolvedValue(answer);
-            const view = await page();
-            const stage = view.container.querySelector("[data-hero-stage]")!.textContent!;
-            expect(stage).toContain(STAGE.problemFallback.title);
-            expect(stage).not.toContain("Design a Retrieval Service");
-            expect(within(tracks()).getAllByRole("link")).toHaveLength(1);
-            view.unmount();
-        }
-    });
-
-    it("loses no Track card and no free-chapter action when only the Problem read fails", async () => {
-        listCatalogItems.mockResolvedValue({ status: "unavailable", cause: "transport" });
-        await page();
-        expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
-        expect(heroLinks()).toEqual([TRACKS_ENTRY, FREE_HREF]);
     });
 
     it("shows the listed Tracks and the free-chapter action when both reads succeed", async () => {
