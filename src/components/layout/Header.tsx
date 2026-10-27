@@ -9,7 +9,7 @@ import { MobileMenu } from "@/components/layout/MobileMenu";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useAuth } from "@/hooks/use-auth";
-import { activeArea, PREFETCH_PRIMARY, PREMIUM_HREF, PRIMARY_NAV } from "@/lib/primary-navigation";
+import { activeArea, PREFETCH_PRIMARY, PREMIUM_HREF, primaryNav } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 
 // Legacy pages size themselves against this header (calc(100vh - 4rem), sticky top-16): keep h-16 + 1px border.
@@ -34,7 +34,7 @@ export function Header() {
                     </Link>
                     <nav aria-label="Primary" className="hidden md:block">
                         <ul className="flex items-center">
-                            {PRIMARY_NAV.map(({ area, label, href }) => (
+                            {primaryNav().map(({ area, label, href }) => (
                                 <li key={label}>
                                     <Button
                                         asChild

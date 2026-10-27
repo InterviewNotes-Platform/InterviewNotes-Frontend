@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { User } from "@supabase/supabase-js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Header } from "./Header";
 
 const mocks = vi.hoisted(() => ({
@@ -61,6 +61,30 @@ describe("desktop shell", () => {
         for (const name of ["Menu", "Toggle theme", "Account menu"]) {
             expect(within(banner()).getByRole("button", { name })).toBeInTheDocument();
         }
+    });
+});
+
+describe("Prepare entry", () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("is absent while the flag is off", () => {
+        render(<Header />);
+        expect(screen.queryByRole("link", { name: "Prepare" })).toBeNull();
+    });
+
+    it("is listed after Knowledge when the flag is on, and is the current page on /prepare", () => {
+        vi.stubEnv("NEXT_PUBLIC_PREP_ENABLED", "true");
+        mocks.pathname = "/prepare";
+        render(<Header />);
+        const links = within(primary()).getAllByRole("link");
+        expect(links.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+            ["Tracks", "/#tracks"],
+            ["Knowledge", "/knowledge"],
+            ["Prepare", "/prepare"],
+            ["Pricing", "/#pricing"],
+            ["FAQ", "/#faq"],
+        ]);
+        expect(links.filter((a) => a.hasAttribute("aria-current")).map((a) => a.textContent)).toEqual(["Prepare"]);
     });
 });
 
