@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { prepEnabled } from "@/lib/prep-flag";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
-import { createClient } from "@/lib/supabase/server";
+import { hasSession } from "./hasSession";
 import { PrepareWorkspace } from "./PrepareWorkspace";
 
 // Personal data is per user: the page reads the session and is never built or cached statically.
@@ -13,15 +13,6 @@ export const metadata: Metadata = {
     title: "Prepare | InterviewNotes",
     robots: { index: false, follow: false },
 };
-
-async function hasSession(): Promise<boolean> {
-    try {
-        const { data } = await (await createClient()).auth.getUser();
-        return Boolean(data.user);
-    } catch {
-        return false;
-    }
-}
 
 // Flag off: not found, before any session is read. Signed out: sign-in, returning here (P7-D-016, P6-R-051).
 export default async function PreparePage() {

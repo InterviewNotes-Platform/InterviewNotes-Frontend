@@ -163,15 +163,14 @@ describe("first request", () => {
 });
 
 describe("answer-first skeleton", () => {
-    it("leads with a disabled Answer a question action that says why, and links nowhere yet", async () => {
+    it("leads with an Answer a question link to the picker, without prefetching it", async () => {
         const { fetch } = held();
         render(<PrepareWorkspace apiUrl={API} getAccessToken={token} fetch={fetch} />);
         await flush();
-        const action = screen.getByRole("button", { name: "Answer a question" });
-        expect(action).toBeDisabled();
-        expect(action).toHaveAccessibleDescription("Choosing a question is not available yet.");
+        const action = screen.getByRole("link", { name: "Answer a question" });
+        expect(action).toHaveAttribute("href", "/prepare/new");
         expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
-        expect(screen.queryAllByRole("link")).toHaveLength(0);
+        expect(screen.queryAllByRole("link")).toHaveLength(1);
     });
 
     it("says how many answers it shows when the list is longer than one page", async () => {

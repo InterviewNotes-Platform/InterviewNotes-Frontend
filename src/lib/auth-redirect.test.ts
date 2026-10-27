@@ -14,6 +14,7 @@ describe("safeRedirectPath", () => {
         "/knowledge/chunking-long-inputs",
         "/practice",
         "/prepare",
+        "/prepare/new",
         "/",
         "/#tracks",
     ])("keeps the canonical catalog destination %s", (value) => {
@@ -25,6 +26,7 @@ describe("safeRedirectPath", () => {
         ["/knowledge?group=ml-systems", "/knowledge?group=ml-systems"],
         ["/practice?topic=a&level=b#results", "/practice?topic=a&level=b#results"],
         ["/prepare?from=lesson#top", "/prepare?from=lesson#top"],
+        ["/prepare/new?content=lesson.behavioral-prep-sde-1&question=being-stuck", "/prepare/new?content=lesson.behavioral-prep-sde-1&question=being-stuck"],
         ["/tracks/./a/../b", "/tracks/b"],
         ["/lessons/%2e%2e", "/"],
     ])("keeps the query and fragment of %s", (value, expected) => {
@@ -49,6 +51,8 @@ describe("safeRedirectPath", () => {
         "/tracks/a/b",
         "/prepare/",
         "/prepare/data",
+        "/prepare/new/",
+        "/prepare/new/x",
         "/prepare/x/../../login",
         "/prepared",
         "/Prepare",

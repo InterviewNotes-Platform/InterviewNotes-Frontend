@@ -20,6 +20,9 @@ export const PRIMARY_NAV: readonly { area?: NavArea; label: string; href: string
 /** The preparation workspace (P7-D-024). It is listed only while the frontend `PREP_ENABLED` flag is on. */
 export const PREPARE_HREF = "/prepare";
 
+/** Where a question is chosen and an answer is started (P7-T18). */
+export const PREPARE_NEW_HREF = "/prepare/new";
+
 const PREPARE_ENTRY = { area: "prepare", label: "Prepare", href: PREPARE_HREF } as const;
 
 /** What the header and the mobile menu list: `PRIMARY_NAV`, plus Prepare after Knowledge when the flag is on. */

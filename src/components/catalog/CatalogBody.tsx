@@ -4,6 +4,7 @@ import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown"
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { KnowledgeAbout } from "@/components/lesson/KnowledgeAbout";
+import { PrepareAnswerLink, PrepareLinkSession } from "@/components/prepare/lesson-link/PrepareAnswerLink";
 import { CopyCode } from "@/components/mdx/CopyCode";
 import { codeName, languageLabel, parseFence, type FenceInfo } from "@/components/mdx/fence";
 import { HIGHLIGHT } from "@/components/mdx/highlight";
@@ -79,12 +80,12 @@ function withoutIdentifier(children: ReactNode, id: string): ReactNode {
  * A heading. When the API has a heading for its source line it carries that exact id and is a focus target for
  * the contents (tabIndex -1 is no tab stop); h2/h3 also offer a quiet anchor. The name stays the heading's own text.
  */
-function heading(Tag: HeadingTag, ids?: Map<number, CatalogHeading>) {
+function heading(Tag: HeadingTag, ids?: Map<number, CatalogHeading>, prepare?: PrepareLinks) {
    const style = HEADING_STYLE[Tag];
    return function Heading({ node, children, ...props }: ComponentPropsWithoutRef<"h2"> & ExtraProps) {
       const found = ids?.get(node?.position?.start.line ?? 0);
       if (!found) return <Tag className={style} {...props}>{children}</Tag>;
-      return (
+      const title = (
          <Tag id={found.id} tabIndex={-1} aria-labelledby={`${found.id}_text`} className={cn(style, "group w-fit max-w-full scroll-mt-28")} {...props}>
             <span id={`${found.id}_text`}>{found.authored ? withoutIdentifier(children, found.id) : children}</span>
             {Tag === "h2" || Tag === "h3" ? (
@@ -97,6 +98,14 @@ function heading(Tag: HeadingTag, ids?: Map<number, CatalogHeading>) {
                </a>
             ) : null}
          </Tag>
+      );
+      // Only a question the P7 source recognised gets the link; it follows the heading and is empty for a signed-out reader.
+      if (Tag !== "h2" || !prepare?.questionIds.has(found.id)) return title;
+      return (
+         <>
+            {title}
+            <PrepareAnswerLink contentId={prepare.contentId} questionId={found.id} heading={plainHeading(found.text)} />
+         </>
       );
    };
 }
@@ -212,14 +221,18 @@ interface BlocksProps {
    knowledge: Knowledge | null;
    /** Levels added to every authored heading, capped at h6; 0 renders headings as authored. */
    headingOffset: number;
+   prepare?: PrepareLinks;
 }
 
 type HeadingTag = keyof typeof HEADING_STYLE;
 
+/** The Lesson's question sections, by authored heading id, that offer "Prepare your answer" (P7-T18). */
+export type PrepareLinks = { contentId: string; questionIds: ReadonlySet<string> };
+
 /** Authored levels to rendered tags: as authored up to h4 by default, else shifted below the container's heading (S-AX-2). */
-function headingComponents(ids: Map<number, CatalogHeading> | undefined, offset: number): Components {
+function headingComponents(ids: Map<number, CatalogHeading> | undefined, offset: number, prepare?: PrepareLinks): Components {
    const levels = offset > 0 ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4];
-   return Object.fromEntries(levels.map((level) => [`h${level}`, heading(`h${Math.min(6, level + offset)}` as HeadingTag, ids)]));
+   return Object.fromEntries(levels.map((level) => [`h${level}`, heading(`h${Math.min(6, level + offset)}` as HeadingTag, ids, prepare)]));
 }
 
 /** What a link at a source offset of this block shows in context, if the pre-pass marked it. */
@@ -243,7 +256,7 @@ function withEvidenceRows(blocks: Block[]): (Block | Block[])[] {
    }, []);
 }
 
-function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffset }: BlocksProps) {
+function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffset, prepare }: BlocksProps) {
    const view = (block: Block, index: number) =>
       block.type === "markdown" ? (
          <ReactMarkdown
@@ -252,7 +265,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffs
             rehypePlugins={[[rehypeHighlight, HIGHLIGHT]]}
             components={{
                ...components,
-               ...headingComponents(ids?.get(block), headingOffset),
+               ...headingComponents(ids?.get(block), headingOffset, prepare),
                pre: codeBlock(reading),
                a: anchor(stayOnDeployment, reading, aboutIn(block, knowledge)),
             }}
@@ -264,7 +277,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffs
       ) : block.type === "part" ? (
          <div key={index} data-part={block.name} className="mt-6 first:mt-0">
             {partLabel(block) ? <p className={EYEBROW}>{partLabel(block)}</p> : null}
-            <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} headingOffset={headingOffset} />
+            <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} headingOffset={headingOffset} prepare={prepare} />
          </div>
       ) : (
          <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
@@ -276,6 +289,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffs
                   ids={ids}
                   knowledge={knowledge}
                   headingOffset={headingOffset}
+                  prepare={prepare}
                />
             </Tip>
          </div>
@@ -299,6 +313,8 @@ export interface ReadingMode {
    headings: readonly CatalogHeading[];
    /** A Lesson's related Knowledge by id: its first reference to each offers the summary in context (S-KNW-2). */
    knowledge?: ReadonlyMap<string, KnowledgeSupport>;
+   /** Set only for a Behavioral Lesson while the frontend `PREP_ENABLED` flag is on; unset leaves the body exactly as it was. */
+   prepare?: PrepareLinks;
 }
 
 interface CatalogBodyProps {
@@ -319,9 +335,18 @@ export function CatalogBody({ body, stayOnDeployment = false, reading, headingOf
    const blocks = parseBlocks(body.text);
    const ids = reading ? headingIds(blocks, reading.headings) : null;
    const knowledge = reading?.knowledge ? { coverage: knowledgeCoverage(blocks, reading.knowledge), support: reading.knowledge } : null;
-   return (
+   const content = (
       <div data-catalog-body="">
-         <Blocks blocks={blocks} stayOnDeployment={stayOnDeployment} reading={Boolean(reading)} ids={ids} knowledge={knowledge} headingOffset={headingOffset} />
+         <Blocks
+            blocks={blocks}
+            stayOnDeployment={stayOnDeployment}
+            reading={Boolean(reading)}
+            ids={ids}
+            knowledge={knowledge}
+            headingOffset={headingOffset}
+            prepare={ids ? reading?.prepare : undefined}
+         />
       </div>
    );
+   return reading?.prepare && ids ? <PrepareLinkSession>{content}</PrepareLinkSession> : content;
 }

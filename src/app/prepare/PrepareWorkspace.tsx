@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createPrepClient } from "@/lib/prep/client";
 import type { Answer, PrepResult } from "@/lib/prep/types";
-import { PREPARE_HREF } from "@/lib/primary-navigation";
+import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 
 /** After this long the loading state also says the wait is longer than usual (a cold start, P7-D-010). */
@@ -92,12 +92,11 @@ export function PrepareWorkspace({ apiUrl, getAccessToken = sessionToken, fetch:
             <header className="space-y-4">
                 <h1 className="text-section text-foreground">Prepare your answers</h1>
                 <div className="flex flex-wrap items-center gap-3">
-                    <Button size="lg" disabled aria-describedby="answer-first-note">
-                        Answer a question
+                    <Button asChild size="lg">
+                        <Link href={PREPARE_NEW_HREF} prefetch={false}>
+                            Answer a question
+                        </Link>
                     </Button>
-                    <p id="answer-first-note" className="text-supporting text-muted-foreground">
-                        Choosing a question is not available yet.
-                    </p>
                 </div>
             </header>
 
