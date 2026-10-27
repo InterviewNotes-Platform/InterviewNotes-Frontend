@@ -1,0 +1,322 @@
+{
+ "behavioral-prep-sde-1": [
+  {
+   "id": "what-fits-at-this-level",
+   "level": 2,
+   "text": "What fits at this level",
+   "authored": false
+  },
+  {
+   "id": "a-piece-of-work-that-was-clearly-yours",
+   "level": 2,
+   "text": "A piece of work that was clearly yours",
+   "authored": true
+  },
+  {
+   "id": "being-stuck",
+   "level": 2,
+   "text": "Being stuck",
+   "authored": true
+  },
+  {
+   "id": "feedback-that-was-hard-to-hear",
+   "level": 2,
+   "text": "Feedback that was hard to hear",
+   "authored": true
+  },
+  {
+   "id": "a-mistake-that-affected-someone-else",
+   "level": 2,
+   "text": "A mistake that affected someone else",
+   "authored": true
+  },
+  {
+   "id": "learning-something-quickly",
+   "level": 2,
+   "text": "Learning something quickly",
+   "authored": true
+  },
+  {
+   "id": "disagreeing-with-a-teammate",
+   "level": 2,
+   "text": "Disagreeing with a teammate",
+   "authored": true
+  },
+  {
+   "id": "more-work-than-time",
+   "level": 2,
+   "text": "More work than time",
+   "authored": true
+  },
+  {
+   "id": "helping-someone-who-was-struggling",
+   "level": 2,
+   "text": "Helping someone who was struggling",
+   "authored": true
+  },
+  {
+   "id": "requirements-that-weren-t-clear",
+   "level": 2,
+   "text": "Requirements that weren't clear",
+   "authored": true
+  },
+  {
+   "id": "something-nobody-asked-for",
+   "level": 2,
+   "text": "Something nobody asked for",
+   "authored": true
+  },
+  {
+   "id": "worked-example-the-update-that-kept-saying-almost-done",
+   "level": 2,
+   "text": "Worked example: the update that kept saying \"almost done\"",
+   "authored": false
+  },
+  {
+   "id": "worked-example-three-requests-on-one-afternoon",
+   "level": 2,
+   "text": "Worked example: three requests on one afternoon",
+   "authored": false
+  }
+ ],
+ "behavioral-prep-sde-2": [
+  {
+   "id": "what-fits-at-this-level",
+   "level": 2,
+   "text": "What fits at this level",
+   "authored": false
+  },
+  {
+   "id": "a-project-you-owned-from-start-to-launch",
+   "level": 2,
+   "text": "A project you owned from start to launch",
+   "authored": true
+  },
+  {
+   "id": "when-the-plan-slipped",
+   "level": 2,
+   "text": "When the plan slipped",
+   "authored": true
+  },
+  {
+   "id": "a-technical-disagreement-you-did-not-decide",
+   "level": 2,
+   "text": "A technical disagreement you didn't get to decide",
+   "authored": true
+  },
+  {
+   "id": "depending-on-a-team-with-other-priorities",
+   "level": 2,
+   "text": "Depending on a team with other priorities",
+   "authored": true
+  },
+  {
+   "id": "hard-feedback-for-a-peer",
+   "level": 2,
+   "text": "Hard feedback for a peer",
+   "authored": true
+  },
+  {
+   "id": "improving-how-the-team-works",
+   "level": 2,
+   "text": "Improving how the team works",
+   "authored": true
+  },
+  {
+   "id": "a-serious-bug-or-incident",
+   "level": 2,
+   "text": "A serious bug or incident",
+   "authored": true
+  },
+  {
+   "id": "turning-a-vague-goal-into-something-concrete",
+   "level": 2,
+   "text": "Turning a vague goal into something concrete",
+   "authored": true
+  },
+  {
+   "id": "helping-a-newer-engineer-get-productive",
+   "level": 2,
+   "text": "Helping a newer engineer get productive",
+   "authored": true
+  },
+  {
+   "id": "shipping-sooner-or-shipping-more-carefully",
+   "level": 2,
+   "text": "Shipping sooner or shipping more carefully",
+   "authored": true
+  },
+  {
+   "id": "worked-example-make-order-history-faster",
+   "level": 2,
+   "text": "Worked example: \"make order history faster\"",
+   "authored": false
+  },
+  {
+   "id": "worked-example-renewal-reminders-on-a-fixed-date",
+   "level": 2,
+   "text": "Worked example: renewal reminders on a fixed date",
+   "authored": false
+  }
+ ],
+ "behavioral-prep-sde-3": [
+  {
+   "id": "what-fits-at-this-level",
+   "level": 2,
+   "text": "What fits at this level",
+   "authored": false
+  },
+  {
+   "id": "a-technical-direction-several-teams-adopted",
+   "level": 2,
+   "text": "A technical direction several teams adopted",
+   "authored": true
+  },
+  {
+   "id": "changing-your-mind-after-others-had-built-on-it",
+   "level": 2,
+   "text": "Changing your mind after others had built on it",
+   "authored": true
+  },
+  {
+   "id": "helping-strong-engineers-reach-a-decision",
+   "level": 2,
+   "text": "Helping strong engineers reach a decision",
+   "authored": true
+  },
+  {
+   "id": "a-problem-nobody-asked-you-to-solve",
+   "level": 2,
+   "text": "A problem nobody asked you to solve",
+   "authored": true
+  },
+  {
+   "id": "an-unwelcome-technical-message",
+   "level": 2,
+   "text": "An unwelcome technical message",
+   "authored": true
+  },
+  {
+   "id": "developing-other-engineers",
+   "level": 2,
+   "text": "Developing other engineers",
+   "authored": true
+  },
+  {
+   "id": "a-project-that-failed-or-was-stopped",
+   "level": 2,
+   "text": "A project that failed or was stopped",
+   "authored": true
+  },
+  {
+   "id": "deciding-with-incomplete-information",
+   "level": 2,
+   "text": "Deciding with incomplete information",
+   "authored": true
+  },
+  {
+   "id": "delivery-pressure-and-technical-health",
+   "level": 2,
+   "text": "Delivery pressure and technical health",
+   "authored": true
+  },
+  {
+   "id": "a-reliability-problem-that-crossed-teams",
+   "level": 2,
+   "text": "A reliability problem that crossed teams",
+   "authored": true
+  },
+  {
+   "id": "worked-example-four-copies-of-a-client-library",
+   "level": 2,
+   "text": "Worked example: four copies of a client library",
+   "authored": false
+  },
+  {
+   "id": "worked-example-the-datastore-choice-i-reversed",
+   "level": 2,
+   "text": "Worked example: the datastore choice I reversed",
+   "authored": false
+  }
+ ],
+ "behavioral-prep-engineering-manager": [
+  {
+   "id": "what-fits-at-this-level",
+   "level": 2,
+   "text": "What fits at this level",
+   "authored": false
+  },
+  {
+   "id": "feedback-that-was-hard-to-hear",
+   "level": 2,
+   "text": "Feedback that was hard to hear",
+   "authored": true
+  },
+  {
+   "id": "an-engineer-below-what-the-role-needs",
+   "level": 2,
+   "text": "An engineer whose work was below what the role needs",
+   "authored": true
+  },
+  {
+   "id": "a-hiring-decision-you-would-make-differently",
+   "level": 2,
+   "text": "A hiring decision you would make differently",
+   "authored": true
+  },
+  {
+   "id": "conflict-between-two-engineers",
+   "level": 2,
+   "text": "Conflict between two engineers",
+   "authored": true
+  },
+  {
+   "id": "a-commitment-at-risk",
+   "level": 2,
+   "text": "A commitment at risk",
+   "authored": true
+  },
+  {
+   "id": "saying-no-to-a-partner",
+   "level": 2,
+   "text": "Saying no to a partner",
+   "authored": true
+  },
+  {
+   "id": "helping-an-engineer-grow",
+   "level": 2,
+   "text": "Helping an engineer grow",
+   "authored": true
+  },
+  {
+   "id": "onboarding-someone-onto-the-team",
+   "level": 2,
+   "text": "Onboarding someone onto the team",
+   "authored": true
+  },
+  {
+   "id": "when-trust-or-morale-dropped",
+   "level": 2,
+   "text": "When trust or morale dropped",
+   "authored": true
+  },
+  {
+   "id": "a-decision-from-above-you-disagreed-with",
+   "level": 2,
+   "text": "A decision from above you disagreed with",
+   "authored": true
+  },
+  {
+   "id": "worked-example-the-engineer-whose-output-dropped",
+   "level": 2,
+   "text": "Worked example: the engineer whose output dropped",
+   "authored": false
+  },
+  {
+   "id": "worked-example-two-commitments-one-team",
+   "level": 2,
+   "text": "Worked example: two commitments, one team",
+   "authored": false
+  }
+ ]
+}
