@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { User } from "@supabase/supabase-js";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MobileMenu } from "./MobileMenu";
 
 const member = { email: "grace@example.com" } as User;
@@ -46,6 +46,25 @@ describe("mobile menu", () => {
         expect(within(menu()).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
         expect(within(menu()).getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
         expect(within(menu()).getByRole("button", { name: "Close" })).toBeInTheDocument();
+    });
+
+    describe("Prepare entry", () => {
+        afterEach(() => vi.unstubAllEnvs());
+
+        it("is absent while the flag is off", () => {
+            setup().open();
+            expect(within(menu()).queryByRole("link", { name: "Prepare" })).toBeNull();
+        });
+
+        it("is listed after Knowledge when the flag is on", () => {
+            vi.stubEnv("NEXT_PUBLIC_PREP_ENABLED", "true");
+            setup({ active: "prepare" }).open();
+            const nav = within(menu()).getByRole("navigation", { name: "Primary" });
+            const links = within(nav).getAllByRole("link");
+            expect(links.map((a) => a.textContent)).toEqual(["Tracks", "Knowledge", "Prepare", "Pricing", "FAQ"]);
+            expect(within(nav).getByRole("link", { name: "Prepare" })).toHaveAttribute("href", "/prepare");
+            expect(links.filter((a) => a.hasAttribute("aria-current")).map((a) => a.textContent)).toEqual(["Prepare"]);
+        });
     });
 
     it("marks the active area as the current page", () => {

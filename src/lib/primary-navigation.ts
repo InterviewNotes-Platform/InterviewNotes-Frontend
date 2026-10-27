@@ -1,4 +1,6 @@
-export type NavArea = "learn" | "knowledge";
+import { prepEnabled } from "@/lib/prep-flag";
+
+export type NavArea = "learn" | "knowledge" | "prepare";
 
 /** Where Tracks open: the homepage's Tracks section, the one place Tracks are discovered (S6-NAV-1).
  *  The header, the mobile menu and every Browse Tracks action share it. */
@@ -15,6 +17,18 @@ export const PRIMARY_NAV: readonly { area?: NavArea; label: string; href: string
    { label: "FAQ", href: "/#faq" },
 ];
 
+/** The preparation workspace (P7-D-024). It is listed only while the frontend `PREP_ENABLED` flag is on. */
+export const PREPARE_HREF = "/prepare";
+
+const PREPARE_ENTRY = { area: "prepare", label: "Prepare", href: PREPARE_HREF } as const;
+
+/** What the header and the mobile menu list: `PRIMARY_NAV`, plus Prepare after Knowledge when the flag is on. */
+export function primaryNav(enabled: boolean = prepEnabled()): readonly (typeof PRIMARY_NAV)[number][] {
+   if (!enabled) return PRIMARY_NAV;
+   const at = PRIMARY_NAV.findIndex(({ area }) => area === "knowledge") + 1;
+   return [...PRIMARY_NAV.slice(0, at), PREPARE_ENTRY, ...PRIMARY_NAV.slice(at)];
+}
+
 /** The Practice route still exists inside the Tracks area; it is linked from Problems and filters, not from the navigation. */
 export const PRACTICE_HREF = "/practice";
 
@@ -30,6 +44,7 @@ const AREA_BY_ROOT = new Map<string, NavArea>([
    ["practice", "learn"],
    ["problems", "learn"],
    ["knowledge", "knowledge"],
+   ["prepare", "prepare"],
 ]);
 
 /** The primary area a pathname belongs to, decided by its first segment alone; null for every other route. */

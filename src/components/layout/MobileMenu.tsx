@@ -15,7 +15,7 @@ import {
     SheetTrigger,
 } from "@/components/ui/sheet";
 import { inertPage } from "@/lib/inertPage";
-import { PREFETCH_PRIMARY, PREMIUM_HREF, PRIMARY_NAV, TRACKS_ENTRY, type NavArea } from "@/lib/primary-navigation";
+import { PREFETCH_PRIMARY, PREMIUM_HREF, primaryNav, TRACKS_ENTRY, type NavArea } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 
 interface MobileMenuProps {
@@ -64,7 +64,7 @@ export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps
                 </SheetHeader>
                 <nav aria-label="Primary" className="px-6 py-4">
                     <ul>
-                        {PRIMARY_NAV.map(({ area, label, href }) => (
+                        {primaryNav().map(({ area, label, href }) => (
                             <li key={label}>
                                 <Link
                                     href={href}

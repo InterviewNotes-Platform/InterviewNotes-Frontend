@@ -1,10 +1,10 @@
 export const DEFAULT_AUTH_REDIRECT = "/#tracks";
 
 const PARSE_BASE = "http://redirect.invalid";
-const CATALOG_STATIC_PATHS = new Set(["/", "/knowledge", "/practice"]);
+const CATALOG_STATIC_PATHS = new Set(["/", "/knowledge", "/practice", "/prepare"]);
 const CATALOG_ITEM_PATH = /^\/(tracks|lessons|problems|knowledge)\/[A-Za-z0-9._~-]+$/;
 
-// Returns a same-origin canonical catalog path (with query and hash), or the default for anything else.
+// Returns a same-origin canonical catalog path or /prepare (with query and hash), or the default for anything else.
 // The parsed result is checked, not the raw string, so tabs, backslashes and dot-segments
 // cannot smuggle in a protocol-relative "//host" destination.
 export function safeRedirectPath(value: string | null | undefined): string {
