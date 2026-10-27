@@ -23,6 +23,9 @@ export const PREPARE_HREF = "/prepare";
 /** Where a question is chosen and an answer is started (P7-T18). */
 export const PREPARE_NEW_HREF = "/prepare/new";
 
+/** The answer editor lives under this path (P7-T19). */
+export const PREPARE_ANSWERS_HREF = "/prepare/answers";
+
 const PREPARE_ENTRY = { area: "prepare", label: "Prepare", href: PREPARE_HREF } as const;
 
 /** What the header and the mobile menu list: `PRIMARY_NAV`, plus Prepare after Knowledge when the flag is on. */

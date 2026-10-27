@@ -15,6 +15,7 @@ describe("safeRedirectPath", () => {
         "/practice",
         "/prepare",
         "/prepare/new",
+        "/prepare/answers/00000000-0000-4000-8000-000000000001",
         "/",
         "/#tracks",
     ])("keeps the canonical catalog destination %s", (value) => {
@@ -53,6 +54,10 @@ describe("safeRedirectPath", () => {
         "/prepare/data",
         "/prepare/new/",
         "/prepare/new/x",
+        "/prepare/answers",
+        "/prepare/answers/",
+        "/prepare/answers/not-a-uuid",
+        "/prepare/answers/00000000-0000-4000-8000-000000000001/x",
         "/prepare/x/../../login",
         "/prepared",
         "/Prepare",
