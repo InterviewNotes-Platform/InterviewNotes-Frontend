@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+import { newAnswerHref, questionRefFromParams, sameQuestion } from "./links";
+
+const LESSON = "lesson.behavioral-prep-sde-2";
+
+describe("newAnswerHref", () => {
+   it("is the bare picker without a question", () => {
+      expect(newAnswerHref()).toBe("/prepare/new");
+      expect(newAnswerHref(null)).toBe("/prepare/new");
+   });
+
+   it("names the exact pair, and round-trips through the parser", () => {
+      const href = newAnswerHref({ content_id: LESSON, question_id: "being-stuck" });
+      expect(href).toBe(`/prepare/new?content=${LESSON}&question=being-stuck`);
+      const params = Object.fromEntries(new URL(href, "http://x.test").searchParams);
+      expect(questionRefFromParams(params)).toEqual({ content_id: LESSON, question_id: "being-stuck" });
+   });
+});
+
+describe("questionRefFromParams", () => {
+   it.each([
+      [{}],
+      [{ content: LESSON }],
+      [{ question: "a" }],
+      [{ content: [LESSON, LESSON], question: "a" }],
+      [{ content: LESSON, question: "Being Stuck" }],
+      [{ content: LESSON, question: "a".repeat(49) }],
+      [{ content: "x".repeat(81), question: "a" }],
+      [{ content: "../etc", question: "a" }],
+      [{ content: LESSON, question: "a/b" }],
+      [{ content: `${LESSON}\n`, question: "a" }],
+   ])("rejects %j", (params) => {
+      expect(questionRefFromParams(params)).toBeNull();
+   });
+
+   it("accepts a 48-character identifier", () => {
+      const question = `${"a".repeat(47)}b`;
+      expect(questionRefFromParams({ content: LESSON, question })).toEqual({ content_id: LESSON, question_id: question });
+   });
+});
+
+describe("sameQuestion", () => {
+   it("needs both parts to match", () => {
+      const a = { content_id: LESSON, question_id: "q" };
+      expect(sameQuestion(a, { ...a })).toBe(true);
+      expect(sameQuestion(a, { ...a, question_id: "r" })).toBe(false);
+      expect(sameQuestion(a, { ...a, content_id: "lesson.other" })).toBe(false);
+   });
+});

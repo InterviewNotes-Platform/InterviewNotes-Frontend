@@ -2,6 +2,7 @@ import { headingIds, parseBlocks } from "@/components/catalog/blocks";
 import { knowledgeCoverage } from "@/components/catalog/knowledgeRefs";
 import { FullOutline } from "@/components/catalog/ItemNavigation";
 import { CurriculumBlock, EndOfTrack, NextLesson, OtherLevels } from "@/components/catalog/LessonClose";
+import type { ReadingMode } from "@/components/catalog/CatalogBody";
 import { LessonHeader } from "@/components/catalog/LessonHeader";
 import { TrackDrawer } from "@/components/curriculum/TrackDrawer";
 import { TrackSidebar } from "@/components/curriculum/TrackSidebar";
@@ -15,8 +16,18 @@ import { contentsOf, knowledgeSupport, lessonRelations } from "@/lib/catalog/les
 import type { ItemNavigation } from "@/lib/catalog/navigation";
 import { outlineOf } from "@/lib/catalog/outline";
 import type { CatalogItem } from "@/lib/catalog/types";
+import { BEHAVIORAL_LESSONS, questionsOf } from "@/lib/prep/questions";
+import { prepEnabled } from "@/lib/prep-flag";
 import { cn } from "@/lib/utils";
 import { ItemContent } from "./ItemContent";
+
+/** The Behavioral Lesson's question sections that offer "Prepare your answer": the T17 source decides which, flag off offers none. */
+function prepareLinks(item: CatalogItem): ReadingMode["prepare"] {
+   if (!prepEnabled()) return undefined;
+   const lesson = BEHAVIORAL_LESSONS.find(({ content_id }) => content_id === item.id);
+   const questionIds = lesson ? new Set(questionsOf(lesson, item).map(({ question_id }) => question_id)) : null;
+   return questionIds?.size ? { contentId: item.id, questionIds } : undefined;
+}
 
 /**
  * A readable Lesson, in the order a reader needs it: where it sits, what it is, what it builds on, the body, then the
@@ -88,7 +99,7 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
                   side ? (contents.length > 0 ? "lg:col-start-2 lg:row-start-3 xl:row-start-2" : "lg:col-start-2 lg:row-start-2") : "lg:col-start-1 lg:row-start-2"
                )}
             >
-               <ItemContent item={item} stayOnDeployment={stayOnDeployment} reading={{ headings, knowledge: support }} />
+               <ItemContent item={item} stayOnDeployment={stayOnDeployment} reading={{ headings, knowledge: support, prepare: prepareLinks(item) }} />
                {navigation && related ? (
                   <div className="mt-16 space-y-12 empty:hidden">
                      {home ? (
