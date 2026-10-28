@@ -1,11 +1,11 @@
 export const DEFAULT_AUTH_REDIRECT = "/#tracks";
 
 const PARSE_BASE = "http://redirect.invalid";
-const CATALOG_STATIC_PATHS = new Set(["/", "/knowledge", "/practice", "/prepare", "/prepare/new"]);
+const CATALOG_STATIC_PATHS = new Set(["/", "/knowledge", "/practice", "/prepare", "/prepare/new", "/prepare/data"]);
 const PREPARE_ANSWER_PATH = /^\/prepare\/answers\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CATALOG_ITEM_PATH = /^\/(tracks|lessons|problems|knowledge)\/[A-Za-z0-9._~-]+$/;
 
-// Returns a same-origin canonical catalog path, /prepare, /prepare/new or an answer editor (with query and hash), or the default for anything else.
+// Returns a same-origin canonical catalog path, /prepare, /prepare/new, /prepare/data or an answer editor (with query and hash), or the default for anything else.
 // The parsed result is checked, not the raw string, so tabs, backslashes and dot-segments
 // cannot smuggle in a protocol-relative "//host" destination.
 export function safeRedirectPath(value: string | null | undefined): string {
