@@ -47,3 +47,12 @@ describe("LoginPage Google sign-in redirect", () => {
         expect(signInFrom(search)).toBe(callback);
     });
 });
+
+describe("LoginPage legal text", () => {
+    it("links Privacy Policy to the Privacy & AI Use page and leaves Terms of Service unlinked", () => {
+        render(<LoginPage />);
+        expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
+        expect(screen.queryByRole("link", { name: "Terms of Service" })).toBeNull();
+        expect(screen.getByText("Terms of Service")).toBeInTheDocument();
+    });
+});
