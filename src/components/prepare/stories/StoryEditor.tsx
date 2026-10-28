@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { useLeaveGuard } from "@/components/prepare/editor/useLeaveGuard";
 import { SaveStatus, type SaveState } from "@/components/ui/save-status";
 import type { PrepClient } from "@/lib/prep/client";
+import { newAnswerHref } from "@/lib/prep/links";
 import type { FieldIssue, PrepResult, Story } from "@/lib/prep/types";
 import { cn } from "@/lib/utils";
 import { DeleteStory } from "./DeleteStory";
+import { LinkedAnswers } from "./LinkedAnswers";
 import { BackLink, NOT_CONFIGURED, readFailure, SignIn, STORY_NOT_FOUND } from "./notices";
 import { changesOf, draftOf, problemsOf, type StoryDraft } from "./storyDraft";
 import { StoryFields } from "./StoryFields";
@@ -260,6 +262,8 @@ function StoryForm({ initial, client }: { initial: Story; client: PrepClient }) 
             : "idle";
    const links = saved.answer_ids.length;
    const canCopy = !busy && !dirty && copy.phase !== "unknown";
+   // An answer copies what is saved, so unsaved edits are saved first.
+   const canStart = !busy && !dirty;
 
    return (
       <form onSubmit={save} noValidate className="space-y-8">
@@ -279,10 +283,24 @@ function StoryForm({ initial, client }: { initial: Story; client: PrepClient }) 
                <Button type="button" variant="outline" size="lg" aria-disabled={!canCopy} className={cn(!canCopy && "opacity-50")} onClick={() => void duplicate()}>
                   Duplicate
                </Button>
+               {canStart ? (
+                  <Button asChild variant="outline" size="lg">
+                     <Link href={newAnswerHref(null, saved.id)} prefetch={false}>
+                        Start an answer from this story
+                     </Link>
+                  </Button>
+               ) : (
+                  <Button type="button" variant="outline" size="lg" aria-disabled className="opacity-50">
+                     Start an answer from this story
+                  </Button>
+               )}
                <DeleteStory client={client} story={saved} disabled={busy} onDeleted={setDeleted} />
                <SaveStatus status={saveState} message={leaving && saving ? "Saving before you leave…" : saving && slow ? "Saving… this is taking longer than usual" : SAVE_MESSAGES[write.phase]} />
             </div>
-            {dirty && copy.phase !== "working" && <p className="text-supporting text-muted-foreground">Save your changes before duplicating: a copy holds what is saved.</p>}
+            {dirty && copy.phase !== "working" && (
+               <p className="text-supporting text-muted-foreground">Save your changes before duplicating or starting an answer: both use what is saved.</p>
+            )}
+            <p className="text-supporting text-muted-foreground">Starting an answer copies this story&apos;s text into a new answer once. The two stay separate afterwards.</p>
             {write.phase === "failed" && (
                <p role="alert" className="text-body text-foreground">
                   {write.message}
@@ -350,6 +368,7 @@ function StoryForm({ initial, client }: { initial: Story; client: PrepClient }) 
                </Button>
             )}
          </div>
+         <LinkedAnswers client={client} answerIds={saved.answer_ids} />
       </form>
    );
 }

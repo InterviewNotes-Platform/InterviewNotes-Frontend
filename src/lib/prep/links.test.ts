@@ -4,6 +4,12 @@ import { ANSWER_ID, answerHref, newAnswerHref, questionRefFromParams, sameQuesti
 const LESSON = "lesson.behavioral-prep-sde-2";
 
 describe("newAnswerHref", () => {
+   it("carries a story id beside, or without, a question", () => {
+      const story = "11111111-1111-4111-8111-111111111111";
+      expect(newAnswerHref(null, story)).toBe(`/prepare/new?story=${story}`);
+      expect(newAnswerHref({ content_id: LESSON, question_id: "being-stuck" }, story)).toBe(`/prepare/new?content=${LESSON}&question=being-stuck&story=${story}`);
+   });
+
    it("is the bare picker without a question", () => {
       expect(newAnswerHref()).toBe("/prepare/new");
       expect(newAnswerHref(null)).toBe("/prepare/new");

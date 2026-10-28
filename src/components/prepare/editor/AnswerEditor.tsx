@@ -18,6 +18,7 @@ import type { Answer, AnswerStatus, FieldIssue, PrepResult } from "@/lib/prep/ty
 import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { LinkedStories } from "@/components/prepare/stories/LinkedStories";
 import { useAnswerEditor } from "./useAnswerEditor";
 import { useLeaveGuard } from "./useLeaveGuard";
 
@@ -207,6 +208,7 @@ function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
    const lesson = !custom && saved.content_id && saved.question_id && relation?.state !== "removed" ? catalogHref(saved.content_id) : null;
 
    return (
+      <>
       <form onSubmit={save} onBlur={() => void persist()} noValidate className="space-y-8">
          <div className="space-y-3">
             <BackLink />
@@ -385,5 +387,7 @@ function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
             )}
          </div>
       </form>
+      <LinkedStories client={client} answerId={saved.id} initialStoryIds={initial.story_ids} />
+      </>
    );
 }
