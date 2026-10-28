@@ -41,3 +41,12 @@ describe("SignupPage Google sign-up redirect", () => {
         expect(signUpFrom(search)).toBe(callback);
     });
 });
+
+describe("SignupPage legal text", () => {
+    it("links Privacy Policy to the Privacy & AI Use page and leaves Terms of Service unlinked", () => {
+        render(<SignupPage />);
+        expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
+        expect(screen.queryByRole("link", { name: "Terms of Service" })).toBeNull();
+        expect(screen.getByText("Terms of Service")).toBeInTheDocument();
+    });
+});
