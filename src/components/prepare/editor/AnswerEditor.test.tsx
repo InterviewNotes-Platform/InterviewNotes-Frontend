@@ -574,19 +574,3 @@ describe("duplicate", () => {
       expect(api.requests.filter(({ method }) => method === "POST")).toHaveLength(1);
    });
 });
-
-describe("leaving the page", () => {
-   it("asks before the back link discards unsaved changes, and only then", async () => {
-      await open(await seed());
-      const back = screen.getAllByRole("link", { name: "Back to your workspace" })[0];
-      const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-      expect(fireEvent.click(back)).toBe(true);
-      expect(confirm).not.toHaveBeenCalled();
-      type("Situation", "Mine");
-      expect(fireEvent.click(back)).toBe(false);
-      expect(confirm).toHaveBeenCalledTimes(1);
-      confirm.mockReturnValue(true);
-      expect(fireEvent.click(back)).toBe(true);
-      confirm.mockRestore();
-   });
-});

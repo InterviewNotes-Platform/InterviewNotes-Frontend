@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { User } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerLeaveGuard } from "@/lib/leave-guard";
 import { Header } from "./Header";
 
 const mocks = vi.hoisted(() => ({
@@ -157,5 +158,19 @@ describe("account", () => {
         await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
         expect(mocks.signOut).toHaveBeenCalledTimes(1);
         expect(mocks.push).toHaveBeenCalledWith("/");
+    });
+
+    it("Log out waits for a page holding unsaved work, and does nothing when that page says no", async () => {
+        signedIn({ email: "grace@example.com" });
+        const guard = vi.fn().mockResolvedValue(false);
+        const release = registerLeaveGuard(guard);
+        render(<Header />);
+        fireEvent.keyDown(within(banner()).getByRole("button", { name: "Account menu" }), { key: "Enter" });
+        fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
+
+        await waitFor(() => expect(guard).toHaveBeenCalledTimes(1));
+        expect(mocks.signOut).not.toHaveBeenCalled();
+        expect(mocks.push).not.toHaveBeenCalled();
+        release();
     });
 });

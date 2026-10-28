@@ -19,6 +19,7 @@ import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAnswerEditor } from "./useAnswerEditor";
+import { useLeaveGuard } from "./useLeaveGuard";
 
 const STATUSES: readonly { value: AnswerStatus; label: string }[] = [
    { value: "draft", label: "Draft" },
@@ -148,14 +149,11 @@ export function AnswerEditor({ apiUrl, answerId, catalog, getAccessToken = sessi
    );
 }
 
-function BackLink({ guard }: { guard?: () => boolean }) {
+function BackLink() {
    return (
       <Link
          href={PREPARE_HREF}
          prefetch={false}
-         onClick={(event) => {
-            if (guard && !guard()) event.preventDefault();
-         }}
          className="inline-flex min-h-11 items-center text-supporting text-muted-foreground underline underline-offset-4 hover:text-foreground"
       >
          Back to your workspace
@@ -178,8 +176,10 @@ interface FormProps {
 function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
    const router = useRouter();
    const ids = useId();
-   const editor = useAnswerEditor({ initial, client, onCopied: (id) => router.push(answerHref(id)) });
-   const { saved, draft, write, copy, dirty, blankQuestion, cannotSave, canDuplicate, issues, saveState, saveMessage, edit, editStar, save, check, duplicate, allowAnotherCopy } = editor;
+   const editor = useAnswerEditor({ initial, client, onCopied: (id) => void leave(() => router.push(answerHref(id))) });
+   const { saved, draft, write, copy, dirty, hasPendingWork, blankQuestion, cannotSave, canDuplicate, issues, saveState, edit, editStar, save, persist, settle, check, duplicate, allowAnotherCopy } = editor;
+   const { leave, leaving } = useLeaveGuard({ active: hasPendingWork, settle });
+   const saveMessage = leaving && saveState === "saving" ? "Saving before you leave…" : editor.saveMessage;
    const freeForm = draft.framework === "free_form";
    const custom = saved.source === "custom";
 
@@ -189,9 +189,9 @@ function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
    const lesson = !custom && saved.content_id && saved.question_id && relation?.state !== "removed" ? catalogHref(saved.content_id) : null;
 
    return (
-      <form onSubmit={save} noValidate className="space-y-8">
+      <form onSubmit={save} onBlur={() => void persist()} noValidate className="space-y-8">
          <div className="space-y-3">
-            <BackLink guard={() => !dirty || window.confirm("Leave without saving? Your changes will be lost.")} />
+            <BackLink />
             <h1 className="text-section text-foreground">Your answer</h1>
          </div>
 
