@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { SLOW_NOTICE_MS } from "@/app/prepare/PrepareWorkspace";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -177,9 +177,27 @@ function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
    const router = useRouter();
    const ids = useId();
    const editor = useAnswerEditor({ initial, client, onCopied: (id) => void leave(() => router.push(answerHref(id))) });
-   const { saved, draft, write, copy, dirty, hasPendingWork, blankQuestion, cannotSave, canDuplicate, issues, saveState, edit, editStar, save, persist, settle, check, duplicate, allowAnotherCopy } = editor;
+   const { saved, draft, write, copy, dirty, hasPendingWork, blankQuestion, cannotSave, canDuplicate, issues, saveState, edit, editStar, save, persist, settle, check, keepMine, loadServer, duplicate, allowAnotherCopy } = editor;
    const { leave, leaving } = useLeaveGuard({ active: hasPendingWork, settle });
    const saveMessage = leaving && saveState === "saving" ? "Saving before you leave…" : editor.saveMessage;
+   const statusRef = useRef<HTMLDivElement>(null);
+   const choiceRef = useRef<HTMLDivElement>(null);
+   const chose = useRef(false);
+
+   // The choice buttons unmount when a choice is made. Focus then goes to the status, or back to the choice if it reopens,
+   // unless the reader has already moved on to something else (the status itself still counts as not moved on).
+   useEffect(() => {
+      if (!chose.current || (write.phase === "conflict" && write.busy)) return;
+      const held = document.activeElement;
+      const lost = !held || held === document.body || held === statusRef.current || choiceRef.current?.contains(held);
+      if (write.phase !== "saving") chose.current = false;
+      if (!lost) return;
+      (write.phase === "conflict" ? choiceRef.current : statusRef.current)?.focus();
+   }, [write]);
+   const choose = (run: () => void) => () => {
+      chose.current = true;
+      run();
+   };
    const freeForm = draft.framework === "free_form";
    const custom = saved.source === "custom";
 
@@ -305,13 +323,29 @@ function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
                <Button type="button" variant="outline" size="lg" aria-disabled={!canDuplicate} className={cn(!canDuplicate && "opacity-50")} onClick={duplicate}>
                   Duplicate
                </Button>
-               <SaveStatus status={saveState} message={saveMessage} />
+               <SaveStatus ref={statusRef} tabIndex={-1} status={saveState} message={saveMessage} />
             </div>
             {dirty && <p className="text-supporting text-muted-foreground">Save your changes before duplicating: a copy holds what is saved.</p>}
             {write.phase === "unknown" && (
                <Button type="button" variant="outline" disabled={write.checking} onClick={check}>
                   {write.checking ? "Checking…" : "Check the saved answer"}
                </Button>
+            )}
+            {write.phase === "conflict" && (
+               <div ref={choiceRef} tabIndex={-1} role="group" aria-label="Choose which version to keep" className="space-y-3">
+                  <p className="text-supporting text-foreground">A newer version of this answer was saved elsewhere. Nothing has been replaced yet; your text here is unsaved.</p>
+                  <div className="flex flex-wrap gap-3">
+                     <Button type="button" aria-disabled={write.busy} className={cn(write.busy && "opacity-50")} onClick={choose(keepMine)}>
+                        Keep mine
+                     </Button>
+                     <Button type="button" variant="outline" aria-disabled={write.busy} className={cn(write.busy && "opacity-50")} onClick={choose(loadServer)}>
+                        Load server version
+                     </Button>
+                  </div>
+                  <p className="text-supporting text-muted-foreground">
+                     {write.busy ? "Checking the latest version…" : "Keep mine saves what is here over the newer version. Load server version replaces what is here with it."}
+                  </p>
+               </div>
             )}
             {write.phase === "signin" && (
                <Button asChild>

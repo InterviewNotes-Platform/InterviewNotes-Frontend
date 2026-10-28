@@ -352,7 +352,7 @@ describe("autosave when the network goes", () => {
       expect((await stored(answer.id)).fields).toEqual({ situation: "Mine, more" });
    });
 
-   it("stops at an error on a version conflict: text kept, nothing repeated, no resolution offered", async () => {
+   it("stops at an error on a version conflict: text kept, nothing repeated, the choice offered", async () => {
       const answer = await seed();
       await open(answer);
       await client().updateAnswer(answer.id, { version: 1, status: "ready" });
@@ -365,7 +365,8 @@ describe("autosave when the network goes", () => {
       await advance(AUTOSAVE_DELAY_MS * 4);
       expect(patches()).toHaveLength(1);
       expect(field("Situation")).toHaveValue("Mine");
-      expect(screen.queryByRole("button", { name: /keep mine|load/i })).toBeNull();
+      expect(screen.getByRole("button", { name: "Keep mine" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Load server version" })).toBeInTheDocument();
    });
 });
 
@@ -930,5 +931,290 @@ describe("leaving by a history jump of any length", () => {
       await act(async () => {});
       expect(patches()).toHaveLength(0);
       expect(navigation.traverseTo).not.toHaveBeenCalled();
+   });
+});
+
+describe("version conflicts (P7-T21)", () => {
+   const keepMine = () => screen.getByRole("button", { name: "Keep mine" });
+   const loadServer = () => screen.getByRole("button", { name: "Load server version" });
+   const gets = () => api.requests.filter(({ method }) => method === "GET");
+   /** The editor's own writes: the other writers in these tests send `body` or `status` only, never `fields`. */
+   const mineSent = () => patches().filter(({ body }) => "fields" in (body as object)).map(({ body }) => (body as { version: number }).version);
+   const choiceOffered = () => screen.queryByRole("button", { name: "Keep mine" }) !== null;
+
+   /** Another tab saves version 2 before this editor's first save; the editor then holds "Mine" and is in conflict. */
+   async function conflicted(fetchImpl?: typeof fetch) {
+      const answer = await seed();
+      await open(answer, fetchImpl);
+      await client().updateAnswer(answer.id, { version: 1, status: "ready", fields: { situation: "Theirs" } });
+      type("Situation", "Mine");
+      fireEvent.blur(field("Situation"));
+      await screen.findByRole("button", { name: "Keep mine" });
+      api.requests.length = 0;
+      return answer;
+   }
+
+   it("keeps the draft and its editing state while the choice is open, and sends nothing on its own", async () => {
+      const answer = await conflicted();
+      expect(status()).toContain("changed somewhere else");
+      expect(field("Situation")).toHaveValue("Mine");
+      type("Situation", "Mine, edited");
+      expect(field("Situation")).toHaveValue("Mine, edited");
+      fireEvent.blur(field("Situation"));
+      expect(api.requests).toHaveLength(0);
+      expect((await stored(answer.id)).fields).toEqual({ situation: "Theirs" });
+   });
+
+   it("keep mine: reads the latest, retries on its version, and the server ends up holding the draft", async () => {
+      const answer = await conflicted();
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(api.requests.map(({ method }) => method)).toEqual(["GET", "PATCH"]);
+      expect(sentVersions()).toEqual([2]);
+      const now = await stored(answer.id);
+      expect(now).toMatchObject({ version: 3, fields: { situation: "Mine" }, status: "draft" });
+      expect(field("Situation")).toHaveValue("Mine");
+      expect(choiceOffered()).toBe(false);
+   });
+
+   it("keep mine retries on the version read at that moment, not the one the 409 reported", async () => {
+      const answer = await conflicted();
+      await client().updateAnswer(answer.id, { version: 2, body: "Third writer" });
+      api.requests.length = 0;
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(sentVersions()).toEqual([3]);
+      expect(await stored(answer.id)).toMatchObject({ version: 4, fields: { situation: "Mine" }, body: null });
+   });
+
+   it("keep mine: a second conflict returns to the choice, nothing is retried by itself, and the text is kept", async () => {
+      const race = { id: "", bump: true };
+      const racing: typeof fetch = async (input, init) => {
+         const response = await api.fetch(input, init);
+         if (race.bump && (!init?.method || init.method === "GET") && race.id) {
+            race.bump = false;
+            await client().updateAnswer(race.id, { version: 2, body: "Third writer" });
+         }
+         return response;
+      };
+      const answer = await conflicted(racing);
+      race.id = answer.id;
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(status()).toContain("changed again"));
+      expect(mineSent()).toEqual([2]);
+      expect(field("Situation")).toHaveValue("Mine");
+      expect(keepMine()).toBeInTheDocument();
+      expect(loadServer()).toBeInTheDocument();
+      vi.useFakeTimers();
+      await advance(AUTOSAVE_DELAY_MS * 4 + RECHECK_DELAYS_MS[0]);
+      vi.useRealTimers();
+      expect(mineSent()).toEqual([2]);
+      expect((await stored(answer.id)).fields).toEqual({ situation: "Theirs" });
+      // The reader decides again, and this time it goes through.
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(mineSent()).toEqual([2, 3]);
+      expect(await stored(answer.id)).toMatchObject({ fields: { situation: "Mine" }, body: null });
+   });
+
+   it("keep mine is ignored while it runs: one read and one write for two clicks", async () => {
+      const hold = { on: false, started: 0, waiting: [] as (() => void)[] };
+      const held: typeof fetch = async (input, init) => {
+         if (hold.on && init?.method === "PATCH") {
+            hold.started++;
+            await new Promise<void>((resolve) => hold.waiting.push(resolve));
+         }
+         return api.fetch(input, init);
+      };
+      await conflicted(held);
+      hold.on = true;
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(hold.started).toBe(1));
+      expect(screen.queryByRole("button", { name: "Keep mine" })).toBeNull();
+      await act(async () => void hold.waiting.shift()?.());
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(gets()).toHaveLength(1);
+      expect(patches()).toHaveLength(1);
+   });
+
+   it("keep mine: two clicks in the same moment start one read", async () => {
+      await conflicted();
+      fireEvent.click(keepMine());
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(gets()).toHaveLength(1);
+      expect(patches()).toHaveLength(1);
+   });
+
+   it("keep mine: while the retry is in the air the choice is gone, Saved is not shown, and only one write is out at once", async () => {
+      const held = gated();
+      const answer = await seed();
+      await open(answer, held.state.fetch);
+      await client().updateAnswer(answer.id, { version: 1, status: "ready" });
+      type("Situation", "Mine");
+      fireEvent.blur(field("Situation"));
+      await waitFor(() => expect(held.state.started).toBe(1));
+      await held.release();
+      await screen.findByRole("button", { name: "Keep mine" });
+      const seen = watchStatus();
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(held.state.started).toBe(2));
+      expect(status()).toBe("Saving…");
+      expect(choiceOffered()).toBe(false);
+      expect(screen.queryByRole("button", { name: "Load server version" })).toBeNull();
+      expect(seen).not.toContain("Saved");
+      await held.release();
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(held.state.peak).toBe(1);
+   });
+
+   it("keep mine: a lost reply is an unknown outcome, never Saved, text kept, no second write before a re-read", async () => {
+      const lose = { next: false, attempts: 0 };
+      const flaky: typeof fetch = async (input, init) => {
+         if (init?.method === "PATCH" && lose.next) {
+            lose.next = false;
+            lose.attempts++;
+            throw new TypeError("reply lost");
+         }
+         return api.fetch(input, init);
+      };
+      const answer = await conflicted(flaky);
+      const seen = watchStatus();
+      lose.next = true;
+      fireEvent.click(keepMine());
+      await screen.findByText(NOT_CONFIRMED);
+      expect(seen).not.toContain("Saved");
+      expect(field("Situation")).toHaveValue("Mine");
+      expect(lose.attempts).toBe(1);
+      expect(patches()).toHaveLength(0);
+      expect((await stored(answer.id)).fields).toEqual({ situation: "Theirs" });
+   });
+
+   it("keep mine: if the latest version cannot be read nothing is sent and the choice stays", async () => {
+      const down = { reads: false };
+      const flaky: typeof fetch = async (input, init) => {
+         if (down.reads && (!init?.method || init.method === "GET")) throw new TypeError("offline");
+         return api.fetch(input, init);
+      };
+      await conflicted(flaky);
+      down.reads = true;
+      fireEvent.click(keepMine());
+      await screen.findByText(/could not load the latest version/);
+      expect(patches()).toHaveLength(0);
+      expect(field("Situation")).toHaveValue("Mine");
+      down.reads = false;
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(sentVersions()).toEqual([2]);
+   });
+
+   it("load server version: replaces the draft with the server's text and version, sends nothing, and saves later edits on that version", async () => {
+      const answer = await conflicted();
+      fireEvent.click(loadServer());
+      await waitFor(() => expect(status()).toContain("loaded the latest version"));
+      expect(field("Situation")).toHaveValue("Theirs");
+      expect(screen.getByRole("combobox", { name: "Status" })).toHaveValue("ready");
+      expect(patches()).toHaveLength(0);
+      expect(choiceOffered()).toBe(false);
+      type("Situation", "Theirs, plus mine");
+      fireEvent.blur(field("Situation"));
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(sentVersions()).toEqual([2]);
+      expect((await stored(answer.id)).fields).toEqual({ situation: "Theirs, plus mine" });
+   });
+
+   it("load server version: text typed during the conflict cannot be sent afterwards by a pending autosave", async () => {
+      const answer = await conflicted();
+      vi.useFakeTimers();
+      type("Situation", "Mine, typed during the conflict");
+      fireEvent.click(loadServer());
+      await advance(0);
+      expect(field("Situation")).toHaveValue("Theirs");
+      await advance(AUTOSAVE_DELAY_MS * 4);
+      fireEvent.blur(field("Situation"));
+      await advance(AUTOSAVE_DELAY_MS);
+      vi.useRealTimers();
+      expect(patches()).toHaveLength(0);
+      expect((await stored(answer.id)).fields).toEqual({ situation: "Theirs" });
+   });
+
+   it("load server version: nothing is replaced if the reader kept typing while it loaded", async () => {
+      const held = { waiting: [] as (() => void)[], on: false };
+      const slowRead: typeof fetch = async (input, init) => {
+         if (held.on && (!init?.method || init.method === "GET")) await new Promise<void>((resolve) => held.waiting.push(resolve));
+         return api.fetch(input, init);
+      };
+      await conflicted(slowRead);
+      held.on = true;
+      fireEvent.click(loadServer());
+      await waitFor(() => expect(held.waiting).toHaveLength(1));
+      field("Situation").focus();
+      type("Situation", "Mine, and more");
+      await act(async () => void held.waiting.shift()?.());
+      await screen.findByText(/kept typing while the latest version loaded/);
+      expect(field("Situation")).toHaveValue("Mine, and more");
+      expect(document.activeElement).toBe(field("Situation"));
+      expect(keepMine()).toBeInTheDocument();
+      expect(patches()).toHaveLength(0);
+   });
+
+   it("load server version: the answer deleted elsewhere is reported as gone, the text is kept", async () => {
+      const answer = await conflicted();
+      await client().deleteAnswer(answer.id);
+      fireEvent.click(loadServer());
+      await waitFor(() => expect(status()).toContain("no longer exists"));
+      expect(field("Situation")).toHaveValue("Mine");
+      expect(choiceOffered()).toBe(false);
+   });
+
+   const choiceGroup = () => screen.getByRole("group", { name: "Choose which version to keep" });
+   const statusRegion = () => document.querySelector('[data-slot="save-status"]');
+
+   it("focus: after a choice the unmounted button hands focus to the status; a reopened choice takes it back to the choice group", async () => {
+      const race = { id: "", bump: true, hold: false, release: undefined as undefined | (() => void) };
+      const racing: typeof fetch = async (input, init) => {
+         const response = await api.fetch(input, init);
+         if (race.bump && (!init?.method || init.method === "GET") && race.id) {
+            race.bump = false;
+            await client().updateAnswer(race.id, { version: 2, body: "Third writer" });
+         }
+         if (race.hold && init?.method === "PATCH") await new Promise<void>((resolve) => (race.release = resolve));
+         return response;
+      };
+      const answer = await conflicted(racing);
+      race.id = answer.id;
+      race.hold = true;
+      keepMine().focus();
+      fireEvent.click(keepMine());
+      // While the retry is in the air the status holds focus; the reopened choice must still take it from there.
+      await waitFor(() => expect(race.release).toBeDefined());
+      expect(document.activeElement).toBe(statusRegion());
+      race.hold = false;
+      await act(async () => void race.release?.());
+      await waitFor(() => expect(status()).toContain("changed again"));
+      expect(document.activeElement).toBe(choiceGroup());
+      // Moving focus runs the form's blur-save, so the click comes in a later event, as a person's does.
+      keepMine().focus();
+      await act(async () => {});
+      fireEvent.click(keepMine());
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect(document.activeElement).toBe(statusRegion());
+   });
+
+   it("focus: loading the server version leaves focus on the status", async () => {
+      await conflicted();
+      loadServer().focus();
+      fireEvent.click(loadServer());
+      await waitFor(() => expect(status()).toContain("loaded the latest version"));
+      expect(document.activeElement).toBe(statusRegion());
+   });
+
+   it("leaving with the choice open does not discard the text silently: the exit asks", async () => {
+      await conflicted();
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+      fireEvent.click(link("/learn/behavioral"));
+      await waitFor(() => expect(confirm).toHaveBeenCalled());
+      expect(nav.push).not.toHaveBeenCalled();
+      expect(field("Situation")).toHaveValue("Mine");
    });
 });

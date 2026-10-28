@@ -8,9 +8,10 @@ import type { Answer, FieldIssue } from "@/lib/prep/types";
 export type Write =
    | { phase: "idle"; note?: string }
    | { phase: "saving" }
-   | { phase: "saved" }
+   | { phase: "saved"; note?: string }
    | { phase: "invalid"; issues: FieldIssue[] }
-   | { phase: "conflict" }
+   /** A 409: nothing was applied and the text is kept. `busy` while the reader's choice is being carried out. */
+   | { phase: "conflict"; busy?: boolean; note?: string }
    | { phase: "gone"; unresolved?: boolean }
    | { phase: "signin"; unresolved?: boolean }
    | { phase: "unknown"; checking: boolean };
@@ -25,10 +26,17 @@ export const RECHECK_DELAYS_MS = [5_000, 15_000, 30_000];
 
 const WRITE_MESSAGES: Partial<Record<Write["phase"], string>> = {
    invalid: "Couldn't save. The server did not accept some text; see the fields marked below.",
-   conflict: "Not saved: this answer was changed somewhere else. Your text is still here; copy it before you reload.",
+   conflict: "Not saved: this answer was changed somewhere else. Your text is still here; choose which version to keep.",
    gone: "Not saved: this answer no longer exists. Your text is still here; copy it if you want to keep it.",
    signin: "Not saved: your session has ended. Your text is still here.",
    unknown: "We could not confirm whether your changes were saved.",
+};
+
+const CONFLICT_NOTES = {
+   again: "Not saved: this answer was changed again while we tried. Your text is still here; choose again.",
+   unavailable: "We could not load the latest version, so nothing was changed. Your text is still here; choose again.",
+   typed: "You kept typing while the latest version loaded, so nothing was replaced. Your text is still here; choose again.",
+   loaded: "Saved: loaded the latest version from the server. Your earlier text was replaced.",
 };
 
 function saveStateOf(write: Write, dirty: boolean): SaveState {
@@ -192,6 +200,61 @@ export function useAnswerEditor({ initial, client, onCopied }: Options) {
       return checkRef.current;
    }, [reread]);
 
+   /** The server's copy now. Until the choice is made the conflict keeps blocking every other write; null when the choice could not be carried on. */
+   const readLatest = useCallback(async (): Promise<Answer | null> => {
+      commitWrite({ phase: "conflict", busy: true });
+      const result = await client.getAnswer(savedRef.current.id);
+      if (result.status === "ok") return result.data;
+      if (result.status === "notFound") commitWrite({ phase: "gone" });
+      else if (result.status === "unauthenticated") commitWrite({ phase: "signin" });
+      else commitWrite({ phase: "conflict", note: CONFLICT_NOTES.unavailable });
+      return null;
+   }, [client, commitWrite]);
+
+   /** Both choices run as the one write in flight, so no autosave or exit can slip in between; a second click while one runs is ignored. */
+   const resolve = useCallback((choose: () => Promise<void>) => {
+      const now = writeRef.current;
+      if (now.phase !== "conflict" || now.busy || flightRef.current) return;
+      flightRef.current = choose().finally(() => {
+         flightRef.current = null;
+      });
+   }, []);
+
+   /** Keep mine: the draft goes out against the version read now, never the old one. A second 409 returns to the choice. */
+   const keepMine = useCallback(
+      () =>
+         resolve(async () => {
+            const latest = await readLatest();
+            if (!latest) return;
+            commitSaved(latest);
+            rejectedRef.current = null;
+            if (changesOf(draftRef.current, latest) === null) return commitWrite({ phase: "saved" });
+            commitWrite({ phase: "idle" });
+            await drain();
+            if (writeRef.current.phase === "conflict") commitWrite({ phase: "conflict", note: CONFLICT_NOTES.again });
+         }),
+      [commitSaved, commitWrite, drain, readLatest, resolve]
+   );
+
+   /** Load server version: the reader's text is replaced, but only if nothing was typed while it was read. A pending autosave then finds the draft equal to the server and sends nothing. */
+   const loadServer = useCallback(
+      () =>
+         resolve(async () => {
+            const before = draftRef.current;
+            const latest = await readLatest();
+            if (!latest) return;
+            if (draftRef.current !== before) return commitWrite({ phase: "conflict", note: CONFLICT_NOTES.typed });
+            rejectedRef.current = null;
+            sentRef.current = null;
+            commitSaved(latest);
+            const adopted = draftOf(latest);
+            draftRef.current = adopted;
+            setDraft(adopted);
+            commitWrite({ phase: "saved", note: CONFLICT_NOTES.loaded });
+         }),
+      [commitSaved, commitWrite, readLatest, resolve]
+   );
+
    useEffect(() => {
       if (write.phase !== "unknown" || write.checking) return;
       const delay = RECHECK_DELAYS_MS[rechecksRef.current];
@@ -253,13 +316,15 @@ export function useAnswerEditor({ initial, client, onCopied }: Options) {
       canDuplicate,
       issues: write.phase === "invalid" ? write.issues : [],
       saveState: saveStateOf(write, dirty),
-      saveMessage: write.phase === "idle" ? write.note : WRITE_MESSAGES[write.phase],
+      saveMessage: ("note" in write ? write.note : undefined) ?? WRITE_MESSAGES[write.phase],
       edit,
       editStar,
       save,
       persist,
       settle,
       check,
+      keepMine,
+      loadServer,
       duplicate,
       allowAnotherCopy,
    };
