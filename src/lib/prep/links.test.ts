@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { newAnswerHref, questionRefFromParams, sameQuestion } from "./links";
+import { ANSWER_ID, answerHref, newAnswerHref, questionRefFromParams, sameQuestion } from "./links";
 
 const LESSON = "lesson.behavioral-prep-sde-2";
 
@@ -45,5 +45,18 @@ describe("sameQuestion", () => {
       expect(sameQuestion(a, { ...a })).toBe(true);
       expect(sameQuestion(a, { ...a, question_id: "r" })).toBe(false);
       expect(sameQuestion(a, { ...a, content_id: "lesson.other" })).toBe(false);
+   });
+});
+
+describe("answerHref", () => {
+   it("is the editor route for an answer's id", () => {
+      expect(answerHref("00000000-0000-4000-8000-000000000001")).toBe("/prepare/answers/00000000-0000-4000-8000-000000000001");
+   });
+
+   it("accepts only a UUID as an answer id", () => {
+      expect(ANSWER_ID.test("00000000-0000-4000-8000-000000000001")).toBe(true);
+      for (const bad of ["", "new", "../x", "00000000-0000-4000-8000-00000000000", "00000000-0000-4000-8000-0000000000012", "g0000000-0000-4000-8000-000000000001"]) {
+        expect(ANSWER_ID.test(bad)).toBe(false);
+      }
    });
 });

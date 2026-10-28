@@ -113,11 +113,14 @@ describe("target-level filtering", () => {
 });
 
 describe("catalog answers", () => {
-   it("creates the answer with the exact pair and the snapshot, and opens the workspace", async () => {
+   it("creates the answer with the exact pair and the snapshot, and opens that answer's editor", async () => {
       show();
       fireEvent.click(options()[3]);
       fireEvent.click(submit());
-      await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/prepare"));
+      await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
+      const listed = await client().listAnswers();
+      expect(listed.status === "ok" && listed.data.items).toHaveLength(1);
+      expect(nav.push).toHaveBeenCalledWith(`/prepare/answers/${listed.status === "ok" ? listed.data.items[0].id : ""}`);
       expect(posts()).toHaveLength(1);
       expect(posts()[0].token).toBe(token);
       expect(posts()[0].body).toEqual({
@@ -211,9 +214,10 @@ describe("custom questions", () => {
       show();
       write("  How do you decide what to cut?  ");
       fireEvent.click(submit());
-      await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/prepare"));
+      await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
       expect(posts()[0].body).toEqual({ source: "custom", question_snapshot: "How do you decide what to cut?", framework: "star" });
       const stored = await client().listAnswers();
+      expect(stored.status === "ok" && nav.push.mock.calls[0][0]).toBe(`/prepare/answers/${stored.status === "ok" ? stored.data.items[0].id : ""}`);
       expect(stored.status === "ok" && stored.data.items[0]).toMatchObject({ source: "custom", content_id: null, question_id: null, snapshot_fallback: false, question_snapshot: "How do you decide what to cut?" });
    });
 

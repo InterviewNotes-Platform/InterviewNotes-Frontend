@@ -6,7 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "rea
 import { Button } from "@/components/ui/button";
 import { createPrepClient } from "@/lib/prep/client";
 import { asTargetLevel, levelLabel, TARGET_LEVELS } from "@/lib/prep/levels";
-import { newAnswerHref, sameQuestion, type QuestionRef } from "@/lib/prep/links";
+import { answerHref, newAnswerHref, sameQuestion, type QuestionRef } from "@/lib/prep/links";
 import type { CatalogQuestion } from "@/lib/prep/questions";
 import type { AnswerCreate, PrepResult, TargetLevel } from "@/lib/prep/types";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
@@ -203,9 +203,9 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, getAccessTok
       setSave({ phase: "saving" });
       const result = await client.createAnswer(next.body);
       if (result.status === "ok") {
-         // Stays disabled while the workspace opens, so a second click cannot create a second answer.
+         // Stays disabled while the editor opens, so a second click cannot create a second answer.
          setSave({ phase: "done" });
-         router.push(PREPARE_HREF);
+         router.push(answerHref(result.data.id));
          return;
       }
       saving.current = false;
@@ -401,7 +401,7 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, getAccessTok
                )}
                {shown.phase === "done" && (
                   <p role="status" className="text-supporting text-muted-foreground">
-                     Answer created. Opening your workspace…
+                     Answer created. Opening it…
                   </p>
                )}
                {shown.phase === "signin" && (

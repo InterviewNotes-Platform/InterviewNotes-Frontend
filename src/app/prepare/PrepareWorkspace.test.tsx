@@ -60,6 +60,9 @@ describe("first request", () => {
         expect(screen.queryByRole("status")).toBeNull();
         expect(screen.getByText("Tell me about a conflict.")).toBeInTheDocument();
         expect(screen.getByText("Tell me about a failure.")).toBeInTheDocument();
+        // Each answer opens its own editor by id, without prefetching it.
+        expect(screen.getByRole("link", { name: "Tell me about a conflict." })).toHaveAttribute("href", "/prepare/answers/a1");
+        expect(screen.getByRole("link", { name: "Tell me about a failure." })).toHaveAttribute("href", "/prepare/answers/a2");
     });
 
     it("says the wait is longer than usual once it is, and still reports no data", async () => {
