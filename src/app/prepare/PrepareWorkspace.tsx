@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createPrepClient } from "@/lib/prep/client";
+import { answerHref } from "@/lib/prep/links";
 import type { Answer, PrepResult } from "@/lib/prep/types";
 import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -154,8 +155,10 @@ function Section({ title, loading, answers, empty }: { title: string; loading: b
                 ) : (
                     <ul className="space-y-2 text-body text-foreground">
                         {answers.map(({ id, question_snapshot }) => (
-                            <li key={id} className="line-clamp-2">
-                                {question_snapshot}
+                            <li key={id}>
+                                <Link href={answerHref(id)} prefetch={false} className="line-clamp-2 block underline-offset-4 hover:underline">
+                                    {question_snapshot}
+                                </Link>
                             </li>
                         ))}
                     </ul>

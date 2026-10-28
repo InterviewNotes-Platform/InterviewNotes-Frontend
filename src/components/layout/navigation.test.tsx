@@ -41,8 +41,10 @@ describe("public navigation", () => {
 
     it("footer links are real routes and expose no dead placeholders", () => {
         render(<Footer />);
-        expect(hrefs()).toEqual(["/", "/#tracks", "/knowledge", "/#pricing", "/#faq"]);
+        expect(hrefs()).toEqual(["/", "/#tracks", "/knowledge", "/#pricing", "/#faq", "/privacy"]);
         for (const href of hrefs()) expect(href).not.toMatch(/^\/learn/);
-        expect(screen.queryByText(/blog|newsletter|about us|privacy|terms/i)).toBeNull();
+        // The one legal link is the real Privacy & AI Use route (P7-T35); P7 has no Terms of Service page.
+        expect(screen.getByRole("link", { name: "Privacy & AI Use" })).toHaveAttribute("href", "/privacy");
+        expect(screen.queryByText(/blog|newsletter|about us|terms/i)).toBeNull();
     });
 });

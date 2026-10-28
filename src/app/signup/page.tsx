@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { authCallbackUrl } from "@/lib/auth-redirect";
+import { PRIVACY_HREF } from "@/lib/privacy";
 
 function GoogleIcon() {
     return (
@@ -72,7 +73,7 @@ export default function SignupPage() {
                             By creating an account you agree to our{" "}
                             <span className="underline cursor-pointer">Terms of Service</span>
                             {" "}and{" "}
-                            <span className="underline cursor-pointer">Privacy Policy</span>
+                            <Link href={PRIVACY_HREF} className="underline hover:text-foreground">Privacy Policy</Link>
                         </p>
                     </CardContent>
                 </Card>

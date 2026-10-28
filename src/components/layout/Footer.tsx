@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/layout/BrandMark";
 import { PRIMARY_NAV } from "@/lib/primary-navigation";
+import { PRIVACY_HREF } from "@/lib/privacy";
 
 export function Footer() {
     return (
@@ -38,6 +39,9 @@ export function Footer() {
                     <p className="text-sm text-muted-foreground">
                         © {new Date().getFullYear()} InterviewNotes. All rights reserved.
                     </p>
+                    <Link href={PRIVACY_HREF} prefetch={false} className="text-sm text-muted-foreground hover:text-[var(--gold)] transition-colors md:ml-auto">
+                        Privacy &amp; AI Use
+                    </Link>
                 </div>
             </div>
         </footer>
