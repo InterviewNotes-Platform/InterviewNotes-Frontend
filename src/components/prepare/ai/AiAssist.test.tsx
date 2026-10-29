@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnswerEditor } from "@/components/prepare/editor/AnswerEditor";
 import { AUTOSAVE_DELAY_MS } from "@/components/prepare/editor/useAnswerEditor";
+import { createFakeConsentApi } from "@/components/prepare/ai/consent/fakeConsent";
 import { createPrepClient } from "@/lib/prep/client";
 import { createFakePrepApi } from "@/lib/prep/fakeApi";
 import type { Answer, AnswerCreate } from "@/lib/prep/types";
@@ -20,6 +21,7 @@ const REVIEW_RESULT = {
 };
 
 let api: ReturnType<typeof createFakePrepApi>;
+let consent: ReturnType<typeof createFakeConsentApi>;
 let token: string;
 /** Every AI request the browser made, in order. */
 let ai: { path: string; body: unknown }[];
@@ -27,9 +29,11 @@ let aiReply: () => Promise<Response>;
 
 const reply = (status: number, body: unknown) => async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-/** The fake preparation API for everything but the AI routes, which are mocked here (the real API is T39's). */
+/** The fake preparation API for everything but the AI and consent routes, which are mocked here (the real API is T39's). */
 const routed: typeof fetch = async (input, init) => {
    const url = String(input);
+   const consented = consent.handle(url, init);
+   if (consented) return consented;
    if (url.includes("/me/prep/ai/")) {
       ai.push({ path: url.slice(url.indexOf("/me/prep")), body: JSON.parse(String(init?.body)) });
       return aiReply();
@@ -41,6 +45,9 @@ beforeEach(() => {
    vi.stubEnv("NEXT_PUBLIC_AI_ENABLED", "true");
    api = createFakePrepApi();
    token = api.signIn("user-1");
+   // These tests are about Draft and Review, so the reader has already accepted the current terms; consent itself is in ConsentDialog.test.tsx.
+   consent = createFakeConsentApi();
+   consent.grant(token);
    ai = [];
    aiReply = reply(200, DRAFT_RESULT);
 });

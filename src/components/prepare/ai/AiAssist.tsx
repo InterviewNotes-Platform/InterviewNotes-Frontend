@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { STAR_KEYS, type AnswerDraft } from "@/lib/prep/answerDraft";
 import { cn } from "@/lib/utils";
 import type { AiClient, AiResult, DraftResult, ReviewResult } from "./aiClient";
+import type { ConsentClient } from "./consent/consentClient";
+import { useConsentGate, type ConsentOutcome } from "./consent/useConsentGate";
 import { applyDraft, draftRequest, generatedText, insertDraft, reviewRequest } from "./aiRequest";
 
 type Action = "draft" | "review";
@@ -13,12 +15,19 @@ type Action = "draft" | "review";
 /** A result is a preview held only here: nothing reaches the editor, the API or storage until the reader applies or inserts it. */
 type Run =
    | { phase: "idle"; note?: string }
-   | { phase: "pending"; action: Action }
-   | { phase: "failed"; action: Action; signin: boolean }
+   | { phase: "pending"; action: Action; stage: "consent" | "request" }
+   | { phase: "failed"; action: Action; signin: boolean; code?: string | null }
    | { phase: "draft"; result: DraftResult }
    | { phase: "review"; result: ReviewResult };
 
 const LABEL = { situation: "Situation", task: "Task", action: "Action", result: "Result" } as const;
+
+/** Where a run ends when consent was not granted. In every case no AI request was sent and the reader's text is untouched. */
+function stopped(action: Action, outcome: Exclude<ConsentOutcome, "granted">): Run {
+   if (outcome === "declined") return { phase: "idle", note: "AI help was not used. Nothing was sent and your answer is unchanged. You will be asked again the next time you choose an AI action." };
+   if (outcome === "unavailable") return { phase: "idle", note: "AI help is not available right now. Nothing was sent and your answer is unchanged." };
+   return { phase: "failed", action, signin: outcome === "signin" };
+}
 
 const REVIEW_SECTIONS: readonly { key: keyof Omit<ReviewResult, "questions_to_ask_yourself">; title: string }[] = [
    { key: "missing", title: "Missing" },
@@ -28,6 +37,8 @@ const REVIEW_SECTIONS: readonly { key: keyof Omit<ReviewResult, "questions_to_as
 
 interface Props {
    client: AiClient;
+   /** Consent is checked before every request; the first-use dialog opens only from a Draft or Review click (P7-D-042). */
+   consent: ConsentClient;
    /** The answer as it stands on screen; Apply and Insert read it when clicked, not when the request was sent. */
    draft: AnswerDraft;
    /** The editor's own edit function: the only way generated text reaches the answer, and from there its normal save. */
@@ -36,12 +47,16 @@ interface Props {
 }
 
 /** Explicit Draft and Review for the answer editor. It starts no request on its own, and every failure leaves the reader's text as it was. */
-export function AiAssist({ client, draft, onChange, signInHref }: Props) {
+export function AiAssist({ client, consent, draft, onChange, signInHref }: Props) {
    const ids = useId();
    const [run, setRun] = useState<Run>({ phase: "idle" });
    const first = useRef<HTMLButtonElement>(null);
+   const second = useRef<HTMLButtonElement>(null);
    const mounted = useRef(true);
    const refocus = useRef(false);
+   /** Set synchronously on the click so a double click or a re-render can never start a second run. */
+   const busy = useRef(false);
+   const gate = useConsentGate(consent);
    const pending = run.phase === "pending";
    const drafting = draftRequest(draft);
    const reviewing = reviewRequest(draft);
@@ -54,12 +69,23 @@ export function AiAssist({ client, draft, onChange, signInHref }: Props) {
    }, []);
 
    async function start<T>(action: Action, send: () => Promise<AiResult<T>>, show: (data: T) => Run) {
-      if (pending) return;
-      setRun({ phase: "pending", action });
-      const result = await send();
-      if (!mounted.current) return;
-      if (result.status === "ok") setRun(show(result.data));
-      else setRun({ phase: "failed", action, signin: result.status === "unauthenticated" });
+      if (busy.current) return;
+      busy.current = true;
+      try {
+         setRun({ phase: "pending", action, stage: "consent" });
+         const outcome = await gate.ask();
+         if (!mounted.current) return;
+         // Making the page inert for the dialog drops focus to the body; put it back on the control the reader used.
+         if (!document.activeElement || document.activeElement === document.body) (action === "draft" ? first : second).current?.focus();
+         if (outcome !== "granted") return setRun(stopped(action, outcome));
+         setRun({ phase: "pending", action, stage: "request" });
+         const result = await send();
+         if (!mounted.current) return;
+         if (result.status === "ok") setRun(show(result.data));
+         else setRun({ phase: "failed", action, signin: result.status === "unauthenticated", code: result.status === "failed" ? result.code : null });
+      } finally {
+         busy.current = false;
+      }
    }
 
    const askDraft = () => drafting && void start("draft", () => client.draft(drafting), (result) => ({ phase: "draft", result }));
@@ -93,14 +119,15 @@ export function AiAssist({ client, draft, onChange, signInHref }: Props) {
             <Button ref={first} type="button" variant="outline" aria-disabled={pending || !drafting} aria-describedby={`${ids}-note`} className={cn((pending || !drafting) && "opacity-50")} onClick={askDraft}>
                Draft from my notes
             </Button>
-            <Button type="button" variant="outline" aria-disabled={pending || !reviewing} aria-describedby={`${ids}-note`} className={cn((pending || !reviewing) && "opacity-50")} onClick={askReview}>
+            <Button ref={second} type="button" variant="outline" aria-disabled={pending || !reviewing} aria-describedby={`${ids}-note`} className={cn((pending || !reviewing) && "opacity-50")} onClick={askReview}>
                Review my answer
             </Button>
          </div>
          {!hasText && <p className="text-supporting text-muted-foreground">Write some notes or part of an answer first. Draft and Review work from the text above.</p>}
 
          <div role="status" className="text-supporting text-foreground empty:hidden">
-            {run.phase === "pending" && `${run.action === "draft" ? "Writing a draft" : "Reviewing your answer"}… This can take up to two minutes. Your text stays as it is.`}
+            {run.phase === "pending" && run.stage === "consent" && "Checking your AI consent… Nothing is sent until you have accepted."}
+            {run.phase === "pending" && run.stage === "request" && `${run.action === "draft" ? "Writing a draft" : "Reviewing your answer"}… This can take up to two minutes. Your text stays as it is.`}
             {run.phase === "idle" && run.note}
             {run.phase === "draft" && "Draft ready. Review it below before using it."}
             {run.phase === "review" && "Review ready."}
@@ -111,7 +138,9 @@ export function AiAssist({ client, draft, onChange, signInHref }: Props) {
                <p>
                   {run.signin
                      ? "Your session has ended. Your answer remains unchanged, and no AI result was saved. Sign in to try again."
-                     : `We couldn't ${run.action === "draft" ? "write a draft" : "review your answer"} just now. Your text is unchanged and nothing was saved from this. You can try again.`}
+                     : run.code === "ai_consent_required"
+                       ? "Your AI consent has changed, so nothing was sent. Choose the action again to review and accept it. Your text is unchanged."
+                       : `We couldn't ${run.action === "draft" ? "write a draft" : "review your answer"} just now. Your text is unchanged and nothing was saved from this. You can try again.`}
                </p>
                {run.signin && (
                   <Link href={signInHref} className="inline-flex min-h-11 items-center underline underline-offset-4">
@@ -173,6 +202,7 @@ export function AiAssist({ client, draft, onChange, signInHref }: Props) {
                </Button>
             </div>
          )}
+         {gate.dialog}
       </section>
    );
 }

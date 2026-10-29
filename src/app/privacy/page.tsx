@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { WithdrawConsent } from "@/components/prepare/ai/consent/WithdrawConsent";
 import { Footer } from "@/components/layout/Footer";
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { aiEnabled } from "@/lib/ai-flag";
@@ -232,6 +233,7 @@ export default function PrivacyPage() {
                      <li>
                         <strong className="text-foreground">Withdraw AI consent:</strong> once AI features are available, you
                         can withdraw on this page at any time. Your next AI action will ask again.
+                        <WithdrawConsent apiUrl={process.env.NEXT_PUBLIC_API_URL || null} />
                      </li>
                      <li>
                         <strong className="text-foreground">Your account:</strong> there is no account deletion control yet.

@@ -13,6 +13,7 @@ import { STAR_KEYS, hasStarText, starText, type StarKey } from "@/lib/prep/answe
 import { aiEnabled } from "@/lib/ai-flag";
 import { AiAssist } from "@/components/prepare/ai/AiAssist";
 import { createAiClient, type AiClient } from "@/components/prepare/ai/aiClient";
+import { createConsentClient, type ConsentClient } from "@/components/prepare/ai/consent/consentClient";
 import { createPrepClient, type PrepClient } from "@/lib/prep/client";
 import { answerHref } from "@/lib/prep/links";
 import type { CatalogQuestion } from "@/lib/prep/questions";
@@ -101,7 +102,7 @@ export function AnswerEditor({ apiUrl, answerId, catalog, getAccessToken = sessi
    );
 
    const ai = useMemo(
-      () => (apiUrl && aiEnabled() ? createAiClient({ baseUrl: apiUrl, getAccessToken, fetch: fetchImpl }) : null),
+      () => (apiUrl && aiEnabled() ? { client: createAiClient({ baseUrl: apiUrl, getAccessToken, fetch: fetchImpl }), consent: createConsentClient({ baseUrl: apiUrl, getAccessToken, fetch: fetchImpl }) } : null),
       [apiUrl, getAccessToken, fetchImpl]
    );
 
@@ -208,7 +209,7 @@ interface FormProps {
    client: PrepClient;
    catalog: readonly CatalogQuestion[] | null;
    /** Null while the build's AI setting is off: no AI control is drawn. */
-   ai: AiClient | null;
+   ai: { client: AiClient; consent: ConsentClient } | null;
    signInHref: string;
    onDeleted: (outcome: "deleted" | "missing") => void;
 }
@@ -356,7 +357,7 @@ function AnswerForm({ initial, client, catalog, ai, signInHref, onDeleted }: For
             )}
          </section>
 
-         {ai && <AiAssist client={ai} draft={draft} onChange={edit} signInHref={signInHref} />}
+         {ai && <AiAssist client={ai.client} consent={ai.consent} draft={draft} onChange={edit} signInHref={signInHref} />}
 
          <TagInput subject="answer" tags={draft.tags} onChange={(tags) => edit({ tags })} error={issueText(issues, "tags")} />
 
