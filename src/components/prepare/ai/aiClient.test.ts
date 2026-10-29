@@ -1,0 +1,86 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { AI_TIMEOUT_MS, createAiClient, type DraftRequest, type ReviewRequest } from "./aiClient";
+
+const DRAFT: DraftRequest = { question: "Q?", guidance: null, framework: "star", notes: "I fixed the build.", stories: [] };
+const REVIEW: ReviewRequest = { question: "Q?", guidance: null, framework: "free_form", answer: { body: "text", fields: {} }, stories: [] };
+const DRAFT_BODY = { action: "draft", result: { framework: "star", fields: { situation: "S" }, body: null, questions_to_ask_yourself: ["Why?"] } };
+const REVIEW_BODY = { action: "review", result: { missing: ["a"], weak: [], claims_to_verify: [], questions_to_ask_yourself: [] } };
+
+const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+function client(fetch: typeof globalThis.fetch, token: string | null = "tok", timeoutMs?: number) {
+   return createAiClient({ baseUrl: "https://api.example.test/", getAccessToken: async () => token, fetch, timeoutMs });
+}
+
+afterEach(() => vi.useRealTimers());
+
+describe("createAiClient", () => {
+   it("posts a draft to /me/prep/ai/draft with the bearer token and the body only", async () => {
+      const fetch = vi.fn(async () => json(200, DRAFT_BODY));
+      const result = await client(fetch).draft(DRAFT);
+      expect(result).toEqual({ status: "ok", data: DRAFT_BODY.result });
+      const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe("https://api.example.test/me/prep/ai/draft");
+      expect(init).toMatchObject({ method: "POST", cache: "no-store", credentials: "omit" });
+      expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+      expect(JSON.parse(init.body as string)).toEqual(DRAFT);
+   });
+
+   it("posts a review to /me/prep/ai/review", async () => {
+      const fetch = vi.fn(async () => json(200, REVIEW_BODY));
+      expect(await client(fetch).review(REVIEW)).toEqual({ status: "ok", data: REVIEW_BODY.result });
+      expect((fetch.mock.calls[0] as unknown[])[0]).toBe("https://api.example.test/me/prep/ai/review");
+   });
+
+   it("sends nothing without a token", async () => {
+      const fetch = vi.fn();
+      expect(await client(fetch as never, null).draft(DRAFT)).toEqual({ status: "unauthenticated" });
+      expect(fetch).not.toHaveBeenCalled();
+   });
+
+   it("maps a 401 to unauthenticated", async () => {
+      expect(await client(async () => json(401, { code: "unauthenticated" })).draft(DRAFT)).toEqual({ status: "unauthenticated" });
+   });
+
+   it.each([
+      [429, "ai_quota_exhausted"],
+      [503, "ai_unavailable"],
+      [403, "ai_consent_required"],
+   ])("keeps the envelope code of a %s as data and nothing else", async (status, code) => {
+      expect(await client(async () => json(status, { detail: "secret provider text", code })).draft(DRAFT)).toEqual({ status: "failed", code, cause: "upstream" });
+   });
+
+   it("fails with no code when an error body is unreadable", async () => {
+      expect(await client(async () => new Response("<html>", { status: 502 })).review(REVIEW)).toEqual({ status: "failed", code: null, cause: "upstream" });
+   });
+
+   it("reports a network failure as transport", async () => {
+      const result = await client(async () => Promise.reject(new TypeError("fetch failed"))).draft(DRAFT);
+      expect(result).toEqual({ status: "failed", code: null, cause: "transport" });
+   });
+
+   it("reports no answer in time as a timeout, at 120 s by default", async () => {
+      expect(AI_TIMEOUT_MS).toBe(120_000);
+      vi.useFakeTimers();
+      const never: typeof fetch = (_url, init) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))));
+      const pending = client(never, "tok", 50).draft(DRAFT);
+      await vi.advanceTimersByTimeAsync(50);
+      expect(await pending).toEqual({ status: "failed", code: null, cause: "timeout" });
+   });
+
+   it.each([
+      ["a different action", { action: "review", result: DRAFT_BODY.result }],
+      ["a missing result", { action: "draft" }],
+      ["a field that is not a STAR key", { action: "draft", result: { ...DRAFT_BODY.result, fields: { mood: "x" } } }],
+      ["a non-string question", { action: "draft", result: { ...DRAFT_BODY.result, questions_to_ask_yourself: [1] } }],
+      ["a framework the contract does not know", { action: "draft", result: { ...DRAFT_BODY.result, framework: "bullets" } }],
+      ["a framework other than the one requested", { action: "draft", result: { ...DRAFT_BODY.result, framework: "free_form", fields: {}, body: "text" } }],
+      ["not an object", ["draft"]],
+   ])("treats a 200 with %s as malformed", async (_name, body) => {
+      expect(await client(async () => json(200, body)).draft(DRAFT)).toEqual({ status: "failed", code: null, cause: "malformed" });
+   });
+
+   it("treats an unreadable 200 body as malformed", async () => {
+      expect(await client(async () => new Response("nope", { status: 200 })).review(REVIEW)).toEqual({ status: "failed", code: null, cause: "malformed" });
+   });
+});

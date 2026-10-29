@@ -10,6 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { SaveStatus } from "@/components/ui/save-status";
 import { catalogHref } from "@/lib/catalog/routes";
 import { STAR_KEYS, hasStarText, starText, type StarKey } from "@/lib/prep/answerDraft";
+import { aiEnabled } from "@/lib/ai-flag";
+import { AiAssist } from "@/components/prepare/ai/AiAssist";
+import { createAiClient, type AiClient } from "@/components/prepare/ai/aiClient";
 import { createPrepClient, type PrepClient } from "@/lib/prep/client";
 import { answerHref } from "@/lib/prep/links";
 import type { CatalogQuestion } from "@/lib/prep/questions";
@@ -97,6 +100,11 @@ export function AnswerEditor({ apiUrl, answerId, catalog, getAccessToken = sessi
       [apiUrl, getAccessToken, fetchImpl]
    );
 
+   const ai = useMemo(
+      () => (apiUrl && aiEnabled() ? createAiClient({ baseUrl: apiUrl, getAccessToken, fetch: fetchImpl }) : null),
+      [apiUrl, getAccessToken, fetchImpl]
+   );
+
    useEffect(() => {
       if (!client) return;
       let current = true;
@@ -116,7 +124,7 @@ export function AnswerEditor({ apiUrl, answerId, catalog, getAccessToken = sessi
    const signInHref = `/login?redirect=${encodeURIComponent(answerHref(answerId))}`;
 
    if (deleted) return <AnswerDeleted outcome={deleted} />;
-   if (load.phase === "ready" && client) return <AnswerForm initial={load.answer} client={client} catalog={catalog} signInHref={signInHref} onDeleted={setDeleted} />;
+   if (load.phase === "ready" && client) return <AnswerForm initial={load.answer} client={client} catalog={catalog} ai={ai} signInHref={signInHref} onDeleted={setDeleted} />;
    return (
       <div className="space-y-4">
          <BackLink />
@@ -199,11 +207,13 @@ interface FormProps {
    initial: Answer;
    client: PrepClient;
    catalog: readonly CatalogQuestion[] | null;
+   /** Null while the build's AI setting is off: no AI control is drawn. */
+   ai: AiClient | null;
    signInHref: string;
    onDeleted: (outcome: "deleted" | "missing") => void;
 }
 
-function AnswerForm({ initial, client, catalog, signInHref, onDeleted }: FormProps) {
+function AnswerForm({ initial, client, catalog, ai, signInHref, onDeleted }: FormProps) {
    const router = useRouter();
    const ids = useId();
    const editor = useAnswerEditor({ initial, client, onCopied: (id) => void leave(() => router.push(answerHref(id))) });
@@ -345,6 +355,8 @@ function AnswerForm({ initial, client, catalog, signInHref, onDeleted }: FormPro
                </>
             )}
          </section>
+
+         {ai && <AiAssist client={ai} draft={draft} onChange={edit} signInHref={signInHref} />}
 
          <TagInput subject="answer" tags={draft.tags} onChange={(tags) => edit({ tags })} error={issueText(issues, "tags")} />
 
