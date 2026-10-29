@@ -29,11 +29,20 @@ describe("draftOf", () => {
          fields: { situation: "", task: "", action: "I wrote it.", result: "" },
          body: "",
          status: "draft",
+         tags: ["kept"],
       });
    });
 });
 
 describe("changesOf", () => {
+   it("sends the tags, and only the tags, when they differ in content or order", () => {
+      const saved = answer({ tags: ["a", "b"] });
+      expect(changesOf({ ...draftOf(saved), tags: ["a", "b", "c"] }, saved)).toEqual({ tags: ["a", "b", "c"] });
+      expect(changesOf({ ...draftOf(saved), tags: ["b", "a"] }, saved)).toEqual({ tags: ["b", "a"] });
+      expect(changesOf({ ...draftOf(saved), tags: [] }, saved)).toEqual({ tags: [] });
+      expect(changesOf({ ...draftOf(saved), tags: ["a", "b"] }, saved)).toBeNull();
+   });
+
    it("is null for an untouched draft, so nothing is sent", () => {
       const saved = answer({ fields: { situation: "S" }, body: "B" });
       expect(changesOf(draftOf(saved), saved)).toBeNull();

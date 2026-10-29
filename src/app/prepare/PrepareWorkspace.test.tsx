@@ -184,7 +184,8 @@ describe("answer-first skeleton", () => {
             calls[0].release(jsonResponse(200, { items: [answer("a1", "draft", "Q1")], total: 250, limit: 100, offset: 0 }));
             await vi.advanceTimersByTimeAsync(0);
         });
-        expect(screen.getByText("Showing the latest 1 of 250 answers; older ones are not listed here.")).toBeInTheDocument();
+        expect(screen.getByText("Showing 1 of 250 answers.")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Show more answers" })).toBeInTheDocument();
     });
 
     it("does not claim a section is empty for the whole account when only the latest page was read", async () => {
@@ -198,5 +199,128 @@ describe("answer-first skeleton", () => {
         });
         expect(screen.getByText("No recent answers in progress.")).toBeInTheDocument();
         expect(screen.queryByText("No answers in progress.")).toBeNull();
+    });
+});
+
+const tagged = (id: string, status: string, text: string, tags: string[]) => ({ ...answer(id, status, text), tags });
+const page = (items: unknown[], total: number, offset = 0) => jsonResponse(200, { items, total, limit: 100, offset });
+const params = (url: string) => new URL(url).searchParams;
+
+async function load(items: unknown[], total: number) {
+    const harness = held();
+    render(<PrepareWorkspace apiUrl={API} getAccessToken={token} fetch={harness.fetch} />);
+    await flush();
+    await act(async () => {
+        harness.calls[0].release(page(items, total));
+        await vi.advanceTimersByTimeAsync(0);
+    });
+    return harness;
+}
+
+async function release(call: { release: (response: Response) => void }, response: Response) {
+    await act(async () => {
+        call.release(response);
+        await vi.advanceTimersByTimeAsync(0);
+    });
+}
+
+const searchFor = (text: string) => {
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search answers" }), { target: { value: text } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+};
+
+describe("search and filter", () => {
+    it("asks for a page of 100 with no query at first, then searches with the typed words", async () => {
+        const { calls } = await load([answer("a1", "draft", "Q1")], 1);
+        expect(params(calls[0].url).get("limit")).toBe("100");
+        expect(params(calls[0].url).has("q")).toBe(false);
+        searchFor("  scope  ");
+        await flush();
+        expect(calls).toHaveLength(2);
+        expect(params(calls[1].url).get("q")).toBe("scope");
+        expect(screen.getByRole("status")).toHaveTextContent("Loading your workspace");
+        await release(calls[1], page([answer("a2", "ready", "Scope question")], 1));
+        expect(screen.getByRole("link", { name: "Scope question" })).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Q1" })).toBeNull();
+        expect(screen.getByRole("status")).toHaveTextContent("1 answer matches.");
+    });
+
+    it("filters by a tag taken from an answer and removes the filter again", async () => {
+        const { calls } = await load([tagged("a1", "draft", "Q1", ["leadership"])], 1);
+        fireEvent.click(screen.getByRole("button", { name: "Filter by tag leadership" }));
+        await flush();
+        expect(params(calls[1].url).getAll("tag")).toEqual(["leadership"]);
+        await release(calls[1], page([tagged("a1", "draft", "Q1", ["leadership"])], 1));
+        expect(screen.getByRole("list", { name: "Tag filters" })).toHaveTextContent("leadership");
+        fireEvent.click(screen.getByRole("button", { name: "Remove filter leadership" }));
+        await flush();
+        expect(params(calls[2].url).has("tag")).toBe(false);
+    });
+
+    it("says nothing matches, offers to clear, and the clear reads the whole list again", async () => {
+        const { calls } = await load([answer("a1", "draft", "Q1")], 1);
+        searchFor("zzz");
+        await flush();
+        await release(calls[1], page([], 0));
+        expect(screen.getByRole("status")).toHaveTextContent("No answers match your search or filters.");
+        expect(screen.queryByText("No answers in progress.")).toBeNull();
+        fireEvent.click(screen.getAllByRole("button", { name: "Clear search and filters" })[0]);
+        await flush();
+        expect(params(calls[2].url).has("q")).toBe(false);
+        expect((screen.getByRole("searchbox", { name: "Search answers" }) as HTMLInputElement).value).toBe("");
+    });
+});
+
+describe("more than one page", () => {
+    it("reads the next page by offset, adds it without repeating an answer, and moves focus to the count when the list is complete", async () => {
+        const { calls } = await load([answer("a1", "draft", "Q1"), answer("a2", "draft", "Q2")], 3);
+        expect(screen.getByRole("status")).toHaveTextContent("Showing 2 of 3 answers.");
+        fireEvent.click(screen.getByRole("button", { name: "Show more answers" }));
+        await flush();
+        expect(params(calls[1].url).get("offset")).toBe("2");
+        expect(screen.getByRole("button", { name: "Loading more…" })).toBeInTheDocument();
+        await release(calls[1], page([answer("a2", "draft", "Q2"), answer("a3", "ready", "Q3")], 3, 2));
+        expect(screen.getAllByRole("link", { name: /^Q\d$/ }).map((link) => link.textContent)).toEqual(["Q1", "Q2", "Q3"]);
+        expect(screen.queryByRole("button", { name: /Show more answers|Loading more/ })).toBeNull();
+        expect(screen.getByRole("status")).toHaveTextContent("3 answers.");
+        expect(screen.getByRole("status")).toHaveFocus();
+    });
+
+    it("keeps what is loaded and offers another try when the next page cannot be read", async () => {
+        const { calls } = await load([answer("a1", "draft", "Q1")], 2);
+        fireEvent.click(screen.getByRole("button", { name: "Show more answers" }));
+        await flush();
+        await act(async () => {
+            calls[1].fail(new TypeError("fetch failed"));
+            await vi.advanceTimersByTimeAsync(0);
+        });
+        expect(screen.getByRole("alert")).toHaveTextContent("We could not load more answers.");
+        expect(screen.getByRole("link", { name: "Q1" })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Show more answers" }));
+        await flush();
+        expect(calls).toHaveLength(3);
+        await release(calls[2], page([answer("a2", "ready", "Q2")], 2, 1));
+        expect(screen.queryByRole("alert")).toBeNull();
+        expect(screen.getByRole("link", { name: "Q2" })).toBeInTheDocument();
+    });
+
+    it("drops a page that arrives after the search has changed", async () => {
+        const { calls } = await load([answer("a1", "draft", "Q1")], 2);
+        fireEvent.click(screen.getByRole("button", { name: "Show more answers" }));
+        await flush();
+        searchFor("other");
+        await flush();
+        await release(calls[2], page([answer("b1", "draft", "Found by search")], 1));
+        await release(calls[1], page([answer("a2", "draft", "Late page")], 2, 1));
+        expect(screen.getByRole("link", { name: "Found by search" })).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Late page" })).toBeNull();
+    });
+
+    it("sends the reader to sign in when the session ends while reading a page", async () => {
+        const { calls } = await load([answer("a1", "draft", "Q1")], 2);
+        fireEvent.click(screen.getByRole("button", { name: "Show more answers" }));
+        await flush();
+        await release(calls[1], new Response(null, { status: 401 }));
+        expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login?redirect=%2Fprepare");
     });
 });

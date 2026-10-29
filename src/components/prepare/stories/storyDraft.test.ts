@@ -66,6 +66,8 @@ describe("addTags", () => {
       expect(long.error).toMatch(/40/);
       const full = Array.from({ length: 20 }, (_, i) => `t${i}`);
       expect(addTags(full, "one more")).toEqual({ tags: full, error: expect.stringMatching(/20/) });
+      expect(addTags(full, "one more").error).toBe("A story can have at most 20 tags.");
+      expect(addTags(full, "one more", "answer").error).toBe("An answer can have at most 20 tags.");
       expect(addTags(full, "t3").error).toBeUndefined();
    });
 });

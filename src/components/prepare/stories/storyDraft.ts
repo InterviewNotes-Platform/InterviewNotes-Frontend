@@ -97,7 +97,7 @@ export type TagAddition = { tags: string[]; error?: string };
  * Adds what the reader typed to the tags, the way the API will store it: trimmed, lowercased, no commas inside a tag,
  * duplicates dropped keeping the first. A comma separates several tags typed at once. Nothing is added when a limit is hit.
  */
-export function addTags(current: readonly string[], typed: string): TagAddition {
+export function addTags(current: readonly string[], typed: string, subject: "story" | "answer" = "story"): TagAddition {
    const wanted = typed
       .split(",")
       .map((part) => part.trim().toLowerCase())
@@ -107,6 +107,6 @@ export function addTags(current: readonly string[], typed: string): TagAddition 
       if ([...tag].length > TAG_MAX_LENGTH) return { tags: [...current], error: `A tag can be at most ${TAG_MAX_LENGTH} characters.` };
       if (!tags.includes(tag)) tags.push(tag);
    }
-   if (tags.length > TAG_MAX_COUNT) return { tags: [...current], error: `A story can have at most ${TAG_MAX_COUNT} tags.` };
+   if (tags.length > TAG_MAX_COUNT) return { tags: [...current], error: `${subject === "answer" ? "An answer" : "A story"} can have at most ${TAG_MAX_COUNT} tags.` };
    return { tags };
 }
