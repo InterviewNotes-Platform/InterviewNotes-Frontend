@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnswerEditor } from "@/components/prepare/editor/AnswerEditor";
 import { AUTOSAVE_DELAY_MS } from "@/components/prepare/editor/useAnswerEditor";
@@ -275,8 +275,6 @@ describe("AI help in the answer editor", () => {
    describe("when the request fails", () => {
       const failures: [string, () => Promise<Response>][] = [
          ["the network drops", () => Promise.reject(new TypeError("fetch failed"))],
-         ["the provider is unavailable", reply(503, { detail: "x", code: "ai_unavailable" })],
-         ["the quota is used up", reply(429, { detail: "x", code: "ai_quota_exhausted", window: "day", resets_at: "2026-10-30T00:00:00Z" })],
          ["the server errors", reply(500, { detail: "x", code: "internal_error" })],
          ["the answer is malformed", reply(200, { action: "draft", result: { framework: "star", fields: "oops" } })],
          ["the framework is unknown", reply(200, { action: "draft", result: { framework: "bullets", fields: {}, body: "x", questions_to_ask_yourself: [] } })],
@@ -341,5 +339,252 @@ describe("AI help in the answer editor", () => {
          expect(ai).toEqual([]);
          expect((await stored(answer.id)).fields).toEqual({ situation: "First.", action: "Second." });
       });
+   });
+});
+
+const isInert = () => Array.from(document.body.children).some((element) => element.hasAttribute("inert"));
+const alertAfterDraft = async () => {
+   fireEvent.click(button("Draft from my notes"));
+   return screen.findByRole("alert");
+};
+
+describe("AI error states", () => {
+   const states: [string, number, Record<string, unknown>, RegExp, string][] = [
+      ["ai_quota_exhausted", 429, { window: "day", resets_at: "2026-10-31T00:00:00Z" }, /used today's AI help, so we couldn't write a draft\. It renews at .* You can try again after it renews\./, "ai_quota_exhausted"],
+      ["ai_quota_exhausted", 429, { window: "month", resets_at: "2026-11-01T00:00:00Z" }, /used this month's AI help, so we couldn't write a draft\. It renews on /, "ai_quota_exhausted"],
+      ["ai_busy", 429, { retry_after_seconds: 30 }, /AI help is busy, so we couldn't write a draft just now\..* try again in about 30 seconds\./, "ai_busy"],
+      ["ai_busy", 429, {}, /AI help is busy.* try again in a moment\./, "ai_busy"],
+      ["ai_unavailable", 503, {}, /AI help is unavailable, so we couldn't write a draft just now\..* try again later\./, "ai_unavailable"],
+      ["ai_input_too_large", 413, {}, /too long for AI help to read, so we couldn't write a draft\..* Shorten your text/, "ai_input_too_large"],
+      ["ai_not_entitled", 403, {}, /isn't included in your plan, so we couldn't write a draft/, "ai_not_entitled"],
+      ["ai_disabled", 403, {}, /AI help isn't available right now/, "ai_disabled"],
+      ["a code this build does not know", 500, {}, /We couldn't write a draft just now/, "error"],
+   ];
+
+   it.each(states)("%s (%#) renders its own state, keeps the text, and offers no upgrade", async (name, status, extra, expected, marker) => {
+      const answer = await seed();
+      await open(answer);
+      type("Situation", "Unsaved words that must survive.");
+      aiReply = reply(status, { detail: "provider said something private", code: name.startsWith("a code") ? "internal_error" : name, ...extra });
+
+      const alert = await alertAfterDraft();
+
+      expect(alert).toHaveTextContent(expected);
+      expect(alert).toHaveAttribute("data-ai-state", marker);
+      expect(alert).toHaveTextContent("Your text is unchanged and nothing was saved from this.");
+      expect(alert).not.toHaveTextContent(/provider said something private/);
+      expect(alert).not.toHaveTextContent(/upgrade|premium|pricing|subscribe/i);
+      expect(within(alert).queryByRole("link")).toBeNull();
+      expect(document.querySelector('a[href*="pricing"]')).toBeNull();
+      expect(field("Situation")).toHaveValue("Unsaved words that must survive.");
+      expect(screen.getByRole("button", { name: "Draft from my notes" })).not.toHaveAttribute("aria-disabled", "true");
+      expect(ai).toHaveLength(1);
+      await pastAutosave();
+      expect(JSON.stringify(await stored(answer.id))).not.toContain("Generated");
+
+      aiReply = reply(200, DRAFT_RESULT);
+      await draftIt();
+      expect(field("Situation")).toHaveValue("Unsaved words that must survive.");
+      expect(JSON.stringify(await stored(answer.id))).not.toContain("Generated");
+   });
+
+   it("shows a different state for each code", async () => {
+      await open(await seed());
+      type("Situation", "Typed.");
+      const seen = new Set<string>();
+      for (const code of ["ai_quota_exhausted", "ai_busy", "ai_unavailable", "ai_input_too_large", "ai_not_entitled", "ai_disabled"]) {
+         aiReply = reply(429, { detail: "x", code });
+         seen.add((await alertAfterDraft()).textContent ?? "");
+         await waitFor(() => expect(screen.getByRole("button", { name: "Draft from my notes" })).not.toHaveAttribute("aria-disabled", "true"));
+      }
+      expect(seen.size).toBe(6);
+   });
+
+   it("a busy answer is retried only when the reader chooses to, and then succeeds without a second request of its own", async () => {
+      await open(await seed());
+      type("Situation", "Typed.");
+      aiReply = reply(429, { detail: "x", code: "ai_busy", retry_after_seconds: 1 });
+      await alertAfterDraft();
+      await new Promise((resolve) => setTimeout(resolve, 1300));
+      expect(ai).toHaveLength(1);
+
+      aiReply = reply(200, DRAFT_RESULT);
+      await draftIt();
+      expect(ai).toHaveLength(2);
+      expect(screen.queryByRole("alert")).toBeNull();
+   });
+
+   it("an unreadable error body is an ordinary failure, not a crash", async () => {
+      await open(await seed());
+      type("Situation", "Typed.");
+      aiReply = async () => new Response("<html>bad gateway</html>", { status: 502 });
+      expect(await alertAfterDraft()).toHaveTextContent("We couldn't write a draft just now.");
+   });
+});
+
+describe("provider and context disclosure", () => {
+   it("names the provider for each plan from the shared constant and links the Privacy page without leaving the editor", async () => {
+      await open(await seed());
+      const section = screen.getByRole("region", { name: "AI help" });
+      expect(section).toHaveTextContent("your question and the text you chose go to the AI provider for your plan (Groq on Free, OpenAI on Premium)");
+      expect(section).not.toHaveTextContent(/is available|are available|powered by/i);
+      const link = within(section).getByRole("link", { name: /Privacy & AI Use/ });
+      expect(link).toHaveAttribute("href", "/privacy");
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+   });
+});
+
+describe("mobile result sheet", () => {
+   let setNarrow: (next: boolean) => void;
+
+   beforeEach(() => {
+      let narrow = true;
+      const listeners = new Set<() => void>();
+      vi.stubGlobal("matchMedia", (query: string) => ({
+         get matches() {
+            return narrow && query.includes("max-width");
+         },
+         addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+         removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+      }));
+      setNarrow = (next) => {
+         narrow = next;
+         act(() => listeners.forEach((listener) => listener()));
+      };
+   });
+   afterEach(() => vi.unstubAllGlobals());
+
+   const behind = (name: string) => screen.getByRole("textbox", { name, hidden: true }) as HTMLTextAreaElement;
+   const sheetOf = (name: string) => screen.findByRole("dialog", { name });
+   const openSheet = async (typed = "Mine.") => {
+      await open(await seed());
+      type("Situation", typed);
+      button("Draft from my notes").focus();
+      fireEvent.click(button("Draft from my notes"));
+      return sheetOf("Draft preview");
+   };
+
+   it("opens the draft in a labelled sheet, focuses its title, and makes the page behind it inert", async () => {
+      const sheet = await openSheet();
+      expect(screen.queryByRole("region", { name: "Draft preview" })).toBeNull();
+      expect(sheet).toHaveAccessibleDescription(/Nothing in your answer changes until you apply or insert/);
+      expect(document.activeElement).toBe(within(sheet).getByRole("heading", { name: "Draft preview" }));
+      expect(isInert()).toBe(true);
+      expect(behind("Situation").closest("[inert]")).not.toBeNull();
+      expect(within(sheet).getByRole("button", { name: "Apply draft" })).not.toHaveFocus();
+      expect(behind("Situation")).toHaveValue("Mine.");
+   });
+
+   it("keeps focus inside while open", async () => {
+      const sheet = await openSheet();
+      const controls = Array.from(sheet.querySelectorAll<HTMLElement>("button")).filter((el) => !el.hasAttribute("disabled"));
+      controls[controls.length - 1].focus();
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Tab" });
+      await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+   });
+
+   it("Escape hides the sheet without applying or discarding, releases the page, and returns focus to Draft", async () => {
+      const answer = await seed();
+      await open(answer);
+      type("Situation", "Mine.");
+      button("Draft from my notes").focus();
+      fireEvent.click(button("Draft from my notes"));
+      await sheetOf("Draft preview");
+
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(isInert()).toBe(false);
+      expect(screen.getByRole("button", { name: "Draft from my notes" })).toHaveFocus();
+      expect(field("Situation")).toHaveValue("Mine.");
+      await pastAutosave();
+      expect(JSON.stringify(await stored(answer.id))).not.toContain("Generated");
+
+      fireEvent.click(button("Show draft preview"));
+      const again = await sheetOf("Draft preview");
+      expect(isInert()).toBe(true);
+      fireEvent.click(within(again).getByRole("button", { name: "Apply draft" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(isInert()).toBe(false);
+      expect(field("Situation")).toHaveValue("Generated situation.");
+      expect(screen.queryByRole("button", { name: "Show draft preview" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Draft from my notes" })).toHaveFocus();
+   });
+
+   it("Insert and Discard in the sheet close it, release the page and put focus back", async () => {
+      const sheet = await openSheet("Mine.");
+      fireEvent.click(within(sheet).getByRole("button", { name: "Insert draft" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(field("Situation")).toHaveValue("Mine.\n\nGenerated situation.");
+      expect(isInert()).toBe(false);
+      expect(screen.getByRole("button", { name: "Draft from my notes" })).toHaveFocus();
+
+      aiReply = reply(200, REVIEW_RESULT);
+      button("Review my answer").focus();
+      fireEvent.click(button("Review my answer"));
+      const reviewing = await sheetOf("Review");
+      fireEvent.click(within(reviewing).getByRole("button", { name: "Discard review" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(isInert()).toBe(false);
+      expect(screen.getByRole("button", { name: "Review my answer" })).toHaveFocus();
+   });
+
+   it("never saves anything from the sheet by itself", async () => {
+      const answer = await seed();
+      await open(answer);
+      type("Situation", "Mine.");
+      fireEvent.click(button("Draft from my notes"));
+      await sheetOf("Draft preview");
+      await pastAutosave();
+      api.requests.length = 0;
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await pastAutosave();
+      expect(ai).toHaveLength(1);
+      expect(JSON.stringify(await stored(answer.id))).not.toContain("Generated");
+   });
+
+   it("leaves the page usable when the editor unmounts with the sheet open", async () => {
+      const view = await open(await seed());
+      type("Situation", "Mine.");
+      fireEvent.click(button("Draft from my notes"));
+      await sheetOf("Draft preview");
+      expect(isInert()).toBe(true);
+      view.unmount();
+      expect(isInert()).toBe(false);
+   });
+
+   it("shows the preview inline again, with the page released, when the viewport grows while the sheet is open", async () => {
+      const sheet = await openSheet();
+      expect(sheet).toBeInTheDocument();
+      setNarrow(false);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(isInert()).toBe(false);
+      expect(screen.getByRole("region", { name: "Draft preview" })).toBeInTheDocument();
+      expect(field("Situation")).toHaveValue("Mine.");
+   });
+
+   it("moves focus from the sheet to the visible Draft control when the viewport grows while it is open", async () => {
+      const sheet = await openSheet();
+      expect(sheet.contains(document.activeElement)).toBe(true);
+
+      setNarrow(false);
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(isInert()).toBe(false);
+      expect(screen.getByRole("region", { name: "Draft preview" })).toBeInTheDocument();
+      expect(document.activeElement).not.toBe(document.body);
+      expect(button("Draft from my notes")).toHaveFocus();
+      expect(field("Situation")).toHaveValue("Mine.");
+   });
+
+   it("does not open a sheet, or make the page inert, when the request fails", async () => {
+      await open(await seed());
+      type("Situation", "Mine.");
+      aiReply = reply(429, { detail: "x", code: "ai_busy" });
+      expect(await alertAfterDraft()).toHaveTextContent("AI help is busy");
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(isInert()).toBe(false);
    });
 });

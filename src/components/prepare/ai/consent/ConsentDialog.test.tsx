@@ -333,6 +333,62 @@ describe("first-use AI consent dialog", () => {
       });
    });
 
+   describe("when the AI route answers consent-required", () => {
+      const termsChangeMidRun = () => {
+         consent.grant(token);
+         aiReply = async () => {
+            consent.version = NEW_VERSION;
+            return json(403, { detail: "x", code: "ai_consent_required" })();
+         };
+      };
+
+      it("opens the same dialog once, and accepting sends nothing more by itself", async () => {
+         await open(await seed());
+         type("Situation", "Typed.");
+         termsChangeMidRun();
+         fireEvent.click(button("Draft from my notes"));
+
+         const box = await dialog();
+         expect(box).toHaveTextContent(`version ${NEW_VERSION}`);
+         expect(screen.getAllByRole("dialog")).toHaveLength(1);
+         expect(ai).toHaveLength(1);
+
+         await acceptIn(box);
+         expect(await screen.findByRole("alert")).toHaveTextContent("Your AI consent has changed, so nothing was sent. Choose the action again to continue.");
+         noDialog();
+         expect(isInert()).toBe(false);
+         expect(ai).toHaveLength(1);
+         expect(accepts().map(({ body }) => (body as { version: string }).version)).toEqual([NEW_VERSION]);
+         expect(field("Situation")).toHaveValue("Typed.");
+
+         aiReply = json(200, DRAFT);
+         fireEvent.click(button("Draft from my notes"));
+         await screen.findByRole("region", { name: "Draft preview" });
+         noDialog();
+         expect(ai).toHaveLength(2);
+      });
+
+      it("declining sends nothing, stores nothing, keeps the text and asks again only from the next action", async () => {
+         const answer = await seed();
+         await open(answer);
+         type("Situation", "Typed.");
+         termsChangeMidRun();
+         fireEvent.click(button("Draft from my notes"));
+
+         fireEvent.click(within(await dialog()).getByRole("button", { name: "Decline" }));
+         expect(await screen.findByText(/AI help was not used\. Nothing was sent/)).toBeInTheDocument();
+         noDialog();
+         expect(isInert()).toBe(false);
+         expect(ai).toHaveLength(1);
+         expect(accepts()).toEqual([]);
+         expect(field("Situation")).toHaveValue("Typed.");
+         expect(button("Draft from my notes")).toHaveFocus();
+         await pastAutosave();
+         noDialog();
+         expect(ai).toHaveLength(1);
+      });
+   });
+
    describe("focus", () => {
       it("names the dialog, moves focus into it, loops Tab inside it, makes the page inert and returns focus on decline", async () => {
          await open(await seed());
