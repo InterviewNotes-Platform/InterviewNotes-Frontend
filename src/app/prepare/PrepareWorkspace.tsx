@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { createPrepClient } from "@/lib/prep/client";
 import { answerHref } from "@/lib/prep/links";
 import type { Answer, PrepResult } from "@/lib/prep/types";
@@ -13,13 +15,17 @@ import { createClient } from "@/lib/supabase/client";
 /** After this long the loading state also says the wait is longer than usual (a cold start, P7-D-010). */
 export const SLOW_NOTICE_MS = 4000;
 
-const FIRST_PAGE = 100;
+/** The API's largest page; more answers are read with `offset`, never by asking for a bigger page. */
+const PAGE = 100;
+const SEARCH_MAX = 200;
 
 type State =
     | { phase: "loading" }
     | { phase: "ready"; answers: Answer[]; total: number }
     | { phase: "signin" }
     | { phase: "failed"; message: string };
+
+type Filter = { q: string; tags: string[] };
 
 interface Props {
     /** The API origin the browser calls; null when the environment has none. */
@@ -56,6 +62,13 @@ export function PrepareWorkspace({ apiUrl, getAccessToken = sessionToken, fetch:
     const [state, setState] = useState<State>(apiUrl ? { phase: "loading" } : { phase: "failed", message: "The preparation service is not configured for this environment." });
     const [slow, setSlow] = useState(false);
     const [attempt, setAttempt] = useState(0);
+    const [typed, setTyped] = useState("");
+    const [filter, setFilter] = useState<Filter>({ q: "", tags: [] });
+    const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
+    const [paged, setPaged] = useState(false);
+    const latest = useRef(filter);
+    const countRef = useRef<HTMLParagraphElement>(null);
+    const focusCount = useRef(false);
     const client = useMemo(
         () => (apiUrl ? createPrepClient({ baseUrl: apiUrl, getAccessToken, fetch: fetchImpl }) : null),
         [apiUrl, getAccessToken, fetchImpl]
@@ -65,7 +78,7 @@ export function PrepareWorkspace({ apiUrl, getAccessToken = sessionToken, fetch:
         if (!client) return;
         let current = true;
         const timer = setTimeout(() => setSlow(true), SLOW_NOTICE_MS);
-        client.listAnswers({ limit: FIRST_PAGE }).then((result) => {
+        client.listAnswers({ q: filter.q, tag: filter.tags, limit: PAGE }).then((result) => {
             if (!current) return;
             clearTimeout(timer);
             setSlow(false);
@@ -75,12 +88,59 @@ export function PrepareWorkspace({ apiUrl, getAccessToken = sessionToken, fetch:
             current = false;
             clearTimeout(timer);
         };
-    }, [client, attempt]);
+    }, [client, attempt, filter]);
+
+    useEffect(() => {
+        latest.current = filter;
+        if (focusCount.current) countRef.current?.focus();
+        focusCount.current = false;
+    });
 
     const retry = useCallback(() => {
         setState({ phase: "loading" });
         setAttempt((n) => n + 1);
     }, []);
+
+    function apply(next: Filter) {
+        setFilter(next);
+        setMore("idle");
+        setPaged(false);
+        setState({ phase: "loading" });
+    }
+
+    function search(event: FormEvent) {
+        event.preventDefault();
+        apply({ ...filter, q: typed.trim() });
+    }
+
+    const filtered = filter.q !== "" || filter.tags.length > 0;
+    const clear = () => {
+        setTyped("");
+        apply({ q: "", tags: [] });
+    };
+    const addTag = (tag: string) => !filter.tags.includes(tag) && apply({ ...filter, tags: [...filter.tags, tag] });
+
+    /** The next page of the same search. A page that arrives after the search changed is dropped. */
+    async function showMore() {
+        if (!client || state.phase !== "ready" || more === "loading") return;
+        const asked = filter;
+        setMore("loading");
+        const result = await client.listAnswers({ q: asked.q, tag: asked.tags, limit: PAGE, offset: state.answers.length });
+        if (latest.current !== asked) return;
+        if (result.status === "ok") {
+            const { items, total } = result.data;
+            const answers = [...state.answers, ...items.filter(({ id }) => !state.answers.some((have) => have.id === id))];
+            focusCount.current = answers.length >= total;
+            setState({ phase: "ready", answers, total });
+            setPaged(true);
+            setMore("idle");
+        } else if (result.status === "unauthenticated") {
+            setState({ phase: "signin" });
+            setMore("idle");
+        } else {
+            setMore("failed");
+        }
+    }
 
     const answers = state.phase === "ready" ? state.answers : [];
     const inProgress = answers.filter(({ status }) => status !== "ready");
@@ -100,6 +160,33 @@ export function PrepareWorkspace({ apiUrl, getAccessToken = sessionToken, fetch:
                     </Button>
                 </div>
             </header>
+
+            <form role="search" onSubmit={search} className="flex flex-wrap items-end gap-3">
+                <div className="grid min-w-64 flex-1 gap-1.5">
+                    <Label htmlFor="answer-search">Search answers</Label>
+                    <Input id="answer-search" type="search" value={typed} maxLength={SEARCH_MAX} disabled={!client} onChange={(event) => setTyped(event.target.value)} />
+                </div>
+                <Button type="submit" size="lg" disabled={!client}>
+                    Search
+                </Button>
+                {filtered && (
+                    <Button type="button" variant="outline" size="lg" onClick={clear}>
+                        Clear search and filters
+                    </Button>
+                )}
+            </form>
+
+            {filter.tags.length > 0 && (
+                <ul aria-label="Tag filters" className="flex flex-wrap gap-2">
+                    {filter.tags.map((tag) => (
+                        <li key={tag}>
+                            <Button type="button" variant="secondary" size="sm" aria-label={`Remove filter ${tag}`} onClick={() => apply({ ...filter, tags: filter.tags.filter((other) => other !== tag) })}>
+                                {tag} ✕
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            )}
 
             {state.phase === "loading" && (
                 <p role="status" className="text-body text-muted-foreground">
@@ -126,22 +213,49 @@ export function PrepareWorkspace({ apiUrl, getAccessToken = sessionToken, fetch:
                 </div>
             )}
 
-            {(state.phase === "loading" || state.phase === "ready") && (
-                <div className="grid gap-4 md:grid-cols-2">
-                    <Section title="In progress" loading={state.phase === "loading"} answers={inProgress} empty={partial ? "No recent answers in progress." : "No answers in progress."} />
-                    <Section title="Ready" loading={state.phase === "loading"} answers={ready} empty={partial ? "No recent answers marked ready." : "No answers marked ready."} />
+            {state.phase === "ready" && filtered && state.answers.length === 0 ? (
+                <div role="status" className="space-y-3">
+                    <p className="text-body text-foreground">No answers match your search or filters.</p>
+                    <Button variant="outline" onClick={clear}>
+                        Clear search and filters
+                    </Button>
                 </div>
+            ) : (
+                (state.phase === "loading" || state.phase === "ready") && (
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <Section title="In progress" loading={state.phase === "loading"} answers={inProgress} onTag={addTag} empty={partial ? "No recent answers in progress." : "No answers in progress."} />
+                        <Section title="Ready" loading={state.phase === "loading"} answers={ready} onTag={addTag} empty={partial ? "No recent answers marked ready." : "No answers marked ready."} />
+                    </div>
+                )
             )}
-            {state.phase === "ready" && state.total > state.answers.length && (
-                <p className="text-supporting text-muted-foreground">
-                    Showing the latest {state.answers.length} of {state.total} answers; older ones are not listed here.
-                </p>
+            {state.phase === "ready" && state.answers.length > 0 && (partial || filtered || paged) && (
+                <div className="space-y-3">
+                    <p ref={countRef} tabIndex={-1} role="status" className="text-supporting text-muted-foreground">
+                        {countText(state.answers.length, state.total, filtered)}
+                    </p>
+                    {more === "failed" && (
+                        <p role="alert" className="text-body text-foreground">
+                            We could not load more answers. Nothing on this page was lost; try again.
+                        </p>
+                    )}
+                    {partial && (
+                        <Button type="button" variant="outline" aria-disabled={more === "loading" || undefined} onClick={() => void showMore()}>
+                            {more === "loading" ? "Loading more…" : "Show more answers"}
+                        </Button>
+                    )}
+                </div>
             )}
         </div>
     );
 }
 
-function Section({ title, loading, answers, empty }: { title: string; loading: boolean; answers: Answer[]; empty: string }) {
+function countText(shown: number, total: number, filtered: boolean): string {
+    if (shown < total) return `Showing ${shown} of ${total} answers${filtered ? " that match" : ""}.`;
+    const noun = total === 1 ? "answer" : "answers";
+    return filtered ? `${total} ${noun} ${total === 1 ? "matches" : "match"}.` : `${total} ${noun}.`;
+}
+
+function Section({ title, loading, answers, empty, onTag }: { title: string; loading: boolean; answers: Answer[]; empty: string; onTag: (tag: string) => void }) {
     return (
         <Card>
             <CardHeader>
@@ -154,11 +268,22 @@ function Section({ title, loading, answers, empty }: { title: string; loading: b
                     <p className="text-supporting text-muted-foreground">{empty}</p>
                 ) : (
                     <ul className="space-y-2 text-body text-foreground">
-                        {answers.map(({ id, question_snapshot }) => (
-                            <li key={id}>
+                        {answers.map(({ id, question_snapshot, tags }) => (
+                            <li key={id} className="space-y-1">
                                 <Link href={answerHref(id)} prefetch={false} className="line-clamp-2 block underline-offset-4 hover:underline">
                                     {question_snapshot}
                                 </Link>
+                                {tags.length > 0 && (
+                                    <ul aria-label={`Tags on ${question_snapshot}`} className="flex flex-wrap gap-2">
+                                        {tags.map((tag) => (
+                                            <li key={tag}>
+                                                <Button type="button" variant="outline" size="sm" aria-label={`Filter by tag ${tag}`} onClick={() => onTag(tag)}>
+                                                    {tag}
+                                                </Button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </li>
                         ))}
                     </ul>
