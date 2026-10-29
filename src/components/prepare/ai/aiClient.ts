@@ -27,14 +27,17 @@ export type ReviewRequest = {
 export type DraftResult = { framework: string; fields: PrepFields; body: string | null; questions_to_ask_yourself: string[] };
 export type ReviewResult = { missing: string[]; weak: string[]; claims_to_verify: string[]; questions_to_ask_yourself: string[] };
 
+/** The envelope's optional numbers, kept only when well formed (api-contract.md §9.5): the quota window and its reset, or the wait for a busy answer. */
+export type AiErrorInfo = { window?: "day" | "month"; resetsAt?: string; retryAfterSeconds?: number };
+
 /**
- * `failed` carries the envelope's `code` when the API sent one, so a later task can tell quota from busy from
+ * `failed` carries the envelope's `code` when the API sent one, so the editor can tell quota from busy from
  * unavailable; `cause` is `upstream` for any non-2xx answer and `malformed` for a 2xx body this client cannot use.
  */
 export type AiResult<T> =
    | { status: "ok"; data: T }
    | { status: "unauthenticated" }
-   | { status: "failed"; code: string | null; cause: "transport" | "timeout" | "upstream" | "malformed" };
+   | { status: "failed"; code: string | null; cause: "transport" | "timeout" | "upstream" | "malformed"; info?: AiErrorInfo };
 
 const STAR = ["situation", "task", "action", "result"];
 
@@ -42,6 +45,14 @@ const isStrings = (value: unknown): value is string[] => Array.isArray(value) &&
 
 function isStarFields(value: unknown): value is PrepFields {
    return isRecord(value) && Object.entries(value).every(([key, text]) => STAR.includes(key) && typeof text === "string");
+}
+
+function errorInfo(payload: Record<string, unknown>): AiErrorInfo | undefined {
+   const info: AiErrorInfo = {};
+   if (payload.window === "day" || payload.window === "month") info.window = payload.window;
+   if (typeof payload.resets_at === "string" && !Number.isNaN(Date.parse(payload.resets_at))) info.resetsAt = payload.resets_at;
+   if (Number.isInteger(payload.retry_after_seconds) && (payload.retry_after_seconds as number) >= 1) info.retryAfterSeconds = payload.retry_after_seconds as number;
+   return Object.keys(info).length > 0 ? info : undefined;
 }
 
 function isDraftResult(value: unknown): value is DraftResult {
@@ -98,7 +109,8 @@ export function createAiClient(config: PrepClientConfig) {
          }
          if (!response.ok) {
             const code = isRecord(payload) && typeof payload.code === "string" ? payload.code : null;
-            return { status: "failed", code, cause: "upstream" };
+            const info = isRecord(payload) ? errorInfo(payload) : undefined;
+            return { status: "failed", code, cause: "upstream", ...(info && { info }) };
          }
          return isRecord(payload) && payload.action === action && isResult(payload.result)
             ? { status: "ok", data: payload.result }

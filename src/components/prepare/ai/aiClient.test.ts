@@ -59,6 +59,15 @@ describe("createAiClient", () => {
       expect(result).toEqual({ status: "failed", code: null, cause: "transport" });
    });
 
+   it("keeps the quota window, reset time and busy wait from the error envelope, and drops malformed ones", async () => {
+      const quota = { detail: "x", code: "ai_quota_exhausted", window: "day", resets_at: "2026-10-31T00:00:00Z" };
+      expect(await client(async () => json(429, quota)).draft(DRAFT)).toEqual({ status: "failed", code: "ai_quota_exhausted", cause: "upstream", info: { window: "day", resetsAt: "2026-10-31T00:00:00Z" } });
+      const busy = { detail: "x", code: "ai_busy", retry_after_seconds: 12 };
+      expect(await client(async () => json(429, busy)).draft(DRAFT)).toEqual({ status: "failed", code: "ai_busy", cause: "upstream", info: { retryAfterSeconds: 12 } });
+      const junk = { detail: "x", code: "ai_busy", window: "week", resets_at: "soon", retry_after_seconds: 0 };
+      expect(await client(async () => json(429, junk)).draft(DRAFT)).toEqual({ status: "failed", code: "ai_busy", cause: "upstream" });
+   });
+
    it("reports no answer in time as a timeout, at 120 s by default", async () => {
       expect(AI_TIMEOUT_MS).toBe(120_000);
       vi.useFakeTimers();
