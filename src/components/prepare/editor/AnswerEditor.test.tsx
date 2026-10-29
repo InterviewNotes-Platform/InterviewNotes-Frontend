@@ -233,7 +233,7 @@ describe("STAR and free-form", () => {
 
    it("shows a STAR answer's labels and a free-form answer's field with the right names", async () => {
       await open(await seed());
-      expect(screen.getAllByRole("textbox").map((box) => (box as HTMLTextAreaElement).labels?.[0].textContent)).toEqual(["Situation", "Task", "Action", "Result"]);
+      expect(screen.getAllByRole("textbox").map((box) => (box as HTMLTextAreaElement).labels?.[0].textContent)).toEqual(["Situation", "Task", "Action", "Result", "Tags"]);
       expect(screen.getByRole("radio", { name: "STAR" })).toBeChecked();
    });
 
@@ -572,5 +572,122 @@ describe("duplicate", () => {
       await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
       fireEvent.click(screen.getByRole("button", { name: "Duplicate" }));
       expect(api.requests.filter(({ method }) => method === "POST")).toHaveLength(1);
+   });
+});
+
+describe("tags", () => {
+   const tagBox = () => screen.getByRole("textbox", { name: "Tags" }) as HTMLInputElement;
+   const addTag = (text: string) => {
+      fireEvent.change(tagBox(), { target: { value: text } });
+      fireEvent.keyDown(tagBox(), { key: "Enter" });
+   };
+
+   it("adds tags as they will be stored, saves exactly those and sends nothing else", async () => {
+      const answer = await seed();
+      await open(answer);
+      addTag(" Leadership , conflict, LEADERSHIP");
+      const list = screen.getByRole("list", { name: "Tags on this answer" });
+      expect(list).toHaveTextContent("leadership");
+      expect(list).toHaveTextContent("conflict");
+      await save();
+      expect((await stored(answer.id)).tags).toEqual(["leadership", "conflict"]);
+      expect(patches().map(({ body }) => body)).toEqual([{ version: 1, tags: ["leadership", "conflict"] }]);
+      expect(status()).toBe("Saved");
+   });
+
+   it("keeps a tag typed but not yet confirmed when the field loses focus", async () => {
+      const answer = await seed();
+      await open(answer);
+      fireEvent.change(tagBox(), { target: { value: "migration" } });
+      fireEvent.blur(tagBox());
+      await waitFor(() => expect(status()).toBe("Saved"));
+      expect((await stored(answer.id)).tags).toEqual(["migration"]);
+   });
+
+   it("removes one tag and keeps the others", async () => {
+      const answer = await seed({ tags: ["a", "b"] });
+      await open(answer);
+      fireEvent.click(screen.getByRole("button", { name: "Remove tag a" }));
+      await save();
+      expect((await stored(answer.id)).tags).toEqual(["b"]);
+   });
+
+   it("refuses a twenty-first tag in words that name an answer", async () => {
+      const answer = await seed({ tags: Array.from({ length: 20 }, (_, i) => `t${i}`) });
+      await open(answer);
+      addTag("one more");
+      expect(screen.getByText("An answer can have at most 20 tags.")).toBeInTheDocument();
+      expect(patches()).toHaveLength(0);
+   });
+});
+
+describe("delete", () => {
+   const deleteAnswer = async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Delete…" }));
+      await screen.findByRole("alertdialog");
+      fireEvent.click(screen.getByRole("button", { name: "Delete answer" }));
+   };
+
+   it("replaces the form with the server's confirmation, moves focus to it and leaves nothing stored", async () => {
+      const answer = await seed();
+      await open(answer);
+      await deleteAnswer();
+      const heading = await screen.findByRole("heading", { name: "Answer deleted" });
+      expect(heading).toHaveFocus();
+      expect(screen.getByRole("status")).toHaveTextContent("The server confirmed that this answer was deleted.");
+      expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+      expect(screen.getByRole("link", { name: "Answer a question" })).toHaveAttribute("href", "/prepare/new");
+      expect((await client().getAnswer(answer.id)).status).toBe("notFound");
+   });
+
+   it("opens the confirmation even when the click that opens it also starts an autosave", async () => {
+      const answer = await seed();
+      await open(answer);
+      type("Situation", "Typed just before the click.");
+      fireEvent.blur(field("Situation")); // what the click's mouse-down does: a blur, which starts the save
+      fireEvent.click(screen.getByRole("button", { name: "Delete…" }));
+      await screen.findByRole("alertdialog");
+      fireEvent.click(screen.getByRole("button", { name: "Delete answer" }));
+      await screen.findByRole("heading", { name: "Answer deleted" });
+      expect((await client().getAnswer(answer.id)).status).toBe("notFound");
+   });
+
+   it("lets go of unsaved edits: the page no longer warns about leaving once the answer is gone", async () => {
+      const answer = await seed();
+      await open(answer);
+      type("Situation", "Typed, not yet saved.");
+      const beforeDelete = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(beforeDelete);
+      expect(beforeDelete.defaultPrevented).toBe(true);
+      await deleteAnswer();
+      await screen.findByRole("heading", { name: "Answer deleted" });
+      const afterDelete = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(afterDelete);
+      expect(afterDelete.defaultPrevented).toBe(false);
+      expect(patches()).toHaveLength(0);
+   });
+
+   it("keeps the form and the reader's text when the deletion fails", async () => {
+      const answer = await seed();
+      await open(answer);
+      type("Situation", "Still here.");
+      fireEvent.click(screen.getByRole("button", { name: "Delete…" }));
+      await screen.findByRole("alertdialog");
+      api.failNext(500);
+      fireEvent.click(screen.getByRole("button", { name: "Delete answer" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Nothing was deleted.");
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+      expect(field("Situation").value).toBe("Still here.");
+      expect((await stored(answer.id)).id).toBe(answer.id);
+   });
+
+   it("says the answer was not found, and deleted nothing, when it was already gone", async () => {
+      const answer = await seed();
+      await open(answer);
+      await client().deleteAnswer(answer.id);
+      await deleteAnswer();
+      expect(await screen.findByRole("heading", { name: "Answer not found" })).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("this request deleted nothing");
    });
 });

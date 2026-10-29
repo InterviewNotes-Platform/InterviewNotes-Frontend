@@ -13,16 +13,18 @@ interface Props {
    /** The server's reason, when it refused the tags. */
    error?: string;
    disabled?: boolean;
+   /** What the tags belong to; only the words change. */
+   subject?: "story" | "answer";
 }
 
 /** Tags as they will be stored: add one or several, remove any. Typed text is added when the field loses focus, never dropped. */
-export function TagInput({ tags, onChange, error, disabled }: Props) {
+export function TagInput({ tags, onChange, error, disabled, subject = "story" }: Props) {
    const [typed, setTyped] = useState("");
    const [problem, setProblem] = useState<string>();
 
    function commit() {
       if (typed.trim() === "") return setTyped("");
-      const added = addTags(tags, typed);
+      const added = addTags(tags, typed, subject);
       setProblem(added.error);
       if (added.error) return;
       onChange(added.tags);
@@ -50,7 +52,7 @@ export function TagInput({ tags, onChange, error, disabled }: Props) {
             />
          </Field>
          {tags.length > 0 && (
-            <ul aria-label="Tags on this story" className="flex flex-wrap gap-2">
+            <ul aria-label={`Tags on this ${subject}`} className="flex flex-wrap gap-2">
                {tags.map((tag) => (
                   <li key={tag} className="flex items-center gap-1 rounded-full border border-border py-0.5 pr-1 pl-3 text-supporting text-foreground">
                      {tag}

@@ -15,6 +15,7 @@ export type AnswerDraft = {
    fields: Record<StarKey, string>;
    body: string;
    status: Answer["status"];
+   tags: string[];
 };
 
 export function draftOf(answer: Answer): AnswerDraft {
@@ -24,6 +25,7 @@ export function draftOf(answer: Answer): AnswerDraft {
       fields: Object.fromEntries(STAR_KEYS.map((key) => [key, answer.fields[key] ?? ""])) as Record<StarKey, string>,
       body: answer.body ?? "",
       status: answer.status,
+      tags: answer.tags,
    };
 }
 
@@ -43,6 +45,7 @@ export function changesOf(draft: AnswerDraft, saved: Answer): Omit<AnswerUpdate,
    if (STAR_KEYS.some((key) => draft.fields[key] !== was.fields[key])) changes.fields = fieldsOf(draft.fields);
    if (draft.body !== was.body) changes.body = draft.body === "" ? null : draft.body;
    if (draft.status !== was.status) changes.status = draft.status;
+   if (draft.tags.join("\n") !== was.tags.join("\n")) changes.tags = draft.tags;
    return Object.keys(changes).length > 0 ? changes : null;
 }
 

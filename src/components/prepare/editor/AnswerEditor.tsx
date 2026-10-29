@@ -15,10 +15,12 @@ import { answerHref } from "@/lib/prep/links";
 import type { CatalogQuestion } from "@/lib/prep/questions";
 import { relateToCatalog } from "@/lib/prep/relation";
 import type { Answer, AnswerStatus, FieldIssue, PrepResult } from "@/lib/prep/types";
-import { PREPARE_HREF } from "@/lib/primary-navigation";
+import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { LinkedStories } from "@/components/prepare/stories/LinkedStories";
+import { TagInput } from "@/components/prepare/stories/TagInput";
+import { DeleteAnswer } from "./DeleteAnswer";
 import { useAnswerEditor } from "./useAnswerEditor";
 import { useLeaveGuard } from "./useLeaveGuard";
 
@@ -89,6 +91,7 @@ export function AnswerEditor({ apiUrl, answerId, catalog, getAccessToken = sessi
    const [load, setLoad] = useState<Load>(apiUrl ? { phase: "loading" } : { phase: "failed", message: "The preparation service is not configured for this environment.", retry: false });
    const [slow, setSlow] = useState(false);
    const [attempt, setAttempt] = useState(0);
+   const [deleted, setDeleted] = useState<"deleted" | "missing" | null>(null);
    const client = useMemo(
       () => (apiUrl ? createPrepClient({ baseUrl: apiUrl, getAccessToken, fetch: fetchImpl }) : null),
       [apiUrl, getAccessToken, fetchImpl]
@@ -112,7 +115,8 @@ export function AnswerEditor({ apiUrl, answerId, catalog, getAccessToken = sessi
 
    const signInHref = `/login?redirect=${encodeURIComponent(answerHref(answerId))}`;
 
-   if (load.phase === "ready" && client) return <AnswerForm initial={load.answer} client={client} catalog={catalog} signInHref={signInHref} />;
+   if (deleted) return <AnswerDeleted outcome={deleted} />;
+   if (load.phase === "ready" && client) return <AnswerForm initial={load.answer} client={client} catalog={catalog} signInHref={signInHref} onDeleted={setDeleted} />;
    return (
       <div className="space-y-4">
          <BackLink />
@@ -162,6 +166,30 @@ function BackLink() {
    );
 }
 
+/** Shown instead of the form once the API has answered the deletion; the form, its autosave and its leave guard are gone with it. */
+function AnswerDeleted({ outcome }: { outcome: "deleted" | "missing" }) {
+   const heading = useRef<HTMLHeadingElement>(null);
+   useEffect(() => heading.current?.focus(), []);
+   return (
+      <div className="space-y-4">
+         <BackLink />
+         <h1 ref={heading} tabIndex={-1} className="text-section text-foreground">
+            {outcome === "deleted" ? "Answer deleted" : "Answer not found"}
+         </h1>
+         <p role="status" className="text-body text-foreground">
+            {outcome === "deleted"
+               ? "The server confirmed that this answer was deleted."
+               : "This answer was not found in your workspace, so this request deleted nothing."}
+         </p>
+         <Button asChild>
+            <Link href={PREPARE_NEW_HREF} prefetch={false}>
+               Answer a question
+            </Link>
+         </Button>
+      </div>
+   );
+}
+
 function issueText(issues: FieldIssue[], field: string): string | undefined {
    const found = issues.find((issue) => issue.field === field);
    return found && REASONS[found.reason];
@@ -172,9 +200,10 @@ interface FormProps {
    client: PrepClient;
    catalog: readonly CatalogQuestion[] | null;
    signInHref: string;
+   onDeleted: (outcome: "deleted" | "missing") => void;
 }
 
-function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
+function AnswerForm({ initial, client, catalog, signInHref, onDeleted }: FormProps) {
    const router = useRouter();
    const ids = useId();
    const editor = useAnswerEditor({ initial, client, onCopied: (id) => void leave(() => router.push(answerHref(id))) });
@@ -317,6 +346,8 @@ function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
             )}
          </section>
 
+         <TagInput subject="answer" tags={draft.tags} onChange={(tags) => edit({ tags })} error={issueText(issues, "tags")} />
+
          <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
                <Button type="submit" size="lg" aria-disabled={cannotSave} className={cn(cannotSave && "opacity-50")}>
@@ -325,6 +356,7 @@ function AnswerForm({ initial, client, catalog, signInHref }: FormProps) {
                <Button type="button" variant="outline" size="lg" aria-disabled={!canDuplicate} className={cn(!canDuplicate && "opacity-50")} onClick={duplicate}>
                   Duplicate
                </Button>
+               <DeleteAnswer client={client} answer={saved} onDeleted={onDeleted} />
                <SaveStatus ref={statusRef} tabIndex={-1} status={saveState} message={saveMessage} />
             </div>
             {dirty && <p className="text-supporting text-muted-foreground">Save your changes before duplicating: a copy holds what is saved.</p>}
