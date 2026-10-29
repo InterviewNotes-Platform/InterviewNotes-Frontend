@@ -266,7 +266,7 @@ test.describe("FAQ without JavaScript", () => {
       await expect(answer).toBeHidden();
       await faq.locator("summary").first().click();
       await expect(answer).toBeVisible();
-      await expect(answer).toContainText("Each Track shows what is published today");
+      await expect(answer).toContainText("Two Tracks are published today");
    });
 });
 

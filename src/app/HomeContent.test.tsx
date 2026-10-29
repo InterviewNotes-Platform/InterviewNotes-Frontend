@@ -709,6 +709,15 @@ describe("FAQ", () => {
         expect(answers).not.toMatch(/everything you need|Staff AI\/ML|\$\d/i);
         expect(FAQ.items[3].a).toMatch(/planned, not available yet/i);
     });
+
+    it("names exactly the published Tracks in answer 1, including Behavioral, by their catalog titles", () => {
+        // Titles as published in the catalog (track.genai-system-design, track.behavioral-interview-preparation).
+        const answer = FAQ.items[0].a;
+        expect(answer).toContain("GenAI System Design");
+        expect(answer).toContain("Behavioral Interview Preparation");
+        expect(answer).toMatch(/SDE-1, SDE-2, SDE-3 and first-line engineering manager/);
+        expect(answer).not.toMatch(/ML system design|LLM platform|MLOps/i);
+    });
 });
 
 describe("closing action", () => {

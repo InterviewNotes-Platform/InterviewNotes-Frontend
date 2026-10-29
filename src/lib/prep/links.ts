@@ -10,11 +10,18 @@ const MAX_QUESTION_ID = 48;
 const QUESTION_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const CONTENT_ID = /^[a-z0-9]+\.[a-z0-9]+(-[a-z0-9]+)*$/;
 
-/** `/prepare/new`, naming the question when one is given. Both values are public identifiers; nothing about the reader is in the URL. */
-export function newAnswerHref(ref?: QuestionRef | null): string {
-   if (!ref) return PREPARE_NEW_HREF;
-   const params = new URLSearchParams({ content: ref.content_id, question: ref.question_id });
-   return `${PREPARE_NEW_HREF}?${params}`;
+/**
+ * `/prepare/new`, naming the question and, when starting from a story, the story's id. All are identifiers; nothing the reader
+ * wrote is in the URL, and a story id selects nothing until the signed-in reader's own API call finds it.
+ */
+export function newAnswerHref(ref?: QuestionRef | null, storyId?: string | null): string {
+   const params = new URLSearchParams();
+   if (ref) {
+      params.set("content", ref.content_id);
+      params.set("question", ref.question_id);
+   }
+   if (storyId) params.set("story", storyId);
+   return params.size > 0 ? `${PREPARE_NEW_HREF}?${params}` : PREPARE_NEW_HREF;
 }
 
 /** An answer's id is a server-generated UUID (contract §2.2); anything else cannot name an answer. */

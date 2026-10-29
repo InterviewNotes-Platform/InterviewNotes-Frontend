@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { StartLinkNotice } from "@/components/prepare/stories/StartLinkNotice";
+import { startFromStory } from "@/components/prepare/stories/startFromStory";
 import { createPrepClient } from "@/lib/prep/client";
 import { asTargetLevel, levelLabel, TARGET_LEVELS } from "@/lib/prep/levels";
 import { answerHref, newAnswerHref, sameQuestion, type QuestionRef } from "@/lib/prep/links";
 import type { CatalogQuestion } from "@/lib/prep/questions";
-import type { AnswerCreate, PrepResult, TargetLevel } from "@/lib/prep/types";
+import type { Answer, AnswerCreate, PrepResult, TargetLevel } from "@/lib/prep/types";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,8 @@ type Save =
    | { phase: "idle" }
    | { phase: "saving" }
    | { phase: "done" }
+   // Starting from a story: the answer exists with its copy, but the link is not confirmed.
+   | { phase: "unlinked"; answerId: string }
    | { phase: "signin" }
    | { phase: "failed"; message: string; unconfirmed: boolean };
 
@@ -46,6 +50,8 @@ interface Props {
    catalog: CatalogLoad;
    /** The question a Lesson link named. It selects a question only when the same pair is in `catalog`. */
    requested?: QuestionRef | null;
+   /** Start from this story: the answer is created with a copy of its saved text, then linked. Checked by the API, not here. */
+   storyId?: string | null;
    /** Tests supply these; the page uses the browser's Supabase session and `fetch`. */
    getAccessToken?: () => Promise<string | null>;
    fetch?: typeof fetch;
@@ -109,7 +115,7 @@ const CHOICE =
    "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 text-body transition-micro hover:border-primary " +
    "has-[:checked]:border-primary has-[:checked]:bg-surface has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-[3px]";
 
-export function QuestionPicker({ apiUrl, catalog, requested = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
    const router = useRouter();
    const ids = useId();
    const client = useMemo(
@@ -176,7 +182,7 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, getAccessTok
    const visible = level === "all" ? questions : questions.filter((question) => question.level === level);
    const customLength = [...customText.trim()].length;
    const customTooLong = customLength > SNAPSHOT_MAX;
-   const busy = save.phase === "saving" || save.phase === "done";
+   const busy = save.phase === "saving" || save.phase === "done" || save.phase === "unlinked";
 
    function chooseLevel(next: LevelFilter) {
       interacted.current = true;
@@ -201,7 +207,24 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, getAccessTok
       if (!client || saving.current || unconfirmedRef.current === next.key) return;
       saving.current = true;
       setSave({ phase: "saving" });
-      const result = await client.createAnswer(next.body);
+      const started = storyId ? await startFromStory(client, storyId, next.body) : null;
+      if (started?.status === "unlinked") {
+         // The answer exists: the form stays closed so it cannot be made twice, and only the link is retried.
+         setSave({ phase: "unlinked", answerId: started.answer.id });
+         return;
+      }
+      if (started?.status === "no-story") {
+         saving.current = false;
+         setSave(
+            started.result.status === "notFound"
+               ? { phase: "failed", message: "We could not find that story in your Story Bank, so no answer was created.", unconfirmed: false }
+               : started.result.status === "unauthenticated"
+                 ? { phase: "signin" }
+                 : { phase: "failed", message: "We could not read the story, so no answer was created.", unconfirmed: false }
+         );
+         return;
+      }
+      const result: PrepResult<Answer> = started ? (started.status === "no-answer" ? started.result : { status: "ok", data: started.answer }) : await client.createAnswer(next.body);
       if (result.status === "ok") {
          // Stays disabled while the editor opens, so a second click cannot create a second answer.
          setSave({ phase: "done" });
@@ -230,7 +253,7 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, getAccessTok
       if (pending) void create(pending);
    }
 
-   const signInHref = `/login?redirect=${encodeURIComponent(newAnswerHref(selected))}`;
+   const signInHref = `/login?redirect=${encodeURIComponent(newAnswerHref(selected, storyId))}`;
    const awaitingCheck = pending !== null && pending.key === unconfirmed;
    const canSubmit = !busy && Boolean(client) && pending !== null && !awaitingCheck;
    // A warning about an earlier, different choice is no longer about what the form would create.
@@ -244,6 +267,11 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, getAccessTok
             </Link>
             <h1 className="text-section text-foreground">Choose a question</h1>
             <p className="max-w-reading text-body text-muted-foreground">Start from a question in the Behavioral Lessons, or write your own.</p>
+            {storyId && (
+               <p className="max-w-reading text-body text-foreground">
+                  Your answer will start with a copy of your story&apos;s saved text and be linked to the story. After that the two are separate: editing one does not change the other.
+               </p>
+            )}
          </header>
 
          {!apiUrl && (
@@ -398,6 +426,9 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, getAccessTok
                      Creating your answer…
                      {slow && " This is taking longer than usual, which can happen after a period of inactivity. Please keep this page open."}
                   </p>
+               )}
+               {shown.phase === "unlinked" && client && storyId && (
+                  <StartLinkNotice client={client} answerId={shown.answerId} storyId={storyId} onLinked={() => router.push(answerHref(shown.answerId))} />
                )}
                {shown.phase === "done" && (
                   <p role="status" className="text-supporting text-muted-foreground">

@@ -170,7 +170,7 @@ export const FAQ = {
    items: [
       {
          q: "What interview types does InterviewNotes cover?",
-         a: "The library is for ML and AI engineering interviews: ML system design, LLM platform design and GenAI, with the platform and MLOps work behind them. Each Track shows what is published today.",
+         a: "Two Tracks are published today: GenAI System Design and Behavioral Interview Preparation. The Behavioral Track has a Lesson for each of four levels: SDE-1, SDE-2, SDE-3 and first-line engineering manager. Each Track shows what is published.",
       },
       {
          q: "How is the content structured?",
