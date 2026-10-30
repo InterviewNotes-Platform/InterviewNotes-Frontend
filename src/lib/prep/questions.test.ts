@@ -195,6 +195,72 @@ describe("exclusions and authored identifiers", () => {
    });
 });
 
+describe("grouped collections (P7-T58)", () => {
+   const COMPANY = { content_id: "lesson.company", slug: "company", level: null };
+   const text = [
+      "Intro prose.",
+      "",
+      "## First group",
+      "",
+      "Why this group matters.",
+      "",
+      "```",
+      "### Not a heading {#fenced}",
+      "```",
+      "",
+      "### One {#one}",
+      "",
+      'The question: "Q one?"',
+      "",
+      "### Unauthored heading",
+      "",
+      'The question: "Never offered."',
+      "",
+      "## Second group {#second-group}",
+      "",
+      "Second explanation.",
+      "",
+      "### Two {#two}",
+      "",
+      "No question line here.",
+      "",
+      "### What fits at this level {#fits}",
+      "",
+      'The question: "Excluded."',
+      "",
+   ].join("\n");
+   const headings = [
+      { id: "first-group", level: 2, text: "First group", authored: false },
+      { id: "one", level: 3, text: "One", authored: true },
+      { id: "unauthored-heading", level: 3, text: "Unauthored heading", authored: false },
+      { id: "second-group", level: 2, text: "Second group", authored: true },
+      { id: "two", level: 3, text: "Two", authored: true },
+      { id: "fits", level: 3, text: "What fits at this level", authored: true },
+   ];
+   const item = { body: { format: "markdown@1" as const, text }, headings };
+
+   it("offers only authored level-3 headings, each with its nearest preceding ## group and that group's prose", () => {
+      const found = questionsOf(COMPANY, item, true);
+      expect(found.map(({ question_id, text: question, snapshot_fallback, level }) => ({ question_id, question, snapshot_fallback, level }))).toEqual([
+         { question_id: "one", question: "Q one?", snapshot_fallback: false, level: null },
+         { question_id: "two", question: "Two", snapshot_fallback: true, level: null },
+      ]);
+      expect(found[0].group).toEqual({ title: "First group", explanation: "Why this group matters.\n\n```\n### Not a heading {#fenced}\n```" });
+      expect(found[1].group).toEqual({ title: "Second group", explanation: "Second explanation." });
+   });
+
+   it("never offers a group heading, even one the API marks authored, and reads level 2 only when ungrouped", () => {
+      expect(questionsOf(COMPANY, item, true).map(({ question_id }) => question_id)).not.toContain("second-group");
+      expect(questionsOf(COMPANY, item).map(({ question_id }) => question_id)).toEqual(["second-group"]);
+   });
+
+   it("gives a question before any ## heading a null group, and none to an ungrouped collection", () => {
+      const lone = { body: { format: "markdown@1" as const, text: '### A {#a}\n\nThe question: "A?"\n' }, headings: [{ id: "a", level: 3, text: "A", authored: true }] };
+      expect(questionsOf(COMPANY, lone, true)[0].group).toBeNull();
+      expect(questionsOf(SDE_1, itemOf(SDE_1))[0]).not.toHaveProperty("group");
+   });
+});
+
 describe("identity and snapshot states", () => {
    const saved = (question: CatalogQuestion) => ({
       content_id: question.content_id,

@@ -1,0 +1,534 @@
+{
+ "amazon-leadership-principles": [
+  {
+   "id": "customer-obsession",
+   "level": 2,
+   "text": "Customer Obsession",
+   "authored": false
+  },
+  {
+   "id": "alp-customer-obsession-01",
+   "level": 3,
+   "text": "Feedback that reshaped the plan",
+   "authored": true
+  },
+  {
+   "id": "alp-customer-obsession-02",
+   "level": 3,
+   "text": "A convenient metric against the real outcome",
+   "authored": true
+  },
+  {
+   "id": "alp-customer-obsession-03",
+   "level": 3,
+   "text": "Confirming that a fix helped",
+   "authored": true
+  },
+  {
+   "id": "ownership",
+   "level": 2,
+   "text": "Ownership",
+   "authored": false
+  },
+  {
+   "id": "alp-ownership-01",
+   "level": 3,
+   "text": "A problem nobody had assigned",
+   "authored": true
+  },
+  {
+   "id": "alp-ownership-02",
+   "level": 3,
+   "text": "Inheriting something fragile",
+   "authored": true
+  },
+  {
+   "id": "alp-ownership-03",
+   "level": 3,
+   "text": "A mistake you owned",
+   "authored": true
+  },
+  {
+   "id": "invent-and-simplify",
+   "level": 2,
+   "text": "Invent and Simplify",
+   "authored": false
+  },
+  {
+   "id": "alp-invent-and-simplify-01",
+   "level": 3,
+   "text": "Evidence that the simpler way won",
+   "authored": true
+  },
+  {
+   "id": "alp-invent-and-simplify-02",
+   "level": 3,
+   "text": "Working inside a hard constraint",
+   "authored": true
+  },
+  {
+   "id": "alp-invent-and-simplify-03",
+   "level": 3,
+   "text": "Taking something out",
+   "authored": true
+  },
+  {
+   "id": "are-right-a-lot",
+   "level": 2,
+   "text": "Are Right, A Lot",
+   "authored": false
+  },
+  {
+   "id": "alp-are-right-a-lot-01",
+   "level": 3,
+   "text": "Proved wrong by the data",
+   "authored": true
+  },
+  {
+   "id": "alp-are-right-a-lot-02",
+   "level": 3,
+   "text": "Deciding with gaps in the data",
+   "authored": true
+  },
+  {
+   "id": "alp-are-right-a-lot-03",
+   "level": 3,
+   "text": "Trying to break your own idea",
+   "authored": true
+  },
+  {
+   "id": "learn-and-be-curious",
+   "level": 2,
+   "text": "Learn and Be Curious",
+   "authored": false
+  },
+  {
+   "id": "alp-learn-and-be-curious-01",
+   "level": 3,
+   "text": "Learning fast under pressure",
+   "authored": true
+  },
+  {
+   "id": "alp-learn-and-be-curious-02",
+   "level": 3,
+   "text": "Curiosity that paid off later",
+   "authored": true
+  },
+  {
+   "id": "alp-learn-and-be-curious-03",
+   "level": 3,
+   "text": "A gap someone else pointed out",
+   "authored": true
+  },
+  {
+   "id": "hire-and-develop-the-best",
+   "level": 2,
+   "text": "Hire and Develop the Best",
+   "authored": false
+  },
+  {
+   "id": "alp-hire-and-develop-the-best-01",
+   "level": 3,
+   "text": "Helping a teammate step up",
+   "authored": true
+  },
+  {
+   "id": "alp-hire-and-develop-the-best-02",
+   "level": 3,
+   "text": "Hard feedback that improved the work",
+   "authored": true
+  },
+  {
+   "id": "alp-hire-and-develop-the-best-03",
+   "level": 3,
+   "text": "Weighing evidence about a candidate",
+   "authored": true
+  },
+  {
+   "id": "insist-on-the-highest-standards",
+   "level": 2,
+   "text": "Insist on the Highest Standards",
+   "authored": false
+  },
+  {
+   "id": "alp-insist-on-highest-standards-01",
+   "level": 3,
+   "text": "A defect caught in time",
+   "authored": true
+  },
+  {
+   "id": "alp-insist-on-highest-standards-02",
+   "level": 3,
+   "text": "Raising the bar under pressure",
+   "authored": true
+  },
+  {
+   "id": "alp-insist-on-highest-standards-03",
+   "level": 3,
+   "text": "Fixing the cause, not the symptom",
+   "authored": true
+  },
+  {
+   "id": "think-big",
+   "level": 2,
+   "text": "Think Big",
+   "authored": false
+  },
+  {
+   "id": "alp-think-big-01",
+   "level": 3,
+   "text": "Widening a project's reach",
+   "authored": true
+  },
+  {
+   "id": "alp-think-big-02",
+   "level": 3,
+   "text": "Preparing for growth early",
+   "authored": true
+  },
+  {
+   "id": "alp-think-big-03",
+   "level": 3,
+   "text": "Winning support for a longer-term investment",
+   "authored": true
+  },
+  {
+   "id": "bias-for-action",
+   "level": 2,
+   "text": "Bias for Action",
+   "authored": false
+  },
+  {
+   "id": "alp-bias-for-action-01",
+   "level": 3,
+   "text": "Acting when waiting is the risk",
+   "authored": true
+  },
+  {
+   "id": "alp-bias-for-action-02",
+   "level": 3,
+   "text": "A quick call on an easy-to-undo choice",
+   "authored": true
+  },
+  {
+   "id": "alp-bias-for-action-03",
+   "level": 3,
+   "text": "Adjusting a decision made in a hurry",
+   "authored": true
+  },
+  {
+   "id": "frugality",
+   "level": 2,
+   "text": "Frugality",
+   "authored": false
+  },
+  {
+   "id": "alp-frugality-01",
+   "level": 3,
+   "text": "A real result on a thin budget",
+   "authored": true
+  },
+  {
+   "id": "alp-frugality-02",
+   "level": 3,
+   "text": "Lowering cost without users noticing",
+   "authored": true
+  },
+  {
+   "id": "alp-frugality-03",
+   "level": 3,
+   "text": "Features the team chose not to build",
+   "authored": true
+  },
+  {
+   "id": "earn-trust",
+   "level": 2,
+   "text": "Earn Trust",
+   "authored": false
+  },
+  {
+   "id": "alp-earn-trust-01",
+   "level": 3,
+   "text": "Repairing a broken commitment",
+   "authored": true
+  },
+  {
+   "id": "alp-earn-trust-02",
+   "level": 3,
+   "text": "Delivering bad news about the system",
+   "authored": true
+  },
+  {
+   "id": "alp-earn-trust-03",
+   "level": 3,
+   "text": "Feedback on how you work with others",
+   "authored": true
+  },
+  {
+   "id": "dive-deep",
+   "level": 2,
+   "text": "Dive Deep",
+   "authored": false
+  },
+  {
+   "id": "alp-dive-deep-01",
+   "level": 3,
+   "text": "A first theory that did not hold",
+   "authored": true
+  },
+  {
+   "id": "alp-dive-deep-02",
+   "level": 3,
+   "text": "When the data and the story disagree",
+   "authored": true
+  },
+  {
+   "id": "alp-dive-deep-03",
+   "level": 3,
+   "text": "Tracing a problem across layers",
+   "authored": true
+  },
+  {
+   "id": "have-backbone-disagree-and-commit",
+   "level": 2,
+   "text": "Have Backbone; Disagree and Commit",
+   "authored": false
+  },
+  {
+   "id": "alp-have-backbone-disagree-and-commit-01",
+   "level": 3,
+   "text": "Challenging a more senior decision",
+   "authored": true
+  },
+  {
+   "id": "alp-have-backbone-disagree-and-commit-02",
+   "level": 3,
+   "text": "A disagreement that moved someone",
+   "authored": true
+  },
+  {
+   "id": "alp-have-backbone-disagree-and-commit-03",
+   "level": 3,
+   "text": "Backing a choice you argued against",
+   "authored": true
+  },
+  {
+   "id": "deliver-results",
+   "level": 2,
+   "text": "Deliver Results",
+   "authored": false
+  },
+  {
+   "id": "alp-deliver-results-01",
+   "level": 3,
+   "text": "Delivering through a setback",
+   "authored": true
+  },
+  {
+   "id": "alp-deliver-results-02",
+   "level": 3,
+   "text": "Deciding what would not get done",
+   "authored": true
+  },
+  {
+   "id": "alp-deliver-results-03",
+   "level": 3,
+   "text": "A target you did not hit",
+   "authored": true
+  },
+  {
+   "id": "strive-to-be-earth-s-best-employer",
+   "level": 2,
+   "text": "Strive to be Earth’s Best Employer",
+   "authored": false
+  },
+  {
+   "id": "alp-strive-to-be-earths-best-employer-01",
+   "level": 3,
+   "text": "Making it easier to speak up",
+   "authored": true
+  },
+  {
+   "id": "alp-strive-to-be-earths-best-employer-02",
+   "level": 3,
+   "text": "A conflict handled with people in mind",
+   "authored": true
+  },
+  {
+   "id": "alp-strive-to-be-earths-best-employer-03",
+   "level": 3,
+   "text": "Noticing an unsustainable workload",
+   "authored": true
+  },
+  {
+   "id": "success-and-scale-bring-broad-responsibility",
+   "level": 2,
+   "text": "Success and Scale Bring Broad Responsibility",
+   "authored": false
+  },
+  {
+   "id": "alp-broad-responsibility-01",
+   "level": 3,
+   "text": "A success that caused trouble elsewhere",
+   "authored": true
+  },
+  {
+   "id": "alp-broad-responsibility-02",
+   "level": 3,
+   "text": "Building in privacy, security or access",
+   "authored": true
+  },
+  {
+   "id": "alp-broad-responsibility-03",
+   "level": 3,
+   "text": "The long-term effect against the quick win",
+   "authored": true
+  }
+ ],
+ "googleyness-and-leadership": [
+  {
+   "id": "collaboration-respect-and-inclusion",
+   "level": 2,
+   "text": "Collaboration, respect, and inclusion",
+   "authored": false
+  },
+  {
+   "id": "googleyness-collaboration-respect-inclusion-01",
+   "level": 3,
+   "text": "A better idea from someone else",
+   "authored": true
+  },
+  {
+   "id": "googleyness-collaboration-respect-inclusion-02",
+   "level": 3,
+   "text": "Disagreeing across disciplines",
+   "authored": true
+  },
+  {
+   "id": "googleyness-collaboration-respect-inclusion-03",
+   "level": 3,
+   "text": "Making room for more voices",
+   "authored": true
+  },
+  {
+   "id": "navigating-ambiguity-and-asking-good-questions",
+   "level": 2,
+   "text": "Navigating ambiguity and asking good questions",
+   "authored": false
+  },
+  {
+   "id": "googleyness-ambiguity-clarification-01",
+   "level": 3,
+   "text": "The vague starting brief",
+   "authored": true
+  },
+  {
+   "id": "googleyness-ambiguity-clarification-02",
+   "level": 3,
+   "text": "Requirements that kept moving",
+   "authored": true
+  },
+  {
+   "id": "googleyness-ambiguity-clarification-03",
+   "level": 3,
+   "text": "From a request to checkpoints",
+   "authored": true
+  },
+  {
+   "id": "learning-and-intellectual-humility",
+   "level": 2,
+   "text": "Learning and intellectual humility",
+   "authored": false
+  },
+  {
+   "id": "googleyness-learning-intellectual-humility-01",
+   "level": 3,
+   "text": "A confident assumption that failed",
+   "authored": true
+  },
+  {
+   "id": "googleyness-learning-intellectual-humility-02",
+   "level": 3,
+   "text": "Getting up to speed",
+   "authored": true
+  },
+  {
+   "id": "googleyness-learning-intellectual-humility-03",
+   "level": 3,
+   "text": "Asking early",
+   "authored": true
+  },
+  {
+   "id": "adaptability-and-resilience",
+   "level": 2,
+   "text": "Adaptability and resilience",
+   "authored": false
+  },
+  {
+   "id": "googleyness-adaptability-resilience-01",
+   "level": 3,
+   "text": "A project that fell short",
+   "authored": true
+  },
+  {
+   "id": "googleyness-adaptability-resilience-02",
+   "level": 3,
+   "text": "Letting go of a familiar approach",
+   "authored": true
+  },
+  {
+   "id": "googleyness-adaptability-resilience-03",
+   "level": 3,
+   "text": "A setback that improved the process",
+   "authored": true
+  },
+  {
+   "id": "leadership-without-formal-authority",
+   "level": 2,
+   "text": "Leadership without formal authority",
+   "authored": false
+  },
+  {
+   "id": "googleyness-leadership-without-authority-01",
+   "level": 3,
+   "text": "Aligning people you could not direct",
+   "authored": true
+  },
+  {
+   "id": "googleyness-leadership-without-authority-02",
+   "level": 3,
+   "text": "Filling a gap nobody owned",
+   "authored": true
+  },
+  {
+   "id": "googleyness-leadership-without-authority-03",
+   "level": 3,
+   "text": "Turning discussion into a decision",
+   "authored": true
+  },
+  {
+   "id": "responsible-impact-integrity-and-judgment",
+   "level": 2,
+   "text": "Responsible impact, integrity, and judgment",
+   "authored": false
+  },
+  {
+   "id": "googleyness-responsible-impact-integrity-01",
+   "level": 3,
+   "text": "A risk others brushed aside",
+   "authored": true
+  },
+  {
+   "id": "googleyness-responsible-impact-integrity-02",
+   "level": 3,
+   "text": "The quick path and the responsible one",
+   "authored": true
+  },
+  {
+   "id": "googleyness-responsible-impact-integrity-03",
+   "level": 3,
+   "text": "Being honest about a mistake",
+   "authored": true
+  }
+ ]
+}
