@@ -24,7 +24,12 @@ export type ReviewRequest = {
    stories: AiStory[];
 };
 
+/** Refine takes the Review request unchanged: the reader's own answer, with no stories and no guidance (api-contract.md §9.2). */
+export type RefineRequest = ReviewRequest;
+
 export type DraftResult = { framework: string; fields: PrepFields; body: string | null; questions_to_ask_yourself: string[] };
+/** Refine returns the Draft result shape and bounds: a preview of the reader's own answer, never a saved one. */
+export type RefineResult = DraftResult;
 export type ReviewResult = { missing: string[]; weak: string[]; claims_to_verify: string[]; questions_to_ask_yourself: string[] };
 
 /** The envelope's optional numbers, kept only when well formed (api-contract.md §9.5): the quota window and its reset, or the wait for a busy answer. */
@@ -69,13 +74,24 @@ function isReviewResult(value: unknown): value is ReviewResult {
    return isRecord(value) && isStrings(value.missing) && isStrings(value.weak) && isStrings(value.claims_to_verify) && isStrings(value.questions_to_ask_yourself);
 }
 
+/**
+ * The Refine reply the contract allows: a STAR answer fills only STAR keys and no body, a free-form answer fills the body and no fields, and a STAR section
+ * the reader left empty comes back empty. Anything else would land text the reader never wrote in a place they did not have, so it is malformed.
+ */
+function isRefineResult(value: unknown, request: RefineRequest): value is RefineResult {
+   if (!isDraftResult(value) || value.framework !== request.framework) return false;
+   if (value.framework === "free_form") return Object.keys(value.fields).length === 0;
+   const supplied: Record<string, string | undefined> = request.answer.fields;
+   return value.body === null && Object.entries(value.fields).every(([key, text]) => text === "" || (supplied[key] ?? "") !== "");
+}
+
 /** A typed client for `/me/prep/ai`: the user's bearer token and the request body only. It stores nothing and is never called by autosave. */
 export function createAiClient(config: PrepClientConfig) {
    const base = config.baseUrl.replace(/\/$/, "");
    const doFetch = config.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
    const timeoutMs = config.timeoutMs ?? AI_TIMEOUT_MS;
 
-   async function post<T>(action: "draft" | "review", body: unknown, isResult: (value: unknown) => value is T): Promise<AiResult<T>> {
+   async function post<T>(action: "draft" | "review" | "refine", body: unknown, isResult: (value: unknown) => value is T): Promise<AiResult<T>> {
       const token = await config.getAccessToken().catch(() => null);
       if (!token) return { status: "unauthenticated" };
 
@@ -127,6 +143,8 @@ export function createAiClient(config: PrepClientConfig) {
       draft: (body: DraftRequest): Promise<AiResult<DraftResult>> =>
          post("draft", body, (value): value is DraftResult => isDraftResult(value) && value.framework === body.framework),
       review: (body: ReviewRequest): Promise<AiResult<ReviewResult>> => post("review", body, isReviewResult),
+      /** Premium only, enforced by the server on every request; the interface's own check is a display hint. The result is a preview that nothing here saves. */
+      refine: (body: RefineRequest): Promise<AiResult<RefineResult>> => post("refine", body, (value): value is RefineResult => isRefineResult(value, body)),
    };
 }
 

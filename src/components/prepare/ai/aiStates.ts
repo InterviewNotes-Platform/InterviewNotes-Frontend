@@ -1,6 +1,6 @@
 import type { AiErrorInfo } from "./aiClient";
 
-type Action = "draft" | "review";
+type Action = "draft" | "review" | "refine";
 
 const KEPT = "Your text is unchanged and nothing was saved from this.";
 
@@ -20,7 +20,7 @@ function wait(seconds: number | undefined) {
  * (P6-R-110, `PREMIUM_HREF` sells nothing), so `ai_quota_exhausted` and `ai_not_entitled` get no prompt either. `ai_consent_required` is handled by the caller.
  */
 export function failureMessage(code: string | null | undefined, action: Action, info: AiErrorInfo = {}): string {
-   const what = action === "draft" ? "write a draft" : "review your answer";
+   const what = action === "draft" ? "write a draft" : action === "refine" ? "refine your answer" : "review your answer";
    switch (code) {
       case "ai_quota_exhausted":
          return `You've used ${info.window === "month" ? "this month's" : info.window === "day" ? "today's" : "your"} AI help, so we couldn't ${what}.${renewal(info)} ${KEPT} You can try again after it renews.`;

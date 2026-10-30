@@ -11,6 +11,11 @@ export type ConsentStatus = {
    accepted_at: string | null;
    withdrawn_at: string | null;
    ai_available: boolean;
+   /**
+    * A display hint from the server's own Refine checks (P7-D-059), independent of consent. Optional on purpose: only the literal `true` shows
+    * Refine, and an older or malformed answer must leave consent working and Refine hidden. Never read it for anything but showing the control.
+    */
+   refine_available?: boolean;
 };
 
 /** `failed.code` is the envelope's `code` when the API sent one (for example `ai_disabled` or `consent_version_stale`). */
@@ -32,6 +37,9 @@ function isConsentStatus(value: unknown): value is ConsentStatus {
       typeof value.ai_available === "boolean"
    );
 }
+
+/** Refine is offered only when the server said exactly `true`; absent, false or any other value is hidden. */
+export const refineOffered = (status: ConsentStatus): boolean => status.refine_available === true;
 
 /** Consent is in force only for the document and version the server requires now, and only when the server says so. */
 export function consentInForce(status: ConsentStatus): boolean {

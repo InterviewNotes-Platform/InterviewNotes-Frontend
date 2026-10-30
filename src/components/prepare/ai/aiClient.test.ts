@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AI_TIMEOUT_MS, createAiClient, type DraftRequest, type ReviewRequest } from "./aiClient";
+import { AI_TIMEOUT_MS, createAiClient, type DraftRequest, type RefineRequest, type ReviewRequest } from "./aiClient";
 
 const DRAFT: DraftRequest = { question: "Q?", guidance: null, framework: "star", notes: "I fixed the build.", stories: [] };
 const REVIEW: ReviewRequest = { question: "Q?", guidance: null, framework: "free_form", answer: { body: "text", fields: {} }, stories: [] };
+const REFINE: RefineRequest = { question: "Q?", guidance: null, framework: "star", answer: { body: null, fields: { situation: "S0" } }, stories: [] };
+const REFINE_BODY = { action: "refine", result: { framework: "star", fields: { situation: "S" }, body: null, questions_to_ask_yourself: ["Why?"] } };
 const DRAFT_BODY = { action: "draft", result: { framework: "star", fields: { situation: "S" }, body: null, questions_to_ask_yourself: ["Why?"] } };
 const REVIEW_BODY = { action: "review", result: { missing: ["a"], weak: [], claims_to_verify: [], questions_to_ask_yourself: [] } };
 
@@ -30,6 +32,33 @@ describe("createAiClient", () => {
       const fetch = vi.fn(async () => json(200, REVIEW_BODY));
       expect(await client(fetch).review(REVIEW)).toEqual({ status: "ok", data: REVIEW_BODY.result });
       expect((fetch.mock.calls[0] as unknown[])[0]).toBe("https://api.example.test/me/prep/ai/review");
+   });
+
+   it("posts a refine to /me/prep/ai/refine with the Review request shape and the bearer token only", async () => {
+      const fetch = vi.fn(async () => json(200, REFINE_BODY));
+      expect(await client(fetch).refine(REFINE)).toEqual({ status: "ok", data: REFINE_BODY.result });
+      const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe("https://api.example.test/me/prep/ai/refine");
+      expect(init).toMatchObject({ method: "POST", cache: "no-store", credentials: "omit" });
+      expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+      expect(JSON.parse(init.body as string)).toEqual(REFINE);
+   });
+
+   it.each([
+      ["a different action", { ...REFINE_BODY, action: "draft" }],
+      ["a framework other than the one asked for", { ...REFINE_BODY, result: { ...REFINE_BODY.result, framework: "free_form", fields: {}, body: "x" } }],
+      ["text in a section the answer left empty", { ...REFINE_BODY, result: { ...REFINE_BODY.result, fields: { result: "invented" } } }],
+      ["a body on a STAR answer", { ...REFINE_BODY, result: { ...REFINE_BODY.result, body: "x" } }],
+      ["fields on a free-form answer", { ...REFINE_BODY, result: { framework: "free_form", fields: { situation: "x" }, body: "x", questions_to_ask_yourself: [] } }],
+   ])("treats %s in a refine reply as malformed", async (_name, body) => {
+      const request = _name.startsWith("fields on") ? { ...REFINE, framework: "free_form" as const } : REFINE;
+      expect(await client(async () => json(200, body)).refine(request)).toEqual({ status: "failed", code: null, cause: "malformed" });
+   });
+
+   it("keeps the envelope code of a refused refine, and sends it once", async () => {
+      const fetch = vi.fn(async () => json(403, { code: "ai_not_entitled", detail: "x" }));
+      expect(await client(fetch).refine(REFINE)).toEqual({ status: "failed", code: "ai_not_entitled", cause: "upstream" });
+      expect(fetch).toHaveBeenCalledTimes(1);
    });
 
    it("sends nothing without a token", async () => {
