@@ -6,11 +6,14 @@ import type { CatalogItem, CatalogResult } from "@/lib/catalog/types";
 import type { TargetLevel } from "./types";
 
 /**
- * The 40 catalog questions of the four Behavioral Lessons (P7-T17; contract `learning-progress/spec.md` §2.1, §2.1.1).
- * A question is identified by `(content_id, question_id)`; `question_id` is an authored heading identifier, never a slug.
+ * The catalog questions of the preparation collections (P7-T17, generalised by P7-T58; contract `learning-progress/spec.md`
+ * §2.1, §2.1.1, §2.11). A question is identified by `(content_id, question_id)`; `question_id` is an authored heading
+ * identifier, never a slug.
  */
 
-export type BehavioralLesson = { content_id: string; slug: string; level: TargetLevel };
+/** A Lesson of a collection; `level` is null for a company Lesson, which has no seniority level. */
+export type CollectionLesson<L extends TargetLevel | null = TargetLevel | null> = { content_id: string; slug: string; level: L };
+export type BehavioralLesson = CollectionLesson<TargetLevel>;
 
 /** The immutable Lesson IDs, in the order the picker lists the levels. */
 export const BEHAVIORAL_LESSONS: readonly BehavioralLesson[] = [
@@ -20,13 +23,18 @@ export const BEHAVIORAL_LESSONS: readonly BehavioralLesson[] = [
    { content_id: "lesson.behavioral-prep-engineering-manager", slug: "behavioral-prep-engineering-manager", level: "engineering-manager" },
 ];
 
-export type CatalogQuestion = {
+/** A principle or theme: its nearest preceding `##` heading and the prose under it, before the first question. */
+export type QuestionGroup = { title: string; explanation: string };
+
+export type CatalogQuestion<L extends TargetLevel | null = TargetLevel> = {
    content_id: string;
    question_id: string;
-   level: TargetLevel;
+   level: L;
    /** The `The question:` line without its quotation marks, or the heading text when `snapshot_fallback`. */
    text: string;
    snapshot_fallback: boolean;
+   /** Present only for a grouped (company) collection; null when no `##` heading precedes the question. */
+   group?: QuestionGroup | null;
 };
 
 const EXCLUDED_TITLE = "What fits at this level";
@@ -34,7 +42,7 @@ const EXCLUDED_PREFIX = "Worked example:";
 
 const QUESTION_LINE = /^The question:\s*(.*?)\s*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
-const HEADING_LINE = /^ {0,3}(#{1,2})(?:\s+(.*?))?\s*$/;
+const HEADING_LINE = /^ {0,3}(#{1,6})(?:\s+(.*?))?\s*$/;
 const TRAILING_ID = /\s+\{#([^{}]*)\}\s*(?:#+\s*)?$/;
 const QUOTE_PAIRS: Record<string, string> = { '"': '"', "“": "”" };
 
@@ -43,49 +51,73 @@ function unquote(value: string): string {
    return close && value.length >= 2 && value.endsWith(close) ? value.slice(1, -1).trim() : value;
 }
 
-/** The `The question:` line of each level-2 section that ends in `{#id}`, keyed by that identifier; fences are skipped. */
-function questionLines(body: string): Map<string, string | null> {
-   const lines = new Map<string, string | null>();
+type Section = { line: string | null; group: number | null };
+
+/**
+ * The `The question:` line of each section whose heading (`##`, or `###` when grouped) ends in `{#id}`, keyed by that
+ * identifier, with the index of its nearest preceding `##` group when grouped; fences are skipped.
+ */
+function scanSections(body: string, grouped: boolean) {
+   const questionDepth = grouped ? 3 : 2;
+   const sections = new Map<string, Section>();
+   const groups: { title: string; intro: string[] }[] = [];
    let current: string | null = null;
+   let group: number | null = null;
+   let intro = false;
    let fence: string | null = null;
    for (const line of body.split(/\r?\n/)) {
-      const opened = FENCE.exec(line)?.[1];
+      const marker = FENCE.exec(line)?.[1];
+      const fenced = fence !== null;
       if (fence) {
-         if (opened?.[0] === fence[0] && opened.length >= fence.length) fence = null;
+         if (marker?.[0] === fence[0] && marker.length >= fence.length) fence = null;
+      } else if (marker) {
+         fence = marker;
+      }
+      const code = fenced || marker !== undefined;
+      const heading = code ? null : HEADING_LINE.exec(line);
+      const depth = heading?.[1].length ?? 0;
+      if (heading && depth <= questionDepth) {
+         const text = heading[2] ?? "";
+         current = null;
+         intro = grouped && depth === 2;
+         if (intro) group = groups.push({ title: plainHeading(text.replace(TRAILING_ID, "")), intro: [] }) - 1;
+         else if (grouped && depth === 1) group = null;
+         const id = depth === questionDepth ? TRAILING_ID.exec(text)?.[1] : undefined;
+         if (id !== undefined && !sections.has(id)) {
+            current = id;
+            sections.set(id, { line: null, group });
+         }
          continue;
       }
-      if (opened) {
-         fence = opened;
-         continue;
-      }
-      const heading = HEADING_LINE.exec(line);
-      if (heading) {
-         const id = heading[1] === "##" ? TRAILING_ID.exec(heading[2] ?? "")?.[1] : undefined;
-         current = id !== undefined && !lines.has(id) ? id : null;
-         if (current !== null) lines.set(current, null);
-         continue;
-      }
-      if (current !== null && lines.get(current) === null) {
+      if (!code && current !== null && sections.get(current)?.line === null) {
          const question = QUESTION_LINE.exec(line)?.[1];
-         if (question !== undefined) lines.set(current, unquote(question) || null);
+         if (question !== undefined) sections.set(current, { line: unquote(question) || null, group });
+      } else if (intro && group !== null) {
+         groups[group].intro.push(line);
       }
    }
-   return lines;
+   return { sections, groups: groups.map(({ title, intro: lines }): QuestionGroup => ({ title, explanation: lines.join("\n").trim() })) };
 }
 
 const isExcluded = (title: string) => title === EXCLUDED_TITLE || title.startsWith(EXCLUDED_PREFIX);
 
 /**
- * The questions of one Lesson, in source order. Only a level-2 heading the API marks `authored` is a question, so a
- * slug can never stand in for an identity, and the two excluded section kinds are dropped by title.
+ * The questions of one Lesson, in source order. Only a heading at the question depth (`##`; `###` when grouped) that the
+ * API marks `authored` is a question, so a slug or a group heading can never stand in for an identity, and the two
+ * excluded section kinds are dropped by title.
  */
-export function questionsOf(lesson: BehavioralLesson, item: Pick<CatalogItem, "body" | "headings">): CatalogQuestion[] {
-   const lines = questionLines(item.body?.text ?? "");
+export function questionsOf<L extends TargetLevel | null>(
+   lesson: CollectionLesson<L>,
+   item: Pick<CatalogItem, "body" | "headings">,
+   grouped = false,
+): CatalogQuestion<L>[] {
+   const { sections, groups } = scanSections(item.body?.text ?? "", grouped);
    const seen = new Set<string>();
    return item.headings.flatMap(({ id, level, text, authored }) => {
-      if (level !== 2 || authored !== true || isExcluded(text) || seen.has(id)) return [];
+      if (level !== (grouped ? 3 : 2) || authored !== true || isExcluded(text) || seen.has(id)) return [];
       seen.add(id);
-      const line = lines.get(id) ?? null;
+      const section = sections.get(id);
+      const line = section?.line ?? null;
       return [
          {
             content_id: lesson.content_id,
@@ -93,29 +125,36 @@ export function questionsOf(lesson: BehavioralLesson, item: Pick<CatalogItem, "b
             level: lesson.level,
             text: line ?? plainHeading(text),
             snapshot_fallback: line === null,
+            ...(grouped && { group: section?.group == null ? null : groups[section.group] }),
          },
       ];
    });
 }
 
 /**
- * Every catalog question, from one Lesson read each: four catalog reads per load, never one per question and no Track read.
- * Partial data would mark the missing Lessons' answers `removed`, so any failed read is returned as the result. A Lesson
- * that reads fine but has no authored question (content not published yet) is `malformed`, never an empty source.
+ * The questions of the given Lessons, from one Lesson read each: never one read per question and no Track read. Partial
+ * data would mark the missing Lessons' answers `removed`, so any failed read is returned as the result. A Lesson that reads
+ * fine but has no authored question, or a grouped question outside any `##` group, is `malformed`, never an empty source.
  */
-export async function loadBehavioralQuestions(): Promise<CatalogResult<CatalogQuestion[]>> {
-   const results = await Promise.all(BEHAVIORAL_LESSONS.map(({ slug }) => getCatalogItem("lesson", slug)));
-   const questions: CatalogQuestion[] = [];
+export async function loadLessonQuestions<L extends TargetLevel | null>(
+   lessons: readonly CollectionLesson<L>[],
+   grouped = false,
+): Promise<CatalogResult<CatalogQuestion<L>[]>> {
+   const results = await Promise.all(lessons.map(({ slug }) => getCatalogItem("lesson", slug)));
+   const questions: CatalogQuestion<L>[] = [];
    for (const [index, result] of results.entries()) {
       if (result.status !== "ok") return result;
-      const lesson = BEHAVIORAL_LESSONS[index];
+      const lesson = lessons[index];
       if (result.data.id !== lesson.content_id) return { status: "unavailable", cause: "malformed" };
-      const found = questionsOf(lesson, result.data);
-      if (found.length === 0) return { status: "unavailable", cause: "malformed" };
+      const found = questionsOf(lesson, result.data, grouped);
+      if (found.length === 0 || found.some(({ group }) => group === null)) return { status: "unavailable", cause: "malformed" };
       questions.push(...found);
    }
    return { status: "ok", data: questions };
 }
+
+/** The 40 questions of the four Behavioral Lessons: four catalog reads per load. */
+export const loadBehavioralQuestions = () => loadLessonQuestions(BEHAVIORAL_LESSONS);
 
 export { relateToCatalog } from "./relation";
 export type { QuestionRelation, SavedQuestion } from "./relation";
