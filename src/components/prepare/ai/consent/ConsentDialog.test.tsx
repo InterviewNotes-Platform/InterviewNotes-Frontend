@@ -65,9 +65,19 @@ async function seed(): Promise<Answer> {
    return result.data;
 }
 
-async function open(answer: Answer, as = () => token) {
+/**
+ * The editor reads the consent status once when it mounts (P7-T33, to decide whether to offer Refine). These tests are about what the user's own AI action
+ * sends, so unless a test says otherwise the mount read is let finish and forgotten here; the page-load test below checks it explicitly.
+ */
+async function open(answer: Answer, as = () => token, options: { keepMountRead?: boolean } = {}) {
+   const before = consent.requests.length;
    const view = render(<AnswerEditor apiUrl={API} answerId={answer.id} catalog={null} getAccessToken={async () => as()} fetch={routed} />);
    await screen.findByRole("heading", { name: "Your answer" });
+   if (!statusHold && !options.keepMountRead) {
+      await waitFor(() => expect(consent.requests).toHaveLength(before + 1));
+      consent.requests.splice(before, 1);
+      statusStarted = 0;
+   }
    return view;
 }
 
@@ -85,12 +95,14 @@ async function acceptIn(box: HTMLElement) {
 }
 
 describe("first-use AI consent dialog", () => {
-   it("never opens, and never calls the consent API, at page load", async () => {
-      await open(await seed());
+   it("never opens the dialog, accepts nothing and sends no AI request at page load; the only consent call is one status read", async () => {
+      await open(await seed(), () => token, { keepMountRead: true });
       type("Situation", "Typed text.");
       await pastAutosave();
       noDialog();
-      expect(consent.requests).toEqual([]);
+      expect(consent.requests.map(({ method, path }) => `${method} ${path}`)).toEqual(["GET "]);
+      expect(accepts()).toEqual([]);
+      expect(consent.status(token).accepted).toBe(false);
       expect(ai).toEqual([]);
    });
 
@@ -424,7 +436,8 @@ describe("first-use AI consent dialog", () => {
          const view = await open(await seed());
          type("Situation", "Typed.");
          fireEvent.click(button("Draft from my notes"));
-         await waitFor(() => expect(statusStarted).toBe(1));
+         // The mount read (held too) and the one the click started.
+         await waitFor(() => expect(statusStarted).toBe(2));
 
          view.unmount();
          release();
@@ -433,7 +446,8 @@ describe("first-use AI consent dialog", () => {
 
          expect(isInert()).toBe(false);
          expect(screen.queryByRole("dialog")).toBeNull();
-         expect(consent.requests.map(({ method }) => method)).toEqual(["GET"]);
+         expect(consent.requests.map(({ method }) => method)).toEqual(["GET", "GET"]);
+         expect(accepts()).toEqual([]);
          expect(ai).toEqual([]);
       });
 

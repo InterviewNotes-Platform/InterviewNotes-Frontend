@@ -8,7 +8,7 @@ type Entry = { version: string; accepted_at: string; withdrawn_at: string | null
  * Records are kept per bearer token, so two browser contexts holding the same token are the same user. Time is a counter, so
  * "withdrawn after accepted" is exact. It is not a model of the AI guards: tests mock the Draft and Review routes themselves.
  */
-export function createFakeConsentApi(options: { version?: string | null; aiAvailable?: boolean } = {}) {
+export function createFakeConsentApi(options: { version?: string | null; aiAvailable?: boolean; refineAvailable?: boolean } = {}) {
    const records = new Map<string, Entry[]>();
    let tick = 0;
    const now = () => new Date(Date.UTC(2026, 9, 30, 0, 0, ++tick)).toISOString();
@@ -16,6 +16,10 @@ export function createFakeConsentApi(options: { version?: string | null; aiAvail
       /** The version the server requires; null models `AI_TERMS_VERSION` unset. Change it to model a new terms version. */
       version: options.version === undefined ? PRIVACY_VERSION : options.version,
       aiAvailable: options.aiAvailable ?? true,
+      /** Models the server's Refine checks (P7-D-059): independent of consent, and false whenever AI itself is unavailable. */
+      refineAvailable: options.refineAvailable ?? false,
+      /** Fields to put over every status the fake sends; an `undefined` value removes the field. Models an older or malformed server answer. */
+      override: {} as Record<string, unknown>,
       /** Every consent call the browser made, in order. */
       requests: [] as { method: string; path: string; body: unknown }[],
       /** Make the next call of this kind fail with a 503. */
@@ -23,14 +27,18 @@ export function createFakeConsentApi(options: { version?: string | null; aiAvail
       status(token: string): ConsentStatus {
          const current = (records.get(token) ?? []).find((record) => record.version === api.version);
          const inForce = Boolean(current && api.version !== null && (current.withdrawn_at === null || current.withdrawn_at < current.accepted_at));
-         return {
+         const sent: Record<string, unknown> = {
             document_id: PRIVACY_DOCUMENT_ID,
             required_version: api.version,
             accepted: inForce,
             accepted_at: api.version !== null && current ? current.accepted_at : null,
             withdrawn_at: api.version !== null && current ? current.withdrawn_at : null,
             ai_available: api.aiAvailable && api.version !== null,
+            refine_available: api.refineAvailable && api.aiAvailable && api.version !== null,
+            ...api.override,
          };
+         for (const key of Object.keys(sent)) if (sent[key] === undefined) delete sent[key];
+         return sent as ConsentStatus;
       },
       /** Puts the user in a state of having accepted the current version, without a request: setup for tests that are not about consent. */
       grant(token: string) {

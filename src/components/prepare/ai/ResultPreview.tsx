@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { STAR_KEYS } from "@/lib/prep/answerDraft";
-import type { DraftResult, ReviewResult } from "./aiClient";
+import type { AnswerDraft } from "@/lib/prep/answerDraft";
+import type { DraftResult, RefineResult, ReviewResult } from "./aiClient";
 import { generatedText } from "./aiRequest";
 
 const LABEL = { situation: "Situation", task: "Task", action: "Action", result: "Result" } as const;
@@ -42,6 +43,65 @@ export function DraftPreview({ result, onApply, onInsert, onDiscard }: { result:
             )}
             <Button type="button" variant="ghost" onClick={onDiscard}>
                Discard draft
+            </Button>
+         </div>
+      </>
+   );
+}
+
+/** The reader's text and the suggestion for one place in the answer, side by side from the `md` breakpoint and stacked below it. Both are labelled in words. */
+function Comparison({ label, current, suggested }: { label?: string; current: string; suggested: string }) {
+   const same = current.trim() === suggested.trim();
+   return (
+      <div className="space-y-2">
+         {label && <h4 className="text-supporting font-medium text-foreground">{label}</h4>}
+         <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1 rounded-md border border-border p-3">
+               <p className="text-supporting font-medium text-muted-foreground">Your text now</p>
+               <p className="text-body whitespace-pre-wrap text-foreground">{current === "" ? "Empty" : current}</p>
+            </div>
+            <div className="space-y-1 rounded-md border border-border bg-background p-3">
+               <p className="text-supporting font-medium text-muted-foreground">Suggested refinement</p>
+               <p className="text-body whitespace-pre-wrap text-foreground">{suggested}</p>
+               {same && <p className="text-supporting text-muted-foreground">No change suggested here.</p>}
+            </div>
+         </div>
+      </div>
+   );
+}
+
+/**
+ * A Refine suggestion next to the reader's own text. Apply and Insert are the only way it reaches the answer, and the text on the left is what the
+ * editor holds now, so the comparison is always against what Apply would replace. It never says the suggestion is better, only what it is.
+ */
+export function RefinePreview({ result, current, onApply, onInsert, onDiscard }: { result: RefineResult; current: Pick<AnswerDraft, "fields" | "body">; onApply: () => void; onInsert: () => void; onDiscard: () => void }) {
+   const generated = generatedText(result);
+   return (
+      <>
+         <p className="text-supporting text-muted-foreground">A suggested rewrite of your own answer. It may change your meaning, so check every claim and keep what is yours.</p>
+         {generated.fields
+            ? STAR_KEYS.filter((key) => generated.fields![key] !== "").map((key) => (
+                 <Comparison key={key} label={LABEL[key]} current={current.fields[key]} suggested={generated.fields![key]} />
+              ))
+            : generated.body && <Comparison current={current.body} suggested={generated.body} />}
+         {generated.empty && <p className="text-body text-foreground">Refine suggested no rewrite, so there is nothing to apply. Your answer is unchanged.</p>}
+         <Questions items={result.questions_to_ask_yourself} />
+         {!generated.empty && (
+            <p className="text-supporting text-muted-foreground">Apply replaces your text in the places the suggestion fills; anywhere it left empty keeps your text. Insert adds the suggestion after your text.</p>
+         )}
+         <div className="flex flex-wrap gap-3">
+            {!generated.empty && (
+               <>
+                  <Button type="button" onClick={onApply}>
+                     Apply refinement
+                  </Button>
+                  <Button type="button" variant="outline" onClick={onInsert}>
+                     Insert refinement
+                  </Button>
+               </>
+            )}
+            <Button type="button" variant="ghost" onClick={onDiscard}>
+               Discard refinement
             </Button>
          </div>
       </>
