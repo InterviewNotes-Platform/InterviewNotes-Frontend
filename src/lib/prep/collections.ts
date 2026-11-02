@@ -9,6 +9,9 @@ import type { TargetLevel } from "./types";
  * `spec.md` §2.11). It is the only place a collection is declared; nothing is told apart by tag, level or slug pattern.
  */
 
+/** A principle or theme of a company collection: the text of its Lesson `##` heading and its question identifiers in order. */
+export type CollectionGroup = { title: string; questions: readonly string[] };
+
 export type Collection = {
    /** Chosen here, unique in the registry. */
    id: string;
@@ -20,6 +23,8 @@ export type Collection = {
    grouped: boolean;
    /** The expected question identifiers per Lesson, in source order (the manifests of P7-T3.5 and of P7-T51 section 3). */
    manifest: Readonly<Record<string, readonly string[]>>;
+   /** The groups of each Lesson, in source order, for a grouped collection; the workspace names an answer's group from these. */
+   groups: Readonly<Record<string, readonly CollectionGroup[]>>;
 };
 
 const GENERAL_MANIFEST = {
@@ -53,37 +58,35 @@ const GENERAL_MANIFEST = {
    ],
 };
 
-const AMAZON_MANIFEST = {
-   "lesson.amazon-leadership-principles": [
-      "alp-customer-obsession-01", "alp-customer-obsession-02", "alp-customer-obsession-03",
-      "alp-ownership-01", "alp-ownership-02", "alp-ownership-03",
-      "alp-invent-and-simplify-01", "alp-invent-and-simplify-02", "alp-invent-and-simplify-03",
-      "alp-are-right-a-lot-01", "alp-are-right-a-lot-02", "alp-are-right-a-lot-03",
-      "alp-learn-and-be-curious-01", "alp-learn-and-be-curious-02", "alp-learn-and-be-curious-03",
-      "alp-hire-and-develop-the-best-01", "alp-hire-and-develop-the-best-02", "alp-hire-and-develop-the-best-03",
-      "alp-insist-on-highest-standards-01", "alp-insist-on-highest-standards-02", "alp-insist-on-highest-standards-03",
-      "alp-think-big-01", "alp-think-big-02", "alp-think-big-03",
-      "alp-bias-for-action-01", "alp-bias-for-action-02", "alp-bias-for-action-03",
-      "alp-frugality-01", "alp-frugality-02", "alp-frugality-03",
-      "alp-earn-trust-01", "alp-earn-trust-02", "alp-earn-trust-03",
-      "alp-dive-deep-01", "alp-dive-deep-02", "alp-dive-deep-03",
-      "alp-have-backbone-disagree-and-commit-01", "alp-have-backbone-disagree-and-commit-02", "alp-have-backbone-disagree-and-commit-03",
-      "alp-deliver-results-01", "alp-deliver-results-02", "alp-deliver-results-03",
-      "alp-strive-to-be-earths-best-employer-01", "alp-strive-to-be-earths-best-employer-02", "alp-strive-to-be-earths-best-employer-03",
-      "alp-broad-responsibility-01", "alp-broad-responsibility-02", "alp-broad-responsibility-03",
-   ],
-};
+const AMAZON_GROUPS: readonly CollectionGroup[] = [
+   { title: "Customer Obsession", questions: ["alp-customer-obsession-01", "alp-customer-obsession-02", "alp-customer-obsession-03"] },
+   { title: "Ownership", questions: ["alp-ownership-01", "alp-ownership-02", "alp-ownership-03"] },
+   { title: "Invent and Simplify", questions: ["alp-invent-and-simplify-01", "alp-invent-and-simplify-02", "alp-invent-and-simplify-03"] },
+   { title: "Are Right, A Lot", questions: ["alp-are-right-a-lot-01", "alp-are-right-a-lot-02", "alp-are-right-a-lot-03"] },
+   { title: "Learn and Be Curious", questions: ["alp-learn-and-be-curious-01", "alp-learn-and-be-curious-02", "alp-learn-and-be-curious-03"] },
+   { title: "Hire and Develop the Best", questions: ["alp-hire-and-develop-the-best-01", "alp-hire-and-develop-the-best-02", "alp-hire-and-develop-the-best-03"] },
+   { title: "Insist on the Highest Standards", questions: ["alp-insist-on-highest-standards-01", "alp-insist-on-highest-standards-02", "alp-insist-on-highest-standards-03"] },
+   { title: "Think Big", questions: ["alp-think-big-01", "alp-think-big-02", "alp-think-big-03"] },
+   { title: "Bias for Action", questions: ["alp-bias-for-action-01", "alp-bias-for-action-02", "alp-bias-for-action-03"] },
+   { title: "Frugality", questions: ["alp-frugality-01", "alp-frugality-02", "alp-frugality-03"] },
+   { title: "Earn Trust", questions: ["alp-earn-trust-01", "alp-earn-trust-02", "alp-earn-trust-03"] },
+   { title: "Dive Deep", questions: ["alp-dive-deep-01", "alp-dive-deep-02", "alp-dive-deep-03"] },
+   { title: "Have Backbone; Disagree and Commit", questions: ["alp-have-backbone-disagree-and-commit-01", "alp-have-backbone-disagree-and-commit-02", "alp-have-backbone-disagree-and-commit-03"] },
+   { title: "Deliver Results", questions: ["alp-deliver-results-01", "alp-deliver-results-02", "alp-deliver-results-03"] },
+   { title: "Strive to be Earth’s Best Employer", questions: ["alp-strive-to-be-earths-best-employer-01", "alp-strive-to-be-earths-best-employer-02", "alp-strive-to-be-earths-best-employer-03"] },
+   { title: "Success and Scale Bring Broad Responsibility", questions: ["alp-broad-responsibility-01", "alp-broad-responsibility-02", "alp-broad-responsibility-03"] },
+];
 
-const GOOGLE_MANIFEST = {
-   "lesson.googleyness-and-leadership": [
-      "googleyness-collaboration-respect-inclusion-01", "googleyness-collaboration-respect-inclusion-02", "googleyness-collaboration-respect-inclusion-03",
-      "googleyness-ambiguity-clarification-01", "googleyness-ambiguity-clarification-02", "googleyness-ambiguity-clarification-03",
-      "googleyness-learning-intellectual-humility-01", "googleyness-learning-intellectual-humility-02", "googleyness-learning-intellectual-humility-03",
-      "googleyness-adaptability-resilience-01", "googleyness-adaptability-resilience-02", "googleyness-adaptability-resilience-03",
-      "googleyness-leadership-without-authority-01", "googleyness-leadership-without-authority-02", "googleyness-leadership-without-authority-03",
-      "googleyness-responsible-impact-integrity-01", "googleyness-responsible-impact-integrity-02", "googleyness-responsible-impact-integrity-03",
-   ],
-};
+const GOOGLE_GROUPS: readonly CollectionGroup[] = [
+   { title: "Collaboration, respect, and inclusion", questions: ["googleyness-collaboration-respect-inclusion-01", "googleyness-collaboration-respect-inclusion-02", "googleyness-collaboration-respect-inclusion-03"] },
+   { title: "Navigating ambiguity and asking good questions", questions: ["googleyness-ambiguity-clarification-01", "googleyness-ambiguity-clarification-02", "googleyness-ambiguity-clarification-03"] },
+   { title: "Learning and intellectual humility", questions: ["googleyness-learning-intellectual-humility-01", "googleyness-learning-intellectual-humility-02", "googleyness-learning-intellectual-humility-03"] },
+   { title: "Adaptability and resilience", questions: ["googleyness-adaptability-resilience-01", "googleyness-adaptability-resilience-02", "googleyness-adaptability-resilience-03"] },
+   { title: "Leadership without formal authority", questions: ["googleyness-leadership-without-authority-01", "googleyness-leadership-without-authority-02", "googleyness-leadership-without-authority-03"] },
+   { title: "Responsible impact, integrity, and judgment", questions: ["googleyness-responsible-impact-integrity-01", "googleyness-responsible-impact-integrity-02", "googleyness-responsible-impact-integrity-03"] },
+];
+
+const manifestOf = (groups: readonly CollectionGroup[]) => groups.flatMap(({ questions }) => questions);
 
 export const COLLECTIONS: readonly Collection[] = [
    {
@@ -93,6 +96,7 @@ export const COLLECTIONS: readonly Collection[] = [
       levelFilter: true,
       grouped: false,
       manifest: GENERAL_MANIFEST,
+      groups: {},
    },
    {
       id: "amazon",
@@ -100,7 +104,8 @@ export const COLLECTIONS: readonly Collection[] = [
       lessons: [{ content_id: "lesson.amazon-leadership-principles", slug: "amazon-leadership-principles", level: null }],
       levelFilter: false,
       grouped: true,
-      manifest: AMAZON_MANIFEST,
+      manifest: { "lesson.amazon-leadership-principles": manifestOf(AMAZON_GROUPS) },
+      groups: { "lesson.amazon-leadership-principles": AMAZON_GROUPS },
    },
    {
       id: "google",
@@ -108,7 +113,8 @@ export const COLLECTIONS: readonly Collection[] = [
       lessons: [{ content_id: "lesson.googleyness-and-leadership", slug: "googleyness-and-leadership", level: null }],
       levelFilter: false,
       grouped: true,
-      manifest: GOOGLE_MANIFEST,
+      manifest: { "lesson.googleyness-and-leadership": manifestOf(GOOGLE_GROUPS) },
+      groups: { "lesson.googleyness-and-leadership": GOOGLE_GROUPS },
    },
 ];
 
@@ -117,6 +123,23 @@ export const findCollection = (id: string) => COLLECTIONS.find((collection) => c
 /** The collection an answer belongs to, derived from its `content_id`; undefined when no collection lists that Lesson. */
 export const collectionOfContent = (contentId: string) =>
    COLLECTIONS.find(({ lessons }) => lessons.some(({ content_id }) => content_id === contentId));
+
+/**
+ * What the workspace lists need to name a company answer: per company Lesson, its collection title and the group of each
+ * question. Plain data from the registry alone, so showing it adds no catalog read; a question not listed has no group.
+ */
+export const workspaceLabels = () =>
+   Object.fromEntries(
+      COLLECTIONS.filter(({ grouped }) => grouped).flatMap(({ title, lessons, groups }) =>
+         lessons.map(({ content_id }) => [
+            content_id,
+            {
+               collection: title,
+               groups: Object.fromEntries((groups[content_id] ?? []).flatMap((group) => group.questions.map((question) => [question, group.title]))),
+            },
+         ])
+      )
+   ) as Record<string, { collection: string; groups: Record<string, string> }>;
 
 /**
  * Opens one collection: one catalog read per Lesson of that collection (four, one, one) and none for any other. A result

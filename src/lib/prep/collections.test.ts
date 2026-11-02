@@ -7,7 +7,7 @@ const getCatalogItem = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/catalog/client", () => ({ getCatalogItem }));
 
 import type { CatalogHeading, CatalogItem } from "@/lib/catalog/types";
-import { COLLECTIONS, collectionOfContent, findCollection, loadCollectionQuestions, type Collection } from "./collections";
+import { COLLECTIONS, collectionOfContent, findCollection, loadCollectionQuestions, workspaceLabels, type Collection } from "./collections";
 import { loadBehavioralQuestions, type CatalogQuestion } from "./questions";
 
 /*
@@ -156,6 +156,36 @@ describe("the registry", () => {
       expect(collectionOfContent(GOOGLE_ID)?.id).toBe("google");
       expect(collectionOfContent("lesson.unknown")).toBeUndefined();
       expect(findCollection("unknown")).toBeUndefined();
+   });
+});
+
+describe("the registry's groups", () => {
+   it("equal the contract's group tables, in order, and give the same questions as the manifests", () => {
+      const groupsOf = (id: string, contentId: string) => findCollection(id)!.groups[contentId].map(({ title, questions }) => [title, questions]);
+      expect(groupsOf("amazon", AMAZON_ID)).toEqual(AMAZON);
+      expect(groupsOf("google", GOOGLE_ID)).toEqual(GOOGLE);
+      for (const [id, contentId] of [["amazon", AMAZON_ID], ["google", GOOGLE_ID]]) {
+         const collection = findCollection(id)!;
+         expect(collection.groups[contentId].flatMap(({ questions }) => questions)).toEqual(collection.manifest[contentId]);
+      }
+   });
+
+   it("are declared for the grouped collections only", () => {
+      expect(findCollection("behavioral")!.groups).toEqual({});
+   });
+
+   it("name every company question for the workspace lists without a catalog read, and name no general question", () => {
+      const labels = workspaceLabels();
+      expect(Object.keys(labels).sort()).toEqual([AMAZON_ID, GOOGLE_ID]);
+      expect(labels[AMAZON_ID].collection).toBe("Amazon Leadership Principles");
+      expect(labels[GOOGLE_ID].collection).toBe("Googleyness & Leadership");
+      for (const [contentId, rows] of [[AMAZON_ID, AMAZON], [GOOGLE_ID, GOOGLE]] as const) {
+         const expected = Object.fromEntries(rows.flatMap(([title, ids]) => ids.map((id) => [id, title])));
+         expect(labels[contentId].groups).toEqual(expected);
+      }
+      expect(labels[AMAZON_ID].groups["alp-ownership-02"]).toBe("Ownership");
+      expect(labels[GOOGLE_ID].groups["googleyness-learning-intellectual-humility-02"]).toBe("Learning and intellectual humility");
+      expect(getCatalogItem).not.toHaveBeenCalled();
    });
 });
 

@@ -131,3 +131,40 @@ describe("Prepare your answer on a Lesson", () => {
       expect(auth.unsubscribe).toHaveBeenCalled();
    });
 });
+
+describe("Prepare your answer on a grouped collection Lesson", () => {
+   const h3 = (id: string, text: string): CatalogHeading => ({ id, level: 3, text, authored: true });
+   const grouped = [
+      "## A group",
+      "",
+      "Prose.",
+      "",
+      "### First {#first-01}",
+      "",
+      'The question: "One?"',
+      "",
+      "## second-group",
+      "",
+      "### Second {#second-01}",
+      "",
+      'The question: "Two?"',
+      "",
+    ].join("\n");
+   const headings: CatalogHeading[] = [h("a-group", "A group", false), h3("first-01", "First"), h("second-group", "second-group", false), h3("second-01", "Second")];
+
+   it("sits after the ### question headings only, never after a ## group heading", async () => {
+      auth.session = { access_token: "t" };
+      render(
+         <CatalogBody
+            body={{ format: "markdown@1", text: grouped }}
+            reading={{ headings, prepare: { contentId: "lesson.x-y", questionIds: new Set(["first-01", "second-01"]), questionTag: "h3" } }}
+         />
+      );
+      const links = await screen.findAllByRole("link", { name: /^Prepare your answer/ });
+      expect(links.map((link) => link.getAttribute("href"))).toEqual([
+         "/prepare/new?content=lesson.x-y&question=first-01",
+         "/prepare/new?content=lesson.x-y&question=second-01",
+      ]);
+      expect(links[0].closest("p")?.previousElementSibling?.tagName).toBe("H3");
+   });
+});

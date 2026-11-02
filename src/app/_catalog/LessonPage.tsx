@@ -16,17 +16,19 @@ import { contentsOf, knowledgeSupport, lessonRelations } from "@/lib/catalog/les
 import type { ItemNavigation } from "@/lib/catalog/navigation";
 import { outlineOf } from "@/lib/catalog/outline";
 import type { CatalogItem } from "@/lib/catalog/types";
-import { BEHAVIORAL_LESSONS, questionsOf } from "@/lib/prep/questions";
+import { collectionOfContent } from "@/lib/prep/collections";
+import { questionsOf } from "@/lib/prep/questions";
 import { prepEnabled } from "@/lib/prep-flag";
 import { cn } from "@/lib/utils";
 import { ItemContent } from "./ItemContent";
 
-/** The Behavioral Lesson's question sections that offer "Prepare your answer": the T17 source decides which, flag off offers none. */
+/** The question sections of a collection Lesson that offer "Prepare your answer": the registry and the question source decide which, flag off offers none. */
 function prepareLinks(item: CatalogItem): ReadingMode["prepare"] {
    if (!prepEnabled()) return undefined;
-   const lesson = BEHAVIORAL_LESSONS.find(({ content_id }) => content_id === item.id);
-   const questionIds = lesson ? new Set(questionsOf(lesson, item).map(({ question_id }) => question_id)) : null;
-   return questionIds?.size ? { contentId: item.id, questionIds } : undefined;
+   const collection = collectionOfContent(item.id);
+   const lesson = collection?.lessons.find(({ content_id }) => content_id === item.id);
+   const questionIds = collection && lesson ? new Set(questionsOf(lesson, item, collection.grouped).map(({ question_id }) => question_id)) : null;
+   return questionIds?.size ? { contentId: item.id, questionIds, questionTag: collection?.grouped ? "h3" : "h2" } : undefined;
 }
 
 /**

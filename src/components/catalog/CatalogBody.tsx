@@ -100,7 +100,7 @@ function heading(Tag: HeadingTag, ids?: Map<number, CatalogHeading>, prepare?: P
          </Tag>
       );
       // Only a question the P7 source recognised gets the link; it follows the heading and is empty for a signed-out reader.
-      if (Tag !== "h2" || !prepare?.questionIds.has(found.id)) return title;
+      if (Tag !== (prepare?.questionTag ?? "h2") || !prepare?.questionIds.has(found.id)) return title;
       return (
          <>
             {title}
@@ -227,7 +227,7 @@ interface BlocksProps {
 type HeadingTag = keyof typeof HEADING_STYLE;
 
 /** The Lesson's question sections, by authored heading id, that offer "Prepare your answer" (P7-T18). */
-export type PrepareLinks = { contentId: string; questionIds: ReadonlySet<string> };
+export type PrepareLinks = { contentId: string; questionIds: ReadonlySet<string>; questionTag?: "h2" | "h3" };
 
 /** Authored levels to rendered tags: as authored up to h4 by default, else shifted below the container's heading (S-AX-2). */
 function headingComponents(ids: Map<number, CatalogHeading> | undefined, offset: number, prepare?: PrepareLinks): Components {

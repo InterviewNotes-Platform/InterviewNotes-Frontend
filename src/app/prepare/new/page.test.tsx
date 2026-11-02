@@ -15,10 +15,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
-vi.mock("@/lib/prep/questions", () => ({ loadBehavioralQuestions: mocks.load }));
+vi.mock("@/lib/prep/collections", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/prep/collections")>()), loadCollectionQuestions: mocks.load }));
 vi.mock("@/components/prepare/picker/QuestionPicker", () => ({
-    QuestionPicker: (props: { apiUrl: string | null; catalog: unknown; requested: unknown; storyId?: string | null }) => (
-        <pre data-testid="picker">{JSON.stringify({ apiUrl: props.apiUrl, catalog: props.catalog, requested: props.requested, storyId: props.storyId })}</pre>
+    QuestionPicker: (props: { apiUrl: string | null; catalog: unknown; requested: unknown; storyId?: string | null; collectionId?: string; collections?: unknown }) => (
+        <pre data-testid="picker">
+            {JSON.stringify({ apiUrl: props.apiUrl, catalog: props.catalog, requested: props.requested, storyId: props.storyId, collectionId: props.collectionId, collections: props.collections })}
+        </pre>
     ),
 }));
 
@@ -71,7 +73,7 @@ describe("/prepare/new access", () => {
             await expect(NewAnswerPage(props({ story }))).rejects.toThrow(`NEXT_REDIRECT:/login?redirect=${encodeURIComponent(`/prepare/new?story=${story}`)}`);
         });
 
-        it("reads the four Lessons once and hands the picker the questions, the link's pair and the API origin", async () => {
+        it("reads the general collection once and hands the picker the questions, the link's pair and the API origin", async () => {
             vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
             render(await NewAnswerPage(props({ content: Q.content_id, question: Q.question_id })));
             expect(mocks.load).toHaveBeenCalledTimes(1);
@@ -80,6 +82,52 @@ describe("/prepare/new access", () => {
                 catalog: { status: "ok", questions: [Q] },
                 requested: { content_id: Q.content_id, question_id: Q.question_id },
                 storyId: null,
+                collectionId: "behavioral",
+                collections: expect.any(Array),
+            });
+            expect(mocks.load.mock.calls[0][0]).toMatchObject({ id: "behavioral", levelFilter: true });
+        });
+
+        describe("collections", () => {
+            const opened = () => mocks.load.mock.calls.map(([collection]) => collection.id);
+
+            it("offers the three registry collections, the level filter on the general one only", async () => {
+                render(await NewAnswerPage(props()));
+                expect(shown().collections).toEqual([
+                    { id: "behavioral", title: "General Behavioral", levelFilter: true, grouped: false },
+                    { id: "amazon", title: "Amazon Leadership Principles", levelFilter: false, grouped: true },
+                    { id: "google", title: "Googleyness & Leadership", levelFilter: false, grouped: true },
+                ]);
+            });
+
+            it.each(["amazon", "google"])("reads only the %s collection when it is chosen", async (id) => {
+                render(await NewAnswerPage(props({ collection: id })));
+                expect(opened()).toEqual([id]);
+                expect(shown().collectionId).toBe(id);
+            });
+
+            it("opens the collection of the question a link named, and an explicit collection wins over it", async () => {
+                const amazon = { content: "lesson.amazon-leadership-principles", question: "alp-ownership-01" };
+                render(await NewAnswerPage(props(amazon)));
+                expect(opened()).toEqual(["amazon"]);
+                render(await NewAnswerPage(props({ ...amazon, collection: "google" })));
+                expect(opened()).toEqual(["amazon", "google"]);
+            });
+
+            it("falls back to the general collection for an unknown or malformed collection", async () => {
+                render(await NewAnswerPage(props({ collection: "meta" })));
+                render(await NewAnswerPage(props({ collection: ["amazon", "google"] })));
+                expect(opened()).toEqual(["behavioral", "behavioral"]);
+            });
+
+            it("sends a signed-out visitor to sign-in before any collection is read, bringing them back to the same collection", async () => {
+                mocks.getUser.mockResolvedValue({ data: { user: null } });
+                await expect(NewAnswerPage(props({ collection: "amazon" }))).rejects.toThrow(`NEXT_REDIRECT:/login?redirect=${encodeURIComponent("/prepare/new?collection=amazon")}`);
+                await expect(NewAnswerPage(props({ collection: "google", story: "11111111-1111-4111-8111-111111111111" }))).rejects.toThrow(
+                    `NEXT_REDIRECT:/login?redirect=${encodeURIComponent("/prepare/new?story=11111111-1111-4111-8111-111111111111&collection=google")}`
+                );
+                await expect(NewAnswerPage(props({ collection: "behavioral" }))).rejects.toThrow("NEXT_REDIRECT:/login?redirect=%2Fprepare%2Fnew");
+                expect(mocks.load).not.toHaveBeenCalled();
             });
         });
 
