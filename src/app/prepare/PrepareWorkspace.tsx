@@ -15,6 +15,9 @@ import { createClient } from "@/lib/supabase/client";
 /** After this long the loading state also says the wait is longer than usual (a cold start, P7-D-010). */
 export const SLOW_NOTICE_MS = 4000;
 
+/** A company Lesson's collection title and the group of each of its questions, from the registry (P7-T58, P7-T59). */
+export type CollectionLabels = Readonly<Record<string, { collection: string; groups: Readonly<Record<string, string>> }>>;
+
 /** The API's largest page; more answers are read with `offset`, never by asking for a bigger page. */
 const PAGE = 100;
 const SEARCH_MAX = 200;
@@ -30,6 +33,8 @@ type Filter = { q: string; tags: string[] };
 interface Props {
     /** The API origin the browser calls; null when the environment has none. */
     apiUrl: string | null;
+    /** Keyed by a company Lesson's `content_id`; an answer of any other Lesson shows no collection or group. */
+    labels?: CollectionLabels;
     /** Tests supply these; the page uses the browser's Supabase session and `fetch`. */
     getAccessToken?: () => Promise<string | null>;
     fetch?: typeof fetch;
@@ -58,7 +63,7 @@ function settle(result: PrepResult<{ items: Answer[]; total: number }>): State {
     }
 }
 
-export function PrepareWorkspace({ apiUrl, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+export function PrepareWorkspace({ apiUrl, labels = {}, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
     const [state, setState] = useState<State>(apiUrl ? { phase: "loading" } : { phase: "failed", message: "The preparation service is not configured for this environment." });
     const [slow, setSlow] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -223,8 +228,8 @@ export function PrepareWorkspace({ apiUrl, getAccessToken = sessionToken, fetch:
             ) : (
                 (state.phase === "loading" || state.phase === "ready") && (
                     <div className="grid gap-4 md:grid-cols-2">
-                        <Section title="In progress" loading={state.phase === "loading"} answers={inProgress} onTag={addTag} empty={partial ? "No recent answers in progress." : "No answers in progress."} />
-                        <Section title="Ready" loading={state.phase === "loading"} answers={ready} onTag={addTag} empty={partial ? "No recent answers marked ready." : "No answers marked ready."} />
+                        <Section title="In progress" loading={state.phase === "loading"} answers={inProgress} labels={labels} onTag={addTag} empty={partial ? "No recent answers in progress." : "No answers in progress."} />
+                        <Section title="Ready" loading={state.phase === "loading"} answers={ready} labels={labels} onTag={addTag} empty={partial ? "No recent answers marked ready." : "No answers marked ready."} />
                     </div>
                 )
             )}
@@ -255,7 +260,21 @@ function countText(shown: number, total: number, filtered: boolean): string {
     return filtered ? `${total} ${noun} ${total === 1 ? "matches" : "match"}.` : `${total} ${noun}.`;
 }
 
-function Section({ title, loading, answers, empty, onTag }: { title: string; loading: boolean; answers: Answer[]; empty: string; onTag: (tag: string) => void }) {
+function Section({
+    title,
+    loading,
+    answers,
+    labels,
+    empty,
+    onTag,
+}: {
+    title: string;
+    loading: boolean;
+    answers: Answer[];
+    labels: CollectionLabels;
+    empty: string;
+    onTag: (tag: string) => void;
+}) {
     return (
         <Card>
             <CardHeader>
@@ -268,11 +287,16 @@ function Section({ title, loading, answers, empty, onTag }: { title: string; loa
                     <p className="text-supporting text-muted-foreground">{empty}</p>
                 ) : (
                     <ul className="space-y-2 text-body text-foreground">
-                        {answers.map(({ id, question_snapshot, tags }) => (
+                        {answers.map(({ id, content_id, question_id, question_snapshot, tags }) => (
                             <li key={id} className="space-y-1">
                                 <Link href={answerHref(id)} prefetch={false} className="line-clamp-2 block underline-offset-4 hover:underline">
                                     {question_snapshot}
                                 </Link>
+                                {content_id && labels[content_id] && (
+                                    <p className="text-supporting text-muted-foreground">
+                                        {[labels[content_id].collection, question_id && labels[content_id].groups[question_id]].filter(Boolean).join(" · ")}
+                                    </p>
+                                )}
                                 {tags.length > 0 && (
                                     <ul aria-label={`Tags on ${question_snapshot}`} className="flex flex-wrap gap-2">
                                         {tags.map((tag) => (

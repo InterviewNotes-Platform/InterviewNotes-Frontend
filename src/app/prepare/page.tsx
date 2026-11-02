@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { workspaceLabels } from "@/lib/prep/collections";
 import { prepEnabled } from "@/lib/prep-flag";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { hasSession } from "./hasSession";
@@ -19,10 +20,13 @@ export default async function PreparePage() {
     if (!prepEnabled()) notFound();
     if (!(await hasSession())) redirect(`/login?redirect=${encodeURIComponent(PREPARE_HREF)}`);
 
+    // Each company answer's collection and group, from the registry alone: no catalog read happens here.
+    const labels = workspaceLabels();
+
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
         <PageContainer as="main" className="py-10 md:py-14">
-            <PrepareWorkspace apiUrl={process.env.NEXT_PUBLIC_API_URL || null} />
+            <PrepareWorkspace apiUrl={process.env.NEXT_PUBLIC_API_URL || null} labels={labels} />
         </PageContainer>
     );
 }

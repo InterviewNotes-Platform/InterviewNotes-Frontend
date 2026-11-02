@@ -8,10 +8,11 @@ import { StartLinkNotice } from "@/components/prepare/stories/StartLinkNotice";
 import { startFromStory } from "@/components/prepare/stories/startFromStory";
 import { createPrepClient } from "@/lib/prep/client";
 import { asTargetLevel, levelLabel, TARGET_LEVELS } from "@/lib/prep/levels";
+import { plainHeading } from "@/lib/catalog/lesson";
 import { answerHref, newAnswerHref, sameQuestion, type QuestionRef } from "@/lib/prep/links";
-import type { CatalogQuestion } from "@/lib/prep/questions";
+import type { CatalogQuestion, QuestionGroup } from "@/lib/prep/questions";
 import type { Answer, AnswerCreate, PrepResult, TargetLevel } from "@/lib/prep/types";
-import { PREPARE_HREF } from "@/lib/primary-navigation";
+import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +24,15 @@ export const SNAPSHOT_MAX = 1000;
 
 /** What the server could read of the Behavioral Lessons. A failure is a failure, never an empty list. */
 export type CatalogLoad =
-   | { status: "ok"; questions: CatalogQuestion[] }
+   | { status: "ok"; questions: CatalogQuestion<TargetLevel | null>[] }
    | { status: "failed"; reason: "signin" | "unentitled" | "unavailable" };
+
+/** What the picker needs to know of a registry collection; the registry itself stays on the server (P7-T58). */
+export type CollectionOption = { id: string; title: string; levelFilter: boolean; grouped: boolean };
+
+/** The statement the contract (§6) requires with the company collections, word for word. */
+export const COMPANY_STATEMENT =
+   "InterviewNotes-created practice material; not affiliated with or endorsed by Amazon or Google. Company hiring practices can change; these questions and signals are editorial preparation aids, not official questions or scoring rubrics.";
 
 type LevelFilter = "all" | TargetLevel;
 type Mode = "catalog" | "custom";
@@ -48,6 +56,10 @@ interface Props {
    /** The API origin the browser calls; null when the environment has none. */
    apiUrl: string | null;
    catalog: CatalogLoad;
+   /** The registry's collections for the selector; without them the picker is the general Behavioral one, as before P7-T59. */
+   collections?: readonly CollectionOption[];
+   /** The collection `catalog` was read for. */
+   collectionId?: string;
    /** The question a Lesson link named. It selects a question only when the same pair is in `catalog`. */
    requested?: QuestionRef | null;
    /** Start from this story: the answer is created with a copy of its saved text, then linked. Checked by the API, not here. */
@@ -63,7 +75,7 @@ async function sessionToken(): Promise<string | null> {
 }
 
 /** A catalog answer carries its identity and the snapshot taken now; the fallback flag is explicit (contract §4.3). */
-export function catalogAnswer(question: CatalogQuestion): AnswerCreate {
+export function catalogAnswer(question: CatalogQuestion<TargetLevel | null>): AnswerCreate {
    return {
       source: "catalog",
       content_id: question.content_id,
@@ -115,7 +127,19 @@ const CHOICE =
    "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 text-body transition-micro hover:border-primary " +
    "has-[:checked]:border-primary has-[:checked]:bg-surface has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-[3px]";
 
-export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+/** The questions in source order, collected under the group they came with (company collections only). */
+function groupsOf(questions: readonly CatalogQuestion<TargetLevel | null>[]) {
+   const groups: { key: string; group: QuestionGroup; questions: CatalogQuestion<TargetLevel | null>[] }[] = [];
+   for (const question of questions) {
+      if (!question.group) continue;
+      const last = groups.at(-1);
+      if (last && last.group.title === question.group.title) last.questions.push(question);
+      else groups.push({ key: `group-${groups.length}`, group: question.group, questions: [question] });
+   }
+   return groups;
+}
+
+export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId, requested = null, storyId = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
    const router = useRouter();
    const ids = useId();
    const client = useMemo(
@@ -123,6 +147,9 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = nu
       [apiUrl, getAccessToken, fetchImpl]
    );
    const questions = useMemo(() => (catalog.status === "ok" ? catalog.questions : []), [catalog]);
+   const collection = collections.find(({ id }) => id === collectionId);
+   const levelFilter = collection?.levelFilter ?? true;
+   const grouped = collection?.grouped ?? false;
 
    // A link's question is offered only if this load really contains the pair; otherwise nothing is selected.
    const linked = requested ? questions.find((question) => sameQuestion(question, requested)) : undefined;
@@ -145,7 +172,7 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = nu
    const selectedRef = useRef<HTMLInputElement | null>(null);
 
    // One read of the saved target level, only when the catalog is shown and no link already chose a question.
-   const wantsPreference = Boolean(client) && catalog.status === "ok" && !linked;
+   const wantsPreference = Boolean(client) && catalog.status === "ok" && !linked && levelFilter;
    useEffect(() => {
       if (!client || !wantsPreference) return;
       let current = true;
@@ -179,10 +206,17 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = nu
       // Only on first paint: later selections are the reader's own and are already in view.
    }, []);
 
-   const visible = level === "all" ? questions : questions.filter((question) => question.level === level);
+   const visible = !levelFilter || level === "all" ? questions : questions.filter((question) => question.level === level);
    const customLength = [...customText.trim()].length;
    const customTooLong = customLength > SNAPSHOT_MAX;
    const busy = save.phase === "saving" || save.phase === "done" || save.phase === "unlinked";
+
+   /** Another collection is another server read of its own Lesson, so the page is asked for it. */
+   function chooseCollection(id: string) {
+      const params = new URLSearchParams({ collection: id });
+      if (storyId) params.set("story", storyId);
+      router.push(`${PREPARE_NEW_HREF}?${params}`);
+   }
 
    function chooseLevel(next: LevelFilter) {
       interacted.current = true;
@@ -191,7 +225,7 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = nu
       if (selected && next !== "all" && questions.find((question) => sameQuestion(question, selected))?.level !== next) setSelected(null);
    }
 
-   function choose(question: CatalogQuestion) {
+   function choose(question: CatalogQuestion<TargetLevel | null>) {
       interacted.current = true;
       setSelected({ content_id: question.content_id, question_id: question.question_id });
    }
@@ -253,11 +287,38 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = nu
       if (pending) void create(pending);
    }
 
-   const signInHref = `/login?redirect=${encodeURIComponent(newAnswerHref(selected, storyId))}`;
+   const keepCollection = !selected && collection !== undefined && collection.id !== collections[0]?.id;
+   const signInHref = `/login?redirect=${encodeURIComponent(newAnswerHref(selected, storyId) + (keepCollection ? `${storyId ? "&" : "?"}collection=${collection.id}` : ""))}`;
    const awaitingCheck = pending !== null && pending.key === unconfirmed;
    const canSubmit = !busy && Boolean(client) && pending !== null && !awaitingCheck;
    // A warning about an earlier, different choice is no longer about what the form would create.
    const shown: Save = save.phase === "failed" && save.unconfirmed && !awaitingCheck ? { phase: "idle" } : save;
+
+   const renderQuestion = (question: CatalogQuestion<TargetLevel | null>) => {
+      const checked = selected !== null && sameQuestion(question, selected);
+      return (
+         <li key={keyOf(question)}>
+            <label className={CHOICE}>
+               <input
+                  type="radio"
+                  name={`${ids}-question`}
+                  value={keyOf(question)}
+                  checked={checked}
+                  disabled={busy}
+                  onChange={() => choose(question)}
+                  ref={checked ? selectedRef : undefined}
+                  className="size-4 shrink-0 accent-primary"
+               />
+               <span className="min-w-0">
+                  <span className="block">{question.text}</span>
+                  {levelFilter && level === "all" && question.level && (
+                     <span className="block text-supporting text-muted-foreground">{levelLabel(question.level)}</span>
+                  )}
+               </span>
+            </label>
+         </li>
+      );
+   };
 
    return (
       <div className="space-y-8">
@@ -266,7 +327,9 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = nu
                Back to your workspace
             </Link>
             <h1 className="text-section text-foreground">Choose a question</h1>
-            <p className="max-w-reading text-body text-muted-foreground">Start from a question in the Behavioral Lessons, or write your own.</p>
+            <p className="max-w-reading text-body text-muted-foreground">
+               {grouped && collection ? `Start from a question in ${collection.title}, or write your own.` : "Start from a question in the Behavioral Lessons, or write your own."}
+            </p>
             {storyId && (
                <p className="max-w-reading text-body text-foreground">
                   Your answer will start with a copy of your story&apos;s saved text and be linked to the story. After that the two are separate: editing one does not change the other.
@@ -309,49 +372,72 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = nu
                   <h2 id={`${ids}-catalog`} className="sr-only">
                      Questions from the Lessons
                   </h2>
+                  {collections.length > 1 && (
+                     <div className="space-y-2">
+                        <label htmlFor={`${ids}-collection`} className="block text-supporting font-semibold text-foreground">
+                           Collection
+                        </label>
+                        <select
+                           id={`${ids}-collection`}
+                           value={collectionId}
+                           disabled={busy}
+                           onChange={(event) => chooseCollection(event.target.value)}
+                           className="border-input h-11 w-full max-w-xs rounded-md border bg-transparent px-3 text-base shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm dark:bg-input/30"
+                        >
+                           {collections.map(({ id, title }) => (
+                              <option key={id} value={id}>
+                                 {title}
+                              </option>
+                           ))}
+                        </select>
+                     </div>
+                  )}
+                  {grouped && <p className="max-w-reading text-supporting text-muted-foreground">{COMPANY_STATEMENT}</p>}
                   {catalog.status === "failed" ? (
                      <CatalogProblem reason={catalog.reason} signInHref={signInHref} onRetry={() => router.refresh()} onCustom={() => setMode("custom")} />
                   ) : (
                      <>
-                        <div className="space-y-2">
-                           <label htmlFor={`${ids}-level`} className="block text-supporting font-semibold text-foreground">
-                              Level
-                           </label>
-                           <select
-                              id={`${ids}-level`}
-                              value={level}
-                              disabled={busy}
-                              onChange={(event) => chooseLevel(event.target.value === "all" ? "all" : (asTargetLevel(event.target.value) ?? "all"))}
-                              className="border-input h-11 w-full max-w-xs rounded-md border bg-transparent px-3 text-base shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm dark:bg-input/30"
-                           >
-                              <option value="all">All levels</option>
-                              {TARGET_LEVELS.map(({ value, label }) => (
-                                 <option key={value} value={value}>
-                                    {label}
-                                 </option>
-                              ))}
-                           </select>
-                           {preference.phase === "loading" && (
-                              <p role="status" className="text-supporting text-muted-foreground">
-                                 Checking your target level…
-                              </p>
-                           )}
-                           {preference.phase === "failed" && (
-                              <p role="status" className="text-supporting text-muted-foreground">
-                                 We could not load your target level, so the level shown is your choice.{" "}
-                                 <button
-                                    type="button"
-                                    className="text-primary underline underline-offset-4"
-                                    onClick={() => {
-                                       setPreference({ phase: "loading" });
-                                       setPreferenceAttempt((n) => n + 1);
-                                    }}
-                                 >
-                                    Try again
-                                 </button>
-                              </p>
-                           )}
-                        </div>
+                        {levelFilter && (
+                           <div className="space-y-2">
+                              <label htmlFor={`${ids}-level`} className="block text-supporting font-semibold text-foreground">
+                                 Level
+                              </label>
+                              <select
+                                 id={`${ids}-level`}
+                                 value={level}
+                                 disabled={busy}
+                                 onChange={(event) => chooseLevel(event.target.value === "all" ? "all" : (asTargetLevel(event.target.value) ?? "all"))}
+                                 className="border-input h-11 w-full max-w-xs rounded-md border bg-transparent px-3 text-base shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm dark:bg-input/30"
+                              >
+                                 <option value="all">All levels</option>
+                                 {TARGET_LEVELS.map(({ value, label }) => (
+                                    <option key={value} value={value}>
+                                       {label}
+                                    </option>
+                                 ))}
+                              </select>
+                              {preference.phase === "loading" && (
+                                 <p role="status" className="text-supporting text-muted-foreground">
+                                    Checking your target level…
+                                 </p>
+                              )}
+                              {preference.phase === "failed" && (
+                                 <p role="status" className="text-supporting text-muted-foreground">
+                                    We could not load your target level, so the level shown is your choice.{" "}
+                                    <button
+                                       type="button"
+                                       className="text-primary underline underline-offset-4"
+                                       onClick={() => {
+                                          setPreference({ phase: "loading" });
+                                          setPreferenceAttempt((n) => n + 1);
+                                       }}
+                                    >
+                                       Try again
+                                    </button>
+                                 </p>
+                              )}
+                           </div>
+                        )}
 
                         {linkedMissing && (
                            <p role="status" className="text-supporting text-muted-foreground">
@@ -363,32 +449,24 @@ export function QuestionPicker({ apiUrl, catalog, requested = null, storyId = nu
                            <legend className="mb-3 text-supporting font-semibold text-foreground">Question</legend>
                            {visible.length === 0 ? (
                               <p className="text-body text-muted-foreground">There are no questions for this level.</p>
+                           ) : grouped ? (
+                              <div className="space-y-8">
+                                 {groupsOf(visible).map(({ key, group, questions: inGroup }) => (
+                                    <section key={key} aria-labelledby={`${ids}-${key}`} className="space-y-3">
+                                       <h3 id={`${ids}-${key}`} className="text-subsection text-foreground">
+                                          {group.title}
+                                       </h3>
+                                       {group.explanation.split(/\n{2,}/).map((paragraph) => (
+                                          <p key={paragraph} className="max-w-reading text-supporting text-muted-foreground">
+                                             {plainHeading(paragraph)}
+                                          </p>
+                                       ))}
+                                       <ul className="space-y-3">{inGroup.map(renderQuestion)}</ul>
+                                    </section>
+                                 ))}
+                              </div>
                            ) : (
-                              <ul className="space-y-3">
-                                 {visible.map((question) => {
-                                    const checked = selected !== null && sameQuestion(question, selected);
-                                    return (
-                                       <li key={keyOf(question)}>
-                                          <label className={CHOICE}>
-                                             <input
-                                                type="radio"
-                                                name={`${ids}-question`}
-                                                value={keyOf(question)}
-                                                checked={checked}
-                                                disabled={busy}
-                                                onChange={() => choose(question)}
-                                                ref={checked ? selectedRef : undefined}
-                                                className="size-4 shrink-0 accent-primary"
-                                             />
-                                             <span className="min-w-0">
-                                                <span className="block">{question.text}</span>
-                                                {level === "all" && <span className="block text-supporting text-muted-foreground">{levelLabel(question.level)}</span>}
-                                             </span>
-                                          </label>
-                                       </li>
-                                    );
-                                 })}
-                              </ul>
+                              <ul className="space-y-3">{visible.map(renderQuestion)}</ul>
                            )}
                         </fieldset>
                      </>

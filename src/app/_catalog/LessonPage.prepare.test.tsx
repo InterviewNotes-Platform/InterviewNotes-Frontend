@@ -24,12 +24,16 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 import type { CatalogHeading, CatalogItem } from "@/lib/catalog/types";
+import { COLLECTIONS } from "@/lib/prep/collections";
 import { BEHAVIORAL_LESSONS } from "@/lib/prep/questions";
 import { CatalogItemPage } from "./CatalogItemPage";
 
 // The four Lessons as published by the P7-T17C branch, and the `headings[]` the API derives from them (see the T17 tests).
 const FIXTURES = join(__dirname, "../../lib/prep/fixtures");
-const HEADINGS: Record<string, CatalogHeading[]> = JSON.parse(readFileSync(join(FIXTURES, "headings.json"), "utf8"));
+const HEADINGS: Record<string, CatalogHeading[]> = {
+   ...JSON.parse(readFileSync(join(FIXTURES, "headings.json"), "utf8")),
+   ...JSON.parse(readFileSync(join(FIXTURES, "collections-headings.json"), "utf8")),
+};
 
 function lessonItem(slug: string, id: string): CatalogItem {
    const text = readFileSync(join(FIXTURES, `${slug}.md`), "utf8").replace(/^---\n[\s\S]*?\n---\n/, "").replace(/^\n+/, "");
@@ -105,3 +109,44 @@ describe("Prepare your answer on the Behavioral Lessons", () => {
       expect(links()).toHaveLength(0);
    });
 });
+
+describe.each(COLLECTIONS.filter(({ grouped }) => grouped).map((collection) => ({ collection, lesson: collection.lessons[0] })))(
+   "Prepare your answer on the $collection.title Lesson",
+   ({ collection, lesson }) => {
+      const manifest = collection.manifest[lesson.content_id];
+      /** React's ids are base-32 (`_r_c_`), so a longer Lesson's counter is not always digits. */
+      const stable = (container: HTMLElement) => markup(container).replace(/_r_[0-9a-v]+_/g, "_r_");
+      const open = () => {
+         getCatalogItem.mockResolvedValue({ status: "ok", data: lessonItem(lesson.slug, lesson.content_id) });
+         return show(lesson.slug);
+      };
+
+      it("offers one link for each manifest question, with its authored pair, and none on a group heading", async () => {
+         vi.stubEnv("NEXT_PUBLIC_PREP_ENABLED", "true");
+         await open();
+         await act(async () => {});
+         const hrefs = links().map((link) => link.getAttribute("href"));
+         expect(hrefs).toEqual(manifest.map((question) => `/prepare/new?content=${lesson.content_id}&question=${question}`));
+         expect(links().every((link) => link.closest("p")?.previousElementSibling?.tagName === "H3")).toBe(true);
+      });
+
+      it("adds nothing while the flag is off or the reader is signed out, and the signed-out Lesson is unchanged", async () => {
+         const off = await open();
+         const without = stable(off.container);
+         off.unmount();
+
+         vi.stubEnv("NEXT_PUBLIC_PREP_ENABLED", "false");
+         const flagOff = await open();
+         await act(async () => {});
+         expect(links()).toHaveLength(0);
+         flagOff.unmount();
+
+         vi.stubEnv("NEXT_PUBLIC_PREP_ENABLED", "true");
+         auth.session = null;
+         const signedOut = await open();
+         await act(async () => {});
+         expect(links()).toHaveLength(0);
+         expect(stable(signedOut.container)).toBe(without);
+      });
+   }
+);

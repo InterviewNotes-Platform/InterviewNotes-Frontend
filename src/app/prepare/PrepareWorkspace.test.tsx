@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { workspaceLabels } from "@/lib/prep/collections";
 import { createFakePrepApi } from "@/lib/prep/fakeApi";
 import { PrepareWorkspace, SLOW_NOTICE_MS } from "./PrepareWorkspace";
 
@@ -322,5 +323,57 @@ describe("more than one page", () => {
         await flush();
         await release(calls[1], new Response(null, { status: 401 }));
         expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login?redirect=%2Fprepare");
+    });
+});
+
+describe("collection and group of an answer", () => {
+    const AMAZON = "lesson.amazon-leadership-principles";
+    const GOOGLE = "lesson.googleyness-and-leadership";
+    const labels = workspaceLabels();
+    const catalogAnswer = (id: string, contentId: string, questionId: string, text: string) => ({
+        ...answer(id, "in_progress", text), source: "catalog", content_id: contentId, question_id: questionId,
+    });
+
+    async function open(items: unknown[], props: { labels?: typeof labels } = { labels }) {
+        const { calls, fetch } = held();
+        render(<PrepareWorkspace apiUrl={API} getAccessToken={token} fetch={fetch} {...props} />);
+        await flush();
+        await act(async () => {
+            calls[0].release(jsonResponse(200, { items, total: items.length, limit: 100, offset: 0 }));
+            await vi.advanceTimersByTimeAsync(0);
+        });
+        return calls;
+    }
+    const item = (text: string) => screen.getByRole("link", { name: text }).closest("li") as HTMLElement;
+
+    it("names the collection and the principle or theme of Amazon and Google answers, each from its own question id", async () => {
+        const calls = await open([
+            catalogAnswer("a1", AMAZON, "alp-ownership-02", "Tell me about ownership."),
+            catalogAnswer("a2", AMAZON, "alp-frugality-01", "Tell me about frugality."),
+            catalogAnswer("a3", GOOGLE, "googleyness-learning-intellectual-humility-02", "Tell me about learning."),
+            catalogAnswer("a4", GOOGLE, "googleyness-adaptability-resilience-03", "Tell me about adapting."),
+        ]);
+        expect(item("Tell me about ownership.").querySelector("p")).toHaveTextContent(/^Amazon Leadership Principles · Ownership$/);
+        expect(item("Tell me about frugality.").querySelector("p")).toHaveTextContent(/^Amazon Leadership Principles · Frugality$/);
+        expect(item("Tell me about learning.").querySelector("p")).toHaveTextContent(/^Googleyness & Leadership · Learning and intellectual humility$/);
+        expect(item("Tell me about adapting.").querySelector("p")).toHaveTextContent(/^Googleyness & Leadership · Adaptability and resilience$/);
+        // The registry is plain data: the workspace makes exactly one request, the answers list.
+        expect(calls).toHaveLength(1);
+    });
+
+    it("shows only the collection for a company question the registry no longer lists, and nothing for other answers", async () => {
+        await open([
+            catalogAnswer("a1", AMAZON, "alp-retired-01", "Tell me about a retired question."),
+            catalogAnswer("a2", "lesson.behavioral-prep-sde-1", "being-stuck", "Tell me about being stuck."),
+            answer("a3", "ready", "My own question."),
+        ]);
+        expect(item("Tell me about a retired question.").querySelector("p")).toHaveTextContent(/^Amazon Leadership Principles$/);
+        expect(item("Tell me about being stuck.").querySelector("p")).toBeNull();
+        expect(item("My own question.").querySelector("p")).toBeNull();
+    });
+
+    it("shows nothing extra when no labels are supplied", async () => {
+        await open([catalogAnswer("a1", AMAZON, "alp-ownership-02", "Tell me about ownership.")], {});
+        expect(item("Tell me about ownership.").querySelector("p")).toBeNull();
     });
 });

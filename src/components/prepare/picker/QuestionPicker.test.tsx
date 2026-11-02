@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPrepClient } from "@/lib/prep/client";
 import { createFakePrepApi } from "@/lib/prep/fakeApi";
 import type { CatalogQuestion } from "@/lib/prep/questions";
-import { QuestionPicker, SNAPSHOT_MAX, type CatalogLoad } from "./QuestionPicker";
+import { COMPANY_STATEMENT, QuestionPicker, SNAPSHOT_MAX, type CatalogLoad, type CollectionOption } from "./QuestionPicker";
 
 const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => nav }));
@@ -403,5 +403,119 @@ describe("keyboard and names", () => {
          expect(option).toHaveAccessibleName(/^(Tell me|Underperformance)/);
       }
       expect(screen.getByRole("radio", { name: "Choose from the Lessons" })).toBeChecked();
+   });
+});
+
+describe("collections", () => {
+   const AMAZON = "lesson.amazon-leadership-principles";
+   const COLLECTIONS: CollectionOption[] = [
+      { id: "behavioral", title: "General Behavioral", levelFilter: true, grouped: false },
+      { id: "amazon", title: "Amazon Leadership Principles", levelFilter: false, grouped: true },
+      { id: "google", title: "Googleyness & Leadership", levelFilter: false, grouped: true },
+   ];
+   const own: CatalogQuestion<null>["group"] = { title: "Ownership", explanation: "Owning the outcome.\n\n**Editorial note.** Strong evidence is specific." };
+   const dive: CatalogQuestion<null>["group"] = { title: "Dive Deep", explanation: "Knowing the details." };
+   const company = (id: string, text: string, group: CatalogQuestion<null>["group"]): CatalogQuestion<null> => ({
+      content_id: AMAZON, question_id: id, level: null, text, snapshot_fallback: false, group,
+   });
+   const grouped: CatalogLoad = {
+      status: "ok",
+      questions: [
+         company("alp-ownership-01", "Tell me about owning a fix.", own),
+         company("alp-ownership-02", "Tell me about an unowned problem.", own),
+         company("alp-dive-deep-01", "Tell me about digging into a metric.", dive),
+      ],
+   };
+   const showCollection = (id: string, catalog: CatalogLoad, extra: Partial<React.ComponentProps<typeof QuestionPicker>> = {}) =>
+      show({ collections: COLLECTIONS, collectionId: id, catalog, ...extra });
+
+   it("lists the three collections with the current one selected, and asks the page for another instead of filtering", () => {
+      showCollection("amazon", grouped, { storyId: "11111111-1111-4111-8111-111111111111" });
+      const select = screen.getByLabelText("Collection");
+      expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual(COLLECTIONS.map(({ title }) => title));
+      expect(select).toHaveValue("amazon");
+      fireEvent.change(select, { target: { value: "google" } });
+      expect(nav.push).toHaveBeenCalledWith("/prepare/new?collection=google&story=11111111-1111-4111-8111-111111111111");
+   });
+
+   it("groups a company collection under its titles with each group's explanation, and offers only the questions", () => {
+      showCollection("amazon", grouped);
+      expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Ownership", "Dive Deep"]);
+      expect(options()).toHaveLength(3);
+      const ownership = screen.getByRole("region", { name: "Ownership" });
+      expect(within(ownership).getAllByRole("radio")).toHaveLength(2);
+      expect(within(ownership).getByText("Owning the outcome.")).toBeInTheDocument();
+      expect(within(ownership).getByText("Editorial note. Strong evidence is specific.")).toBeInTheDocument();
+      expect(within(screen.getByRole("region", { name: "Dive Deep" })).getByText("Knowing the details.")).toBeInTheDocument();
+      expect(screen.queryByRole("radio", { name: /^Ownership$/ })).toBeNull();
+   });
+
+   it("has no level filter for a company collection, shows no level under a question and never reads the saved level", async () => {
+      showCollection("amazon", grouped);
+      expect(screen.queryByLabelText("Level")).toBeNull();
+      expect(screen.queryByText("SDE-1")).toBeNull();
+      await act(async () => {});
+      expect(api.requests.filter(({ path }) => path.endsWith("/preferences"))).toHaveLength(0);
+   });
+
+   it("shows the non-affiliation statement exactly, with a company collection only", () => {
+      expect(COMPANY_STATEMENT).toBe(
+         "InterviewNotes-created practice material; not affiliated with or endorsed by Amazon or Google. Company hiring practices can change; these questions and signals are editorial preparation aids, not official questions or scoring rubrics."
+      );
+      const { unmount } = showCollection("amazon", grouped);
+      expect(screen.getByText(COMPANY_STATEMENT)).toBeInTheDocument();
+      unmount();
+      showCollection("behavioral", ok);
+      expect(screen.queryByText(COMPANY_STATEMENT)).toBeNull();
+   });
+
+   it("keeps the general picker as it was: level filter, level labels, no groups", async () => {
+      showCollection("behavioral", ok);
+      expect(screen.getByLabelText("Level")).toBeInTheDocument();
+      expect(options()).toHaveLength(5);
+      expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
+      expect(screen.getAllByText("SDE-1")).not.toHaveLength(0);
+      await preferenceRead();
+   });
+
+   it("creates the answer with the authored pair and the Lesson's question line as the snapshot", async () => {
+      showCollection("amazon", grouped);
+      fireEvent.click(options()[2]);
+      fireEvent.click(submit());
+      await waitFor(() => expect(posts()).toHaveLength(1));
+      expect(posts()[0].body).toEqual({
+         source: "catalog",
+         content_id: AMAZON,
+         question_id: "alp-dive-deep-01",
+         question_snapshot: "Tell me about digging into a metric.",
+         snapshot_fallback: false,
+         framework: "star",
+      });
+      await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
+   });
+
+   it("selects the question a Lesson link named inside its group", () => {
+      showCollection("amazon", grouped, { requested: { content_id: AMAZON, question_id: "alp-ownership-02" } });
+      expect(screen.getByRole("radio", { name: /unowned problem/ })).toBeChecked();
+   });
+
+   it("offers no company questions when the collection could not be read, and still lets the reader switch", () => {
+      showCollection("google", { status: "failed", reason: "unavailable" });
+      expect(screen.getByRole("alert")).toHaveTextContent("We could not load the questions");
+      expect(screen.queryAllByRole("radio", { name: /Tell me/ })).toHaveLength(0);
+      expect(screen.getByLabelText("Collection")).toHaveValue("google");
+      expect(screen.getByText(COMPANY_STATEMENT)).toBeInTheDocument();
+   });
+
+   it("returns a reader whose session ended to the same company collection when no question was chosen yet", async () => {
+      token = "expired";
+      showCollection("google", { status: "failed", reason: "signin" });
+      const link = await screen.findByRole("link", { name: "Sign in" });
+      expect(link.getAttribute("href")).toBe(`/login?redirect=${encodeURIComponent("/prepare/new?collection=google")}`);
+   });
+
+   it("shows no selector without a registry, as before", () => {
+      show();
+      expect(screen.queryByLabelText("Collection")).toBeNull();
    });
 });
