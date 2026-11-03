@@ -16,6 +16,8 @@ export type ConsentStatus = {
     * Refine, and an older or malformed answer must leave consent working and Refine hidden. Never read it for anything but showing the control.
     */
    refine_available?: boolean;
+   /** The Free reader's model picks the server offers (P7-D-062), a display hint like `refine_available`: validated before use, ignored when absent or malformed. */
+   engine_choices?: string[];
 };
 
 /** `failed.code` is the envelope's `code` when the API sent one (for example `ai_disabled` or `consent_version_stale`). */

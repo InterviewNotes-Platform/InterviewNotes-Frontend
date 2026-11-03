@@ -13,7 +13,9 @@ import { useConsentGate, type ConsentOutcome } from "./consent/useConsentGate";
 import { applyDraft, draftRequest, insertDraft, reviewRequest } from "./aiRequest";
 import { KNOWN_CODES, failureMessage } from "./aiStates";
 import { DraftPreview, RefinePreview, ReviewPreview } from "./ResultPreview";
-import { useRefineAvailable } from "./useRefineAvailable";
+import { EngineSelect } from "./EngineSelect";
+import { pickEngine, storeEngine, storedEngine, type EngineChoice } from "./engineChoice";
+import { useAiHints } from "./useAiHints";
 import { useResultSheet } from "./useResultSheet";
 
 type Action = "draft" | "review" | "refine";
@@ -60,7 +62,11 @@ export function AiAssist({ client, consent, draft, onChange, signInHref }: Props
    /** Set synchronously on the click so a double click or a re-render can never start a second run. */
    const busy = useRef(false);
    const gate = useConsentGate(consent);
-   const refineShown = useRefineAvailable(consent);
+   const { refine: refineShown, engines } = useAiHints(consent);
+   // The saved pick is read after mount so the server and first browser render agree.
+   const [saved, setSaved] = useState<EngineChoice | null>(null);
+   useEffect(() => setSaved(storedEngine()), []);
+   const engine = pickEngine(engines, saved);
    const control = useMemo(() => ({ draft: first, review: second, refine: third }), []);
    const pending = run.phase === "pending";
    const drafting = draftRequest(draft);
@@ -108,8 +114,8 @@ export function AiAssist({ client, consent, draft, onChange, signInHref }: Props
       }
    }
 
-   const askDraft = () => drafting && void start("draft", () => client.draft(drafting), (result) => ({ phase: "draft", result }));
-   const askReview = () => reviewing && void start("review", () => client.review(reviewing), (result) => ({ phase: "review", result }));
+   const askDraft = () => drafting && void start("draft", () => client.draft(drafting, engine), (result) => ({ phase: "draft", result }));
+   const askReview = () => reviewing && void start("review", () => client.review(reviewing, engine), (result) => ({ phase: "review", result }));
    // Refine sends the same text as Review. It goes through the same consent gate, and the server decides again whether this reader may use it.
    const askRefine = () => refineShown && reviewing && void start("refine", () => client.refine(reviewing), (result) => ({ phase: "refine", result }));
 
@@ -187,6 +193,16 @@ export function AiAssist({ client, consent, draft, onChange, signInHref }: Props
                </a>
             </p>
          </div>
+         {engine && (
+            <EngineSelect
+               value={engine}
+               disabled={pending}
+               onChange={(next) => {
+                  setSaved(next);
+                  storeEngine(next);
+               }}
+            />
+         )}
          <div className="flex flex-wrap items-center gap-3">
             <Button ref={first} type="button" variant="outline" aria-disabled={pending || !drafting} aria-describedby={`${ids}-note`} className={cn((pending || !drafting) && "opacity-50")} onClick={askDraft}>
                Draft from my notes
@@ -223,6 +239,7 @@ export function AiAssist({ client, consent, draft, onChange, signInHref }: Props
                      ? "Your session has ended. Your answer remains unchanged, and no AI result was saved. Sign in to try again."
                      : failureMessage(run.code, run.action, run.info)}
                </p>
+               {!run.signin && engine && run.code !== "ai_quota_exhausted" && <p>You can try again, or choose the other model above. Nothing is switched for you.</p>}
                {run.signin && (
                   <Link href={signInHref} className="inline-flex min-h-11 items-center underline underline-offset-4">
                      Sign in

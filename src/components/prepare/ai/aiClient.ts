@@ -1,6 +1,7 @@
 import { isRecord } from "@/lib/prep/guards";
 import type { PrepClientConfig } from "@/lib/prep/client";
 import type { FrameworkInput, PrepFields } from "@/lib/prep/types";
+import type { EngineChoice } from "./engineChoice";
 
 /** Browser-to-API timeout for AI actions (api-contract.md §8.1, §8.2). */
 export const AI_TIMEOUT_MS = 120_000;
@@ -91,7 +92,7 @@ export function createAiClient(config: PrepClientConfig) {
    const doFetch = config.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
    const timeoutMs = config.timeoutMs ?? AI_TIMEOUT_MS;
 
-   async function post<T>(action: "draft" | "review" | "refine", body: unknown, isResult: (value: unknown) => value is T): Promise<AiResult<T>> {
+   async function post<T>(action: "draft" | "review" | "refine", body: unknown, isResult: (value: unknown) => value is T, engine?: EngineChoice | null): Promise<AiResult<T>> {
       const token = await config.getAccessToken().catch(() => null);
       if (!token) return { status: "unauthenticated" };
 
@@ -105,7 +106,7 @@ export function createAiClient(config: PrepClientConfig) {
       try {
          let response: Response;
          try {
-            response = await doFetch(`${base}/me/prep/ai/${action}`, {
+            response = await doFetch(`${base}/me/prep/ai/${action}${engine ? `?engine=${engine}` : ""}`, {
                method: "POST",
                headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
                body: JSON.stringify(body),
@@ -140,9 +141,10 @@ export function createAiClient(config: PrepClientConfig) {
 
    return {
       /** A draft whose framework is not the one asked for is malformed: it would land in the wrong field. */
-      draft: (body: DraftRequest): Promise<AiResult<DraftResult>> =>
-         post("draft", body, (value): value is DraftResult => isDraftResult(value) && value.framework === body.framework),
-      review: (body: ReviewRequest): Promise<AiResult<ReviewResult>> => post("review", body, isReviewResult),
+      draft: (body: DraftRequest, engine?: EngineChoice | null): Promise<AiResult<DraftResult>> =>
+         post("draft", body, (value): value is DraftResult => isDraftResult(value) && value.framework === body.framework, engine),
+      /** The optional `engine` is the Free reader's model pick (P7-D-062): a query value that names a pick, never a model. Refine takes none. */
+      review: (body: ReviewRequest, engine?: EngineChoice | null): Promise<AiResult<ReviewResult>> => post("review", body, isReviewResult, engine),
       /** Premium only, enforced by the server on every request; the interface's own check is a display hint. The result is a preview that nothing here saves. */
       refine: (body: RefineRequest): Promise<AiResult<RefineResult>> => post("refine", body, (value): value is RefineResult => isRefineResult(value, body)),
    };
