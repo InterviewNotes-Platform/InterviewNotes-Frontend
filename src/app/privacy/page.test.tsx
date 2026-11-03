@@ -31,6 +31,11 @@ describe("Privacy & AI Use page", () => {
       expect(screen.getByText(`Version ${PRIVACY_VERSION}`)).toBeInTheDocument();
    });
 
+   it("says that an AI result can be wrong or add details the reader did not write", () => {
+      const { container } = renderPage();
+      expect(container).toHaveTextContent(/AI can be wrong, and it can add details you did not write, so read each result against what you know is true before you apply it/);
+   });
+
    it.each([undefined, "", "false", "TRUE"])("says AI is not available when the setting is %j", (value) => {
       const { container } = renderPage(value);
       expect(container).toHaveTextContent("AI features are not available yet");

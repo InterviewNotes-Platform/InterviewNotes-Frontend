@@ -184,7 +184,7 @@ export function AiAssist({ client, consent, draft, onChange, signInHref }: Props
                AI help
             </h2>
             <p id={`${ids}-note`} className="text-supporting text-muted-foreground">
-               Results are previews. Nothing in your answer changes until you apply or insert one.
+               Results are previews. Nothing in your answer changes until you apply or insert one. AI can be wrong or add details you did not write, so check every claim before you use a result.
             </p>
             <p className="text-supporting text-muted-foreground">
                When you choose {refineShown ? "Draft, Review or Refine" : "Draft or Review"}, your question and the text you chose go to the AI provider for your plan ({AI_PROVIDER_BY_PLAN.map(({ plan, provider }) => `${provider} on ${plan}`).join(", ")}).{" "}
