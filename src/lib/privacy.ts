@@ -3,7 +3,7 @@ export const PRIVACY_HREF = "/privacy";
 
 /** The consent document (api-contract.md §9.3). The server's `AI_TERMS_VERSION` must equal `PRIVACY_VERSION` exactly. */
 export const PRIVACY_DOCUMENT_ID = "privacy-and-ai-use";
-export const PRIVACY_VERSION = "2026-10-28";
+export const PRIVACY_VERSION = "2026-11-04";
 
 export const SUPPORT_EMAIL = "support@interviewnotes.io";
 

@@ -145,7 +145,7 @@ export default function PrivacyPage() {
                         only if a new version of this notice changes something that matters.
                      </p>
                      <p>
-                        An AI result is a suggestion. It becomes part of your saved answer only if you apply or save it.
+                        An AI result is a suggestion. It becomes part of your saved answer only if you apply or save it. AI can be wrong, and it can add details you did not write, so read each result against what you know is true before you apply it.
                      </p>
                   </Subsection>
 

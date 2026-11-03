@@ -111,6 +111,14 @@ describe("AI help in the answer editor", () => {
       expect(ai).toEqual([]);
    });
 
+   it("tells the reader that AI can be wrong, on the panel's own note and for each AI button", async () => {
+      await open(await seed());
+      const note = screen.getByText(/AI can be wrong or add details you did not write, so check every claim before you use a result/);
+      expect(note).toHaveTextContent(/^Results are previews\./);
+      expect(button("Draft from my notes")).toHaveAccessibleDescription(/AI can be wrong/);
+      expect(button("Review my answer")).toHaveAccessibleDescription(/AI can be wrong/);
+   });
+
    describe("Draft", () => {
       it("sends the typed text, unsaved, and shows the result as a preview that changes nothing", async () => {
          const answer = await seed();
