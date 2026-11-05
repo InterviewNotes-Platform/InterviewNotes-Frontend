@@ -4,6 +4,7 @@ import PreparePage from "./page";
 
 const mocks = vi.hoisted(() => ({
     getUser: vi.fn(),
+    loadItemTitles: vi.fn(),
     createClient: vi.fn(),
     notFound: vi.fn(() => {
         throw new Error("NEXT_NOT_FOUND");
@@ -15,9 +16,17 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
-vi.mock("./PrepareWorkspace", () => ({ PrepareWorkspace: ({ apiUrl }: { apiUrl: string | null }) => <p>workspace {String(apiUrl)}</p> }));
+vi.mock("./itemTitles", () => ({ loadItemTitles: mocks.loadItemTitles }));
+vi.mock("./PrepareWorkspace", () => ({
+    PrepareWorkspace: ({ apiUrl, titles }: { apiUrl: string | null; titles?: Record<string, string> | null }) => (
+        <p>
+            workspace {String(apiUrl)} {JSON.stringify(titles)}
+        </p>
+    ),
+}));
 
 beforeEach(() => {
+    mocks.loadItemTitles.mockReset().mockResolvedValue(null);
     mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } });
     mocks.createClient.mockReset().mockResolvedValue({ auth: { getUser: mocks.getUser } });
     mocks.notFound.mockClear();
@@ -60,21 +69,35 @@ describe("/prepare access", () => {
         it("renders the workspace for a signed-in user, handing it the API origin", async () => {
             vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
             render(await PreparePage());
-            expect(screen.getByText("workspace https://api.example.test")).toBeInTheDocument();
+            expect(screen.getByText(/^workspace https:\/\/api\.example\.test/)).toBeInTheDocument();
             expect(screen.getByRole("main")).toBeInTheDocument();
+        });
+
+        it("hands the workspace public titles and nothing about the learner, and reads no catalog before sign-in", async () => {
+            mocks.loadItemTitles.mockResolvedValue({ "lesson.a": "Lesson A" });
+            vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+            render(await PreparePage());
+            expect(screen.getByText('workspace https://api.example.test {"lesson.a":"Lesson A"}')).toBeInTheDocument();
+            expect(mocks.getUser).toHaveBeenCalledTimes(1);
+        });
+
+        it("reads no titles for a signed-out visitor", async () => {
+            mocks.getUser.mockResolvedValue({ data: { user: null } });
+            await expect(PreparePage()).rejects.toThrow("NEXT_REDIRECT");
+            expect(mocks.loadItemTitles).not.toHaveBeenCalled();
         });
 
         it("never hands the browser the server-only API_URL", async () => {
             vi.stubEnv("API_URL", "https://internal.example.test");
             vi.stubEnv("NEXT_PUBLIC_API_URL", undefined);
             render(await PreparePage());
-            expect(screen.getByText("workspace null")).toBeInTheDocument();
+            expect(screen.getByText(/^workspace null/)).toBeInTheDocument();
         });
 
         it("hands the workspace no API origin when the public one is empty or unset", async () => {
             vi.stubEnv("NEXT_PUBLIC_API_URL", "");
             render(await PreparePage());
-            expect(screen.getByText("workspace null")).toBeInTheDocument();
+            expect(screen.getByText(/^workspace null/)).toBeInTheDocument();
         });
     });
 });

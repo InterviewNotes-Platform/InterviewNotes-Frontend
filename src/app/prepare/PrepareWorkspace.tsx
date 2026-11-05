@@ -11,6 +11,8 @@ import { answerHref } from "@/lib/prep/links";
 import type { Answer, PrepResult } from "@/lib/prep/types";
 import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Continuity } from "./Continuity";
+import type { ItemTitles } from "./itemTitles";
 
 /** After this long the loading state also says the wait is longer than usual (a cold start, P7-D-010). */
 export const SLOW_NOTICE_MS = 4000;
@@ -35,6 +37,8 @@ interface Props {
     apiUrl: string | null;
     /** Keyed by a company Lesson's `content_id`; an answer of any other Lesson shows no collection or group. */
     labels?: CollectionLabels;
+    /** Public Lesson and Problem titles for the Continue card and bookmarks; null when the catalog could not be read in full. */
+    titles?: ItemTitles | null;
     /** Tests supply these; the page uses the browser's Supabase session and `fetch`. */
     getAccessToken?: () => Promise<string | null>;
     fetch?: typeof fetch;
@@ -63,7 +67,7 @@ function settle(result: PrepResult<{ items: Answer[]; total: number }>): State {
     }
 }
 
-export function PrepareWorkspace({ apiUrl, labels = {}, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+export function PrepareWorkspace({ apiUrl, labels = {}, titles = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
     const [state, setState] = useState<State>(apiUrl ? { phase: "loading" } : { phase: "failed", message: "The preparation service is not configured for this environment." });
     const [slow, setSlow] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -165,6 +169,8 @@ export function PrepareWorkspace({ apiUrl, labels = {}, getAccessToken = session
                     </Button>
                 </div>
             </header>
+
+            {apiUrl && client && <Continuity apiUrl={apiUrl} client={client} titles={titles} />}
 
             <form role="search" onSubmit={search} className="flex flex-wrap items-end gap-3">
                 <div className="grid min-w-64 flex-1 gap-1.5">

@@ -11,6 +11,7 @@ import {
    isStory,
    readIssues,
 } from "./guards";
+import type { ItemStateListParams } from "./itemStateLists.types";
 import type {
    Answer,
    AnswerCreate,
@@ -154,6 +155,7 @@ export function createPrepClient(config: PrepClientConfig) {
 
    const storyPage = isPage(isStory);
    const answerPage = isPage(isAnswer);
+   const itemStatePage = isPage(isItemState);
 
    return {
       listStories: (params: StoryListParams = {}): Promise<PrepResult<Page<Story>>> =>
@@ -208,6 +210,13 @@ export function createPrepClient(config: PrepClientConfig) {
       /** Last-write-wins, no body, never conflicts and never changes `version` (§15.4). */
       recordVisit: (contentId: string): Promise<PrepResult<ItemState>> =>
          call({ method: "POST", path: `/item-state/${id(contentId)}/visit` }, jsonReader(isItemState)),
+
+      /** The caller's rows with a last visit, newest first then `content_id` (§15.5). Call only after `getFeatures` says item state is available. */
+      getRecent: (params: ItemStateListParams = {}): Promise<PrepResult<Page<ItemState>>> =>
+         call({ method: "GET", path: `/item-state/recent${query(params)}` }, jsonReader(itemStatePage)),
+      /** The caller's rows with a bookmark, newest first then `content_id` (§15.5). Same precondition as `getRecent`. */
+      getBookmarks: (params: ItemStateListParams = {}): Promise<PrepResult<Page<ItemState>>> =>
+         call({ method: "GET", path: `/item-state/bookmarks${query(params)}` }, jsonReader(itemStatePage)),
 
       exportJson: (): Promise<PrepResult<PrepExport>> =>
          call({ method: "GET", path: "/export?format=json" }, jsonReader(isExport)),
