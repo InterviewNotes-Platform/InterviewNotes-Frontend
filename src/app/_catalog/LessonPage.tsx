@@ -10,6 +10,7 @@ import { BuildsOn, PracticeTransition, RelationGroup } from "@/components/catalo
 import { AlternateTracks, LessonBreadcrumb } from "@/components/catalog/TrackContext";
 import { LessonContents } from "@/components/lesson/LessonContents";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { ReaderControls } from "@/components/prepare/reader/ReaderControls";
 import { lessonPosition } from "@/lib/catalog/curriculum";
 import { isLevelChoiceTrack, levelsOf } from "@/lib/catalog/levelChoice";
 import { contentsOf, knowledgeSupport, lessonRelations } from "@/lib/catalog/lesson";
@@ -80,6 +81,7 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
                   />
                ) : null}
                <LessonHeader meta={item} />
+               {prepEnabled() ? <ReaderControls key={item.id} contentId={item.id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} /> : null}
                {related ? <BuildsOn rows={related.prerequisites} /> : null}
             </div>
             {contents.length > 0 ? (

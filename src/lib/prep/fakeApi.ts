@@ -7,6 +7,7 @@ import type { FieldIssue, ValidationReason } from "./types";
 
 type Row = Record<string, unknown> & { id: string; version: number; created_at: string; updated_at: string };
 type Store = { stories: Row[]; answers: Row[]; links: { answer_id: string; story_id: string; created_at: string }[]; preference: Row | null };
+type ItemRow = { content_id: string; completed_at: string | null; last_visited_at: string | null; bookmarked_at: string | null; note: string | null; version: number };
 type Failure = "network" | "timeout" | number;
 
 const STORY_KEYS = ["title", "notes", "year", "framework", "fields", "tags"];
@@ -23,12 +24,14 @@ function failure(status: number, code: string, extra: object = {}): Response {
    return respond(status, { detail: code, code, ...extra });
 }
 
-export function createFakePrepApi(options: { enabled?: boolean } = {}) {
+export function createFakePrepApi(options: { enabled?: boolean; continuity?: boolean } = {}) {
    const stores = new Map<string, Store>();
    const tokens = new Map<string, string>();
+   const items = new Map<string, Map<string, ItemRow>>();
    const requests: { method: string; path: string; token: string | null; body: unknown }[] = [];
    const pending: Failure[] = [];
    let enabled = options.enabled ?? true;
+   let continuity = options.continuity ?? true;
    let tick = 0;
    let serial = 0;
 
@@ -162,6 +165,39 @@ export function createFakePrepApi(options: { enabled?: boolean } = {}) {
       return respond(201, withLinks(store, kind, copy));
    }
 
+   /** Item state (api-contract §15): version 0 for no row, 409 on any other mismatch, a visit that never bumps the version. */
+   function itemRoute(user: string, method: string, rest: string[], body: unknown): Response {
+      const rows = items.get(user) ?? items.set(user, new Map()).get(user)!;
+      const contentId = rest[0] ?? "";
+      if (!/^(lesson|problem)\.[a-z0-9]+(-[a-z0-9]+)*$/.test(contentId) || contentId.length > 80) {
+         return failure(422, "validation_error", { fields: [{ field: "content_id", reason: "invalid_format" }] });
+      }
+      const row = rows.get(contentId);
+      const empty: ItemRow = { content_id: contentId, completed_at: null, last_visited_at: null, bookmarked_at: null, note: null, version: 0 };
+      if (rest.length === 1 && method === "GET") return respond(200, row ?? empty);
+      if (rest.length === 2 && rest[1] === "visit" && method === "POST") {
+         const next = { ...(row ?? empty), version: row?.version ?? 1, last_visited_at: now() };
+         rows.set(contentId, next);
+         return respond(200, next);
+      }
+      if (rest.length !== 1 || method !== "PATCH") return failure(404, "not_found");
+      const input = (body ?? {}) as Record<string, unknown>;
+      const issues: FieldIssue[] = Object.keys(input).filter((k) => !["version", "completed", "bookmarked", "note"].includes(k)).map((field) => ({ field, reason: "unknown_field" as const }));
+      if (!Number.isInteger(input.version) || (input.version as number) < 0) issues.push({ field: "version", reason: "invalid_value" });
+      for (const key of ["completed", "bookmarked"]) if (input[key] !== undefined && typeof input[key] !== "boolean") issues.push({ field: key, reason: "invalid_value" });
+      if (!issues.length && Object.keys(input).length < 2) issues.push({ field: "body", reason: "required" });
+      if (issues.length) return failure(422, "validation_error", { fields: issues });
+      if (input.version !== (row?.version ?? 0)) return failure(409, "version_conflict", { current_version: row?.version ?? 0 });
+      const next: ItemRow = { ...(row ?? empty), version: (row?.version ?? 0) + 1 };
+      for (const [flag, column] of [["completed", "completed_at"], ["bookmarked", "bookmarked_at"]] as const) {
+         if (input[flag] === false) next[column] = null;
+         else if (input[flag] === true) next[column] = next[column] ?? now();
+      }
+      if (input.note !== undefined) next.note = input.note as string | null;
+      rows.set(contentId, next);
+      return respond(200, next);
+   }
+
    function route(user: string, method: string, path: string, params: URLSearchParams, body: unknown): Response {
       const store = storeOf(user);
       const parts = path.split("/").filter(Boolean);
@@ -193,6 +229,8 @@ export function createFakePrepApi(options: { enabled?: boolean } = {}) {
             return respond(204);
          }
       }
+      if (head === "features" && method === "GET") return respond(200, { item_state_available: continuity });
+      if (head === "item-state") return itemRoute(user, method, parts.slice(1), body);
       if (head === "preferences") {
          const stored = store.preference;
          if (method === "GET") return respond(200, stored ?? { target_level: null, version: 0, updated_at: null });
@@ -238,7 +276,7 @@ export function createFakePrepApi(options: { enabled?: boolean } = {}) {
       }
       if (typeof next === "number") return failure(next, "internal_error");
 
-      if (!enabled) return failure(404, "not_found");
+      if (!enabled || (!continuity && path.startsWith("/item-state"))) return failure(404, "not_found");
       const user = token ? tokens.get(token) : undefined;
       if (!user) return failure(401, "unauthenticated");
       return route(user, method, path, url.searchParams, body);
@@ -258,6 +296,10 @@ export function createFakePrepApi(options: { enabled?: boolean } = {}) {
       },
       setEnabled(value: boolean) {
          enabled = value;
+      },
+      /** The backend's `CONTINUITY_ENABLED`: off makes the item-state routes 404 before authentication and `/features` answer false. */
+      setContinuity(value: boolean) {
+         continuity = value;
       },
       requests,
    };

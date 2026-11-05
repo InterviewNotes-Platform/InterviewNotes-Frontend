@@ -54,6 +54,25 @@ export type Link = { answer_id: string; story_id: string; created_at: string };
 /** `version` is 0 and `updated_at` null until the first write. */
 export type Preference = { target_level: string | null; version: number; updated_at: string | null };
 
+/**
+ * One Lesson's or Problem's state for the signed-in learner (api-contract §15.2). No row reads as `version` 0 with every
+ * other field null. `note` is T47's; this task neither reads nor writes it.
+ */
+export type ItemState = {
+   content_id: string;
+   completed_at: string | null;
+   last_visited_at: string | null;
+   bookmarked_at: string | null;
+   note: string | null;
+   version: number;
+};
+
+/** `completed` and `bookmarked` set (true) or clear (false); `version` is the value last read (§15.3). */
+export type ItemStateUpdate = { version: number; completed?: boolean; bookmarked?: boolean };
+
+/** What the server offers the signed-in browser (§15.9). */
+export type PrepFeatures = { item_state_available: boolean };
+
 export type Page<T> = { items: T[]; total: number; limit: number; offset: number };
 
 export type ConsentRecord = {

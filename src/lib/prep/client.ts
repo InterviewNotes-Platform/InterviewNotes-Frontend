@@ -2,6 +2,8 @@ import {
    isAnswer,
    isDeleteAll,
    isExport,
+   isFeatures,
+   isItemState,
    isLink,
    isPage,
    isPreference,
@@ -15,11 +17,14 @@ import type {
    AnswerListParams,
    AnswerUpdate,
    DeleteAllSummary,
+   ItemState,
+   ItemStateUpdate,
    Link,
    Page,
    Preference,
    PreferenceUpdate,
    PrepExport,
+   PrepFeatures,
    PrepResult,
    Story,
    StoryCreate,
@@ -191,6 +196,18 @@ export function createPrepClient(config: PrepClientConfig) {
       /** The first write sends `version` 0. */
       updatePreference: (body: PreferenceUpdate): Promise<PrepResult<Preference>> =>
          call({ method: "PATCH", path: "/preferences", body }, jsonReader(isPreference)),
+
+      /** M2 availability (§15.9). The one read that is safe while M2 is off; a 404 means "not available". */
+      getFeatures: (): Promise<PrepResult<PrepFeatures>> => call({ method: "GET", path: "/features" }, jsonReader(isFeatures)),
+      /** No row reads as `version` 0 with nulls (§15.3). Call only after `getFeatures` says item state is available. */
+      getItemState: (contentId: string): Promise<PrepResult<ItemState>> =>
+         call({ method: "GET", path: `/item-state/${id(contentId)}` }, jsonReader(isItemState)),
+      /** The first write for an item with no row sends `version` 0. */
+      updateItemState: (contentId: string, body: ItemStateUpdate): Promise<PrepResult<ItemState>> =>
+         call({ method: "PATCH", path: `/item-state/${id(contentId)}`, body }, jsonReader(isItemState)),
+      /** Last-write-wins, no body, never conflicts and never changes `version` (§15.4). */
+      recordVisit: (contentId: string): Promise<PrepResult<ItemState>> =>
+         call({ method: "POST", path: `/item-state/${id(contentId)}/visit` }, jsonReader(isItemState)),
 
       exportJson: (): Promise<PrepResult<PrepExport>> =>
          call({ method: "GET", path: "/export?format=json" }, jsonReader(isExport)),

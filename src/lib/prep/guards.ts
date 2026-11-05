@@ -3,9 +3,11 @@ import type {
    ConsentRecord,
    DeleteAllSummary,
    FieldIssue,
+   ItemState,
    Link,
    Page,
    PrepExport,
+   PrepFeatures,
    Preference,
    Story,
 } from "./types";
@@ -88,6 +90,22 @@ export function isPreference(value: unknown): value is Preference {
       isCount(value.version) &&
       isNullable(isString)(value.updated_at)
    );
+}
+
+export function isItemState(value: unknown): value is ItemState {
+   return (
+      isRecord(value) &&
+      isString(value.content_id) &&
+      isNullable(isString)(value.completed_at) &&
+      isNullable(isString)(value.last_visited_at) &&
+      isNullable(isString)(value.bookmarked_at) &&
+      isNullable(isString)(value.note) &&
+      isCount(value.version)
+   );
+}
+
+export function isFeatures(value: unknown): value is PrepFeatures {
+   return isRecord(value) && typeof value.item_state_available === "boolean";
 }
 
 export function isPage<T>(isItem: (item: unknown) => item is T) {

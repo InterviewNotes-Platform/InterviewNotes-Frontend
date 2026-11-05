@@ -339,3 +339,64 @@ describe("what the module may not do", () => {
       for (const name of sources) expect(readFileSync(join(dir, name), "utf8"), name).not.toMatch(/fakeApi/);
    });
 });
+
+describe("item state (api-contract §15)", () => {
+   const LESSON = "lesson.dynamic-batching";
+
+   it("reads no row as version 0 and creates it on a first write with version 0", async () => {
+      const { client } = setup();
+      expect(await client.getItemState(LESSON)).toEqual({
+         status: "ok",
+         data: { content_id: LESSON, completed_at: null, last_visited_at: null, bookmarked_at: null, note: null, version: 0 },
+      });
+      expect(ok(await client.updateItemState(LESSON, { version: 0, completed: true }))).toMatchObject({ version: 1, completed_at: expect.any(String) });
+   });
+
+   it("answers 409 with the stored version, and applies nothing, for a stale or too-new version", async () => {
+      const { client } = setup();
+      await client.updateItemState(LESSON, { version: 0, bookmarked: true });
+      expect(await client.updateItemState(LESSON, { version: 0, completed: true })).toEqual({ status: "conflict", currentVersion: 1 });
+      expect(await client.updateItemState(LESSON, { version: 5, completed: true })).toEqual({ status: "conflict", currentVersion: 1 });
+      expect(ok(await client.getItemState(LESSON))).toMatchObject({ completed_at: null, version: 1 });
+   });
+
+   it("records a visit with no body, creating the row at version 1 and never changing the version after", async () => {
+      const { api, client } = setup();
+      expect(ok(await client.recordVisit(LESSON))).toMatchObject({ version: 1, last_visited_at: expect.any(String) });
+      await client.updateItemState(LESSON, { version: 1, completed: true });
+      expect(ok(await client.recordVisit(LESSON))).toMatchObject({ version: 2 });
+      expect(api.requests.filter(({ path }) => path.endsWith("/visit")).every(({ method, body }) => method === "POST" && body === undefined)).toBe(true);
+   });
+
+   it("keeps one learner's item state out of another's", async () => {
+      const { api, client } = setup();
+      await client.updateItemState(LESSON, { version: 0, completed: true });
+      const bob = createPrepClient({ baseUrl: BASE, getAccessToken: async () => api.signIn("bob"), fetch: api.fetch });
+      expect(ok(await bob.getItemState(LESSON))).toMatchObject({ completed_at: null, version: 0 });
+   });
+
+   it("rejects a Knowledge ID and an unknown property as invalid, not as a conflict", async () => {
+      const { client } = setup();
+      expect(await client.getItemState("knowledge.rag")).toMatchObject({ status: "invalid", fields: [{ field: "content_id" }] });
+      const body = { version: 0, completed: true, user_id: "x" };
+      expect(await client.updateItemState(LESSON, body)).toMatchObject({ status: "invalid", fields: [{ field: "user_id", reason: "unknown_field" }] });
+   });
+
+   it("reads the capability: on, off, and not available when PREP is off", async () => {
+      expect(await setup().client.getFeatures()).toEqual({ status: "ok", data: { item_state_available: true } });
+      const off = createFakePrepApi({ continuity: false });
+      const client = createPrepClient({ baseUrl: BASE, getAccessToken: async () => off.signIn("ada"), fetch: off.fetch });
+      expect(await client.getFeatures()).toEqual({ status: "ok", data: { item_state_available: false } });
+      expect(await client.getItemState(LESSON)).toEqual({ status: "notFound" });
+      expect(await setup({ enabled: false }).client.getFeatures()).toEqual({ status: "notFound" });
+   });
+
+   it("treats an item-state body of the wrong shape as malformed", async () => {
+      const client = createPrepClient({
+         baseUrl: BASE,
+         getAccessToken: async () => "t",
+         fetch: (async () => new Response(JSON.stringify({ content_id: LESSON, version: "1" }), { status: 200 })) as typeof fetch,
+      });
+      expect(await client.getItemState(LESSON)).toEqual({ status: "unavailable", cause: "malformed" });
+   });
+});

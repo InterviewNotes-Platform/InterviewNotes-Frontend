@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { P3_CANARIES, P4_CANARIES, PROTECTED_CANARIES } from "../../leak/canaries";
 import { findMaterializedRoutes, format, prerendered, scanNextBuild, scanResponse, walk } from "../../leak/scanner";
 import fixture from "../catalog/fixture.json";
-import { PREVIEW_DIST, PREVIEW_ORIGIN, PRODUCTION_ORIGIN, canonical, expect, exposures, inlinedRsc, item, test, track } from "../catalog/harness";
+import { ITEM_API_ORIGIN, PREVIEW_DIST, PREVIEW_ORIGIN, PRODUCTION_ORIGIN, READER_ORIGIN, canonical, expect, exposures, inlinedRsc, item, test, track } from "../catalog/harness";
 
 const sorted = (values: string[]) => [...values].sort();
 const holds = (record: object) => PROTECTED_CANARIES.filter((canary) => JSON.stringify(record).includes(canary));
@@ -418,5 +418,26 @@ test.describe("positive control: an entitled reader of the production deployment
          await page.goto(route);
          for (const canary of expected) await expect(page.getByRole("main").getByText(canary)).toHaveCount(1);
       }
+   });
+});
+
+// P7-T45, annotation A-6 (S-PST-1): a learner's item state is fetched in the browser and never written into a page.
+test.describe("learner item state on the reader build", () => {
+   test.use({ baseURL: READER_ORIGIN, identity: "unentitled" });
+
+   test("a note written through the API reaches the browser only in the item-state response", async ({ page, request, traffic }) => {
+      const NOTE = "e2e-learner-note-canary-7c1d9a40";
+      const id = "problem.p4-ml-complete";
+      const url = `${ITEM_API_ORIGIN}/me/prep/item-state/${id}`;
+      const headers = { Authorization: `Bearer ${fixture.identities.unentitled.token}` };
+      const { version } = await (await request.get(url, { headers })).json();
+      expect((await request.patch(url, { headers, data: { version, note: NOTE } })).status()).toBe(200);
+
+      await page.goto(canonical(id));
+      await expect(page.getByRole("button", { name: "Mark complete" })).toBeEnabled();
+      const found = await exposures(page, await traffic.responses(), NOTE);
+      // The read and the visit both answer with the whole item state (§15.3, §15.4); nothing else may carry it.
+      expect(found.map(({ channel }) => channel), "the canary reached HTML, RSC or the DOM").toEqual(found.map(() => "network"));
+      expect(found.map((exposure) => exposure.url).sort(), "the canary must be seen where it is allowed, or the check proves nothing").toEqual([url, `${url}/visit`]);
    });
 });
