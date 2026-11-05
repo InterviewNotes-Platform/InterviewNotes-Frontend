@@ -14,6 +14,12 @@ type Outcome = { kind: "cancelled"; unconfirmed: boolean } | { kind: "deleted"; 
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** Rows of Lesson and Problem progress the server removed (api-contract §15.7). Absent from an older server, so 0. */
+function progressRows(summary: DeleteAllSummary["deleted"]): number {
+    const rows = (summary as { item_state?: unknown }).item_state;
+    return typeof rows === "number" && Number.isInteger(rows) && rows > 0 ? rows : 0;
+}
+
 function outcomeText(outcome: Outcome): string {
     if (outcome.kind === "cancelled") {
         return outcome.unconfirmed
@@ -21,8 +27,10 @@ function outcomeText(outcome: Outcome): string {
             : "Deletion cancelled. Nothing was deleted.";
     }
     const { answers, stories, links, preference } = outcome.summary;
-    if (answers + stories + links === 0 && !preference) return "The server confirmed there was nothing left to delete.";
+    const progress = progressRows(outcome.summary);
+    if (answers + stories + links + progress === 0 && !preference) return "The server confirmed there was nothing left to delete.";
     const parts = [plural(answers, "answer", "answers"), plural(stories, "story", "stories"), plural(links, "link", "links")];
+    if (progress > 0) parts.push(plural(progress, "Lesson or Problem progress record", "Lesson and Problem progress records"));
     return `The server confirmed the deletion: ${parts.join(", ")}${preference ? " and your target level" : ""} deleted.`;
 }
 
@@ -83,7 +91,7 @@ export function DeleteSection({ client, onDeleted }: { client: PrepClient | null
             </CardHeader>
             <CardContent className="space-y-4">
                 <p className="text-body text-muted-foreground">
-                    Permanently delete every answer, story, link and your target level. This cannot be undone, so export a copy first if you want one.
+                    Permanently delete every answer, story, link, your target level and your Lesson and Problem progress (completion, bookmarks, notes and last-opened times). This cannot be undone, so export a copy first if you want one.
                 </p>
                 <Dialog.Root open={open} onOpenChange={changeOpen}>
                     <Dialog.Trigger asChild>
@@ -104,7 +112,7 @@ export function DeleteSection({ client, onDeleted }: { client: PrepClient | null
                         >
                             <Dialog.Title className="text-subsection text-foreground">Delete all your preparation data?</Dialog.Title>
                             <Dialog.Description className="text-body text-muted-foreground">
-                                Every answer, story, link and your target level will be permanently deleted. This cannot be undone.
+                                Every answer, story, link, your target level and your Lesson and Problem progress will be permanently deleted. This cannot be undone.
                             </Dialog.Description>
                             {pending && (
                                 <p role="status" className="text-supporting text-muted-foreground">

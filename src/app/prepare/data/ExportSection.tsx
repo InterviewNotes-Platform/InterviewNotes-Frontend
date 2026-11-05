@@ -52,7 +52,7 @@ export function ExportSection({ client, saveFile = downloadFile }: { client: Pre
             </CardHeader>
             <CardContent className="space-y-4">
                 <p className="text-body text-muted-foreground">
-                    Download every answer, story, link and your target level. JSON can be read back by a program; Markdown is for reading.
+                    Download every answer, story, link and your target level, and your Lesson and Problem progress (completion, bookmarks, notes and last-opened times). JSON can be read back by a program; Markdown is for reading.
                 </p>
                 <div className="flex flex-wrap gap-3">
                     {(Object.keys(LABEL) as Format[]).map((format) => (
