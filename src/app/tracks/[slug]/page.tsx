@@ -6,6 +6,7 @@ import { TrackCurriculum, TrackHeader, TrackSupport } from "@/components/catalog
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { getCatalogTrack } from "@/lib/catalog/client";
 import { loadLessonSummaries } from "@/lib/catalog/summaries";
+import { prepEnabled } from "@/lib/prep-flag";
 import { curriculumOf } from "@/lib/catalog/track";
 import type { CatalogTrack } from "@/lib/catalog/types";
 
@@ -26,7 +27,12 @@ function TrackBody({ track, summaries }: { track: CatalogTrack; summaries: Reado
       <>
          <TrackHeader track={track} curriculum={curriculum} summaries={summaries} />
          <div className="mt-12 md:mt-16">
-            <TrackCurriculum track={track} curriculum={curriculum} summaries={summaries} />
+            <TrackCurriculum
+               track={track}
+               curriculum={curriculum}
+               summaries={summaries}
+               itemState={prepEnabled() ? { apiUrl: process.env.NEXT_PUBLIC_API_URL || null } : undefined}
+            />
          </div>
          <TrackSupport curriculum={curriculum} />
       </>

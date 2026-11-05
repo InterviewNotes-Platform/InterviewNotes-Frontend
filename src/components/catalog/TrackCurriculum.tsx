@@ -1,6 +1,8 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, PencilRuler, type LucideIcon } from "lucide-react";
+import type { StoryApiProps } from "@/components/prepare/stories/useStoryClient";
+import { CompletionMarksProvider, EntryLeading } from "@/components/track/CompletionMarks";
 import { ModuleSection } from "@/components/track/ModuleSection";
 import { Button } from "@/components/ui/button";
 import { isLevelChoiceTrack } from "@/lib/catalog/levelChoice";
@@ -119,7 +121,7 @@ export function TrackHeader({
    );
 }
 
-/** One ordered row. The leading slot has a fixed width so a progress mark can later take its place. */
+/** One ordered row. The leading slot has a fixed size; a completed row shows its mark there (P7-T46). */
 function CurriculumEntry({ entry, href, summary }: PlacedEntry & { summary?: string }) {
    const { label, Icon } = STEP[entry.type];
    return (
@@ -129,9 +131,9 @@ function CurriculumEntry({ entry, href, summary }: PlacedEntry & { summary?: str
             prefetch={false}
             className="group -mx-2 grid min-h-11 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-surface"
          >
-            <span data-slot="entry-leading" aria-hidden="true" className="flex size-8 items-center justify-center text-muted-foreground">
+            <EntryLeading contentId={entry.id}>
                <Icon className="size-4" />
-            </span>
+            </EntryLeading>
             <span className="min-w-0">
                <span className="block text-body font-medium text-foreground transition-micro group-hover:text-primary">{entry.title}</span>
                <span className="block text-supporting text-muted-foreground">{label}</span>
@@ -152,13 +154,15 @@ interface TrackCurriculumProps {
    curriculum: Curriculum;
    /** Lesson summaries by item id, from a scan that completed; null or absent shows none, never a partial set. */
    summaries?: ReadonlyMap<string, string> | null;
+   /** Present only when the build offers preparation; completion marks are then read for a signed-in learner. */
+   itemState?: StoryApiProps;
 }
 
 /** Modules as separated sections, not cards. The first is open; the rest start collapsed. Ids with `_` never equal a Module key. */
-export function TrackCurriculum({ track, curriculum, summaries }: TrackCurriculumProps) {
+export function TrackCurriculum({ track, curriculum, summaries, itemState }: TrackCurriculumProps) {
    // A Track with no modules has nothing to outline; the Start state in its header already says so.
    if (curriculum.modules.length === 0) return null;
-   return (
+   const outline = (
       <nav aria-label={`${track.title} outline`} className="border-b border-border">
          {curriculum.modules.map(({ module, rows, counts }, index) => (
             <ModuleSection
@@ -185,6 +189,7 @@ export function TrackCurriculum({ track, curriculum, summaries }: TrackCurriculu
          ))}
       </nav>
    );
+   return itemState ? <CompletionMarksProvider {...itemState}>{outline}</CompletionMarksProvider> : outline;
 }
 
 /** The Problems placed in the outline, read from the outline itself; nothing is fetched and nothing is invented. */

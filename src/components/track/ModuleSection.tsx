@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Disclosure } from "@/components/ui/disclosure";
+
+/** Whether the enclosing Module is open, so a row can wait to ask for anything until it can be seen. */
+export const ModuleOpenContext = createContext(true);
 
 interface ModuleSectionProps {
    /** The Module's fragment id; null when it has none (S-MOD-4). */
@@ -50,7 +53,7 @@ export function ModuleSection({ id, title, detail, defaultOpen, children }: Modu
    return (
       <div id={id ?? undefined} ref={ref} className="scroll-mt-28">
          <Disclosure title={title} detail={detail} open={open} onOpenChange={toggle} instant={arrivals > 0} className="border-t border-border">
-            {children}
+            <ModuleOpenContext value={open}>{children}</ModuleOpenContext>
          </Disclosure>
       </div>
    );
