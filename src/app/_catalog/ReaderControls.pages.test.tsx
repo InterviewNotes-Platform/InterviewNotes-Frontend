@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ notFound: () => Promise.reject(new Error("NEXT_NOT_FOUND")) }));
+vi.mock("next/navigation", () => ({ notFound: () => Promise.reject(new Error("NEXT_NOT_FOUND")), useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/mdx/Mermaid", () => ({ Mermaid: () => null }));
 vi.mock("next/link", async () => {
    const { createElement } = await import("react");

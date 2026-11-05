@@ -436,8 +436,17 @@ test.describe("learner item state on the reader build", () => {
       await page.goto(canonical(id));
       await expect(page.getByRole("button", { name: "Mark complete" })).toBeEnabled();
       const found = await exposures(page, await traffic.responses(), NOTE);
-      // The read and the visit both answer with the whole item state (§15.3, §15.4); nothing else may carry it.
-      expect(found.map(({ channel }) => channel), "the canary reached HTML, RSC or the DOM").toEqual(found.map(() => "network"));
-      expect(found.map((exposure) => exposure.url).sort(), "the canary must be seen where it is allowed, or the check proves nothing").toEqual([url, `${url}/visit`]);
+      // The read and the visit both answer with the whole item state (§15.3, §15.4). Since P7-T47 the note box shows it, so the DOM
+      // holds it too, but only inside that box: no HTML, no RSC, and no other element.
+      const served = found.filter(({ channel }) => channel !== "DOM");
+      expect(served.map(({ channel }) => channel), "the canary reached HTML or RSC").toEqual(served.map(() => "network"));
+      expect(served.map((exposure) => exposure.url).sort(), "the canary must be seen where it is allowed, or the check proves nothing").toEqual([url, `${url}/visit`]);
+      const outsideTheBox = await page.evaluate(() => {
+         const root = document.documentElement.cloneNode(true) as HTMLElement;
+         root.querySelectorAll("script, textarea").forEach((node) => node.remove());
+         return root.outerHTML;
+      });
+      expect(outsideTheBox, "the canary reached the DOM outside the note box").not.toContain(NOTE);
+      await expect(page.locator("textarea")).toHaveValue(NOTE);
    });
 });

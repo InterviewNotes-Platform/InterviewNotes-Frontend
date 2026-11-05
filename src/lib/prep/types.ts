@@ -67,8 +67,8 @@ export type ItemState = {
    version: number;
 };
 
-/** `completed` and `bookmarked` set (true) or clear (false); `version` is the value last read (§15.3). */
-export type ItemStateUpdate = { version: number; completed?: boolean; bookmarked?: boolean };
+/** `completed` and `bookmarked` set (true) or clear (false); `note` is text of at most 20,000 code points, or null to clear; `version` is the value last read (§15.3). */
+export type ItemStateUpdate = { version: number; completed?: boolean; bookmarked?: boolean; note?: string | null };
 
 /** What the server offers the signed-in browser (§15.9). */
 export type PrepFeatures = { item_state_available: boolean };

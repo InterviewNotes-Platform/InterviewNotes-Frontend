@@ -1,10 +1,12 @@
 import { StrictMode } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPrepClient } from "@/lib/prep/client";
 import { createFakePrepApi } from "@/lib/prep/fakeApi";
 import { forgetItemStateAvailability } from "./itemStateAvailable";
 import { ReaderControls } from "./ReaderControls";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 const BASE = "https://api.example.test";
 const LESSON = "lesson.dynamic-batching";
@@ -31,6 +33,7 @@ function setup({ signedIn = true, continuity = true, enabled = true, id = LESSON
 const calls = (api: ReturnType<typeof createFakePrepApi>) => api.requests.map(({ method, path }) => `${method} ${path}`);
 const complete = () => screen.getByRole("button", { name: "Mark complete" });
 const bookmark = () => screen.getByRole("button", { name: "Bookmark" });
+const controlsStatus = () => within(screen.getByRole("group", { name: /actions$/ })).getByRole("status");
 const loaded = () => waitFor(() => expect(complete()).toBeEnabled());
 const click = async (button: HTMLElement) => {
    await act(async () => {
@@ -76,7 +79,7 @@ describe("completion", () => {
       await loaded();
       await click(complete());
       expect(complete()).toHaveAttribute("aria-pressed", "true");
-      expect(screen.getByRole("status")).toHaveTextContent("Saved");
+      expect(controlsStatus()).toHaveTextContent("Saved");
       expect(api.requests.at(-1)).toMatchObject({ method: "PATCH", path: `/item-state/${LESSON}`, body: { version: 1, completed: true } });
       expect(await other.getItemState(LESSON)).toMatchObject({ status: "ok", data: { version: 2, completed_at: expect.any(String) } });
 
@@ -132,7 +135,7 @@ describe("a change made in another context", () => {
       await other.updateItemState(LESSON, { version: 1, bookmarked: true });
 
       await click(complete());
-      expect(screen.getByRole("status")).toHaveTextContent("This changed elsewhere");
+      expect(controlsStatus()).toHaveTextContent("This changed elsewhere");
       expect(complete()).toHaveAttribute("aria-pressed", "false");
       expect(bookmark()).toHaveAttribute("aria-pressed", "true");
       expect(await other.getItemState(LESSON)).toMatchObject({ data: { completed_at: null, bookmarked_at: expect.any(String), version: 2 } });
@@ -201,7 +204,7 @@ describe("failures", () => {
       await loaded();
       api.failNext("network");
       await click(complete());
-      expect(screen.getByRole("status")).toHaveTextContent("Couldn't save the completion");
+      expect(controlsStatus()).toHaveTextContent("Couldn't save the completion");
       expect(complete()).toHaveAttribute("aria-pressed", "false");
       await click(complete());
       expect(complete()).toHaveAttribute("aria-pressed", "true");
