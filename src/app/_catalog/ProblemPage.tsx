@@ -9,6 +9,7 @@ import { TrackDrawer } from "@/components/curriculum/TrackDrawer";
 import { TrackSidebar } from "@/components/curriculum/TrackSidebar";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ProblemOutline } from "@/components/problem/ProblemOutline";
+import { ReaderControls } from "@/components/prepare/reader/ReaderControls";
 import { RevealProvider } from "@/components/problem/RevealProvider";
 import type { ItemNavigation } from "@/lib/catalog/navigation";
 import { WITHHELD_NOTE } from "@/lib/catalog/positionCopy";
@@ -16,6 +17,7 @@ import { outlineOf } from "@/lib/catalog/outline";
 import { problemRelations } from "@/lib/catalog/problem";
 import { composeProblem } from "@/lib/catalog/problemSpine";
 import type { CatalogItem } from "@/lib/catalog/types";
+import { prepApiUrl, prepEnabled } from "@/lib/prep-flag";
 import { cn } from "@/lib/utils";
 import { WithheldNote } from "./ItemContent";
 
@@ -58,6 +60,7 @@ export function ProblemPage({ item, navigation, stayOnDeployment }: { item: Cata
                      placement={navigation?.home}
                      contents={track ? <TrackDrawer outline={track} className="mb-6" /> : undefined}
                   />
+                  {prepEnabled() ? <ReaderControls key={item.id} contentId={item.id} apiUrl={prepApiUrl()} /> : null}
                   {related ? <ProblemPreparation groups={related.preparation} /> : null}
                </div>
                {outline ? (

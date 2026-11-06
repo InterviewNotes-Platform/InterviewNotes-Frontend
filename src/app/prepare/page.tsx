@@ -5,6 +5,7 @@ import { workspaceLabels } from "@/lib/prep/collections";
 import { prepEnabled } from "@/lib/prep-flag";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { hasSession } from "./hasSession";
+import { loadItemTitles } from "./itemTitles";
 import { PrepareWorkspace } from "./PrepareWorkspace";
 
 // Personal data is per user: the page reads the session and is never built or cached statically.
@@ -22,11 +23,13 @@ export default async function PreparePage() {
 
     // Each company answer's collection and group, from the registry alone: no catalog read happens here.
     const labels = workspaceLabels();
+    // Public Lesson and Problem titles for the Continue card and bookmarks: list metadata, nothing about this learner.
+    const titles = await loadItemTitles();
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
         <PageContainer as="main" className="py-10 md:py-14">
-            <PrepareWorkspace apiUrl={process.env.NEXT_PUBLIC_API_URL || null} labels={labels} />
+            <PrepareWorkspace apiUrl={process.env.NEXT_PUBLIC_API_URL || null} labels={labels} titles={titles} />
         </PageContainer>
     );
 }

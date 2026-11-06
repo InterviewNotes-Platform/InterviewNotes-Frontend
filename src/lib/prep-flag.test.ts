@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { prepEnabled } from "./prep-flag";
+import { prepApiUrl, prepEnabled } from "./prep-flag";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -17,5 +17,19 @@ describe("frontend PREP_ENABLED", () => {
    it("is on only for exactly true", () => {
       vi.stubEnv("NEXT_PUBLIC_PREP_ENABLED", "true");
       expect(prepEnabled()).toBe(true);
+   });
+});
+
+describe("frontend API origin for item state", () => {
+   it("is null when unset or empty", () => {
+      vi.stubEnv("NEXT_PUBLIC_API_URL", undefined);
+      expect(prepApiUrl()).toBeNull();
+      vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+      expect(prepApiUrl()).toBeNull();
+   });
+
+   it("is the configured origin", () => {
+      vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+      expect(prepApiUrl()).toBe("https://api.example.test");
    });
 });

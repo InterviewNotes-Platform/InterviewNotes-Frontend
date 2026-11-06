@@ -52,6 +52,11 @@ export default function PrivacyPage() {
                         save there. We don&apos;t sell it. Don&apos;t save passwords, payment details or other secrets in it.
                      </li>
                      <li>
+                        Once Lesson and Problem progress is on, the workspace also keeps which Lessons and Problems you
+                        complete, bookmark and open, and any personal note you write on one. Your progress is associated with
+                        your account and is not visible to other learners. Your export includes it and Delete all removes it.
+                     </li>
+                     <li>
                         {available
                            ? "AI features are available in this environment."
                            : "AI features are not available yet."}
@@ -95,6 +100,28 @@ export default function PrivacyPage() {
                         The preparation workspace is being rolled out and may not be available to your account yet. When it
                         is, it stores what you save there: your stories, your answers, the links between them and your target
                         level. We don&apos;t sell it. Don&apos;t save passwords, payment details or other secrets there.
+                     </p>
+                  </Subsection>
+                  <Subsection title="Your Lesson and Problem progress">
+                     <p>
+                        Lesson and Problem progress is being rolled out and may not be on yet. Once it is, and while you are
+                        signed in, we keep these for each Lesson or Problem you use it on:
+                     </p>
+                     <ul>
+                        <li>when you marked it complete;</li>
+                        <li>when you bookmarked it;</li>
+                        <li>when you last opened it; and</li>
+                        <li>a personal note, if you write one.</li>
+                     </ul>
+                     <p>
+                        We store the item&apos;s ID with these, not its text. The workspace uses them to show your own Continue
+                        card and bookmarks back to you. Knowledge entries are not included. Your progress is associated
+                        with your account and is not visible to other learners. We don&apos;t sell or share it, we don&apos;t
+                        put your notes in our logs and we don&apos;t send a note to an AI feature.
+                     </p>
+                     <p>
+                        Unmarking an item or clearing a note empties that field; the item&apos;s record, including the time
+                        you last opened it, stays until you use Delete all.
                      </p>
                   </Subsection>
                   <Subsection title="Records about AI use">
@@ -224,11 +251,13 @@ export default function PrivacyPage() {
                      </li>
                      <li>
                         <strong className="text-foreground">Delete all:</strong> removes all your stories, answers, links and
-                        your target level. It keeps your AI consent record and the usage records described above.
+                        your target level, and your Lesson and Problem progress: completion, bookmarks, notes and last-opened
+                        times. It keeps your AI consent record and the usage records described above.
                      </li>
                      <li>
-                        <strong className="text-foreground">Export:</strong> a JSON file with everything you saved and your AI
-                        consent record, or a readable Markdown copy. Usage records are not included.
+                        <strong className="text-foreground">Export:</strong> a JSON file with everything you saved, including
+                        your Lesson and Problem progress, and your AI consent record, or a readable Markdown copy. Usage
+                        records are not included.
                      </li>
                      <li>
                         <strong className="text-foreground">Withdraw AI consent:</strong> once AI features are available, you

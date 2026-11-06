@@ -1,4 +1,4 @@
-// Standalone smoke for the /prepare workspace at 390px and 1440px (P7-T15). Not part of `playwright test`.
+// Standalone smoke for the /prepare workspace at 390px and 1440px (P7-T15; capability read added by P7-T48). Not part of `playwright test`.
 // Run from the repo root: node tests/e2e/prepare.smoke.mjs   (SMOKE_SHOTS=<dir> also saves screenshots)
 // It starts its own fake API/Auth and two Next dev servers (flag on, flag off), then stops only what it started.
 import { spawn } from "node:child_process";
@@ -86,27 +86,31 @@ async function run() {
          const page = await context.newPage();
          let release;
          const gate = new Promise((resolve) => (release = resolve));
-         let requests = 0;
          const paths = [];
          await page.route(`${API}/me/prep/**`, async (route) => {
-            requests++;
-            paths.push(new URL(route.request().url()).pathname + new URL(route.request().url()).search);
+            const asked = new URL(route.request().url());
+            paths.push(asked.pathname + asked.search);
             await gate;
-            await route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(body) });
+            // The capability read (api-contract §15.9) says M2 is off here; every other request gets the answers list.
+            const payload = asked.pathname === "/me/prep/features" ? { item_state_available: false } : body;
+            await route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(payload) });
          });
          await page.goto(`${ON}/prepare`);
          const status = page.getByRole("status");
          await status.waitFor({ timeout: 15000 });
          await page.waitForFunction(() => document.readyState === "complete");
-         for (let i = 0; i < 100 && requests === 0; i++) await page.waitForTimeout(100);
+         const asked = (path) => paths.filter((item) => item === path).length;
+         for (let i = 0; i < 100 && !(asked("/me/prep/answers?limit=100") > 0 && asked("/me/prep/features") > 0); i++) await page.waitForTimeout(100);
          const shown = await status.innerText();
          // Next's route announcer is an empty alert, so only an alert with text counts as an error.
          const errors = await page.getByRole("alert").filter({ hasText: /\S/ }).count();
          const empty = await page.getByText("No answers").count();
          check(`${label}: slow first request shows Loading, no error, no empty state`, /Loading your workspace/.test(shown) && errors === 0 && empty === 0, JSON.stringify(shown));
          // `next dev` mounts effects twice (StrictMode), so up to two identical list reads are expected here.
-         check(`${label}: only the answers list was requested`, requests >= 1 && requests <= 2 && paths.every((path) => path === "/me/prep/answers?limit=100"), JSON.stringify(paths));
-         const action = page.getByRole("button", { name: "Answer a question" });
+         // T48: the workspace also makes one capability read; nothing else may be asked.
+         const answerReads = asked("/me/prep/answers?limit=100");
+         check(`${label}: only the answers list and the single capability read were requested`, answerReads >= 1 && answerReads <= 2 && asked("/me/prep/features") === 1 && answerReads + 1 === paths.length, JSON.stringify(paths));
+         const action = page.getByRole("link", { name: "Answer a question" });
          const box = await action.boundingBox();
          check(`${label}: Answer a question is the first action, inside the viewport`, box !== null && box.y + box.height <= viewport.height && box.x >= 0 && box.x + box.width <= viewport.width);
          check(`${label}: no horizontal overflow while loading`, await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -126,6 +130,7 @@ async function run() {
          await page.getByText("Tell me about a conflict.").waitFor({ timeout: 15000 });
          if (process.env.SMOKE_SHOTS) await page.screenshot({ path: `${process.env.SMOKE_SHOTS}/prepare-${label}-loaded.png` });
          check(`${label}: the result replaces Loading`, (await page.getByRole("status").count()) === 0);
+         check(`${label}: with M2 off no item-state request is made and no Continue or Bookmarks section shows`, !paths.some((path) => path.startsWith("/me/prep/item-state")) && (await page.getByRole("region", { name: /Continue|Bookmarks/ }).count()) === 0, JSON.stringify(paths));
          check(`${label}: no horizontal overflow once loaded`, await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
          await context.close();
       }

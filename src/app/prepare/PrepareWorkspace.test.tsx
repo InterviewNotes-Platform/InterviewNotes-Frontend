@@ -48,11 +48,12 @@ describe("first request", () => {
         expect(screen.getByRole("status")).toHaveTextContent("Loading your workspace");
         expect(screen.queryByRole("alert")).toBeNull();
         expect(screen.queryByText(/No answers/)).toBeNull();
-        expect(calls).toHaveLength(1);
-        expect(calls[0].url).toContain("/me/prep/answers");
+        // The workspace also asks the server whether item state is on (api-contract §15.9); the answers request is the one held here.
+        const answers = calls.filter(({ url }) => url.includes("/me/prep/answers"));
+        expect(answers).toHaveLength(1);
 
         await act(async () => {
-            calls[0].release(
+            answers[0].release(
                 jsonResponse(200, { items: [answer("a1", "in_progress", "Tell me about a conflict."), answer("a2", "ready", "Tell me about a failure.")], total: 2, limit: 100, offset: 0 })
             );
             await vi.advanceTimersByTimeAsync(0);

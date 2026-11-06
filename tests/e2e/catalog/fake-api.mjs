@@ -287,8 +287,59 @@ function content(req, res, path) {
    });
 }
 
+/** Every `/me/prep` request the browser made, as `METHOD path`. Its own log, so `/__catalog-log` stays catalog-only (decisions §2.2.4, A-3). */
+const itemStateLog = [];
+/** `PUT /__item-state?user=<id>&continuity=off` mirrors `CONTINUITY_ENABLED` for that fixture user only, so parallel tests do not meet; `DELETE` turns it back on and, with `content=<id>`, drops that one row. */
+const continuityOff = new Set();
+const itemRows = new Map();
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type", "access-control-allow-methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS" };
+const CONTENT_ID = /^(lesson|problem)\.[a-z0-9]+(-[a-z0-9]+)*$/;
+const respond = (res, status, body) => send(res, status, body, { ...CORS, "cache-control": PRIVATE });
+
+/** Test double of api-contract §15.3, §15.4 and §15.9: version 0 for no row, 409 on a mismatch, a visit that never bumps the version. */
+function itemStateApi(req, res, path, body) {
+   const [head, contentId, tail] = path.slice("/me/prep/".length).split("/");
+   itemStateLog.push(`${req.method} ${path}`);
+   const user = identityOf(req)?.user.id;
+   if (head === "features" && req.method === "GET") return user ? respond(res, 200, { item_state_available: !continuityOff.has(user) }) : respond(res, 401, { code: "unauthenticated" });
+   if (head !== "item-state" || (user && continuityOff.has(user))) return respond(res, 404, { code: "not_found" });
+   if (!user) return respond(res, 401, { code: "unauthenticated" });
+   if (!CONTENT_ID.test(contentId ?? "")) return respond(res, 422, { code: "validation_error", fields: [{ field: "content_id", reason: "invalid_format" }] });
+   const key = `${user}|${contentId}`;
+   const row = itemRows.get(key);
+   const none = { content_id: contentId, completed_at: null, last_visited_at: null, bookmarked_at: null, note: null, version: 0 };
+   const now = new Date().toISOString();
+   if (req.method === "GET" && !tail) return respond(res, 200, row ?? none);
+   if (req.method === "POST" && tail === "visit") {
+      const next = { ...(row ?? none), version: row?.version ?? 1, last_visited_at: now };
+      return (itemRows.set(key, next), respond(res, 200, next));
+   }
+   if (req.method !== "PATCH" || tail) return respond(res, 404, { code: "not_found" });
+   if (!Number.isInteger(body.version) || Object.keys(body).length < 2) return respond(res, 422, { code: "validation_error", fields: [{ field: "body", reason: "invalid_value" }] });
+   if (body.version !== (row?.version ?? 0)) return respond(res, 409, { code: "version_conflict", current_version: row?.version ?? 0 });
+   const next = { ...(row ?? none), version: body.version + 1 };
+   if (typeof body.completed === "boolean") next.completed_at = body.completed ? (next.completed_at ?? now) : null;
+   if (typeof body.bookmarked === "boolean") next.bookmarked_at = body.bookmarked ? (next.bookmarked_at ?? now) : null;
+   if (body.note !== undefined) next.note = body.note;
+   itemRows.set(key, next);
+   return respond(res, 200, next);
+}
+
 const api = createServer((req, res) => {
    const { pathname: path, searchParams: query } = new URL(req.url, `http://${HOST}`);
+   if (req.method === "OPTIONS") return res.writeHead(204, CORS).end();
+   if (path === "/__item-state-log") return respond(res, 200, itemStateLog);
+   if (path === "/__item-state" && (req.method === "PUT" || req.method === "DELETE")) {
+      const target = query.get("user");
+      if (req.method === "PUT") query.get("continuity") === "off" ? continuityOff.add(target) : continuityOff.delete(target);
+      else (continuityOff.delete(target), itemRows.delete(`${target}|${query.get("content")}`));
+      return respond(res, 200, { off: [...continuityOff] });
+   }
+   if (path.startsWith("/me/prep/")) {
+      let raw = "";
+      req.on("data", (chunk) => (raw += chunk));
+      return void req.on("end", () => itemStateApi(req, res, path, raw ? JSON.parse(raw) : {}));
+   }
    if (path === "/__fault" && (req.method === "PUT" || req.method === "DELETE")) {
       fault = req.method === "PUT" ? { path: query.get("path"), delayMs: Number(query.get("delayMs") ?? 0), status: Number(query.get("status") ?? 0) } : null;
       return send(res, 200, { fault });

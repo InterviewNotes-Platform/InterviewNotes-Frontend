@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { createPrepClient, type PrepClient } from "@/lib/prep/client";
+import { PRIVACY_HREF } from "@/lib/privacy";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { DeleteSection } from "./DeleteSection";
@@ -39,6 +40,10 @@ export function YourData({ apiUrl, getAccessToken = sessionToken, fetch: fetchIm
                 </Link>
                 <h1 className="text-section text-foreground">Your data</h1>
                 <p className="max-w-reading text-body text-muted-foreground">Your preparation belongs to you: set your target level, take a copy, or delete it all.</p>
+                <p className="max-w-reading text-body text-muted-foreground">
+                    Once Lesson and Problem progress is on, this also covers when you complete, bookmark and open a Lesson or Problem, and any personal note you write on one. Your progress is associated with your account and is not visible to other learners.
+                    The export includes it and Delete all removes it. <Link href={PRIVACY_HREF} prefetch={false} className="underline underline-offset-4 hover:text-foreground">See Privacy &amp; AI Use</Link>.
+                </p>
             </header>
             {!apiUrl && (
                 <p role="alert" className="text-body text-foreground">

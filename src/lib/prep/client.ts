@@ -2,6 +2,8 @@ import {
    isAnswer,
    isDeleteAll,
    isExport,
+   isFeatures,
+   isItemState,
    isLink,
    isPage,
    isPreference,
@@ -9,17 +11,21 @@ import {
    isStory,
    readIssues,
 } from "./guards";
+import type { ItemStateListParams } from "./itemStateLists.types";
 import type {
    Answer,
    AnswerCreate,
    AnswerListParams,
    AnswerUpdate,
    DeleteAllSummary,
+   ItemState,
+   ItemStateUpdate,
    Link,
    Page,
    Preference,
    PreferenceUpdate,
    PrepExport,
+   PrepFeatures,
    PrepResult,
    Story,
    StoryCreate,
@@ -149,6 +155,7 @@ export function createPrepClient(config: PrepClientConfig) {
 
    const storyPage = isPage(isStory);
    const answerPage = isPage(isAnswer);
+   const itemStatePage = isPage(isItemState);
 
    return {
       listStories: (params: StoryListParams = {}): Promise<PrepResult<Page<Story>>> =>
@@ -191,6 +198,25 @@ export function createPrepClient(config: PrepClientConfig) {
       /** The first write sends `version` 0. */
       updatePreference: (body: PreferenceUpdate): Promise<PrepResult<Preference>> =>
          call({ method: "PATCH", path: "/preferences", body }, jsonReader(isPreference)),
+
+      /** M2 availability (§15.9). The one read that is safe while M2 is off; a 404 means "not available". */
+      getFeatures: (): Promise<PrepResult<PrepFeatures>> => call({ method: "GET", path: "/features" }, jsonReader(isFeatures)),
+      /** No row reads as `version` 0 with nulls (§15.3). Call only after `getFeatures` says item state is available. */
+      getItemState: (contentId: string): Promise<PrepResult<ItemState>> =>
+         call({ method: "GET", path: `/item-state/${id(contentId)}` }, jsonReader(isItemState)),
+      /** The first write for an item with no row sends `version` 0. */
+      updateItemState: (contentId: string, body: ItemStateUpdate): Promise<PrepResult<ItemState>> =>
+         call({ method: "PATCH", path: `/item-state/${id(contentId)}`, body }, jsonReader(isItemState)),
+      /** Last-write-wins, no body, never conflicts and never changes `version` (§15.4). */
+      recordVisit: (contentId: string): Promise<PrepResult<ItemState>> =>
+         call({ method: "POST", path: `/item-state/${id(contentId)}/visit` }, jsonReader(isItemState)),
+
+      /** The caller's rows with a last visit, newest first then `content_id` (§15.5). Call only after `getFeatures` says item state is available. */
+      getRecent: (params: ItemStateListParams = {}): Promise<PrepResult<Page<ItemState>>> =>
+         call({ method: "GET", path: `/item-state/recent${query(params)}` }, jsonReader(itemStatePage)),
+      /** The caller's rows with a bookmark, newest first then `content_id` (§15.5). Same precondition as `getRecent`. */
+      getBookmarks: (params: ItemStateListParams = {}): Promise<PrepResult<Page<ItemState>>> =>
+         call({ method: "GET", path: `/item-state/bookmarks${query(params)}` }, jsonReader(itemStatePage)),
 
       exportJson: (): Promise<PrepResult<PrepExport>> =>
          call({ method: "GET", path: "/export?format=json" }, jsonReader(isExport)),
