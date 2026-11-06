@@ -6,6 +6,7 @@ import { TrackCurriculum, TrackHeader, TrackSupport } from "@/components/catalog
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { getCatalogTrack } from "@/lib/catalog/client";
 import { loadLessonSummaries } from "@/lib/catalog/summaries";
+import { prepApiUrl, prepEnabled } from "@/lib/prep-flag";
 import { curriculumOf } from "@/lib/catalog/track";
 import type { CatalogTrack } from "@/lib/catalog/types";
 
@@ -19,14 +20,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
    return withPreviewRobots({ title: result.data.title, description: result.data.summary });
 }
 
-// Proposition, then the one Start action, then the curriculum, then context read from the same outline.
+// Proposition, then the one Start action (or the level choice), then the curriculum, then context read from the same outline.
 function TrackBody({ track, summaries }: { track: CatalogTrack; summaries: ReadonlyMap<string, string> | null }) {
    const curriculum = curriculumOf(track);
    return (
       <>
-         <TrackHeader track={track} curriculum={curriculum} />
+         <TrackHeader track={track} curriculum={curriculum} summaries={summaries} />
          <div className="mt-12 md:mt-16">
-            <TrackCurriculum track={track} curriculum={curriculum} summaries={summaries} />
+            <TrackCurriculum
+               track={track}
+               curriculum={curriculum}
+               summaries={summaries}
+               itemState={prepEnabled() ? { apiUrl: prepApiUrl() } : undefined}
+            />
          </div>
          <TrackSupport curriculum={curriculum} />
       </>

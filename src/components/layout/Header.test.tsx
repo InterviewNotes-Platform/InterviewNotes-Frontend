@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { User } from "@supabase/supabase-js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerLeaveGuard } from "@/lib/leave-guard";
 import { Header } from "./Header";
 
 const mocks = vi.hoisted(() => ({
@@ -36,7 +37,7 @@ describe("desktop shell", () => {
         render(<Header />);
         expect(within(banner()).getByRole("link", { name: "InterviewNotes" })).toHaveAttribute("href", "/");
         expect(within(primary()).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Tracks", "/learn"],
+            ["Tracks", "/#tracks"],
             ["Knowledge", "/knowledge"],
             ["Pricing", "/#pricing"],
             ["FAQ", "/#faq"],
@@ -64,13 +65,35 @@ describe("desktop shell", () => {
     });
 });
 
+describe("Prepare entry", () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("is absent while the flag is off", () => {
+        render(<Header />);
+        expect(screen.queryByRole("link", { name: "Prepare" })).toBeNull();
+    });
+
+    it("is listed after Knowledge when the flag is on, and is the current page on /prepare", () => {
+        vi.stubEnv("NEXT_PUBLIC_PREP_ENABLED", "true");
+        mocks.pathname = "/prepare";
+        render(<Header />);
+        const links = within(primary()).getAllByRole("link");
+        expect(links.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+            ["Tracks", "/#tracks"],
+            ["Knowledge", "/knowledge"],
+            ["Prepare", "/prepare"],
+            ["Pricing", "/#pricing"],
+            ["FAQ", "/#faq"],
+        ]);
+        expect(links.filter((a) => a.hasAttribute("aria-current")).map((a) => a.textContent)).toEqual(["Prepare"]);
+    });
+});
+
 describe("active area", () => {
     it.each([
         ["/tracks", "Tracks"],
         ["/tracks/example", "Tracks"],
         ["/lessons/example", "Tracks"],
-        ["/learn", "Tracks"],
-        ["/learn/ml-system-design/intro", "Tracks"],
         ["/practice", "Tracks"],
         ["/practice/example", "Tracks"],
         ["/problems/example", "Tracks"],
@@ -83,7 +106,7 @@ describe("active area", () => {
         expect(current.map((a) => [a.textContent, a.getAttribute("aria-current")])).toEqual([[label, "page"]]);
     });
 
-    it.each(["/", "/login", "/signup", "/demo", "/not-a-route"])("marks nothing on %s", (pathname) => {
+    it.each(["/", "/login", "/signup", "/demo", "/not-a-route", "/learn", "/learn/ml-system-design/intro"])("marks nothing on %s", (pathname) => {
         mocks.pathname = pathname;
         render(<Header />);
         expect(within(primary()).getAllByRole("link").filter((a) => a.hasAttribute("aria-current"))).toEqual([]);
@@ -105,7 +128,7 @@ describe("account", () => {
         expect(within(banner()).queryByRole("button", { name: "Account menu" })).toBeNull();
     });
 
-    it("signed in: shows initials, then email, Courses and Log out from the keyboard", () => {
+    it("signed in: shows initials, then email, Tracks and Log out from the keyboard", () => {
         signedIn({ email: "ada.lovelace@example.com", user_metadata: { full_name: "Ada Lovelace" } });
         render(<Header />);
         expect(within(banner()).queryByRole("link", { name: "Sign in" })).toBeNull();
@@ -116,7 +139,7 @@ describe("account", () => {
 
         const menu = screen.getByRole("menu");
         expect(within(menu).getByText("ada.lovelace@example.com")).toBeInTheDocument();
-        expect(within(menu).getByRole("menuitem", { name: "Courses" })).toHaveAttribute("href", "/learn");
+        expect(within(menu).getByRole("menuitem", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
         expect(within(menu).getByRole("menuitem", { name: "Log out" })).toBeInTheDocument();
     });
 
@@ -135,5 +158,19 @@ describe("account", () => {
         await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
         expect(mocks.signOut).toHaveBeenCalledTimes(1);
         expect(mocks.push).toHaveBeenCalledWith("/");
+    });
+
+    it("Log out waits for a page holding unsaved work, and does nothing when that page says no", async () => {
+        signedIn({ email: "grace@example.com" });
+        const guard = vi.fn().mockResolvedValue(false);
+        const release = registerLeaveGuard(guard);
+        render(<Header />);
+        fireEvent.keyDown(within(banner()).getByRole("button", { name: "Account menu" }), { key: "Enter" });
+        fireEvent.click(screen.getByRole("menuitem", { name: "Log out" }));
+
+        await waitFor(() => expect(guard).toHaveBeenCalledTimes(1));
+        expect(mocks.signOut).not.toHaveBeenCalled();
+        expect(mocks.push).not.toHaveBeenCalled();
+        release();
     });
 });

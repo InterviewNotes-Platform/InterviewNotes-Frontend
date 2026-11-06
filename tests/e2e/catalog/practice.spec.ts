@@ -90,7 +90,7 @@ test.describe("the Practice home", () => {
       await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
       await expect(h1(page)).toHaveText("Practice, one Problem at a time.");
       await expect(main(page).locator("header")).toContainText("clarify the requirements, sketch a design, then defend the trade-offs");
-      await expect(main(page).getByRole("link", { name: "Tracks", exact: true })).toHaveAttribute("href", "/tracks");
+      await expect(main(page).getByRole("link", { name: "Tracks", exact: true })).toHaveAttribute("href", "/#tracks");
       await expect(main(page).getByRole("link", { name: "Knowledge", exact: true })).toHaveAttribute("href", "/knowledge");
       await expect(main(page).getByRole("heading", { level: 2, name: "Problems" })).toBeVisible();
       await expectTitles(page, PROBLEMS.slice(0, PAGE_SIZE));

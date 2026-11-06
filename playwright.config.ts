@@ -3,20 +3,35 @@ import {
     EMPTY_ORIGIN,
     EMPTY_PORT,
     EMPTY_TOKEN,
+    FAULT_API_ORIGIN,
+    FAULT_API_PORT,
+    FAULT_ORIGIN,
+    FAULT_PORT,
     FAKE_API_ORIGIN,
     FAKE_API_PORT,
     FAKE_AUTH_ORIGIN,
     FAKE_AUTH_PORT,
+    ITEM_API_ORIGIN,
+    ITEM_API_PORT,
     ISOLATED_API_ORIGIN,
     ISOLATED_API_PORT,
     ISOLATED_ORIGIN,
     ISOLATED_PORT,
+    JOURNEY_API_ORIGIN,
+    JOURNEY_API_PORT,
+    JOURNEY_ORIGIN,
+    JOURNEY_PORT,
     PREVIEW_API_ORIGIN,
     PREVIEW_API_PORT,
     PREVIEW_DIST,
     PREVIEW_ORIGIN,
     PREVIEW_PORT,
     PREVIEW_TOKEN,
+    READER_CATALOG_ORIGIN,
+    READER_CATALOG_PORT,
+    READER_DIST,
+    READER_ORIGIN,
+    READER_PORT,
     REJECTED_ORIGIN,
     REJECTED_PORT,
     REJECTED_TOKEN,
@@ -63,6 +78,7 @@ export default defineConfig({
             command: `node tests/e2e/catalog/fake-api.mjs ${ISOLATED_API_PORT}`,
             url: `${ISOLATED_API_ORIGIN}/health`,
             reuseExistingServer: !process.env.CI,
+            env: { FAKE_API_FREE_CHAPTER: "free" },
         },
         {
             // The production build above, served again with `API_URL` pointing at that private double.
@@ -78,11 +94,31 @@ export default defineConfig({
             },
         },
         {
+            // A second private double knowing the free chapter, so the journeys can open it without adding to the log above.
+            command: `node tests/e2e/catalog/fake-api.mjs ${JOURNEY_API_PORT}`,
+            url: `${JOURNEY_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+            env: { FAKE_API_FREE_CHAPTER: "free" },
+        },
+        {
+            // The production build above, served again with `API_URL` pointing at that double.
+            command: `npx next start -p ${JOURNEY_PORT}`,
+            url: `${JOURNEY_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                API_URL: JOURNEY_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: "",
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
             // The preview API double: /catalog answers only the holder of the preview credential (backend D9).
             command: `node tests/e2e/catalog/fake-api.mjs ${PREVIEW_API_PORT}`,
             url: `${PREVIEW_API_ORIGIN}/health`,
             reuseExistingServer: !process.env.CI,
-            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN, FAKE_API_EMPTY_TOKEN: EMPTY_TOKEN },
+            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN, FAKE_API_EMPTY_TOKEN: EMPTY_TOKEN, FAKE_API_FREE_CHAPTER: "premium" },
         },
         {
             // The preview deployment: its own build, with the synthetic credential present while it is built.
@@ -122,6 +158,56 @@ export default defineConfig({
                 NEXT_DIST_DIR: PREVIEW_DIST,
                 API_URL: PREVIEW_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: EMPTY_TOKEN,
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // The item-state double the reader build's browser calls (P7-T45); only readerControls.spec.ts and leak.spec.ts use it.
+            command: `node tests/e2e/catalog/fake-api.mjs ${ITEM_API_PORT}`,
+            url: `${ITEM_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            // Its private catalog double, so the main double's catalog log is not touched by the reader build.
+            command: `node tests/e2e/catalog/fake-api.mjs ${READER_CATALOG_PORT}`,
+            url: `${READER_CATALOG_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            // The reader build: production, with the Prepare flag on and the browser's API origin at the item-state double.
+            command: `rm -rf ${READER_DIST}/cache/fetch-cache && npx next build && npx next start -p ${READER_PORT}`,
+            url: `${READER_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 300_000,
+            env: {
+                NEXT_DIST_DIR: READER_DIST,
+                API_URL: READER_CATALOG_ORIGIN,
+                NEXT_PUBLIC_API_URL: ITEM_API_ORIGIN,
+                NEXT_PUBLIC_PREP_ENABLED: "true",
+                CATALOG_PREVIEW_TOKEN: "",
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // A private preview API double whose reads catalog.spec.ts slows or fails on demand, so no other test sees a fault.
+            command: `node tests/e2e/catalog/fake-api.mjs ${FAULT_API_PORT}`,
+            url: `${FAULT_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+            env: { FAKE_API_PREVIEW_TOKEN: PREVIEW_TOKEN },
+        },
+        {
+            // The preview build again. A preview sends every read uncached, so an injected fault is never masked by the data cache.
+            command: `npx next start -p ${FAULT_PORT}`,
+            url: `${FAULT_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                NEXT_DIST_DIR: PREVIEW_DIST,
+                API_URL: FAULT_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: PREVIEW_TOKEN,
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
                 NEXT_TELEMETRY_DISABLED: "1",

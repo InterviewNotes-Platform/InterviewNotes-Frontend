@@ -12,6 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 
 interface AccountMenuProps {
     user: User | null;
@@ -50,7 +51,7 @@ export function AccountMenu({ user, loading, onSignOut }: AccountMenuProps) {
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                            <Link href="/learn">Courses</Link>
+                            <Link href={TRACKS_ENTRY}>Tracks</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem variant="destructive" onSelect={onSignOut}>
                             Log out

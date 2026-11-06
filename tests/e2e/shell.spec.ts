@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { canonical, expect, FAKE_AUTH_ORIGIN, legacyCourse, test, track } from "./catalog/harness";
 
@@ -5,7 +6,7 @@ import { canonical, expect, FAKE_AUTH_ORIGIN, legacyCourse, test, track } from "
 const [freeChapter] = legacyCourse.chapters;
 const LESSON = canonical("lesson.catalog-e2e-free");
 const NAMES = ["Tracks", "Knowledge", "Pricing", "FAQ"];
-const HREFS = ["/learn", "/knowledge", "/#pricing", "/#faq"];
+const HREFS = ["/#tracks", "/knowledge", "/#pricing", "/#faq"];
 
 const banner = (page: Page) => page.getByRole("banner");
 const primary = (page: Page) => banner(page).getByRole("navigation", { name: "Primary" });
@@ -31,14 +32,15 @@ test.describe("desktop shell", () => {
       await expect(banner(page).getByRole("button", { name: "Menu" })).toBeHidden();
    });
 
-   test("Tracks opens the courses that have content today, the same place as the homepage actions", async ({ page }) => {
-      await page.goto("/");
+   test("Tracks opens the homepage Tracks section from another page, the same place as the Browse Tracks actions", async ({ page }) => {
+      await page.goto("/login");
       await primary(page).getByRole("link", { name: "Tracks" }).click();
-      await expect(page).toHaveURL("/learn");
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Interview Paths");
+      await expect(page).toHaveURL("/#tracks");
+      await expect(page.locator("#tracks")).toBeInViewport();
       await page.goto("/");
-      await page.getByRole("main").getByRole("link", { name: "Start Learning" }).first().click();
-      await expect(page).toHaveURL("/learn");
+      await page.getByRole("main").getByRole("link", { name: "Browse Tracks" }).first().click();
+      await expect(page).toHaveURL("/#tracks");
+      await expect(page.locator("#tracks")).toBeInViewport();
    });
 
    test("has no Practice entry, Subscribe, Upgrade, search or Sign up affordance", async ({ page }) => {
@@ -50,7 +52,7 @@ test.describe("desktop shell", () => {
    });
 
    test("keeps the header the height that legacy layouts are sized against", async ({ page }) => {
-      for (const route of ["/login", `/learn/${legacyCourse.slug}/${freeChapter.slug}`]) {
+      for (const route of ["/login", LESSON]) {
          await page.goto(route);
          expect(await banner(page).boundingBox(), route).toMatchObject({ y: 0, height: 65 });
       }
@@ -59,10 +61,8 @@ test.describe("desktop shell", () => {
 
 test.describe("active area", () => {
    const routes: [string, string | null][] = [
-      ["/tracks", "Tracks"],
       [`/tracks/${track("catalog-e2e-home").slug}`, "Tracks"],
       [LESSON, "Tracks"],
-      ["/learn", "Tracks"],
       [canonical("problem.catalog-e2e-related"), "Tracks"],
       [canonical("knowledge.catalog-e2e-sections"), "Knowledge"],
       ["/login", null],
@@ -136,7 +136,7 @@ test.describe("signed in", () => {
       await page.keyboard.press("Enter");
       const menu = page.getByRole("menu");
       await expect(menu.getByText("entitled@e2e.invalid")).toBeVisible();
-      await expect(menu.getByRole("menuitem", { name: "Courses" })).toHaveAttribute("href", "/learn");
+      await expect(menu.getByRole("menuitem", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
       await expect(menu.getByRole("menuitem", { name: "Log out" })).toBeVisible();
 
       await page.keyboard.press("Escape");
@@ -155,45 +155,50 @@ test.describe("signed in", () => {
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toBeVisible();
    });
 
-   test("legacy courses stay reachable from the account menu", async ({ page }) => {
+   test("the account menu's Tracks opens the homepage Tracks section", async ({ page }) => {
       await page.goto(LESSON);
       await banner(page).getByRole("button", { name: "Account menu" }).click();
-      await page.getByRole("menuitem", { name: "Courses" }).click();
-      await expect(page).toHaveURL("/learn");
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Interview Paths");
+      await page.getByRole("menuitem", { name: "Tracks" }).click();
+      await expect(page).toHaveURL("/#tracks");
+      await expect(page.locator("#tracks")).toBeInViewport();
    });
 });
 
-test.describe("legacy", () => {
-   test("/learn, a legacy chapter and /login render under the new header", async ({ page }) => {
-      for (const [route, marker] of [
-         ["/learn", page.getByRole("heading", { level: 1, name: "Interview Paths" })],
-         [`/learn/${legacyCourse.slug}/${freeChapter.slug}`, page.getByText("Legacy free chapter marker.")],
-         ["/login", page.getByText("Welcome Back")],
-      ] as const) {
+test.describe("retired /learn", () => {
+   test("/login still renders under the new header", async ({ page }) => {
+      await page.goto("/login");
+      await expect(page.getByText("Welcome Back")).toBeVisible();
+      await expect(banner(page)).toBeVisible();
+      await expect(primary(page).getByRole("link")).toHaveText(NAMES);
+   });
+
+   test("/learn, a legacy chapter and /tracks all end on the homepage Tracks section", async ({ page }) => {
+      for (const route of ["/learn", `/learn/${legacyCourse.slug}/${freeChapter.slug}`, "/tracks"]) {
          await page.goto(route);
-         await expect(marker, route).toBeVisible();
-         await expect(banner(page), route).toBeVisible();
-         await expect(primary(page).getByRole("link"), route).toHaveText(NAMES);
+         await expect(page, route).toHaveURL("/#tracks");
+         await expect(page.locator("#tracks"), route).toBeInViewport();
       }
    });
 
-   test("legacy courses stay reachable for a signed-out learner through the footer", async ({ page }) => {
+   test("the footer's Tracks link opens the Tracks section, and no footer link enters /learn", async ({ page }) => {
       await page.goto("/");
-      await page.locator("footer").getByRole("link", { name: "All courses" }).click();
-      await expect(page).toHaveURL("/learn");
+      const footer = page.locator("footer");
+      const hrefs = await footer.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+      expect(hrefs.filter((href) => href?.startsWith("/learn"))).toEqual([]);
+      await footer.getByRole("link", { name: "Tracks" }).click();
+      await expect(page).toHaveURL("/#tracks");
    });
 });
 
 test.describe("mobile menu at 390px", () => {
    test.use({ viewport: { width: 390, height: 844 } });
 
-   test("Tracks opens the same courses as the desktop navigation", async ({ page }) => {
-      await page.goto("/");
+   test("Tracks opens the same section as the desktop navigation", async ({ page }) => {
+      await page.goto("/login");
       await page.getByRole("button", { name: "Menu" }).click();
       await page.getByRole("dialog", { name: "Menu" }).getByRole("link", { name: "Tracks" }).click();
-      await expect(page).toHaveURL("/learn");
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Interview Paths");
+      await expect(page).toHaveURL("/#tracks");
+      await expect(page.locator("#tracks")).toBeInViewport();
    });
 
    test("hides the desktop navigation, keeps the logo stable and overflows nowhere", async ({ page }) => {
@@ -244,6 +249,25 @@ test.describe("mobile menu at 390px", () => {
       await menu.getByRole("button", { name: "Close" }).click();
       await expect(menu).toHaveCount(0);
       await expect(trigger).toBeFocused();
+   });
+
+   test("keeps the page behind inert while open, has no WCAG A or AA violation, and restores focus on close (X-12)", async ({ page }) => {
+      await page.goto(LESSON);
+      const trigger = page.getByRole("button", { name: "Menu" });
+      const menu = page.getByRole("dialog", { name: "Menu" });
+
+      await trigger.click();
+      await expect(menu).toBeVisible();
+      // An inert page leaves the accessibility tree, so the page is found by selector, not role.
+      expect(await page.locator("button[aria-label=Menu]").evaluate((el) => !!el.closest("[inert]"))).toBe(true);
+      expect(await page.locator("main").evaluate((el) => !!el.closest("[inert]"))).toBe(true);
+      const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      expect(violations.map(({ id, nodes }) => `${id} on ${nodes.length} node(s)`)).toEqual([]);
+
+      await page.keyboard.press("Escape");
+      await expect(menu).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+      expect(await page.evaluate(() => document.querySelectorAll("[inert]").length)).toBe(0);
    });
 
    test("closes after a destination is chosen", async ({ page }) => {

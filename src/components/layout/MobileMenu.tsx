@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
-import { PREFETCH_PRIMARY, PREMIUM_HREF, PRIMARY_NAV, type NavArea } from "@/lib/primary-navigation";
+import { inertPage } from "@/lib/inertPage";
+import { PREFETCH_PRIMARY, PREMIUM_HREF, primaryNav, TRACKS_ENTRY, type NavArea } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 
 interface MobileMenuProps {
@@ -34,16 +35,26 @@ const accountRow = "flex min-h-11 w-full items-center text-body text-foreground 
 
 export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps) {
     const [open, setOpen] = useState(false);
-    const close = () => setOpen(false);
+    const releasePage = useRef<() => void>(undefined);
+
+    // Radix's `aria-hidden` spares a page with a live region, so the page is made inert before the sheet's layers mount.
+    function changeOpen(next: boolean) {
+        releasePage.current?.();
+        releasePage.current = next ? inertPage() : undefined;
+        setOpen(next);
+    }
+    const close = () => changeOpen(false);
+    useEffect(() => () => releasePage.current?.(), []);
 
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
+        <Sheet open={open} onOpenChange={changeOpen}>
             <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Menu" className="-mr-3 size-11 hover:bg-secondary md:hidden">
                     <Menu className="size-6" />
                 </Button>
             </SheetTrigger>
             <SheetContent
+                data-mobile-menu
                 className="gap-0 data-[state=closed]:duration-150 data-[state=open]:duration-200"
                 onOpenAutoFocus={focusFirstDestination}
             >
@@ -53,7 +64,7 @@ export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps
                 </SheetHeader>
                 <nav aria-label="Primary" className="px-6 py-4">
                     <ul>
-                        {PRIMARY_NAV.map(({ area, label, href }) => (
+                        {primaryNav().map(({ area, label, href }) => (
                             <li key={label}>
                                 <Link
                                     href={href}
@@ -82,7 +93,7 @@ export function MobileMenu({ active, user, loading, onSignOut }: MobileMenuProps
                     {loading ? null : user ? (
                         <>
                             <p className="truncate py-2 text-supporting text-muted-foreground">{user.email}</p>
-                            <Link href="/learn" onClick={close} className={accountRow}>Courses</Link>
+                            <Link href={TRACKS_ENTRY} onClick={close} className={accountRow}>Tracks</Link>
                             <button
                                 type="button"
                                 onClick={() => { close(); onSignOut(); }}

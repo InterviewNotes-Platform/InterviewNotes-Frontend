@@ -140,6 +140,14 @@ function headingLines(text: string): { line: number; level: number; title: strin
    return found;
 }
 
+/** The source title of an authored heading is the API text, whitespace, then its own `{#id}`; any other heading's is its text. */
+function sameTitle({ id, text, authored }: CatalogHeading, title: string): boolean {
+   if (!authored) return text === title;
+   const suffix = `{#${id}}`;
+   const head = title.endsWith(suffix) ? title.slice(0, -suffix.length) : null;
+   return head !== null && head !== head.trimEnd() && head.trimEnd() === text;
+}
+
 /**
  * The API's heading for each heading line of each markdown block, keyed by block and 1-based line. The API's
  * list is the only source of ids: this only pairs it with the lines it was extracted from, in order. Null
@@ -156,7 +164,7 @@ export function headingIds(
    const ids = new Map<Block, Map<number, CatalogHeading>>();
    for (const [index, { block, line, level, title }] of lines.entries()) {
       const heading = headings[index];
-      if (heading.level !== level || heading.text !== title) return null;
+      if (heading.level !== level || !sameTitle(heading, title)) return null;
       ids.set(block, (ids.get(block) ?? new Map<number, CatalogHeading>()).set(line, heading));
    }
    return ids;

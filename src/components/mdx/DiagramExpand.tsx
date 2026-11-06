@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
+import { inertPage } from "@/lib/inertPage";
 import { showDiagram } from "./diagram-svg";
 
 interface DiagramExpandProps {
@@ -17,16 +18,6 @@ interface DiagramExpandProps {
    draw: (id: string) => Promise<string>;
    /** Id of the inline diagram's render, so the dialog's own id can never collide with it. */
    renderId: string;
-}
-
-/**
- * Makes the page inert and returns the undo, which clears only what this call set. Radix's own `aria-hidden` spares
- * every live region and its ancestors (Copy's status), so those would stay reachable behind the modal.
- */
-function inertPage() {
-   const page = Array.from(document.body.children).filter((element) => element.tagName !== "SCRIPT" && !element.hasAttribute("inert"));
-   page.forEach((element) => element.setAttribute("inert", ""));
-   return () => page.forEach((element) => element.removeAttribute("inert"));
 }
 
 /**

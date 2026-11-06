@@ -33,15 +33,18 @@ afterEach(() => {
 
 describe("GET /auth/callback after a successful code exchange", () => {
     it.each([
-        ["/learn/ml-system-design/chapter-name", `${ORIGIN}/learn/ml-system-design/chapter-name`],
-        ["/learn/ml-system-design?tab=notes#intro", `${ORIGIN}/learn/ml-system-design?tab=notes#intro`],
-        ["/%2F%2Fevil.example", `${ORIGIN}/%2F%2Fevil.example`],
-    ])("redirects to the internal path %s", async (next, destination) => {
+        ["/lessons/dynamic-batching", `${ORIGIN}/lessons/dynamic-batching`],
+        ["/problems/design-a-feed?part=2#hints", `${ORIGIN}/problems/design-a-feed?part=2#hints`],
+        ["/tracks/ml-system-design", `${ORIGIN}/tracks/ml-system-design`],
+        ["/knowledge", `${ORIGIN}/knowledge`],
+        ["/practice", `${ORIGIN}/practice`],
+        ["/", `${ORIGIN}/`],
+    ])("redirects to the catalog path %s", async (next, destination) => {
         expect(await callback({ code: "c", next })).toBe(destination);
     });
 
-    it("redirects to /learn when next is missing", async () => {
-        expect(await callback({ code: "c" })).toBe(`${ORIGIN}/learn`);
+    it("redirects to /#tracks when next is missing", async () => {
+        expect(await callback({ code: "c" })).toBe(`${ORIGIN}/#tracks`);
     });
 
     it.each([
@@ -57,24 +60,32 @@ describe("GET /auth/callback after a successful code exchange", () => {
         ["a javascript: URL", "javascript:alert(1)"],
         ["a malformed host", "//["],
         ["an empty value", ""],
-    ])("falls back to /learn for %s", async (_case, next) => {
-        expect(await callback({ code: "c", next })).toBe(`${ORIGIN}/learn`);
+        ["whitespace", "   "],
+        ["a legacy /learn path", "/learn/ml-system-design/chapter-name"],
+        ["a non-catalog path", "/demo"],
+        ["an encoded path that is not a catalog destination", "/%2F%2Fevil.example"],
+    ])("falls back to /#tracks for %s", async (_case, next) => {
+        expect(await callback({ code: "c", next })).toBe(`${ORIGIN}/#tracks`);
     });
 
-    it("completes the login round trip to the requested chapter", async () => {
-        const redirectTo = new URL(authCallbackUrl(ORIGIN, "/learn/ml-system-design/chapter-name"));
+    it.each([
+        ["/lessons/dynamic-batching", `${ORIGIN}/lessons/dynamic-batching`],
+        ["/problems/design-a-feed?part=2#hints", `${ORIGIN}/problems/design-a-feed?part=2#hints`],
+        [null, `${ORIGIN}/#tracks`],
+    ])("completes the round trip for the redirect %j", async (redirect, destination) => {
+        const redirectTo = new URL(authCallbackUrl(ORIGIN, redirect));
         redirectTo.searchParams.set("code", "c");
 
         const response = await GET(new NextRequest(redirectTo));
 
-        expect(response.headers.get("location")).toBe(`${ORIGIN}/learn/ml-system-design/chapter-name`);
+        expect(response.headers.get("location")).toBe(destination);
     });
 });
 
 describe("GET /auth/callback without a session", () => {
     it("sends a failed exchange to the login error, ignoring next", async () => {
         exchangeCodeForSession.mockResolvedValue({ error: new Error("bad code") });
-        expect(await callback({ code: "c", next: "/learn/x" })).toBe(`${ORIGIN}/login?error=auth_failed`);
+        expect(await callback({ code: "c", next: "/lessons/x" })).toBe(`${ORIGIN}/login?error=auth_failed`);
     });
 
     it("sends a request without a code to the login error, ignoring next", async () => {

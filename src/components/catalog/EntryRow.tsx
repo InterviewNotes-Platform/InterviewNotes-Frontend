@@ -28,12 +28,14 @@ interface EntryRowProps {
    /** A canonical route from `linkableEntries`. */
    href: string;
    current?: boolean;
+   /** Visible text for the current entry, beside its link. */
+   currentLabel?: string;
    /** `false` for a page that must not make the server read every target in view; free links otherwise prefetch. */
    prefetch?: false;
 }
 
 /** One link to a catalog item. A premium target is marked and never prefetched. */
-export function EntryRow({ entry, href, current = false, prefetch }: EntryRowProps) {
+export function EntryRow({ entry, href, current = false, currentLabel, prefetch }: EntryRowProps) {
    return (
       <li>
          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -47,6 +49,7 @@ export function EntryRow({ entry, href, current = false, prefetch }: EntryRowPro
             </Link>
             <span className="text-supporting text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
             {entry.access === "premium" ? <PremiumMark /> : null}
+            {current && currentLabel ? <span className="text-supporting font-medium text-primary">{currentLabel}</span> : null}
          </div>
          {entry.summary ? <p className="mt-1 mb-0 text-supporting text-muted-foreground">{entry.summary}</p> : null}
       </li>

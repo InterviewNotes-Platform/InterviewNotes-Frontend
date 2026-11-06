@@ -21,7 +21,7 @@ import { CatalogItemPage } from "./CatalogItemPage";
 
 const MODULE_LOCATION = "/tracks/home#m1";
 const CANONICAL = /^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/;
-const LEARN_INDEX = "/tracks"; // the Learn crumb: the Track index, the one non-item link a Lesson carries
+const TRACKS_INDEX = "/#tracks"; // the Tracks crumb: the homepage section, the one non-item link a Lesson carries
 const entry = (id: string, over = {}) => {
    const [type, slug] = id.split(".");
    return { id, type, slug, title: `Title ${slug}`, access: "free", primary: true, ...over };
@@ -67,8 +67,8 @@ describe("item page navigation", () => {
       await show();
       expect(screen.getByText("Synthetic free body.")).toBeInTheDocument();
       const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
-      expect(crumbs).toHaveTextContent(/^Learn\s*\/\s*Home Track\s*\/\s*First Module$/);
-      expect(within(crumbs).getByRole("link", { name: "Learn" })).toHaveAttribute("href", "/tracks");
+      expect(crumbs).toHaveTextContent(/^Tracks\s*\/\s*Home Track\s*\/\s*First Module$/);
+      expect(within(crumbs).getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
       expect(within(crumbs).getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
       expect(within(crumbs).getByRole("link", { name: "First Module" })).toHaveAttribute("href", MODULE_LOCATION);
       expect(screen.getByText("Module 1 of 2 · Lesson 2 of 2")).toBeInTheDocument();
@@ -81,7 +81,7 @@ describe("item page navigation", () => {
 
    it("keeps one canonical identity: every link is a type-based route, the Module location being the one fragment", async () => {
       await show();
-      for (const href of hrefs().filter((href) => href !== LEARN_INDEX && href !== MODULE_LOCATION)) expect(href).toMatch(CANONICAL);
+      for (const href of hrefs().filter((href) => href !== TRACKS_INDEX && href !== MODULE_LOCATION)) expect(href).toMatch(CANONICAL);
    });
 
    it("presents an alternate Track as navigation only, without a second copy of the content", async () => {

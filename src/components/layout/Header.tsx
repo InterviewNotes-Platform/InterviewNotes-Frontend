@@ -9,7 +9,8 @@ import { MobileMenu } from "@/components/layout/MobileMenu";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useAuth } from "@/hooks/use-auth";
-import { activeArea, PREFETCH_PRIMARY, PREMIUM_HREF, PRIMARY_NAV } from "@/lib/primary-navigation";
+import { activeArea, PREFETCH_PRIMARY, PREMIUM_HREF, primaryNav } from "@/lib/primary-navigation";
+import { mayLeave } from "@/lib/leave-guard";
 import { createClient } from "@/lib/supabase/client";
 
 // Legacy pages size themselves against this header (calc(100vh - 4rem), sticky top-16): keep h-16 + 1px border.
@@ -19,6 +20,7 @@ export function Header() {
     const active = activeArea(usePathname());
 
     const handleSignOut = async () => {
+        if (!(await mayLeave())) return;
         const supabase = createClient();
         await supabase.auth.signOut();
         router.push("/");
@@ -26,15 +28,15 @@ export function Header() {
     };
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
+        <header data-site-header className="sticky top-0 z-50 w-full border-b border-border bg-background">
             <PageContainer className="flex h-16 items-center justify-between gap-6">
                 <div className="flex min-w-0 items-center gap-6">
-                    <Link href="/" className="shrink-0 whitespace-nowrap text-lg font-bold">
+                    <Link href="/" className="relative shrink-0 whitespace-nowrap text-lg font-bold after:absolute after:inset-x-0 after:-inset-y-2">
                         <BrandMark />
                     </Link>
                     <nav aria-label="Primary" className="hidden md:block">
                         <ul className="flex items-center">
-                            {PRIMARY_NAV.map(({ area, label, href }) => (
+                            {primaryNav().map(({ area, label, href }) => (
                                 <li key={label}>
                                     <Button
                                         asChild

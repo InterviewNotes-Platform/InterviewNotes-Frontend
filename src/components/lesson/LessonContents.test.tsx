@@ -126,6 +126,16 @@ describe("desktop contents", () => {
    });
 });
 
+describe("beside a Track sidebar (S6-RDR-6)", () => {
+   it("moves the rail to xl and the collapsed form up to cover lg", () => {
+      render(<LessonContents entries={ENTRIES} beside />);
+      expect(desktop()).toHaveClass("hidden", "xl:block", "sticky");
+      expect(desktop()).not.toHaveClass("lg:block");
+      expect(trigger().closest("div.xl\\:hidden")).toBeInTheDocument();
+      expect(trigger().closest("div.lg\\:hidden")).toBeNull();
+   });
+});
+
 describe("a named list", () => {
    it("names the control, both landmarks and the desktop heading, and keeps the same links", () => {
       render(

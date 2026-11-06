@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// `/learn` needs the backend API at render time, so smoke covers the static public routes (`/` is static too; see home.spec.ts).
+// Smoke covers the static public routes (`/` is static too; see home.spec.ts).
 
 test("login page shows the sign-in card", async ({ page }) => {
     await page.goto("/login");

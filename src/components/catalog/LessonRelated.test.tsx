@@ -186,12 +186,12 @@ describe("BuildsOn", () => {
 });
 
 describe("LessonBreadcrumb", () => {
-   it("reads Learn / Track / Module, linking all three to their locations", () => {
+   it("reads Tracks / Track / Module, linking all three to their locations", () => {
       render(<LessonBreadcrumb placement={placement(null, null)} />);
       const nav = screen.getByRole("navigation", { name: "Breadcrumb" });
       expect(within(nav).getAllByRole("listitem")).toHaveLength(3);
       expect(within(nav).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
-         ["Learn", "/tracks"],
+         ["Tracks", "/#tracks"],
          ["A Rather Long Home Track Title", "/tracks/home"],
          ["A Rather Long Module Title", "/tracks/home#m"],
       ]);

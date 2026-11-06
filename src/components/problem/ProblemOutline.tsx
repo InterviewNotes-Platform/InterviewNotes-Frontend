@@ -19,13 +19,15 @@ interface OutlineProps {
    /** The region after the review surfaces for material with no usable position; in neither group. */
    neutral: OutlineEntry | null;
    className?: string;
+   /** The page has a Track sidebar beside the column, so the rail waits for `xl` and the disclosure covers `lg` (S6-RDR-6). */
+   beside?: boolean;
 }
 
 const subscribe = () => () => {};
 /** False in the server HTML and while hydrating, so a control that needs JavaScript is absent until it can work (S-RVL-12c). */
 const useHydrated = () => useSyncExternalStore(subscribe, () => true, () => false);
 
-function Everything({ announce }: { announce: (message: string) => void }) {
+function Everything({ announce, beside }: { announce: (message: string) => void; beside: boolean }) {
    const hydrated = useHydrated();
    const { everything, showAll, hideAll } = useEverything();
    if (!hydrated) return null;
@@ -37,7 +39,10 @@ function Everything({ announce }: { announce: (message: string) => void }) {
             else showAll();
             announce(everything ? EVERYTHING.hidden : EVERYTHING.shown);
          }}
-         className="flex min-h-11 w-full cursor-pointer items-center rounded-sm text-supporting font-semibold text-foreground transition-micro hover:text-primary lg:min-h-0 lg:py-1.5"
+         className={cn(
+            "flex min-h-11 w-full cursor-pointer items-center rounded-sm text-supporting font-semibold text-foreground transition-micro hover:text-primary",
+            beside ? "xl:min-h-0 xl:py-1.5" : "lg:min-h-0 lg:py-1.5"
+         )}
       >
          {everything ? EVERYTHING.hide : EVERYTHING.show}
       </button>
@@ -76,7 +81,7 @@ function Links({ label, entries, numbered, active, onJump, touch }: { label: str
 
 const GROUP_HEADING = "m-0 mt-4 mb-1 text-supporting font-semibold uppercase tracking-wide text-muted-foreground first:mt-0";
 
-function Groups({ interview, review, neutral, active, onJump, touch }: Omit<OutlineProps, "className"> & { active: string | null; onJump: (id: string) => void; touch?: boolean }) {
+function Groups({ interview, review, neutral, active, onJump, touch }: Omit<OutlineProps, "className" | "beside"> & { active: string | null; onJump: (id: string) => void; touch?: boolean }) {
    const shared = { active, onJump, touch };
    return (
       <>
@@ -106,7 +111,7 @@ function Groups({ interview, review, neutral, active, onJump, touch }: Omit<Outl
  * disclosure below it, so the page and its links work without JavaScript. Show / Hide everything sits with it, never beside the
  * challenge (S-RVL-6), and announces each press once, politely (S-AX-5).
  */
-export function ProblemOutline({ className, ...groups }: OutlineProps) {
+export function ProblemOutline({ className, beside = false, ...groups }: OutlineProps) {
    const ids = [...groups.interview, ...groups.review, ...(groups.neutral ? [groups.neutral] : [])].map(({ id }) => id);
    const [active, choose] = useActiveHeading(ids);
    const [message, setMessage] = useState("");
@@ -116,8 +121,8 @@ export function ProblemOutline({ className, ...groups }: OutlineProps) {
    if (ids.length < 2) {
       return (
          <div className={className}>
-            <div className="mb-6 lg:sticky lg:top-28 lg:mb-0">
-               <Everything announce={setMessage} />
+            <div className={cn("mb-6", beside ? "xl:sticky xl:top-28 xl:mb-0" : "lg:sticky lg:top-28 lg:mb-0")}>
+               <Everything announce={setMessage} beside={beside} />
             </div>
             <p role="status" className="sr-only">
                {message}
@@ -137,20 +142,23 @@ export function ProblemOutline({ className, ...groups }: OutlineProps) {
 
    return (
       <div className={className}>
-         <details ref={phone} className="mb-10 border-y border-border lg:hidden">
+         <details ref={phone} className={cn("mb-10 border-y border-border", beside ? "xl:hidden" : "lg:hidden")}>
             <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-sm font-semibold transition-micro hover:text-primary [&::-webkit-details-marker]:hidden">
                <ChevronRight aria-hidden="true" className="size-4 shrink-0 motion-safe:transition-transform [[open]>summary>&]:rotate-90" />
                {OUTLINE_LABEL}
             </summary>
             <nav aria-label={OUTLINE_LABEL} className="pb-3">
-               <Everything announce={setMessage} />
+               <Everything announce={setMessage} beside={beside} />
                <Groups {...groups} active={active} onJump={closeThenJump} touch />
             </nav>
          </details>
-         <nav aria-label={OUTLINE_LABEL} className="sticky top-28 hidden max-h-[calc(100vh-8rem)] overflow-y-auto lg:block">
+         <nav
+            aria-label={OUTLINE_LABEL}
+            className={cn("sticky top-28 hidden max-h-[calc(100vh-8rem)] overflow-y-auto", beside ? "xl:block" : "lg:block")}
+         >
             <Groups {...groups} active={active} onJump={jump} />
             <div className="mt-4 border-t border-border pt-3 empty:hidden">
-               <Everything announce={setMessage} />
+               <Everything announce={setMessage} beside={beside} />
             </div>
          </nav>
          <p role="status" className="sr-only">

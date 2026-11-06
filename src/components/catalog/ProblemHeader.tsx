@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { problemCategoryLabel } from "@/lib/catalog/problem";
 import type { TrackPlacement } from "@/lib/catalog/navigation";
@@ -14,7 +15,16 @@ const QUIET = "m-0 text-supporting text-muted-foreground";
  * two largest facts (a Problem sets an expectation, unlike a Lesson); the category, topics and the home Track stay
  * quiet. The Track is placement context only (never a relation) and is absent unless the Problem was released.
  */
-export function ProblemHeader({ meta, placement }: { meta: CatalogMeta; placement?: TrackPlacement | null }) {
+export function ProblemHeader({
+   meta,
+   placement,
+   contents,
+}: {
+   meta: CatalogMeta;
+   placement?: TrackPlacement | null;
+   /** The "Track contents" control for narrow widths (S6-RDR-7), after the breadcrumb. */
+   contents?: ReactNode;
+}) {
    const facts = [
       { label: "Difficulty", value: meta.difficulty && DIFFICULTY_LABEL[meta.difficulty] },
       { label: "Level", value: meta.level && LEVEL_LABEL[meta.level] },
@@ -29,6 +39,7 @@ export function ProblemHeader({ meta, placement }: { meta: CatalogMeta; placemen
                Practice
             </Link>
          </nav>
+         {contents}
          <h1 className="m-0 text-title text-balance">{meta.title}</h1>
          {meta.summary ? <p className="mt-4 mb-0 text-body text-pretty text-muted-foreground">{meta.summary}</p> : null}
          {facts.length > 0 ? (

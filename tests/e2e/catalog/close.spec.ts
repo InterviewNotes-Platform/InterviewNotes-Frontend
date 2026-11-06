@@ -91,18 +91,22 @@ for (const width of [390, 1440]) {
       test.use({ viewport: { width, height: 900 } });
       const lesson = "lesson.p3-prac-lesson";
 
-      test("reads Next, Knowledge, Practice, Problems, Curriculum, then the full outline, with nothing between the body and Next (AC-1, AC-9, AC-17)", async ({ page }) => {
+      // From 1024px the Track sidebar holds the outline and the bottom-of-page disclosure is not drawn (S6-RDR-9).
+      const sidebar = width >= 1024;
+      test("reads Next, Knowledge, Practice, Problems, Curriculum, then the full outline below 1024px, with nothing between the body and Next (AC-1, AC-9, AC-17)", async ({ page }) => {
          await page.goto(canonical(lesson));
          const body = page.getByText("P3 Practice Lesson body marker.");
          const next = nextNav(page, practice.title);
          const groups = ["Related Knowledge", "Practice", "Related Problems"].map((name) => page.getByRole("heading", { level: 2, name, exact: true }));
-         const after = [next, ...groups, curriculum(page), page.getByText(`Full outline of ${practice.title}`)];
+         const outline = page.getByText(`Full outline of ${practice.title}`);
+         const after = [next, ...groups, curriculum(page), ...(sidebar ? [] : [outline])];
          const ys = [await top(body)];
          for (const locator of after) {
             await expect(locator).toBeVisible();
             ys.push(await top(locator));
          }
          ys.slice(1).forEach((y, index) => expect(y, `group ${index} sits below the one before it`).toBeGreaterThan(ys[index]));
+         if (sidebar) await expect(outline).toBeHidden();
          // DOM order equals visual order: a CSS reorder would put a group first in the DOM but last on screen
          const dom = await page.locator("main").evaluate((main) => {
             const at = (selector: string) => [...main.querySelectorAll(selector)][0];
@@ -116,7 +120,7 @@ for (const width of [390, 1440]) {
       test("keeps Next in the flow, never fixed or sticky, and never overflows", async ({ page }) => {
          for (const id of [lesson, "lesson.p3-seq-last", "lesson.p3-seq-one"]) {
             await page.goto(canonical(id));
-            const positions = await page.locator("main nav, main nav a").evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).position));
+            const positions = await page.locator('main nav:not([aria-label="Track contents"]), main nav:not([aria-label="Track contents"]) a').evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).position));
             expect(positions.filter((position) => position === "fixed" || position === "sticky")).toEqual([]);
             expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), id).toBe(true);
          }

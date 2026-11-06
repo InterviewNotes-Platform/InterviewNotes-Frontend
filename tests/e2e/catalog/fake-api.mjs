@@ -1,5 +1,6 @@
 // Test-only stand-in for the backend catalog/content API and Supabase's user endpoint, serving fixture.json.
 // Access decisions mirror backend `app/routers/catalog.py`: the API decides, the frontend only renders.
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
@@ -10,9 +11,27 @@ const HOST = "127.0.0.1";
 const previewToken = process.env.FAKE_API_PREVIEW_TOKEN;
 // Set: a second credential the preview API accepts, for a catalog with nothing published (empty states).
 const emptyToken = process.env.FAKE_API_EMPTY_TOKEN;
+// Set: the homepage's free-chapter Lesson (`anatomy-of-a-model-request`) exists with this access, "free" or "premium". Unset: unknown (404).
+const freeChapterAccess = process.env.FAKE_API_FREE_CHAPTER;
+// Unplaced, so the reader shows it without a Track; its meta is what the homepage reads.
+const FREE_CHAPTER = freeChapterAccess && {
+   id: "lesson.anatomy-of-a-model-request",
+   type: "lesson",
+   slug: "anatomy-of-a-model-request",
+   title: "Anatomy of a Model Request",
+   summary: "Home free-chapter marker.",
+   tags: [],
+   difficulty: null,
+   level: null,
+   access: freeChapterAccess,
+   body: "## Anatomy heading\n\nFree chapter body marker.\n",
+   headings: [{ id: "anatomy-heading", level: 2, text: "Anatomy heading" }],
+};
 const PRIVATE = "private, no-store";
 /** Every /catalog request, with its query string and the preview credential it presented, served or refused. */
 const catalogLog = [];
+/** Test control, not a catalog route: `PUT /__fault?path=…&delayMs=…&status=…` slows or fails that /catalog path until `DELETE /__fault`. */
+let fault = null;
 
 const items = new Map(fixture.items.map((item) => [item.id, item]));
 const tracks = new Map(fixture.tracks.map((track) => [track.slug, track]));
@@ -195,7 +214,8 @@ function catalog(req, res, path, query) {
       return found ? send(res, 200, trackOut(found)) : send(res, 404, { detail: "Track not found" });
    }
    const match = /^\/catalog\/items\/([^/]+)\/([^/]+)(\/meta|\/related)?$/.exec(path);
-   const item = match && items.get(`${decodeURIComponent(match[1])}.${decodeURIComponent(match[2])}`);
+   const id = match && `${decodeURIComponent(match[1])}.${decodeURIComponent(match[2])}`;
+   const item = id && (FREE_CHAPTER?.id === id ? FREE_CHAPTER : items.get(id));
    if (!item) return send(res, 404, { detail: "Item not found" });
 
    if (match[3] === "/meta") return send(res, 200, meta(item));
@@ -267,15 +287,91 @@ function content(req, res, path) {
    });
 }
 
+/** Every `/me/prep` request the browser made, as `METHOD path`. Its own log, so `/__catalog-log` stays catalog-only (decisions §2.2.4, A-3). */
+const itemStateLog = [];
+/** `PUT /__item-state?user=<id>&continuity=off` mirrors `CONTINUITY_ENABLED` for that fixture user only, so parallel tests do not meet; `DELETE` turns it back on and, with `content=<id>`, drops that one row. */
+const continuityOff = new Set();
+const itemRows = new Map();
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type", "access-control-allow-methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS" };
+const CONTENT_ID = /^(lesson|problem)\.[a-z0-9]+(-[a-z0-9]+)*$/;
+const respond = (res, status, body) => send(res, status, body, { ...CORS, "cache-control": PRIVATE });
+
+/** Test double of api-contract §15.3, §15.4 and §15.9: version 0 for no row, 409 on a mismatch, a visit that never bumps the version. */
+function itemStateApi(req, res, path, body) {
+   const [head, contentId, tail] = path.slice("/me/prep/".length).split("/");
+   itemStateLog.push(`${req.method} ${path}`);
+   const user = identityOf(req)?.user.id;
+   if (head === "features" && req.method === "GET") return user ? respond(res, 200, { item_state_available: !continuityOff.has(user) }) : respond(res, 401, { code: "unauthenticated" });
+   if (head !== "item-state" || (user && continuityOff.has(user))) return respond(res, 404, { code: "not_found" });
+   if (!user) return respond(res, 401, { code: "unauthenticated" });
+   if (!CONTENT_ID.test(contentId ?? "")) return respond(res, 422, { code: "validation_error", fields: [{ field: "content_id", reason: "invalid_format" }] });
+   const key = `${user}|${contentId}`;
+   const row = itemRows.get(key);
+   const none = { content_id: contentId, completed_at: null, last_visited_at: null, bookmarked_at: null, note: null, version: 0 };
+   const now = new Date().toISOString();
+   if (req.method === "GET" && !tail) return respond(res, 200, row ?? none);
+   if (req.method === "POST" && tail === "visit") {
+      const next = { ...(row ?? none), version: row?.version ?? 1, last_visited_at: now };
+      return (itemRows.set(key, next), respond(res, 200, next));
+   }
+   if (req.method !== "PATCH" || tail) return respond(res, 404, { code: "not_found" });
+   if (!Number.isInteger(body.version) || Object.keys(body).length < 2) return respond(res, 422, { code: "validation_error", fields: [{ field: "body", reason: "invalid_value" }] });
+   if (body.version !== (row?.version ?? 0)) return respond(res, 409, { code: "version_conflict", current_version: row?.version ?? 0 });
+   const next = { ...(row ?? none), version: body.version + 1 };
+   if (typeof body.completed === "boolean") next.completed_at = body.completed ? (next.completed_at ?? now) : null;
+   if (typeof body.bookmarked === "boolean") next.bookmarked_at = body.bookmarked ? (next.bookmarked_at ?? now) : null;
+   if (body.note !== undefined) next.note = body.note;
+   itemRows.set(key, next);
+   return respond(res, 200, next);
+}
+
 const api = createServer((req, res) => {
    const { pathname: path, searchParams: query } = new URL(req.url, `http://${HOST}`);
+   if (req.method === "OPTIONS") return res.writeHead(204, CORS).end();
+   if (path === "/__item-state-log") return respond(res, 200, itemStateLog);
+   if (path === "/__item-state" && (req.method === "PUT" || req.method === "DELETE")) {
+      const target = query.get("user");
+      if (req.method === "PUT") query.get("continuity") === "off" ? continuityOff.add(target) : continuityOff.delete(target);
+      else (continuityOff.delete(target), itemRows.delete(`${target}|${query.get("content")}`));
+      return respond(res, 200, { off: [...continuityOff] });
+   }
+   if (path.startsWith("/me/prep/")) {
+      let raw = "";
+      req.on("data", (chunk) => (raw += chunk));
+      return void req.on("end", () => itemStateApi(req, res, path, raw ? JSON.parse(raw) : {}));
+   }
+   if (path === "/__fault" && (req.method === "PUT" || req.method === "DELETE")) {
+      fault = req.method === "PUT" ? { path: query.get("path"), delayMs: Number(query.get("delayMs") ?? 0), status: Number(query.get("status") ?? 0) } : null;
+      return send(res, 200, { fault });
+   }
    if (req.method !== "GET") return send(res, 405, { detail: "Method not allowed" });
    if (path === "/health") return send(res, 200, { status: "ok" });
    if (path === "/__catalog-log") return send(res, 200, catalogLog);
-   if (path.startsWith("/catalog/")) return guardedCatalog(req, res, path, query);
+   if (path.startsWith("/catalog/")) {
+      const hit = fault?.path === path ? fault : null;
+      if (!hit) return guardedCatalog(req, res, path, query);
+      return void setTimeout(() => (hit.status ? send(res, hit.status, { detail: "Injected fault" }) : guardedCatalog(req, res, path, query)), hit.delayMs);
+   }
    if (path.startsWith("/content/")) return content(req, res, path);
    return send(res, 404, { detail: "Not found" });
 });
+
+/**
+ * Supabase Auth `POST /auth/v1/token?grant_type=pkce`, called by `/auth/callback`. A journey's stubbed provider issues
+ * `<identity>.<code_challenge>`; the code is honoured only for a fixture identity whose S256 challenge matches the verifier sent.
+ */
+function exchange(req, res) {
+   let raw = "";
+   req.on("data", (chunk) => (raw += chunk));
+   req.on("end", () => {
+      const { auth_code: code, code_verifier: verifier } = JSON.parse(raw || "{}");
+      const [name, challenge] = String(code).split(".");
+      const proven = Object.hasOwn(fixture.identities, name) && challenge === createHash("sha256").update(String(verifier)).digest("base64url");
+      if (!proven) return send(res, 400, { code: 400, error_code: "flow_state_not_found", msg: "invalid flow state" });
+      const { token, user } = fixture.identities[name];
+      send(res, 200, { access_token: token, refresh_token: "e2e-unused-refresh-token", token_type: "bearer", expires_in: 3600, expires_at: 4102444800, user });
+   });
+}
 
 /** Supabase Auth `GET /auth/v1/user`, called by the proxy and the browser client. */
 const auth = createServer((req, res) => {
@@ -286,6 +382,7 @@ const auth = createServer((req, res) => {
    };
    if (req.method === "OPTIONS") return res.writeHead(204, cors).end();
    const path = new URL(req.url, `http://${HOST}`).pathname;
+   if (req.method === "POST" && path === "/auth/v1/token") return exchange(req, res);
    const identity = path === "/auth/v1/user" ? identityOf(req) : null;
    if (!identity) return send(res, 401, { code: 401, error_code: "bad_jwt", msg: "invalid JWT" }, cors);
    return send(res, 200, identity.user, cors);

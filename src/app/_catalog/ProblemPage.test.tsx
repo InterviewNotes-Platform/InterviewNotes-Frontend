@@ -123,6 +123,8 @@ beforeEach(() => {
 
 const region = (name: string) => main().getByRole("region", { name });
 const controls = (scope: HTMLElement) => [...scope.querySelectorAll("summary")].map((summary) => summary.textContent);
+// The Track sidebar's filter has its own polite status; these are the Problem outline's.
+const liveRegions = () => screen.getAllByRole("status").filter((region) => !region.closest('nav[aria-label="Track contents"]'));
 const revealOf = (text: string) => main().getByText(text).closest("details");
 
 describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
@@ -167,7 +169,7 @@ describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
       const frame = within(region("Frame"));
       expect(frame.getByRole("heading", { level: 3, name: "The challenge" })).toBeInTheDocument();
       expect(revealOf("Text of prompt.")).toBeNull();
-      expect(document.querySelectorAll("main details[open]")).toHaveLength(0);
+      expect(document.querySelectorAll("main details[data-reveal][open]")).toHaveLength(0);
       for (const { id } of ML_SECTIONS.filter(({ type }) => type !== "prompt")) {
          const reveal = revealOf(`Text of ${id}.`);
          expect(reveal, id).not.toBeNull();
@@ -267,7 +269,7 @@ describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
       expect(within(facts as HTMLElement).getByText("Difficulty").nextElementSibling).toHaveTextContent("Hard");
       expect(within(facts as HTMLElement).getByText("Level").nextElementSibling).toHaveTextContent("Advanced");
       expect(main().getByText("ML system design")).toBeInTheDocument();
-      expect(main().getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
+      expect(within(document.querySelector("main header")!).getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
       expect(main().getByText(/ranking · evaluation/)).toBeInTheDocument();
       expect(main().getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Practice");
       expect(main().getByRole("link", { name: "Practice" })).toHaveAttribute("href", "/practice");
@@ -527,7 +529,7 @@ describe("the outline (S-LAY-2, S-AX-1)", () => {
       fireEvent.click(within(rail()).getByRole("link", { name: "Evaluate & Scale" }));
       expect(document.getElementById("problem_evaluate_and_scale")).toHaveFocus();
       expect(window.location.hash).toBe("#problem_evaluate_and_scale");
-      expect(document.querySelectorAll("main details[open]")).toHaveLength(0);
+      expect(document.querySelectorAll("main details[data-reveal][open]")).toHaveLength(0);
    });
 
    it("closes the phone disclosure on a pick", async () => {
@@ -560,9 +562,70 @@ describe("the outline (S-LAY-2, S-AX-1)", () => {
       expect(region("Frame").contains(button)).toBe(false); // never beside the challenge
       fireEvent.click(button);
       expect(document.querySelectorAll("main details[data-reveal][open]")).toHaveLength(document.querySelectorAll("main details[data-reveal]").length);
-      expect(screen.getByRole("status")).toHaveTextContent("Everything is shown.");
+      expect(liveRegions()[0]).toHaveTextContent("Everything is shown.");
       fireEvent.click(screen.getByRole("button", { name: "Hide everything" }));
-      expect(document.querySelectorAll("main details[open]")).toHaveLength(0);
+      expect(document.querySelectorAll("main details[data-reveal][open]")).toHaveLength(0);
+   });
+});
+
+describe("the Track sidebar and drawer on a placed Problem (A-5, S6-RDR)", () => {
+   const sidebar = () => screen.getByRole("navigation", { name: "Track contents" });
+   const follows = (a: Element, b: Element) => expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+   it("lists the home Track's outline in order from the Track the page already read, marking the current Problem", async () => {
+      await show();
+      const links = within(sidebar()).getAllByRole("link");
+      expect(links.map((link) => link.getAttribute("href"))).toEqual(["/tracks/home", "/lessons/before", "/problems/rank", "/problems/after", "/lessons/after"]);
+      expect(links.filter((link) => link.getAttribute("aria-current") === "page").map((link) => link.getAttribute("href"))).toEqual(["/problems/rank"]);
+      expect(within(sidebar()).getByRole("link", { name: /Title rank/ })).toHaveTextContent("Practice problem");
+      expect(within(sidebar()).getAllByText("Premium")).toHaveLength(2);
+      expect(getCatalogTrack).toHaveBeenCalledTimes(1);
+   });
+
+   it("keeps the Problem's own Outline distinct, with its rail waiting for xl and its disclosure covering lg", async () => {
+      const { container } = await show();
+      const outlines = screen.getAllByRole("navigation", { name: "Outline" });
+      expect(outlines).toHaveLength(2);
+      expect(outlines[1]).toHaveClass("hidden", "xl:block", "sticky");
+      expect(outlines[0].closest("details")).toHaveClass("xl:hidden");
+      expect(within(sidebar()).queryByRole("link", { name: "Frame" })).not.toBeInTheDocument();
+      expect(container.querySelector("main > div")).toHaveClass("lg:grid", "lg:justify-center");
+      expect(container.querySelector("main > div")?.className).toContain("xl:grid-cols-[16rem_minmax(0,var(--container-reading))_12rem]");
+   });
+
+   it("sits after the header and the Problem's outline and before the body, and replaces the bottom outline only from lg", async () => {
+      await show();
+      expect(sidebar().parentElement).toHaveClass("hidden", "lg:block");
+      follows(screen.getAllByRole("navigation", { name: "Outline" })[1], sidebar());
+      follows(sidebar(), main().getByRole("heading", { level: 2, name: "Frame" }));
+      expect(screen.getByText("Full outline of Home Track").closest("details")).toHaveClass("lg:hidden");
+   });
+
+   it("offers a Track contents control after the breadcrumb and before the title, which opens the same outline", async () => {
+      await show();
+      const control = screen.getByRole("button", { name: "Track contents" });
+      follows(screen.getByRole("navigation", { name: "Breadcrumb" }), control);
+      follows(control, screen.getByRole("heading", { level: 1 }));
+      fireEvent.click(control);
+      const drawer = screen.getByRole("dialog", { name: "Home Track" });
+      expect(within(drawer).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/tracks/home", "/lessons/before", "/problems/rank", "/problems/after", "/lessons/after"]);
+      expect(getCatalogTrack).toHaveBeenCalledTimes(1);
+   });
+
+   it("leaves today's layout, with no sidebar, control or hidden bottom outline, when the Track does not place the Problem", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("problem.other")] }] } });
+      const { container } = await show();
+      expect(screen.queryByRole("navigation", { name: "Track contents" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Track contents" })).not.toBeInTheDocument();
+      expect(container.querySelector("main > div")?.className).toContain("lg:grid-cols-[minmax(0,var(--container-reading))_12rem]");
+      expect(screen.getAllByRole("navigation", { name: "Outline" })[1]).toHaveClass("lg:block");
+   });
+
+   it("is absent when the Track outline read fails, and the Problem still reads", async () => {
+      getCatalogTrack.mockResolvedValue({ status: "unavailable" });
+      await show();
+      expect(screen.queryByRole("navigation", { name: "Track contents" })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: "Synthetic Ranking" })).toBeInTheDocument();
    });
 });
 
@@ -578,6 +641,8 @@ describe("a fully locked Problem", () => {
       expect(getCatalogTrack).not.toHaveBeenCalled();
       expect(screen.queryByText("Before you start")).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Track contents" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Track contents" })).not.toBeInTheDocument();
       expect(screen.queryByRole("note")).not.toBeInTheDocument();
       expect(screen.queryByText("Text of prompt.")).not.toBeInTheDocument();
       expect(screen.queryByText("Part of")).not.toBeInTheDocument();
@@ -660,13 +725,13 @@ describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1
 
       it("announces each press once, politely, in one live region", async () => {
          await show();
-         const status = screen.getByRole("status");
+         const status = liveRegions()[0];
          expect(status).toHaveTextContent("");
          press("Show everything");
          expect(status).toHaveTextContent("Everything is shown.");
          press("Hide everything");
          expect(status).toHaveTextContent("Everything is hidden.");
-         expect(screen.getAllByRole("status")).toHaveLength(1);
+         expect(liveRegions()).toHaveLength(1);
       });
 
       it("moves no focus", async () => {

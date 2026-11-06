@@ -81,7 +81,7 @@ describe("/practice populated", () => {
       await view();
       const tracks = main().getByRole("link", { name: "Tracks" });
       const knowledge = main().getByRole("link", { name: "Knowledge" });
-      expect(tracks).toHaveAttribute("href", "/tracks");
+      expect(tracks).toHaveAttribute("href", "/#tracks");
       expect(knowledge).toHaveAttribute("href", "/knowledge");
       expect(tracks).toHaveAttribute("data-prefetch", "false");
       expect(knowledge).toHaveAttribute("data-prefetch", "false");

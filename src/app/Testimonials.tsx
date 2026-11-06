@@ -17,10 +17,13 @@ const ROWS = [
 function Card({ t, copy }: { t: Testimonial; copy?: boolean }) {
    return (
       <li aria-hidden={copy || undefined} className={`mx-2.5 flex w-[350px] shrink-0 ${copy ? "motion-reduce:hidden" : ""}`}>
-         <figure className="m-0 w-full rounded-2xl border border-border/40 bg-card/60 p-5 backdrop-blur-sm">
-            <Quote aria-hidden="true" className="mb-3 size-5 text-gold/60" />
+         <figure className="m-0 w-full rounded-2xl border border-border/60 bg-card p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+               <Quote aria-hidden="true" className="size-5 text-gold/60" />
+               <span className="rounded-full border border-gold/60 bg-gold/15 px-2.5 py-0.5 text-xs font-bold text-foreground">{TESTIMONIALS_SECTION.cardLabel}</span>
+            </div>
             <blockquote className="m-0 mb-4 text-sm leading-relaxed text-foreground/90">&ldquo;{t.quote}&rdquo;</blockquote>
-            <figcaption className="flex items-center gap-3 border-t border-border/30 pt-3">
+            <figcaption className="flex items-center gap-3 border-t border-border/50 pt-3">
                <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-(--primary-text)">
                   {t.initials}
                </span>
@@ -36,7 +39,7 @@ function Card({ t, copy }: { t: Testimonial; copy?: boolean }) {
    );
 }
 
-/** Two rows of testimonials that drift in opposite directions; hover, focus or the button pauses them, and reduced motion stops them. */
+/** Two rows of labelled sample testimonials that drift in opposite directions; hover, focus or the button pauses them, and reduced motion stops them. */
 export function Testimonials() {
    const [paused, setPaused] = useState(false);
 
@@ -45,7 +48,7 @@ export function Testimonials() {
          <PageContainer>
             <SectionIntro id="home-testimonials-heading" label={TESTIMONIALS_SECTION.label} title={TESTIMONIALS_SECTION.heading} lead={TESTIMONIALS_SECTION.lead} />
             <div className="-mt-6 mb-10 flex justify-center motion-reduce:hidden">
-               <Button type="button" variant="outline" size="sm" onClick={() => setPaused((p) => !p)} className="gap-2 rounded-full">
+               <Button type="button" variant="outline" onClick={() => setPaused((p) => !p)} className="h-11 gap-2 rounded-full px-5">
                   {paused ? <Play aria-hidden="true" className="size-4" /> : <Pause aria-hidden="true" className="size-4" />}
                   {paused ? "Play testimonials" : "Pause testimonials"}
                </Button>

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import type { LessonPosition, Position } from "@/lib/catalog/curriculum";
 import { moduleLocation } from "@/lib/catalog/moduleLocation";
@@ -9,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { PremiumMark } from "./EntryRow";
 
 const trackHref = (track: CatalogTrack) => catalogEntryHref({ ...track, type: "track" });
-const LEARN_HREF = TRACKS_INDEX_HREF;
 const CRUMB_LINK = "min-w-0 truncate font-medium text-foreground transition-micro hover:text-primary";
 
 /** Home Track and module above the title: navigation context, not part of the item's URL. */
@@ -31,13 +31,26 @@ export function TrackBreadcrumb({ placement }: { placement: TrackPlacement }) {
 }
 
 /** "Module 2 of 4 · Lesson 3 of 7": structural position over the home Track's outline, never progress. */
-const positionText = (module: Position, lesson: Position) => `Module ${module.index} of ${module.count} · Lesson ${lesson.index} of ${lesson.count}`;
+const positionText = (module: Position, lesson: Position, levels?: number) =>
+   `Module ${module.index} of ${module.count} · ${levels === undefined ? `Lesson ${lesson.index} of ${lesson.count}` : `One of ${levels} ${levels === 1 ? "level" : "levels"}`}`;
 
 /**
- * A Lesson's place: Learn / Track / Module, then its position, as one block. The Track and the Module link to their
+ * A Lesson's place: Tracks / Track / Module, then its position, as one block. The Track and the Module link to their
  * locations; long names truncate. The position line is left out when the outline gives none.
  */
-export function LessonBreadcrumb({ placement, position }: { placement: TrackPlacement; position?: LessonPosition | null }) {
+export function LessonBreadcrumb({
+   placement,
+   position,
+   levels,
+   contents,
+}: {
+   placement: TrackPlacement;
+   position?: LessonPosition | null;
+   /** The number of levels of a level-choice Track (A-9): the position reads "One of N levels", never a sequence number. */
+   levels?: number;
+   /** The "Track contents" control for narrow widths (S6-RDR-7), after the breadcrumb and the position line. */
+   contents?: ReactNode;
+}) {
    const href = trackHref(placement.track);
    const moduleHref = moduleLocation(placement.track, placement.module);
    return (
@@ -45,8 +58,8 @@ export function LessonBreadcrumb({ placement, position }: { placement: TrackPlac
          <nav aria-label="Breadcrumb">
             <ol className="m-0 flex min-w-0 list-none items-center gap-2 p-0">
                <li className="shrink-0">
-                  <Link href={LEARN_HREF} prefetch={false} className="font-medium text-foreground transition-micro hover:text-primary">
-                     Learn
+                  <Link href={TRACKS_INDEX_HREF} prefetch={false} className="font-medium text-foreground transition-micro hover:text-primary">
+                     Tracks
                   </Link>
                </li>
                <li className="flex min-w-0 items-center gap-2">
@@ -71,7 +84,8 @@ export function LessonBreadcrumb({ placement, position }: { placement: TrackPlac
                </li>
             </ol>
          </nav>
-         {position ? <p className="m-0">{positionText(position.module, position.lesson)}</p> : null}
+         {position ? <p className="m-0">{positionText(position.module, position.lesson, levels)}</p> : null}
+         {contents}
       </div>
    );
 }

@@ -1,0 +1,153 @@
+import { isRecord } from "@/lib/prep/guards";
+import type { PrepClientConfig } from "@/lib/prep/client";
+import type { FrameworkInput, PrepFields } from "@/lib/prep/types";
+import type { EngineChoice } from "./engineChoice";
+
+/** Browser-to-API timeout for AI actions (api-contract.md §8.1, §8.2). */
+export const AI_TIMEOUT_MS = 120_000;
+
+/** A story the reader selected; the server reads no preparation table to build the prompt (contract §9.2). */
+export type AiStory = { title: string; notes: string; fields: PrepFields };
+
+export type DraftRequest = {
+   question: string;
+   guidance: string | null;
+   framework: FrameworkInput;
+   notes: string;
+   stories: AiStory[];
+};
+
+export type ReviewRequest = {
+   question: string;
+   guidance: string | null;
+   framework: FrameworkInput;
+   answer: { body: string | null; fields: PrepFields };
+   stories: AiStory[];
+};
+
+/** Refine takes the Review request unchanged: the reader's own answer, with no stories and no guidance (api-contract.md §9.2). */
+export type RefineRequest = ReviewRequest;
+
+export type DraftResult = { framework: string; fields: PrepFields; body: string | null; questions_to_ask_yourself: string[] };
+/** Refine returns the Draft result shape and bounds: a preview of the reader's own answer, never a saved one. */
+export type RefineResult = DraftResult;
+export type ReviewResult = { missing: string[]; weak: string[]; claims_to_verify: string[]; questions_to_ask_yourself: string[] };
+
+/** The envelope's optional numbers, kept only when well formed (api-contract.md §9.5): the quota window and its reset, or the wait for a busy answer. */
+export type AiErrorInfo = { window?: "day" | "month"; resetsAt?: string; retryAfterSeconds?: number };
+
+/**
+ * `failed` carries the envelope's `code` when the API sent one, so the editor can tell quota from busy from
+ * unavailable; `cause` is `upstream` for any non-2xx answer and `malformed` for a 2xx body this client cannot use.
+ */
+export type AiResult<T> =
+   | { status: "ok"; data: T }
+   | { status: "unauthenticated" }
+   | { status: "failed"; code: string | null; cause: "transport" | "timeout" | "upstream" | "malformed"; info?: AiErrorInfo };
+
+const STAR = ["situation", "task", "action", "result"];
+
+const isStrings = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === "string");
+
+function isStarFields(value: unknown): value is PrepFields {
+   return isRecord(value) && Object.entries(value).every(([key, text]) => STAR.includes(key) && typeof text === "string");
+}
+
+function errorInfo(payload: Record<string, unknown>): AiErrorInfo | undefined {
+   const info: AiErrorInfo = {};
+   if (payload.window === "day" || payload.window === "month") info.window = payload.window;
+   if (typeof payload.resets_at === "string" && !Number.isNaN(Date.parse(payload.resets_at))) info.resetsAt = payload.resets_at;
+   if (Number.isInteger(payload.retry_after_seconds) && (payload.retry_after_seconds as number) >= 1) info.retryAfterSeconds = payload.retry_after_seconds as number;
+   return Object.keys(info).length > 0 ? info : undefined;
+}
+
+function isDraftResult(value: unknown): value is DraftResult {
+   return (
+      isRecord(value) &&
+      (value.framework === "star" || value.framework === "free_form") &&
+      isStarFields(value.fields) &&
+      (value.body === null || typeof value.body === "string") &&
+      isStrings(value.questions_to_ask_yourself)
+   );
+}
+
+function isReviewResult(value: unknown): value is ReviewResult {
+   return isRecord(value) && isStrings(value.missing) && isStrings(value.weak) && isStrings(value.claims_to_verify) && isStrings(value.questions_to_ask_yourself);
+}
+
+/**
+ * The Refine reply the contract allows: a STAR answer fills only STAR keys and no body, a free-form answer fills the body and no fields, and a STAR section
+ * the reader left empty comes back empty. Anything else would land text the reader never wrote in a place they did not have, so it is malformed.
+ */
+function isRefineResult(value: unknown, request: RefineRequest): value is RefineResult {
+   if (!isDraftResult(value) || value.framework !== request.framework) return false;
+   if (value.framework === "free_form") return Object.keys(value.fields).length === 0;
+   const supplied: Record<string, string | undefined> = request.answer.fields;
+   return value.body === null && Object.entries(value.fields).every(([key, text]) => text === "" || (supplied[key] ?? "") !== "");
+}
+
+/** A typed client for `/me/prep/ai`: the user's bearer token and the request body only. It stores nothing and is never called by autosave. */
+export function createAiClient(config: PrepClientConfig) {
+   const base = config.baseUrl.replace(/\/$/, "");
+   const doFetch = config.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
+   const timeoutMs = config.timeoutMs ?? AI_TIMEOUT_MS;
+
+   async function post<T>(action: "draft" | "review" | "refine", body: unknown, isResult: (value: unknown) => value is T, engine?: EngineChoice | null): Promise<AiResult<T>> {
+      const token = await config.getAccessToken().catch(() => null);
+      if (!token) return { status: "unauthenticated" };
+
+      const controller = new AbortController();
+      let timedOut = false;
+      const timer = setTimeout(() => {
+         timedOut = true;
+         controller.abort();
+      }, timeoutMs);
+      const lost = (): AiResult<T> => ({ status: "failed", code: null, cause: timedOut ? "timeout" : "transport" });
+      try {
+         let response: Response;
+         try {
+            response = await doFetch(`${base}/me/prep/ai/${action}${engine ? `?engine=${engine}` : ""}`, {
+               method: "POST",
+               headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+               body: JSON.stringify(body),
+               cache: "no-store",
+               credentials: "omit",
+               signal: controller.signal,
+            });
+         } catch {
+            return lost();
+         }
+         if (response.status === 401) return { status: "unauthenticated" };
+         let payload: unknown = null;
+         try {
+            payload = await response.json();
+         } catch {
+            // An unreadable body is handled below as malformed (2xx) or an uncoded failure.
+         }
+         if (!response.ok) {
+            const code = isRecord(payload) && typeof payload.code === "string" ? payload.code : null;
+            const info = isRecord(payload) ? errorInfo(payload) : undefined;
+            return { status: "failed", code, cause: "upstream", ...(info && { info }) };
+         }
+         return isRecord(payload) && payload.action === action && isResult(payload.result)
+            ? { status: "ok", data: payload.result }
+            : { status: "failed", code: null, cause: "malformed" };
+      } catch {
+         return lost();
+      } finally {
+         clearTimeout(timer);
+      }
+   }
+
+   return {
+      /** A draft whose framework is not the one asked for is malformed: it would land in the wrong field. */
+      draft: (body: DraftRequest, engine?: EngineChoice | null): Promise<AiResult<DraftResult>> =>
+         post("draft", body, (value): value is DraftResult => isDraftResult(value) && value.framework === body.framework, engine),
+      /** The optional `engine` is the Free reader's model pick (P7-D-062): a query value that names a pick, never a model. Refine takes none. */
+      review: (body: ReviewRequest, engine?: EngineChoice | null): Promise<AiResult<ReviewResult>> => post("review", body, isReviewResult, engine),
+      /** Premium only, enforced by the server on every request; the interface's own check is a display hint. The result is a preview that nothing here saves. */
+      refine: (body: RefineRequest): Promise<AiResult<RefineResult>> => post("refine", body, (value): value is RefineResult => isRefineResult(value, body)),
+   };
+}
+
+export type AiClient = ReturnType<typeof createAiClient>;

@@ -69,6 +69,44 @@ for (const colorScheme of ["light", "dark"] as const) {
    }
 }
 
+// P6: the level-choice overview and a level's close (A-9), and the Track contents drawer open below 1024px (A-5).
+// The sidebar is already scanned at 1440 on the placed P3 pages above; the homepage is scanned by home.spec.ts.
+const LEVEL_PAGES = [canonical("track.behavioral-interview-preparation"), canonical("lesson.p6-level-two")];
+const DRAWER_PAGES = [canonical("lesson.p3-seq-one"), canonical("problem.p3-seq-check")];
+
+for (const colorScheme of ["light", "dark"] as const) {
+   for (const width of [390, 1440]) {
+      test.describe(`P6 readers, ${colorScheme} at ${width}px`, () => {
+         test.use({ colorScheme, viewport: { width, height: 900 } });
+
+         test("the level-choice Track and a level Lesson have no WCAG A or AA violation", async ({ page }) => {
+            for (const path of LEVEL_PAGES) {
+               await page.goto(path);
+               await expect(page.locator("html")).toHaveClass(colorScheme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b)/);
+               await expect(page.locator("h1").first()).toBeVisible();
+               const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+               expect(violations.map(({ id, nodes }) => `${path}: ${id} on ${nodes.length} node(s)`)).toEqual([]);
+            }
+         });
+
+         if (width < 1024) {
+            test("the open Track contents drawer, over a Lesson and a Problem, has no WCAG A or AA violation", async ({ page }) => {
+               for (const path of DRAWER_PAGES) {
+                  await page.goto(path);
+                  await expect(page.locator("html")).toHaveClass(colorScheme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b)/);
+                  await page.getByRole("button", { name: "Track contents" }).click();
+                  const dialog = page.getByRole("dialog");
+                  await expect(dialog).toBeVisible();
+                  await dialog.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
+                  const { violations } = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+                  expect(violations.map(({ id, nodes }) => `${path} (drawer open): ${id} on ${nodes.length} node(s)`)).toEqual([]);
+               }
+            });
+         }
+      });
+   }
+}
+
 test("the scan reports a violation planted on a P3 page, so a clean result means something", async ({ page }) => {
    await page.goto(PAGES[1].path);
    await page.getByRole("main").evaluate((main) => main.insertAdjacentHTML("beforeend", "<button></button>"));

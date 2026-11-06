@@ -31,12 +31,37 @@ export const ISOLATED_PORT = 3107;
 export const ISOLATED_API_ORIGIN = `http://127.0.0.1:${ISOLATED_API_PORT}`;
 export const ISOLATED_ORIGIN = `http://localhost:${ISOLATED_PORT}`;
 
+/** The preview build served again against a private preview API double whose reads a test may slow or fail (`PUT /__fault`). */
+export const FAULT_API_PORT = 3109;
+export const FAULT_PORT = 3110;
+export const FAULT_API_ORIGIN = `http://127.0.0.1:${FAULT_API_PORT}`;
+export const FAULT_ORIGIN = `http://localhost:${FAULT_PORT}`;
+
+/** The production build served again against a private API double that knows the homepage's free chapter; only journeys.spec.ts uses it. */
+export const JOURNEY_API_PORT = 3111;
+export const JOURNEY_PORT = 3112;
+export const JOURNEY_API_ORIGIN = `http://127.0.0.1:${JOURNEY_API_PORT}`;
+export const JOURNEY_ORIGIN = `http://localhost:${JOURNEY_PORT}`;
+
+/**
+ * The production build once more, built with `NEXT_PUBLIC_PREP_ENABLED` on and `NEXT_PUBLIC_API_URL` at the item-state double, so
+ * the signed-in reader controls (P7-T45) can be seen. Its catalog double is private (server-only); the item-state double is the
+ * origin the browser calls, and keeps its own log.
+ */
+export const READER_PORT = 3113;
+export const READER_CATALOG_PORT = 3114;
+export const ITEM_API_PORT = 3115;
+export const READER_DIST = ".next-reader";
+export const READER_ORIGIN = `http://localhost:${READER_PORT}`;
+export const READER_CATALOG_ORIGIN = `http://127.0.0.1:${READER_CATALOG_PORT}`;
+export const ITEM_API_ORIGIN = `http://127.0.0.1:${ITEM_API_PORT}`;
+
 /** Synthetic credentials only. Neither is the beta secret; each must never reach a browser. */
 export const PREVIEW_TOKEN = "e2e-synthetic-preview-token-0123456789abcdef";
 export const REJECTED_TOKEN = "e2e-synthetic-rejected-token-fedcba9876543210";
 export const EMPTY_TOKEN = "e2e-synthetic-empty-token-0f1e2d3c4b5a69788796";
 const PREVIEW_TOKENS = [PREVIEW_TOKEN, REJECTED_TOKEN, EMPTY_TOKEN];
-const SERVER_ONLY_ORIGINS = [FAKE_API_ORIGIN, PREVIEW_API_ORIGIN, ISOLATED_API_ORIGIN];
+const SERVER_ONLY_ORIGINS = [FAKE_API_ORIGIN, PREVIEW_API_ORIGIN, ISOLATED_API_ORIGIN, FAULT_API_ORIGIN, JOURNEY_API_ORIGIN, READER_CATALOG_ORIGIN];
 
 /** Present only in premium bodies/sections of fixture.json; every canary is registered in tests/leak. */
 export const CANARY = CATALOG_CANARY;
