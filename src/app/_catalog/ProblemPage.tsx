@@ -17,7 +17,7 @@ import { outlineOf } from "@/lib/catalog/outline";
 import { problemRelations } from "@/lib/catalog/problem";
 import { composeProblem } from "@/lib/catalog/problemSpine";
 import type { CatalogItem } from "@/lib/catalog/types";
-import { prepEnabled } from "@/lib/prep-flag";
+import { prepApiUrl, prepEnabled } from "@/lib/prep-flag";
 import { cn } from "@/lib/utils";
 import { WithheldNote } from "./ItemContent";
 
@@ -60,7 +60,7 @@ export function ProblemPage({ item, navigation, stayOnDeployment }: { item: Cata
                      placement={navigation?.home}
                      contents={track ? <TrackDrawer outline={track} className="mb-6" /> : undefined}
                   />
-                  {prepEnabled() ? <ReaderControls key={item.id} contentId={item.id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} /> : null}
+                  {prepEnabled() ? <ReaderControls key={item.id} contentId={item.id} apiUrl={prepApiUrl()} /> : null}
                   {related ? <ProblemPreparation groups={related.preparation} /> : null}
                </div>
                {outline ? (

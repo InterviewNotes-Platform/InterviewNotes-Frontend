@@ -19,7 +19,7 @@ import { outlineOf } from "@/lib/catalog/outline";
 import type { CatalogItem } from "@/lib/catalog/types";
 import { collectionOfContent } from "@/lib/prep/collections";
 import { questionsOf } from "@/lib/prep/questions";
-import { prepEnabled } from "@/lib/prep-flag";
+import { prepApiUrl, prepEnabled } from "@/lib/prep-flag";
 import { cn } from "@/lib/utils";
 import { ItemContent } from "./ItemContent";
 
@@ -81,7 +81,7 @@ export function LessonPage({ item, navigation, stayOnDeployment }: { item: Catal
                   />
                ) : null}
                <LessonHeader meta={item} />
-               {prepEnabled() ? <ReaderControls key={item.id} contentId={item.id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} /> : null}
+               {prepEnabled() ? <ReaderControls key={item.id} contentId={item.id} apiUrl={prepApiUrl()} /> : null}
                {related ? <BuildsOn rows={related.prerequisites} /> : null}
             </div>
             {contents.length > 0 ? (
