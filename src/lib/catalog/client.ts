@@ -251,9 +251,9 @@ async function request<T>(
    try {
       response = await fetch(`${base}${path}`, {
          headers: { ...delivery.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-         // A signed-in response is user-specific and must never be shared, nor may a preview's.
-         // A signed-out production response is identical for every such caller, so it may be cached.
-         ...(token || !delivery.shareable
+         // Signed-in, preview and session-path (item body, /related) reads are never cached: a cached 200
+         // would outlive a later 401/404/410 (F-1). Only public metadata and lists keep the 60 s cache.
+         ...(withSession || token || !delivery.shareable
             ? { cache: "no-store" as const }
             : { next: { revalidate: REVALIDATE_SECONDS } }),
       });
