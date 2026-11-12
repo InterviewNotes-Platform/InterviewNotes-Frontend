@@ -49,9 +49,10 @@ describe("Privacy page: Lesson and Problem progress", () => {
       expect(container).toHaveTextContent(/Once Lesson and Problem progress is on, the workspace also keeps/);
    });
 
-   it("keeps the TL;DR first and claims no backups for the new data either", () => {
+   it("keeps the TL;DR first, claims no live-service backups and says beta copies hold deleted data until replaced", () => {
       const { container } = section();
       expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent("TL;DR");
-      expect(container).toHaveTextContent("We don't currently keep backups, so we can't restore lost data.");
+      expect(container).toHaveTextContent("We don't keep backups of the live service's database, so we can't restore lost data from it.");
+      expect(container).toHaveTextContent("a beta copy made before you use Delete all still holds your data until it is replaced.");
    });
 });

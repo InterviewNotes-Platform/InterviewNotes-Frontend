@@ -57,7 +57,7 @@ describe("Privacy & AI Use page", () => {
    it("makes no unverified retention, backup or third-party promise", () => {
       const text = renderPage().container.textContent ?? "";
       expect(text).toContain("don't claim one");
-      expect(text).toContain("don't currently keep backups");
+      expect(text).toContain("We don't keep backups of the live service's database");
       for (const claim of [/zero data retention is (enabled|active|on)/i, /no third part/i, /never (stored|retained)/i, /restored? from (a )?backup/i, /lawful basis/i]) {
          expect(text).not.toMatch(claim);
       }
@@ -82,17 +82,25 @@ describe("Privacy & AI Use page", () => {
       expect(document.body.textContent?.match(/\(Ohio\)|\(Mumbai\)/g)).toEqual(["(Ohio)", "(Mumbai)"]);
    });
 
-   it("states only the backups we set up, and nothing about copies held by Supabase", () => {
+   it("states no live-service backup, the beta test copies and how they are kept, and nothing about copies held by Supabase", () => {
       renderPage();
       const section = screen.getByRole("heading", { name: "Where your data is kept, and backups" }).parentElement!;
-      const backups = within(section).getByText(/we haven.t set up backups/);
-      expect(backups.textContent?.replace(/\s+/g, " ").trim()).toBe(
-         "As of 27 October 2026, we haven't set up backups for either database, the live service's or beta's, so we can't " +
-            "restore lost data. None of Supabase's replica, pipeline or log export features is set up for them either. If we " +
-            "start keeping backups, this page will say so first.",
-      );
+      const paragraphs = Array.from(section.querySelectorAll("p")).map((p) => p.textContent?.replace(/\s+/g, " ").trim());
+      expect(paragraphs.slice(1)).toEqual([
+         "We don't keep backups of the live service's database, so we can't restore lost data from it. None of Supabase's " +
+            "replica, pipeline or log export features is set up for it. We don't claim anything about copies Supabase may " +
+            "keep itself.",
+         "For our separate beta environment we keep encrypted backup copies of its database, made to test that restoring " +
+            "works. A copy holds everything in the beta database when it was made, including account records and saved " +
+            "stories, answers and notes. Copies are encrypted and stored on a computer controlled by the operator, and are " +
+            "not uploaded to another service or location. We make them occasionally, keep only the three most recent, and " +
+            "a new copy deletes the oldest.",
+         "If you use Delete all on the beta environment, your data leaves the beta database but not the copies made before " +
+            "you did. It stays in them until newer copies replace them, and we can't say when that will be. If we start " +
+            "keeping backups of the live service's database, this page will say so first.",
+      ]);
       const text = document.body.textContent ?? "";
-      for (const claim of [/remains? with supabase/i, /no (backup )?cop(y|ies)/i, /cop(y|ies)[^.]*(remain|kept|deleted)/i, /deleted[^.]*backups?/i]) {
+      for (const claim of [/remains? with supabase/i, /supabase[^.]*(deletes|removes|erases)/i, /off-?site/i, /each database/i, /once a month/i, /monthly/i, /backups? of (both|each|every)/i]) {
          expect(text).not.toMatch(claim);
       }
    });

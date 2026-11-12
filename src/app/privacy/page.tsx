@@ -70,8 +70,10 @@ export default function PrivacyPage() {
                         to their documentation. We don&apos;t claim that they keep nothing.
                      </li>
                      <li>
-                        We don&apos;t currently keep backups, so we can&apos;t restore lost data. Keep your own copy of
-                        anything important.
+                        We don&apos;t keep backups of the live service&apos;s database, so we can&apos;t restore lost data
+                        from it. Keep your own copy of anything important. We keep encrypted test backups of the beta
+                        environment&apos;s database only, and a beta copy made before you use Delete all still holds your
+                        data until it is replaced.
                      </li>
                      <li>
                         The workspace lets you delete and export what you save, and once AI is available you can withdraw
@@ -151,9 +153,21 @@ export default function PrivacyPage() {
                      uses is in South Asia (Mumbai). That may be outside the country where you live.
                   </p>
                   <p>
-                     As of 27 October 2026, we haven&apos;t set up backups for either database, the live service&apos;s or
-                     beta&apos;s, so we can&apos;t restore lost data. None of Supabase&apos;s replica, pipeline or log
-                     export features is set up for them either. If we start keeping backups, this page will say so first.
+                     We don&apos;t keep backups of the live service&apos;s database, so we can&apos;t restore lost data from
+                     it. None of Supabase&apos;s replica, pipeline or log export features is set up for it. We don&apos;t
+                     claim anything about copies Supabase may keep itself.
+                  </p>
+                  <p>
+                     For our separate beta environment we keep encrypted backup copies of its database, made to test that
+                     restoring works. A copy holds everything in the beta database when it was made, including account
+                     records and saved stories, answers and notes. Copies are encrypted and stored on a computer controlled
+                     by the operator, and are not uploaded to another service or location. We make them occasionally, keep
+                     only the three most recent, and a new copy deletes the oldest.
+                  </p>
+                  <p>
+                     If you use Delete all on the beta environment, your data leaves the beta database but not the copies made
+                     before you did. It stays in them until newer copies replace them, and we can&apos;t say when that will
+                     be. If we start keeping backups of the live service&apos;s database, this page will say so first.
                   </p>
                </Section>
 
