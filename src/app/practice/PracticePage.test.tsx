@@ -74,7 +74,7 @@ describe("/practice populated", () => {
 
    it("keeps the outline whole: h1, one h2, then card h3s only", async () => {
       await view();
-      expect([...document.querySelectorAll("h1,h2,h3")].map((h) => h.tagName)).toEqual(["H1", "H2", ...PROBLEMS.map(() => "H3")]);
+      expect([...document.querySelectorAll("main h1, main h2, main h3")].map((h) => h.tagName)).toEqual(["H1", "H2", ...PROBLEMS.map(() => "H3")]);
    });
 
    it("links quietly to Tracks and Knowledge without prefetching either", async () => {
@@ -327,5 +327,52 @@ describe("/practice route", () => {
 
    it("titles itself Practice", () => {
       expect(practiceModule.generateMetadata()).toMatchObject({ title: "Practice | InterviewNotes" });
+   });
+});
+
+describe("/practice search (P8-NAV-06)", () => {
+   const search = () => main().getByRole("searchbox", { name: "Search Problems" });
+
+   it("narrows to matching published Problems in the page, sending no request and writing nothing to the URL", async () => {
+      await view();
+      const reads = listCatalogItems.mock.calls.length;
+      const before = window.location.href;
+      fireEvent.change(search(), { target: { value: "bravo" } });
+      expect(cardTitles()).toEqual(["Problem bravo"]);
+      expect(main().getByRole("status")).toHaveTextContent("1 Problem matches “bravo”");
+      expect(main().getByRole("link", { name: /Problem bravo/ })).toHaveAttribute("href", "/problems/bravo");
+      expect(listCatalogItems.mock.calls.length).toBe(reads);
+      expect(window.location.href).toBe(before);
+   });
+
+   it("matches topics, says when nothing matches, and Clear search or Escape restores the page of results", async () => {
+      await view();
+      fireEvent.change(search(), { target: { value: "extra tag" } });
+      expect(cardTitles()).toEqual(["Problem alpha"]);
+      fireEvent.change(search(), { target: { value: "nothing-like-this" } });
+      expect(cardTitles()).toEqual([]);
+      expect(main().getByRole("status")).toHaveTextContent("No Problems match");
+      fireEvent.click(main().getAllByRole("button", { name: "Clear search" })[0]);
+      expect(cardTitles()).toEqual(PROBLEMS.map((p) => p.title));
+      fireEvent.change(search(), { target: { value: "alpha" } });
+      fireEvent.keyDown(search(), { key: "Escape" });
+      expect(cardTitles()).toEqual(PROBLEMS.map((p) => p.title));
+   });
+
+   it("reuses the unfiltered scan when no filter is set, and scans what the filters allow only when one is", async () => {
+      await view();
+      expect(listCatalogItems.mock.calls.filter(([params]) => params.limit === SCAN)).toHaveLength(1);
+      vi.clearAllMocks();
+      listCatalogItems.mockImplementation(async () => page(PROBLEMS));
+      await view({ difficulty: "hard" });
+      const scans = listCatalogItems.mock.calls.map(([params]) => params).filter((params) => params.limit === SCAN);
+      expect(scans).toHaveLength(2);
+      expect(scans.some((params) => params.difficulty === "hard" && params.type === "problem")).toBe(true);
+   });
+
+   it("says search covers only part of the list when the scan hit its cap", async () => {
+      listCatalogItems.mockImplementation(async (params) => page(PROBLEMS, params.limit === SCAN ? "more" : null));
+      await view();
+      expect(main().getByText(/Search covers the first \d+ Problems in this list\./)).toBeInTheDocument();
    });
 });

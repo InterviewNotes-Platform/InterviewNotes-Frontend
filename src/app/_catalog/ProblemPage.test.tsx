@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, configure, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
    getCatalogItem: vi.fn(),
@@ -107,6 +107,11 @@ const RELATIONS = {
 };
 const RELATED = { id: "problem.rank", relations: RELATIONS, placements: [{ track: "home", module: "m1", position: 1, primary: true }] };
 
+// The split reader (P8-T29) keeps every released stage in the document and shows one at a time, so structure assertions read
+// the whole released document, hidden stages included; what is visible is asserted in "the split reader" below.
+beforeAll(() => configure({ defaultHidden: true }));
+afterAll(() => configure({ defaultHidden: false }));
+
 const show = async () => render(await CatalogItemPage({ type: "problem", slug: "rank" }));
 const main = () => within(document.querySelector("main")!);
 const headings = (level: number) => main().getAllByRole("heading", { level }).map((h) => h.textContent);
@@ -133,6 +138,7 @@ describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
       expect(screen.getByRole("heading", { level: 1, name: "Synthetic Ranking" })).toBeInTheDocument();
       expect(headings(2)).toEqual([
+         "The challenge", // the split reader's context column (P8-T29), before the stages
          "Before you start",
          ...STAGES,
          ...SURFACES,
@@ -166,8 +172,9 @@ describe("a readable ML Problem, challenge-first (S-CHL-1, S-AX-1)", () => {
 
    it("opens only the challenge, under 'The challenge'; every other released section is in the page behind a closed reveal", async () => {
       await show();
-      const frame = within(region("Frame"));
-      expect(frame.getByRole("heading", { level: 3, name: "The challenge" })).toBeInTheDocument();
+      // P8-T29: the challenge sits in the context column, open, under its own h2; Frame no longer repeats it.
+      expect(within(region("The challenge")).getByText("Text of prompt.")).toBeInTheDocument();
+      expect(within(region("Frame")).queryByText("Text of prompt.")).not.toBeInTheDocument();
       expect(revealOf("Text of prompt.")).toBeNull();
       expect(document.querySelectorAll("main details[data-reveal][open]")).toHaveLength(0);
       for (const { id } of ML_SECTIONS.filter(({ type }) => type !== "prompt")) {
@@ -338,7 +345,7 @@ describe("a Problem with only today's section types (S-CMP-3, AC-9)", () => {
       expect(main().queryByRole("region", { name: "More material" })).not.toBeInTheDocument();
       expect(main().queryByRole("region", { name: "Self-review" })).not.toBeInTheDocument();
       expect(main().queryByText(/^(Show a hint|Rubric|Compare with|The challenge is)/)).not.toBeInTheDocument();
-      expect(within(region("Frame")).getByRole("heading", { level: 3, name: "The challenge" })).toBeInTheDocument();
+      expect(within(region("The challenge")).getByText("Text of prompt.")).toBeInTheDocument();
       expect([...controls(region("Interview")), ...controls(region("Review"))]).toEqual(["Show reference for Requirements", "Show reference for Design", "Show the reference solution"]);
       expect(main().getByText("System design")).toBeInTheDocument();
    });
@@ -487,65 +494,63 @@ describe("Before you start", () => {
    });
 });
 
-describe("the outline (S-LAY-2, S-AX-1)", () => {
-   const outlines = () => screen.getAllByRole("navigation", { name: "Outline" });
-   const phone = () => outlines()[0];
-   const rail = () => outlines()[1];
+describe("the split reader's stages (P8-T29, P8-UX-05; replaces the outline, S-LAY-2)", () => {
+   const bar = () => screen.getByRole("navigation", { name: "Problem stages" });
+   const shown = (name: string) => !region(name).closest("[data-stage]")!.hasAttribute("hidden");
 
-   it("lists the stages as numbered Interview links and the surfaces as unnumbered Review links, in labelled lists", async () => {
+   it("lists every stage and surface in spine order, interview stages numbered, the first one current", async () => {
       await show();
-      const interview = within(rail()).getByRole("list", { name: "Interview" });
-      expect(interview.tagName).toBe("OL");
-      expect(within(interview).getAllByRole("link").map((link) => link.textContent)).toEqual(STAGES);
-      const review = within(rail()).getByRole("list", { name: "Review" });
-      expect(review.tagName).toBe("UL");
-      expect(within(review).getAllByRole("link").map((link) => link.textContent)).toEqual(SURFACES);
-      expect(within(rail()).getByRole("list", { name: "More material" })).toBeInTheDocument();
-      expect(within(rail()).queryAllByRole("heading")).toHaveLength(0);
+      const buttons = within(bar()).getAllByRole("button");
+      expect(buttons.map((button) => button.textContent)).toEqual([...STAGES.map((name, index) => `${index + 1}${name}`), ...SURFACES, "More material"]);
+      expect(buttons.filter((button) => button.getAttribute("aria-current") === "step").map((button) => button.textContent)).toEqual(["1Frame"]);
    });
 
-   it("links to every band, each a focus target", async () => {
+   it("shows one stage at a time, keeping every released stage in the document", async () => {
       await show();
-      const links = within(rail()).getAllByRole("link");
-      expect(links.map((link) => link.textContent)).toEqual([...STAGES, ...SURFACES, "More material"]);
-      for (const link of links) {
-         const target = document.getElementById(link.getAttribute("href")!.slice(1))!;
-         expect(target, link.textContent!).toBeInTheDocument();
-         expect(target).toHaveAttribute("tabindex", "-1");
-      }
+      expect([...STAGES, ...SURFACES].filter(shown)).toEqual(["Frame"]);
+      expect(region("Review").closest("[data-stage]") ?? region("Review").parentElement).toHaveAttribute("hidden");
    });
 
-   it("is a native disclosure on a phone: collapsed, and complete without JavaScript", async () => {
+   it("moves to the stage it was asked for, focuses it, opens nothing and writes no fragment", async () => {
       await show();
-      const disclosure = phone().closest("details")!;
-      expect(disclosure).not.toHaveAttribute("open");
-      expect(disclosure.querySelector("summary")).toHaveTextContent("Outline");
-      expect(within(phone()).getAllByRole("link")).toHaveLength(9);
-      expect(within(phone()).getAllByRole("link").every((link) => link.getAttribute("href")!.startsWith("#"))).toBe(true);
-   });
-
-   it("moves focus to the stage it was asked for, writes that position id as the fragment, and opens nothing", async () => {
-      await show();
-      fireEvent.click(within(rail()).getByRole("link", { name: "Evaluate & Scale" }));
+      fireEvent.click(within(bar()).getByRole("button", { name: /Evaluate & Scale/ }));
+      expect([...STAGES, ...SURFACES].filter(shown)).toEqual(["Evaluate & Scale"]);
       expect(document.getElementById("problem_evaluate_and_scale")).toHaveFocus();
-      expect(window.location.hash).toBe("#problem_evaluate_and_scale");
+      expect(window.location.hash).toBe("");
       expect(document.querySelectorAll("main details[data-reveal][open]")).toHaveLength(0);
    });
 
-   it("closes the phone disclosure on a pick", async () => {
+   it("steps to the previous and next stage, across Interview and Review", async () => {
       await show();
-      const disclosure = phone().closest("details")!;
-      disclosure.open = true;
-      fireEvent.click(within(phone()).getByRole("link", { name: "Requirements" }));
-      expect(disclosure.open).toBe(false);
-      expect(document.getElementById("problem_requirements")).toHaveFocus();
+      const steps = () => within(screen.getByRole("navigation", { name: "Previous or next stage" }));
+      expect(steps().queryByRole("button", { name: /Previous stage/ })).not.toBeInTheDocument();
+      fireEvent.click(steps().getByRole("button", { name: "Next stage: Requirements" }));
+      expect([...STAGES, ...SURFACES].filter(shown)).toEqual(["Requirements"]);
+      fireEvent.click(within(bar()).getByRole("button", { name: /Follow-ups/ }));
+      fireEvent.click(steps().getByRole("button", { name: `Next stage: ${SURFACES[0]}` }));
+      expect([...STAGES, ...SURFACES].filter(shown)).toEqual([SURFACES[0]]);
+      fireEvent.click(steps().getByRole("button", { name: "Previous stage: Follow-ups" }));
+      expect([...STAGES, ...SURFACES].filter(shown)).toEqual(["Follow-ups"]);
    });
 
-   it("is left out when there is only one stage to show", async () => {
+   it("offers Challenge and Work as one radio group for narrow widths, Challenge first", async () => {
+      await show();
+      const group = screen.getByRole("group", { name: "Show" });
+      expect(group).toHaveClass("lg:hidden");
+      const [challenge, work] = within(group).getAllByRole("radio");
+      expect(challenge).toBeChecked();
+      fireEvent.click(work);
+      expect(work).toBeChecked();
+      expect(document.querySelector('[data-pane="challenge"]')).toHaveClass("max-lg:hidden");
+      expect(document.querySelector('[data-pane="work"]')).not.toHaveClass("max-lg:hidden");
+      expect(window.location.hash).toBe("");
+   });
+
+   it("is left out when there is only one stage to show, and nothing to reveal offers no Show everything", async () => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: { ...PROBLEM, sections: [section("prompt", "prompt", "Prompt", "frame")], spine: [stage("frame")] } });
       await show();
-      expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /everything/ })).not.toBeInTheDocument(); // nothing to reveal
+      expect(screen.queryByRole("navigation", { name: "Problem stages" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /everything/ })).not.toBeInTheDocument();
       expect(screen.getByText("Text of prompt.")).toBeInTheDocument();
    });
 
@@ -582,15 +587,14 @@ describe("the Track sidebar and drawer on a placed Problem (A-5, S6-RDR)", () =>
       expect(getCatalogTrack).toHaveBeenCalledTimes(1);
    });
 
-   // P8-T26: with the Track sidebar in the shell, the Problem's own Outline takes the page's rail from lg, as without a Track.
-   it("keeps the Problem's own Outline distinct, with its rail from lg, on the desk surface", async () => {
+   // P8-T29: with the Track sidebar in the shell, the Problem's own stages stay distinct, in the split's work column, on the desk.
+   it("keeps the Problem's own stages distinct from the Track, in the split from lg, on the desk surface", async () => {
       const { container } = await show();
-      const outlines = screen.getAllByRole("navigation", { name: "Outline" });
-      expect(outlines).toHaveLength(2);
-      expect(outlines[1]).toHaveClass("hidden", "lg:block", "sticky");
+      expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "Problem stages" }).closest('[data-pane="work"]')).not.toBeNull();
       expect(within(sidebar()).queryByRole("link", { name: "Frame" })).not.toBeInTheDocument();
-      expect(container.querySelector("main > div")).toHaveClass("lg:grid", "lg:justify-center");
-      expect(container.querySelector("main > div")?.className).toContain("lg:grid-cols-[minmax(0,var(--container-reading))_12rem]");
+      expect(container.querySelector("main > div")).toHaveClass("lg:grid");
+      expect(container.querySelector("main > div")?.className).toContain("lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]");
       expect(container.querySelector("main")?.closest("[data-reader]")).toHaveAttribute("data-reader-surface", "desk");
    });
 
@@ -619,8 +623,8 @@ describe("the Track sidebar and drawer on a placed Problem (A-5, S6-RDR)", () =>
       const { container } = await show();
       expect(screen.queryByRole("navigation", { name: "Track contents" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Track contents" })).not.toBeInTheDocument();
-      expect(container.querySelector("main > div")?.className).toContain("lg:grid-cols-[minmax(0,var(--container-reading))_12rem]");
-      expect(screen.getAllByRole("navigation", { name: "Outline" })[1]).toHaveClass("lg:block");
+      expect(container.querySelector("main > div")?.className).toContain("lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]");
+      expect(screen.getByRole("navigation", { name: "Problem stages" })).toBeInTheDocument();
    });
 
    it("is absent when the Track outline read fails, and the Problem still reads", async () => {
@@ -699,8 +703,10 @@ describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1
    describe("Show everything / Hide everything", () => {
       it("is a control of the outline only, absent beside the challenge", async () => {
          await show();
-         expect(screen.getAllByRole("button", { name: "Show everything" })).toHaveLength(2); // the phone disclosure and the rail
-         for (const button of screen.getAllByRole("button", { name: "Show everything" })) expect(button.closest("nav")).toHaveAccessibleName("Outline");
+         // P8-T29: exactly one per page, with the stage bar in the work column, never beside the challenge.
+         expect(screen.getAllByRole("button", { name: "Show everything" })).toHaveLength(1);
+         expect(screen.getByRole("button", { name: "Show everything" }).closest('[data-pane="work"]')).not.toBeNull();
+         expect(region("The challenge").querySelector("button")).toBeNull();
          expect(region("Frame").querySelector("button")).toBeNull();
       });
 
@@ -710,7 +716,7 @@ describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1
          press("Show everything");
          expect(opened()).toHaveLength(reveals().length);
          expect(reveals().length).toBeGreaterThan(10);
-         expect(screen.getAllByRole("button", { name: "Hide everything" })).toHaveLength(2);
+         expect(screen.getAllByRole("button", { name: "Hide everything" })).toHaveLength(1);
          expect(screen.queryByRole("button", { name: "Show everything" })).not.toBeInTheDocument();
       });
 
@@ -722,7 +728,7 @@ describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1
          press("Show everything");
          press("Hide everything");
          expect(opened()).toEqual([]);
-         expect(screen.getAllByRole("button", { name: "Show everything" })).toHaveLength(2);
+         expect(screen.getAllByRole("button", { name: "Show everything" })).toHaveLength(1);
       });
 
       it("announces each press once, politely, in one live region", async () => {
@@ -738,7 +744,7 @@ describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1
 
       it("moves no focus", async () => {
          await show();
-         const button = screen.getAllByRole("button", { name: "Show everything" })[1];
+         const button = screen.getByRole("button", { name: "Show everything" });
          button.focus();
          fireEvent.click(button);
          expect(document.activeElement).toBe(button);
@@ -857,7 +863,8 @@ describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1
       expect(window.location.search).toBe("");
       expect(window.location.hash).toBe("#deep-one");
 
-      fireEvent.click(within(screen.getAllByRole("navigation", { name: "Outline" })[1]).getByRole("link", { name: "Requirements" }));
-      expect(window.location.hash).toBe("#problem_requirements");
+      // P8-T29: the stage bar changes the shown stage without writing a fragment (S-RVL-10).
+      fireEvent.click(within(screen.getByRole("navigation", { name: "Problem stages" })).getByRole("button", { name: /Requirements/ }));
+      expect(window.location.hash).toBe("#deep-one");
    });
 });

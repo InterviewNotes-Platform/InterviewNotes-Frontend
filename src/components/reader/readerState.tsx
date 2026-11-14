@@ -109,3 +109,9 @@ export function useMediaQuery(query: string): boolean | null {
       () => null
    );
 }
+
+/** Read-only view of one piece of study-tool state; `initial` outside the store (a page rendered on its own, as in tests). */
+export function usePeekReaderTool<T>(key: string, initial: T): T {
+   const tools = useContext(ToolsContext);
+   return (tools && key in tools ? tools[key] : initial) as T;
+}
