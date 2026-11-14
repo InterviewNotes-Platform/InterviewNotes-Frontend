@@ -56,3 +56,27 @@ describe("LoginPage legal text", () => {
         expect(screen.getByText("Terms of Service")).toBeInTheDocument();
     });
 });
+
+describe("LoginPage errors", () => {
+    it("announces a known error and never prints the environment's names", () => {
+        window.history.pushState({}, "", "/login?error=auth_config_missing");
+        render(<LoginPage />);
+        expect(screen.getByRole("alert")).toHaveTextContent("Sign-in is not available right now. Please try again later.");
+        expect(document.body.textContent).not.toMatch(/NEXT_PUBLIC|\.env/);
+    });
+
+    it("shows nothing for an error value it does not know", () => {
+        window.history.pushState({}, "", "/login?error=%3Cb%3Eoops%3C%2Fb%3E");
+        render(<LoginPage />);
+        expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("puts the button back and says so when sign-in cannot start", async () => {
+        signInWithOAuth.mockResolvedValueOnce({ data: {}, error: new Error("provider detail") });
+        render(<LoginPage />);
+        fireEvent.click(screen.getByRole("button", { name: /continue with google/i }));
+        expect(await screen.findByRole("alert")).toHaveTextContent("We could not start sign-in. Please try again.");
+        expect(screen.getByRole("button", { name: /continue with google/i })).toBeEnabled();
+        expect(document.body.textContent).not.toMatch(/provider detail/);
+    });
+});
