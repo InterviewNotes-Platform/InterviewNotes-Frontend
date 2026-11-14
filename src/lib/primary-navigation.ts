@@ -2,19 +2,21 @@ import { prepEnabled } from "@/lib/prep-flag";
 
 export type NavArea = "learn" | "knowledge" | "prepare";
 
-/** Where Tracks open: the homepage's Tracks section, the one place Tracks are discovered (S6-NAV-1).
+/** Where Tracks open: the `/tracks` discovery page (P8-NAV-04).
  *  The header, the mobile menu and every Browse Tracks action share it. */
-export const TRACKS_ENTRY = "/#tracks";
+export const TRACKS_ENTRY = "/tracks";
 
-/** Where catalog pages (breadcrumbs, Practice, errors) send "all Tracks": the `/tracks` discovery page (P8 spec §5, P8-NAV-01).
- *  The header, the mobile menu and the homepage keep `TRACKS_ENTRY` until P8-T35 moves them (P8-NAV-04). */
-export const TRACKS_INDEX_HREF = "/tracks";
+/** Where catalog pages (breadcrumbs, Practice, errors) send "all Tracks": the same `/tracks` discovery page (P8 spec §5, P8-NAV-01). */
+export const TRACKS_INDEX_HREF = TRACKS_ENTRY;
 
-/** Pricing and FAQ are homepage sections. Practice is not a product of its own: its routes belong to the Tracks area (spec §5.3). */
+/** The pricing page (P8-NAV-02, P8-NAV-04). */
+export const PRICING_HREF = "/pricing";
+
+/** Pricing is the `/pricing` page; FAQ is a homepage section. Practice is not a product of its own: its routes belong to the Tracks area (spec §5.3). */
 export const PRIMARY_NAV: readonly { area?: NavArea; label: string; href: string }[] = [
    { area: "learn", label: "Tracks", href: TRACKS_ENTRY },
    { area: "knowledge", label: "Knowledge", href: "/knowledge" },
-   { label: "Pricing", href: "/#pricing" },
+   { label: "Pricing", href: PRICING_HREF },
    { label: "FAQ", href: "/#faq" },
 ];
 
@@ -39,8 +41,8 @@ export function primaryNav(enabled: boolean = prepEnabled()): readonly (typeof P
 /** The Practice route still exists inside the Tracks area; it is linked from Problems and filters, not from the navigation. */
 export const PRACTICE_HREF = "/practice";
 
-/** The gold Premium button in the header opens the planned pricing; nothing is for sale there. */
-export const PREMIUM_HREF = "/#pricing";
+/** The gold Premium button in the header opens the same `/pricing` page. */
+export const PREMIUM_HREF = PRICING_HREF;
 
 /** The landing routes arrive in later P2 tasks; prefetching them now only logs 404s. Re-enable as each one ships. */
 export const PREFETCH_PRIMARY = false;

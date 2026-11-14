@@ -6,7 +6,7 @@ import { canonical, expect, FAKE_AUTH_ORIGIN, legacyCourse, test, track } from "
 const [freeChapter] = legacyCourse.chapters;
 const LESSON = canonical("lesson.catalog-e2e-free");
 const NAMES = ["Tracks", "Knowledge", "Pricing", "FAQ"];
-const HREFS = ["/#tracks", "/knowledge", "/#pricing", "/#faq"];
+const HREFS = ["/tracks", "/knowledge", "/pricing", "/#faq"];
 
 const banner = (page: Page) => page.getByRole("banner");
 const primary = (page: Page) => banner(page).getByRole("navigation", { name: "Primary" });
@@ -26,21 +26,19 @@ test.describe("desktop shell", () => {
       await expect(links).toHaveText(NAMES);
       for (const [index, href] of HREFS.entries()) await expect(links.nth(index)).toHaveAttribute("href", href);
 
-      await expect(banner(page).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
+      await expect(banner(page).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/pricing");
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
       await expect(banner(page).getByRole("button", { name: "Toggle theme" })).toBeVisible();
       await expect(banner(page).getByRole("button", { name: "Menu" })).toBeHidden();
    });
 
-   test("Tracks opens the homepage Tracks section from another page, the same place as the Browse Tracks actions", async ({ page }) => {
+   test("Tracks opens the /tracks page from another page, the same place as the Browse Tracks actions", async ({ page }) => {
       await page.goto("/login");
       await primary(page).getByRole("link", { name: "Tracks" }).click();
-      await expect(page).toHaveURL("/#tracks");
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL("/tracks");
       await page.goto("/");
       await page.getByRole("main").getByRole("link", { name: "Browse Tracks" }).first().click();
-      await expect(page).toHaveURL("/#tracks");
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL("/tracks");
    });
 
    test("has no Practice entry, Subscribe, Upgrade, search or Sign up affordance", async ({ page }) => {
@@ -136,7 +134,7 @@ test.describe("signed in", () => {
       await page.keyboard.press("Enter");
       const menu = page.getByRole("menu");
       await expect(menu.getByText("entitled@e2e.invalid")).toBeVisible();
-      await expect(menu.getByRole("menuitem", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
+      await expect(menu.getByRole("menuitem", { name: "Tracks" })).toHaveAttribute("href", "/tracks");
       await expect(menu.getByRole("menuitem", { name: "Log out" })).toBeVisible();
 
       await page.keyboard.press("Escape");
@@ -155,12 +153,11 @@ test.describe("signed in", () => {
       await expect(banner(page).getByRole("link", { name: "Sign in" })).toBeVisible();
    });
 
-   test("the account menu's Tracks opens the homepage Tracks section", async ({ page }) => {
+   test("the account menu's Tracks opens the /tracks page", async ({ page }) => {
       await page.goto(LESSON);
       await banner(page).getByRole("button", { name: "Account menu" }).click();
       await page.getByRole("menuitem", { name: "Tracks" }).click();
-      await expect(page).toHaveURL("/#tracks");
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL("/tracks");
    });
 });
 
@@ -181,25 +178,24 @@ test.describe("retired /learn", () => {
       }
    });
 
-   test("the footer's Tracks link opens the Tracks section, and no footer link enters /learn", async ({ page }) => {
+   test("the footer's Tracks link opens the /tracks page, and no footer link enters /learn", async ({ page }) => {
       await page.goto("/");
       const footer = page.locator("footer");
       const hrefs = await footer.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
       expect(hrefs.filter((href) => href?.startsWith("/learn"))).toEqual([]);
       await footer.getByRole("link", { name: "Tracks" }).click();
-      await expect(page).toHaveURL("/#tracks");
+      await expect(page).toHaveURL("/tracks");
    });
 });
 
 test.describe("mobile menu at 390px", () => {
    test.use({ viewport: { width: 390, height: 844 } });
 
-   test("Tracks opens the same section as the desktop navigation", async ({ page }) => {
+   test("Tracks opens the same page as the desktop navigation", async ({ page }) => {
       await page.goto("/login");
       await page.getByRole("button", { name: "Menu" }).click();
       await page.getByRole("dialog", { name: "Menu" }).getByRole("link", { name: "Tracks" }).click();
-      await expect(page).toHaveURL("/#tracks");
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL("/tracks");
    });
 
    test("hides the desktop navigation, keeps the logo stable and overflows nowhere", async ({ page }) => {
@@ -221,7 +217,7 @@ test.describe("mobile menu at 390px", () => {
       await expect(menu.getByRole("link", { name: "Tracks" })).toBeFocused();
       await expect(menu.getByRole("navigation", { name: "Primary" }).getByRole("link")).toHaveText(NAMES);
       await expect(menu.getByRole("link", { name: "Tracks" })).toHaveAttribute("aria-current", "page");
-      await expect(menu.getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
+      await expect(menu.getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/pricing");
       await expect(menu.getByRole("link", { name: "Sign in" })).toBeVisible();
       await expect(menu.getByRole("button", { name: "Toggle theme" })).toBeVisible();
 

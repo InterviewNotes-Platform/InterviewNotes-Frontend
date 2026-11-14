@@ -51,10 +51,9 @@ test.describe("on a desktop", () => {
    test("UJ-1: Browse Tracks, a Track card, Start, then the sidebar to the next Lesson", async ({ page }) => {
       await page.goto("/");
       await hero(page).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect(page).toHaveURL("/#tracks");
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL("/tracks");
 
-      await trackCard(page, SEQUENCE.title).click();
+      await page.getByRole("link", { name: `Open ${SEQUENCE.title}` }).click();
       await expect(page).toHaveURL(canonical(SEQUENCE.id));
       await main(page).getByRole("link", { name: `Start with ${FIRST.title}`, exact: true }).click();
       await expect(page).toHaveURL(canonical(FIRST.id));

@@ -37,12 +37,12 @@ describe("desktop shell", () => {
         render(<Header />);
         expect(within(banner()).getByRole("link", { name: "InterviewNotes" })).toHaveAttribute("href", "/");
         expect(within(primary()).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Tracks", "/#tracks"],
+            ["Tracks", "/tracks"],
             ["Knowledge", "/knowledge"],
-            ["Pricing", "/#pricing"],
+            ["Pricing", "/pricing"],
             ["FAQ", "/#faq"],
         ]);
-        expect(within(banner()).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
+        expect(within(banner()).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/pricing");
         expect(within(banner()).getByRole("link", { name: "Sign in" })).toBeInTheDocument();
         expect(within(banner()).getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
     });
@@ -79,10 +79,10 @@ describe("Prepare entry", () => {
         render(<Header />);
         const links = within(primary()).getAllByRole("link");
         expect(links.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Tracks", "/#tracks"],
+            ["Tracks", "/tracks"],
             ["Knowledge", "/knowledge"],
             ["Prepare", "/prepare"],
-            ["Pricing", "/#pricing"],
+            ["Pricing", "/pricing"],
             ["FAQ", "/#faq"],
         ]);
         expect(links.filter((a) => a.hasAttribute("aria-current")).map((a) => a.textContent)).toEqual(["Prepare"]);
@@ -139,7 +139,7 @@ describe("account", () => {
 
         const menu = screen.getByRole("menu");
         expect(within(menu).getByText("ada.lovelace@example.com")).toBeInTheDocument();
-        expect(within(menu).getByRole("menuitem", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
+        expect(within(menu).getByRole("menuitem", { name: "Tracks" })).toHaveAttribute("href", "/tracks");
         expect(within(menu).getByRole("menuitem", { name: "Log out" })).toBeInTheDocument();
     });
 

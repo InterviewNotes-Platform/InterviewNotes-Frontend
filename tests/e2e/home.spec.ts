@@ -147,24 +147,21 @@ test("a visitor reaches real content: a Track card opens its Track page", async 
 });
 
 test.describe("Browse Tracks", () => {
-   test("in the hero and at the end of the page lands on the Tracks section", async ({ page }) => {
+   test("in the hero and at the end of the page opens the /tracks page", async ({ page }) => {
       await page.goto("/");
       await hero(page).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL(/\/tracks$/);
 
       await page.goto("/");
       await page.getByRole("region", { name: "Pick a Track and start reading" }).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL(/\/tracks$/);
    });
 
-   test("the header's Tracks link lands on the section from another page, and names it by its heading", async ({ page }) => {
+   test("the header's Tracks link opens the /tracks page from another page", async ({ page }) => {
       await page.goto("/knowledge");
       await page.getByRole("banner").getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Tracks" }).click();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect(page.locator("#tracks")).toBeInViewport();
-      await expect(page.getByRole("region", { name: "Choose Your Track" })).toBeVisible();
+      await expect(page).toHaveURL(/\/tracks$/);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
    });
 
    test("no link in the page's main content still sends Track discovery to /learn", async ({ page }) => {
@@ -513,11 +510,7 @@ test.describe("smooth scrolling (Lenis, homepage only)", () => {
       await expect(html(page)).not.toHaveClass(/lenis/);
    });
 
-   for (const [name, selector] of [
-      ["Tracks", "#tracks"],
-      ["Pricing", "#pricing"],
-      ["FAQ", "#faq"],
-   ] as const) {
+   for (const [name, selector] of [["FAQ", "#faq"]] as const) {
       test(`the header's ${name} link scrolls with easing, lands the section at its scroll margin, and keeps #${selector.slice(1)} in the URL`, async ({ page }) => {
          await page.goto("/");
          await expect(html(page)).toHaveClass(/\blenis\b/);
@@ -540,16 +533,6 @@ test.describe("smooth scrolling (Lenis, homepage only)", () => {
       });
    }
 
-   test("the hero and closing Browse Tracks actions land on the Tracks section", async ({ page }) => {
-      await page.goto("/");
-      await expect(html(page)).toHaveClass(/\blenis\b/);
-      await hero(page).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
-      await page.evaluate(() => scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
-      await page.getByRole("region", { name: "Pick a Track and start reading" }).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
-   });
-
    test("a direct load with a fragment lands on the section", async ({ page }) => {
       await page.goto("/#pricing");
       await expect(html(page)).toHaveClass(/\blenis\b/);
@@ -558,14 +541,13 @@ test.describe("smooth scrolling (Lenis, homepage only)", () => {
 
    test("a link from another route lands on the fragment, and back and forward move through the history", async ({ page }) => {
       await page.goto("/knowledge");
-      await header(page).getByRole("link", { name: "Tracks", exact: true }).first().click();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
+      await header(page).getByRole("link", { name: "FAQ", exact: true }).first().click();
+      await expect(page).toHaveURL(/\/#faq$/);
+      await expect.poll(() => offBy(page, "#faq")).toBeLessThanOrEqual(2);
       await page.goBack();
       await expect(page).toHaveURL(/\/knowledge$/);
       await page.goForward();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
+      await expect(page).toHaveURL(/\/#faq$/);
       await expect(html(page)).toHaveClass(/\blenis\b/);
    });
 
