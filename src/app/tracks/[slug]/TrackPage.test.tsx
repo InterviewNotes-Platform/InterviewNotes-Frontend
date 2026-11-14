@@ -71,6 +71,28 @@ describe("Track page", () => {
       }
    });
 
+   it("sits in the reader shell on the desk, with this Track's outline in the rail and no current item (P8-T26 contract)", async () => {
+      const { container } = await view();
+      const shell = container.querySelector("[data-reader]");
+      expect(shell).toHaveAttribute("data-reader-surface", "desk");
+      expect(within(screen.getByRole("complementary", { name: "Track navigation" })).getByRole("navigation", { name: "Track contents" })).toBeInTheDocument();
+      expect(container.querySelector("[aria-current]")).toBeNull();
+      expect(screen.getByRole("radiogroup", { name: "Reading mode" })).toBeInTheDocument();
+   });
+
+   it("leads back to /tracks through a breadcrumb that names the Track", async () => {
+      await view();
+      const crumbs = within(screen.getByRole("navigation", { name: "Breadcrumb" }));
+      expect(crumbs.getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/tracks");
+      expect(crumbs.getByText("Curriculum Track")).toBeInTheDocument();
+   });
+
+   it("numbers the curriculum once across the Track, in order, outside each link's name", async () => {
+      const { container } = await view();
+      expect([...container.querySelectorAll("[data-slot=curriculum-number]")].map((n) => n.textContent)).toEqual(["01", "02", "03"]);
+      expect(within(screen.getByRole("navigation", { name: "Curriculum Track outline" })).getByRole("link", { name: /^Title beta/ })).toHaveAttribute("href", "/problems/beta");
+   });
+
    it("reads the Lesson list once for summaries, public and Track-scoped, and never an item, meta or relations", async () => {
       await view();
       expect(listCatalogItems).toHaveBeenCalledExactlyOnceWith({ type: "lesson", track: "curriculum", limit: 100, cursor: undefined });
@@ -99,7 +121,7 @@ describe("Track page", () => {
       expect(listCatalogItems).toHaveBeenCalledTimes(2);
       expect(screen.queryByText(/^About /)).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Start with Title alpha" })).toBeInTheDocument();
-      expect(screen.getAllByRole("button")).toHaveLength(3);
+      expect(within(screen.getByRole("main")).getAllByRole("button")).toHaveLength(3);
    });
 
    it("shows no summary at all when the five-page cap is reached, and reads no sixth page", async () => {
@@ -122,8 +144,8 @@ describe("Track page", () => {
    it("starts at the first Lesson, opens only the first module and keeps the premium entry linkable", async () => {
       await view();
       expect(screen.getByRole("link", { name: "Start with Title alpha" })).toHaveAttribute("href", "/lessons/alpha");
-      expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]);
-      expect(screen.getByRole("link", { name: /Title gamma/ })).toHaveAttribute("href", "/lessons/gamma");
+      expect(within(screen.getByRole("main")).getAllByRole("button").map((b) => b.getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]);
+      expect(within(screen.getByRole("main")).getByRole("link", { name: /Title gamma/ })).toHaveAttribute("href", "/lessons/gamma");
    });
 
    it("starts a premium-first curriculum at its premium Lesson, from the public outline alone", async () => {

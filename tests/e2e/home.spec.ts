@@ -473,12 +473,15 @@ const header = (page: Page) => page.getByRole("banner");
 const offBy = (page: Page, selector: string) =>
    page.locator(selector).evaluate((el) => Math.round(el.getBoundingClientRect().top - parseFloat(getComputedStyle(el).scrollMarginTop)));
 
-test("the homepage uses the prototype's three self-hosted faces, and the shared header and other routes do not", async ({ page }) => {
+// P8-D-073: the headings take the reader's system serif (P8-D-071) and the mono labels its sans, so Inter is the only web font.
+test("the homepage self-hosts Inter only, sets its headings in the reader's system serif, and the shared header and other routes load no web font", async ({ page }) => {
    await page.goto("/");
    await page.evaluate(() => document.fonts.ready);
    const family = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).fontFamily);
-   const loaded = await page.evaluate(() => [...document.fonts].filter((face) => face.status === "loaded").map((face) => face.family));
-   expect(loaded.length).toBeGreaterThanOrEqual(2); // Newsreader and Inter load for the first view; JetBrains Mono loads on use
+   const faces = await page.evaluate(() => [...document.fonts].map((face) => ({ family: face.family, status: face.status })));
+   expect(faces.filter((face) => face.status === "loaded")).toHaveLength(1);
+   expect(faces.map((face) => face.family).join(" ")).not.toMatch(/Newsreader|JetBrains/i);
+   for (const heading of ["main[data-home] h1", "main[data-home] h2", "main[data-home] h3"]) expect(await family(heading)).toMatch(/^"Iowan Old Style"/);
    expect(await family("main[data-home] p")).not.toBe(await family("[data-site-header] a"));
    const requests: string[] = [];
    page.on("request", (request) => requests.push(request.url()));

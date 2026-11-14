@@ -24,7 +24,7 @@ describe("ModuleSection", () => {
    it("carries its fragment id on the section wrapper, below the sticky header", () => {
       const { container } = view();
       expect(container.firstElementChild).toHaveAttribute("id", "depth");
-      expect(container.firstElementChild).toHaveClass("scroll-mt-28");
+      expect(container.firstElementChild).toHaveClass("scroll-mt-32");
    });
 
    it("has no id when the Module has no fragment", () => {

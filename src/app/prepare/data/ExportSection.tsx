@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import type { PrepClient } from "@/lib/prep/client";
 import { problem, SessionEnded, SLOW_NOTICE, useSlow } from "./messages";
 
@@ -48,7 +48,7 @@ export function ExportSection({ client, saveFile = downloadFile }: { client: Pre
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-subsection">Export</CardTitle>
+                <h2 className="text-subsection text-foreground">Export</h2>
             </CardHeader>
             <CardContent className="space-y-4">
                 <p className="text-body text-muted-foreground">

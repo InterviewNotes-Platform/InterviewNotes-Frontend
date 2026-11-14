@@ -6,8 +6,9 @@ export type NavArea = "learn" | "knowledge" | "prepare";
  *  The header, the mobile menu and every Browse Tracks action share it. */
 export const TRACKS_ENTRY = "/#tracks";
 
-/** Where catalog pages (breadcrumbs, Practice) send "all Tracks": the homepage section, not the `/tracks` redirect (S6-RTE-2). */
-export const TRACKS_INDEX_HREF = TRACKS_ENTRY;
+/** Where catalog pages (breadcrumbs, Practice, errors) send "all Tracks": the `/tracks` discovery page (P8 spec §5, P8-NAV-01).
+ *  The header, the mobile menu and the homepage keep `TRACKS_ENTRY` until P8-T35 moves them (P8-NAV-04). */
+export const TRACKS_INDEX_HREF = "/tracks";
 
 /** Pricing and FAQ are homepage sections. Practice is not a product of its own: its routes belong to the Tracks area (spec §5.3). */
 export const PRIMARY_NAV: readonly { area?: NavArea; label: string; href: string }[] = [

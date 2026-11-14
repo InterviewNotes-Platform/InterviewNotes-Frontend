@@ -55,6 +55,7 @@ describe("catalog browser/Git boundary", () => {
          "lib/catalog/outline.ts",
          "lib/catalog/positionCopy.ts",
          "lib/catalog/practice.ts",
+         "lib/catalog/practiceSearch.ts",
          "lib/catalog/practiceStep.ts",
          "lib/catalog/preview.ts",
          "lib/catalog/problem.ts",
@@ -64,6 +65,7 @@ describe("catalog browser/Git boundary", () => {
          "lib/catalog/summaries.ts",
          "lib/catalog/topics.ts",
          "lib/catalog/track.ts",
+         "lib/catalog/trackIndex.ts",
          "lib/catalog/types.ts",
       ]);
    });

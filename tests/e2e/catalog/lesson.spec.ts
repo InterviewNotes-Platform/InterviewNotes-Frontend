@@ -59,7 +59,7 @@ test.describe("the long Lesson", () => {
 
       const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
       await expect(crumbs).toHaveText(new RegExp(`^Tracks\\s*/\\s*${READING.title}\\s*/\\s*${FOUNDATIONS.title}$`));
-      await expect(crumbs.getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
+      await expect(crumbs.getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/tracks");
       await expect(crumbs.getByRole("link", { name: READING.title })).toHaveAttribute("href", canonical(READING.id));
       await expect(crumbs.getByRole("link", { name: FOUNDATIONS.title })).toHaveAttribute("href", `${canonical(READING.id)}#${FOUNDATIONS.key}`);
       await expect(crumbs.getByRole("link")).toHaveCount(3);
@@ -142,7 +142,7 @@ test.describe("relations", () => {
       await expect(quiet.getByRole("link")).toHaveText(["Related Practice Problem", "T24 Premium Solution Problem"]);
       const hrefs = await main(page).locator('a[href^="/"]').evaluateAll((links) => links.map((link) => link.getAttribute("href")!));
       // the breadcrumb's Module location is the one fragment link (S-MOD-4)
-      for (const href of hrefs.filter((candidate) => candidate !== "/#tracks" && candidate !== `${canonical(READING.id)}#${FOUNDATIONS.key}`)) {
+      for (const href of hrefs.filter((candidate) => candidate !== "/tracks" && candidate !== `${canonical(READING.id)}#${FOUNDATIONS.key}`)) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
       // an authored inline reference may name a Problem the relations also list; the relation groups may not repeat one
@@ -252,13 +252,15 @@ test.describe("desktop contents", () => {
    test("Tab order reaches the breadcrumb, prerequisites and contents before the body", async ({ page }) => {
       await page.goto(route);
       const order: string[] = [];
-      for (let stop = 0; stop < 18; stop++) {
+      for (let stop = 0; stop < 28; stop++) {
          await page.keyboard.press("Tab");
          order.push(await page.evaluate(() => document.activeElement?.getAttribute("href") ?? document.activeElement?.tagName ?? ""));
       }
-      const at = (href: string) => order.indexOf(href);
-      expect(at("/#tracks")).toBeGreaterThan(-1);
-      expect(at(canonical(READING.id))).toBeGreaterThan(at("/#tracks"));
+      // The breadcrumb's first step is now `/tracks` (P8-T30), so the Track step is searched after it: the shell's rail,
+      // before the page, already links the Track overview (P8-T26).
+      const at = (href: string, from = 0) => order.indexOf(href, from);
+      expect(at("/tracks")).toBeGreaterThan(-1);
+      expect(at(canonical(READING.id), at("/tracks"))).toBeGreaterThan(at("/tracks"));
       expect(at("/knowledge/catalog-e2e-sections")).toBeGreaterThan(at(canonical(READING.id)));
       expect(at(`#${CONTENTS[0].id}`)).toBeGreaterThan(at(canonical(PRIMER.id)));
    });

@@ -16,16 +16,37 @@ export function loadProblems(query: PracticeQuery): Promise<CatalogResult<Catalo
    return listCatalogItems(problemListParams(query, PROBLEMS_PAGE_SIZE));
 }
 
-/** The Topics present across Problems, from list metadata alone: never a Problem body, never one request per Problem. */
-export async function loadProblemTopics(): Promise<CatalogResult<string[]>> {
-   const scanned: CatalogMeta[] = [];
+/**
+ * Problem metadata for in-page search: every page of the list the filters allow, up to the scan cap, never a body and never
+ * one request per Problem. `complete` is false when the cap stopped the scan, so search can say it covers only part.
+ */
+export async function loadProblemIndex(query: PracticeQuery): Promise<CatalogResult<{ items: CatalogMeta[]; complete: boolean }>> {
+   const items: CatalogMeta[] = [];
    let cursor: string | undefined;
    for (let reads = 0; reads < TOPIC_SCAN_CAP / SCAN_PAGE_SIZE; reads += 1) {
-      const result = await listCatalogItems({ type: "problem", limit: SCAN_PAGE_SIZE, cursor });
+      const result = await listCatalogItems({
+         ...problemListParams({ ...query, cursor: null }, SCAN_PAGE_SIZE),
+         cursor,
+      });
       if (result.status !== "ok") return result;
-      scanned.push(...result.data.items);
-      if (result.data.next_cursor === null) break;
+      items.push(...result.data.items);
+      if (result.data.next_cursor === null) return { status: "ok", data: { items, complete: true } };
       cursor = result.data.next_cursor;
    }
-   return { status: "ok", data: problemTopics(scanned) };
+   return { status: "ok", data: { items, complete: false } };
+}
+
+const NO_FILTERS: PracticeQuery = {
+   tag: null,
+   difficulty: null,
+   level: null,
+   track: null,
+   access: null,
+   cursor: null,
+};
+
+/** The Topics present across Problems, from the unfiltered index: list metadata alone. */
+export async function loadProblemTopics(): Promise<CatalogResult<string[]>> {
+   const index = await loadProblemIndex(NO_FILTERS);
+   return index.status === "ok" ? { status: "ok", data: problemTopics(index.data.items) } : index;
 }

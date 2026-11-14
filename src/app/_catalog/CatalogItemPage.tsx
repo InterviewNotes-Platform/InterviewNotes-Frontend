@@ -4,14 +4,17 @@ import { KnowledgeHeader } from "@/components/catalog/KnowledgeHeader";
 import { LessonHeader } from "@/components/catalog/LessonHeader";
 import { ProblemHeader } from "@/components/catalog/ProblemHeader";
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
+import { ReaderShell } from "@/components/reader/ReaderShell";
 import { getCatalogItem, getCatalogItemMeta } from "@/lib/catalog/client";
 import { loadItemNavigation } from "@/lib/catalog/navigation";
+import { outlineOf } from "@/lib/catalog/outline";
 import { isPreview } from "@/lib/catalog/preview";
 import { catalogHref } from "@/lib/catalog/routes";
 import type { CatalogItemType, CatalogMeta } from "@/lib/catalog/types";
+import type { ReaderSurface } from "@/lib/reader/shellPolicy";
 import { CatalogStateNotice } from "./CatalogStateNotice";
-import { KnowledgePage } from "./KnowledgePage";
-import { LessonPage } from "./LessonPage";
+import { KnowledgePage, knowledgeTools } from "./KnowledgePage";
+import { LessonPage, lessonTools } from "./LessonPage";
 import { PreviewMarker, withPreviewRobots } from "./PreviewMarker";
 import { ProblemPage } from "./ProblemPage";
 
@@ -31,10 +34,14 @@ function TeaserHeader({ type, meta }: { type: CatalogItemType; meta: CatalogMeta
 /** The composition of a readable item: each type has its own, built from the item the API released and its relations. */
 const READABLE = { lesson: LessonPage, knowledge: KnowledgePage, problem: ProblemPage } as const;
 
+/** The selected design's surfaces (P8-D-072): Lesson and Knowledge on paper, Problem on the desk. */
+const SURFACE: Record<CatalogItemType, ReaderSurface> = { lesson: "paper", knowledge: "paper", problem: "desk" };
+
 /**
  * One canonical page per catalog type + slug. The API decides what this caller may read; the page only presents the
  * result it is given. Relationships are loaded only for a body the API has already released, so a locked page shows no
- * Track or related context: it keeps the public header its type uses when readable, and a notice.
+ * Track or related context: it keeps the public header its type uses when readable, and a notice. Both sit in the reader
+ * shell, which shows Track orientation only for `access="readable"` (S-LSN-18).
  */
 export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; slug: string }) {
    const result = await getCatalogItem(type, slug);
@@ -43,10 +50,13 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
    if (result.status === "ok") {
       const Page = READABLE[type];
       const navigation = await loadItemNavigation(type, slug);
+      const outline = navigation?.home ? outlineOf(navigation.home.track, navigation.id) : null;
       return (
          <>
             <PreviewMarker />
-            <Page item={result.data} navigation={navigation} stayOnDeployment={isPreview()} />
+            <ReaderShell access="readable" surface={SURFACE[type]} outline={outline} expandWide={type === "lesson"} tools={type === "lesson" ? lessonTools(result.data) : type === "knowledge" ? knowledgeTools(result.data) : undefined}>
+               <Page item={result.data} navigation={navigation} stayOnDeployment={isPreview()} />
+            </ReaderShell>
          </>
       );
    }
@@ -60,12 +70,14 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
    return (
       <>
          <PreviewMarker />
-         <PageContainer as="main" className="py-12 md:py-16">
-            <ReadingColumn>
-               {header}
-               <CatalogStateNotice state={result.status} signInPath={catalogHref(`${type}.${slug}`) ?? undefined} />
-            </ReadingColumn>
-         </PageContainer>
+         <ReaderShell access="locked" surface={SURFACE[type]}>
+            <PageContainer as="main" className="py-12 md:py-16">
+               <ReadingColumn>
+                  {header}
+                  <CatalogStateNotice state={result.status} signInPath={catalogHref(`${type}.${slug}`) ?? undefined} />
+               </ReadingColumn>
+            </PageContainer>
+         </ReaderShell>
       </>
    );
 }

@@ -87,6 +87,8 @@ export function topicsOf(items: readonly CatalogMeta[]): string[] {
 export interface KnowledgeBand {
    id: string;
    label: string;
+   /** The band's canonical place, 1–3: the depth at which it is read (P8-T28). */
+   rank: number;
    sections: CatalogSection[];
 }
 
@@ -112,11 +114,16 @@ const SECTION_TYPES = new Map<string, { label: string; band: number }>([
    ["interview_considerations", { label: "Interview considerations", band: REFERENCE }],
 ]);
 
+/** All three reading bands in canonical order, empty ones included, each with its sections in the API's order. */
+export function readingBands(sections: readonly CatalogSection[]): KnowledgeBand[] {
+   const bands = BANDS.map((band, index) => ({ ...band, rank: index + 1, sections: [] as CatalogSection[] }));
+   for (const section of sections) bands[SECTION_TYPES.get(section.type)?.band ?? REFERENCE].sections.push(section);
+   return bands;
+}
+
 /** The reading bands that have content, each with its sections in the API's order. An unknown type is deeper reference. */
 export function bandsOf(sections: readonly CatalogSection[]): KnowledgeBand[] {
-   const bands = BANDS.map((band) => ({ ...band, sections: [] as CatalogSection[] }));
-   for (const section of sections) bands[SECTION_TYPES.get(section.type)?.band ?? REFERENCE].sections.push(section);
-   return bands.filter(({ sections: members }) => members.length > 0);
+   return readingBands(sections).filter(({ sections: members }) => members.length > 0);
 }
 
 /** A section's own title, else its type's name; an untitled section of an unknown type has no heading. */

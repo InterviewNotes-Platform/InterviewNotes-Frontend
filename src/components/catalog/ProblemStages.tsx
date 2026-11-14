@@ -18,6 +18,7 @@ import { problemSectionHeading } from "@/lib/catalog/problem";
 import { firstHintSequence, type ProblemComposition, type ProblemRoleGroup, type ProblemStage } from "@/lib/catalog/problemSpine";
 import type { CatalogSection } from "@/lib/catalog/types";
 import { ProblemReveal } from "@/components/problem/ProblemReveal";
+import { StagePanel } from "@/components/problem/ProblemSplit";
 import { cn } from "@/lib/utils";
 import { parseBlocks, untargetedSeniorities } from "./blocks";
 import { CatalogBody } from "./CatalogBody";
@@ -145,10 +146,27 @@ const hasQuestionsToCompare = (stage: ProblemStage) =>
    stage.position === "frame" && stage.groups.some(({ role }) => role === "clarifications" || role === "assumptions" || role === "stageReference");
 
 /** An interview stage's role groups, in presentation order: hints quieter, then each reveal closed (§9.3). */
-function StageGroups({ stage, body, released, firstHints }: { stage: ProblemStage; body: Body; released: CatalogSection[]; firstHints: string | null }) {
-   const yoursFirst = hasQuestionsToCompare(stage) ? <p key="yours-first" className="mt-6 mb-0 text-body text-pretty">{YOURS_FIRST}</p> : null;
+function StageGroups({
+   stage,
+   body,
+   released,
+   firstHints,
+   challengeApart,
+}: {
+   stage: ProblemStage;
+   body: Body;
+   released: CatalogSection[];
+   firstHints: string | null;
+   challengeApart: boolean;
+}) {
+   const yoursFirst = hasQuestionsToCompare(stage) ? (
+      <p key="yours-first" className="mt-6 mb-0 text-body text-pretty">
+         {YOURS_FIRST}
+      </p>
+   ) : null;
    const groups = stage.groups.map(({ role, sections }) => {
       if (role === "challenge") {
+         if (challengeApart) return null;
          return (
             <div key={role} className="mt-8">
                <h3 className="mt-0 mb-3 text-subsection text-balance">{CHALLENGE_LABEL}</h3>
@@ -211,7 +229,7 @@ function StageGroups({ stage, body, released, firstHints }: { stage: ProblemStag
       );
    });
    // Directly after the challenge, or first when Frame has none released.
-   const after = stage.groups[0]?.role === "challenge" ? 1 : 0;
+   const after = stage.groups[0]?.role === "challenge" && !challengeApart ? 1 : 0;
    return yoursFirst ? [...groups.slice(0, after), yoursFirst, ...groups.slice(after)] : groups;
 }
 
@@ -274,16 +292,21 @@ function surfaceControl(stage: ProblemStage) {
 /** A stage or surface band: its anchor (the outline's focus target), step cue and h2 name, then its line. */
 function Band({ stage, first, children }: { stage: ProblemStage; first: boolean; children: ReactNode }) {
    return (
-      <section aria-labelledby={`${stage.id}_title`} className={cn(!first && "mt-14 border-t border-border pt-10")}>
-         <div id={stage.id} tabIndex={-1} className="scroll-mt-28 rounded-sm">
-            {stage.step ? <p className={cn(EYEBROW, "mb-1")}>{`Step ${stage.step.position} of ${stage.step.total}`}</p> : null}
-            <h2 id={`${stage.id}_title`} className="m-0 text-section text-balance">
-               {stage.label}
-            </h2>
-         </div>
-         {stage.intent ? <p className="mt-2 mb-0 text-body text-pretty text-muted-foreground">{stage.intent}</p> : null}
-         {children}
-      </section>
+      <StagePanel ids={[stage.id]}>
+         <section
+            aria-labelledby={`${stage.id}_title`}
+            className={cn(!first && "mt-14 border-t border-border pt-10 [[data-split=on]_&]:mt-0 [[data-split=on]_&]:border-t-0 [[data-split=on]_&]:pt-0")}
+         >
+            <div id={stage.id} tabIndex={-1} className="scroll-mt-28 rounded-sm">
+               {stage.step ? <p className={cn(EYEBROW, "mb-1")}>{`Step ${stage.step.position} of ${stage.step.total}`}</p> : null}
+               <h2 id={`${stage.id}_title`} className="m-0 font-[family-name:var(--font-reader-serif)] text-section font-medium text-balance">
+                  {stage.label}
+               </h2>
+            </div>
+            {stage.intent ? <p className="mt-2 mb-0 text-body text-pretty text-muted-foreground">{stage.intent}</p> : null}
+            {children}
+         </section>
+      </StagePanel>
    );
 }
 
@@ -302,7 +325,16 @@ function AccessIndication({ stage }: { stage: ProblemStage }) {
  * The composed Problem, challenge-first: the Interview stages, then the Review surfaces, then any material with no usable
  * position. Only the challenge is open; every other released section is in the HTML behind a closed native reveal.
  */
-export function ProblemStages({ composition, stayOnDeployment }: { composition: ProblemComposition; stayOnDeployment: boolean }) {
+export function ProblemStages({
+   composition,
+   stayOnDeployment,
+   challengeApart = false,
+}: {
+   composition: ProblemComposition;
+   stayOnDeployment: boolean;
+   /** The split reader shows the challenge in its context column (`ProblemChallenge`), so Frame leaves it out. */
+   challengeApart?: boolean;
+}) {
    const { interview, review, neutral } = composition;
    const firstHints = firstHintSequence(interview);
    const released = [...interview, ...review, ...(neutral ? [neutral] : [])].flatMap(({ groups }) => groups.flatMap(({ sections }) => sections));
@@ -314,37 +346,49 @@ export function ProblemStages({ composition, stayOnDeployment }: { composition: 
    return (
       <>
          {interview.length > 0 ? (
-            <section aria-labelledby="problem_interview" className="mt-12">
-               <p id="problem_interview" className={cn(EYEBROW, "mb-6")}>
-                  {GROUP_LABEL.interview}
-               </p>
-               {interview.map((stage, index) => (
-                  <Band key={stage.id} stage={stage} first={index === 0}>
-                     {stage.withheld ? <AccessIndication stage={stage} /> : null}
-                     <StageGroups stage={stage} body={body} released={released} firstHints={firstHints} />
-                  </Band>
-               ))}
-            </section>
+            <StagePanel ids={interview.map(({ id }) => id)}>
+               <section aria-labelledby="problem_interview" className="mt-12 [[data-split=on]_&]:mt-0">
+                  <p id="problem_interview" className={cn(EYEBROW, "mb-6")}>
+                     {GROUP_LABEL.interview}
+                  </p>
+                  {interview.map((stage, index) => (
+                     <Band key={stage.id} stage={stage} first={index === 0}>
+                        {stage.withheld ? <AccessIndication stage={stage} /> : null}
+                        <StageGroups stage={stage} body={body} released={released} firstHints={firstHints} challengeApart={challengeApart} />
+                     </Band>
+                  ))}
+               </section>
+            </StagePanel>
          ) : null}
          {review.length > 0 ? (
-            <section aria-labelledby="problem_review" className="mt-16 border-t-2 border-border pt-10">
-               <p id="problem_review" className={cn(EYEBROW, "mb-2")}>
-                  {GROUP_LABEL.review}
-               </p>
-               <p className="mt-0 mb-8 text-body text-pretty text-muted-foreground">{REVIEW_INTRODUCTION}</p>
-               {review.map((stage, index) => (
-                  <Band key={stage.id} stage={stage} first={index === 0}>
-                     <ProblemReveal label={surfaceControl(stage)}>
-                        {stage.groups.map((group) => (
-                           <SurfaceGroup key={group.role} group={group} body={body} released={released} />
-                        ))}
-                     </ProblemReveal>
-                  </Band>
-               ))}
-            </section>
+            <StagePanel ids={review.map(({ id }) => id)}>
+               <section
+                  aria-labelledby="problem_review"
+                  className="mt-16 border-t-2 border-border pt-10 [[data-split=on]_&]:mt-0 [[data-split=on]_&]:border-t-0 [[data-split=on]_&]:pt-0"
+               >
+                  <p id="problem_review" className={cn(EYEBROW, "mb-2")}>
+                     {GROUP_LABEL.review}
+                  </p>
+                  <p className="mt-0 mb-8 text-body text-pretty text-muted-foreground">{REVIEW_INTRODUCTION}</p>
+                  {review.map((stage, index) => (
+                     <Band key={stage.id} stage={stage} first={index === 0}>
+                        <ProblemReveal label={surfaceControl(stage)}>
+                           {stage.groups.map((group) => (
+                              <SurfaceGroup key={group.role} group={group} body={body} released={released} />
+                           ))}
+                        </ProblemReveal>
+                     </Band>
+                  ))}
+               </section>
+            </StagePanel>
          ) : null}
          {neutral ? (
-            <div className={cn(interview.length + review.length > 0 ? "mt-16 border-t border-border pt-10" : "mt-12")}>
+            <div
+               className={cn(
+                  interview.length + review.length > 0 ? "mt-16 border-t border-border pt-10" : "mt-12",
+                  "[[data-split=on]_&]:mt-0 [[data-split=on]_&]:border-t-0 [[data-split=on]_&]:pt-0",
+               )}
+            >
                <Band stage={neutral} first>
                   <ProblemReveal label={CONTROL_LABEL.neutral}>
                      <Sections sections={neutral.groups.flatMap(({ sections }) => sections)} level={3} body={body} />
@@ -353,5 +397,25 @@ export function ProblemStages({ composition, stayOnDeployment }: { composition: 
             </div>
          ) : null}
       </>
+   );
+}
+
+/**
+ * The challenge the split reader keeps in view (P8-UX-05): Frame's challenge-facing sections, open, exactly as Frame would
+ * show them. None when no challenge was released.
+ */
+export function ProblemChallenge({ composition, stayOnDeployment }: { composition: ProblemComposition; stayOnDeployment: boolean }) {
+   const sections = composition.interview.flatMap(({ groups }) => groups.filter(({ role }) => role === "challenge").flatMap(({ sections }) => sections));
+   if (sections.length === 0) return null;
+   const body: Body = (section, level) => (
+      <CatalogBody key={section.id} body={section.body} stayOnDeployment={stayOnDeployment} reading={READING} headingOffset={level} />
+   );
+   return (
+      <section aria-labelledby="problem_challenge" className="mt-10">
+         <h2 id="problem_challenge" className="m-0 mb-3 font-[family-name:var(--font-reader-serif)] text-subsection font-medium text-balance">
+            {CHALLENGE_LABEL}
+         </h2>
+         <Sections sections={sections} level={3} body={body} untitled />
+      </section>
    );
 }

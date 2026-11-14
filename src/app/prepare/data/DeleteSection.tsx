@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { inertPage } from "@/lib/inertPage";
 import type { PrepClient } from "@/lib/prep/client";
 import type { DeleteAllSummary } from "@/lib/prep/types";
@@ -85,9 +85,9 @@ export function DeleteSection({ client, onDeleted }: { client: PrepClient | null
     }
 
     return (
-        <Card>
+        <Card className="border-destructive/40">
             <CardHeader>
-                <CardTitle className="text-subsection">Delete all my data</CardTitle>
+                <h2 className="text-subsection text-foreground">Delete all my data</h2>
             </CardHeader>
             <CardContent className="space-y-4">
                 <p className="text-body text-muted-foreground">

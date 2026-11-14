@@ -27,7 +27,7 @@ const subscribe = () => () => {};
 /** False in the server HTML and while hydrating, so a control that needs JavaScript is absent until it can work (S-RVL-12c). */
 const useHydrated = () => useSyncExternalStore(subscribe, () => true, () => false);
 
-function Everything({ announce, beside }: { announce: (message: string) => void; beside: boolean }) {
+export function Everything({ announce, beside }: { announce: (message: string) => void; beside: boolean }) {
    const hydrated = useHydrated();
    const { everything, showAll, hideAll } = useEverything();
    if (!hydrated) return null;

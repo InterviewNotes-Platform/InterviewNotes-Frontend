@@ -10,7 +10,7 @@ const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack }
    getCatalogTrack: vi.fn(),
 }));
 vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack }));
-vi.mock("next/navigation", () => ({ notFound: () => Promise.reject(new Error("NEXT_NOT_FOUND")) }));
+vi.mock("next/navigation", () => ({ notFound: () => Promise.reject(new Error("NEXT_NOT_FOUND")), usePathname: () => "/lessons/test", useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/mdx/Mermaid", () => ({ Mermaid: () => null }));
 
 const auth = vi.hoisted(() => ({ session: null as unknown }));
@@ -26,6 +26,7 @@ vi.mock("@/lib/supabase/client", () => ({
 import type { CatalogHeading, CatalogItem } from "@/lib/catalog/types";
 import { COLLECTIONS } from "@/lib/prep/collections";
 import { BEHAVIORAL_LESSONS } from "@/lib/prep/questions";
+import { ReaderToolStoreProvider } from "@/components/reader/readerState";
 import { CatalogItemPage } from "./CatalogItemPage";
 
 // The four Lessons as published by the P7-T17C branch, and the `headings[]` the API derives from them (see the T17 tests).
@@ -43,9 +44,10 @@ function lessonItem(slug: string, id: string): CatalogItem {
    };
 }
 
-const show = async (slug: string) => render(await CatalogItemPage({ type: "lesson", slug }));
+// The reader's tab-level store is the root layout's (P8-T26); the Lesson's exhibits read their pins from it (P8-T27).
+const show = async (slug: string) => render(<ReaderToolStoreProvider>{await CatalogItemPage({ type: "lesson", slug })}</ReaderToolStoreProvider>);
 /** React's generated ids count renders, so a second render of the same page differs only there. */
-const markup = (container: HTMLElement) => container.innerHTML.replace(/_r_\d+_/g, "_r_");
+const markup = (container: HTMLElement) => container.innerHTML.replace(/_r_[0-9a-z]+_/g, "_r_");
 const links = () => screen.queryAllByRole("link", { name: /^Prepare your answer/ });
 const [SDE_1] = BEHAVIORAL_LESSONS;
 
