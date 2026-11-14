@@ -45,7 +45,8 @@ const related = (relations: Record<string, unknown[]>) => ({ status: "ok", data:
 const show = async () => render(await CatalogItemPage({ type: "knowledge", slug: "topic" }));
 const levels = () => [...document.querySelectorAll("h1, h2, h3, h4, h5, h6")].map((element) => Number(element.tagName[1]));
 // The mobile contents control is itself an h2 (as on a Lesson); the page's own headings are everything else.
-const headings = (level: number) => screen.queryAllByRole("heading", { level }).map((element) => element.textContent).filter((name) => name !== "Contents");
+// The page's own headings: the reader shell's site footer (P8-T26) carries the site-wide "Explore" heading.
+const headings = (level: number) => within(screen.getByRole("main")).queryAllByRole("heading", { level }).map((element) => element.textContent).filter((name) => name !== "Contents");
 const REF_COUNT = (name: string) => screen.queryAllByRole("navigation", { name }).length;
 
 beforeEach(() => {
@@ -120,7 +121,7 @@ describe("the topic header", () => {
    it("shows title, summary, the breadcrumb and a quiet category label", async () => {
       await show();
       expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Knowledge/Core Concepts");
-      expect(screen.getByRole("link", { name: "Knowledge" })).toHaveAttribute("href", "/knowledge");
+      expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Knowledge" })).toHaveAttribute("href", "/knowledge");
       expect(screen.getByRole("link", { name: "Core Concepts" })).toHaveAttribute("href", "/knowledge?group=core-concepts");
       expect(screen.getByText("Synthetic summary.")).toBeInTheDocument();
       expect(screen.getByText("Concept")).toBeInTheDocument();

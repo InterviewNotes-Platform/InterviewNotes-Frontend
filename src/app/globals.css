@@ -321,6 +321,98 @@
   --home-ring: #c9a53e;
 }
 
+/*
+ * Reader identity (P8-D-072, D × F v3 Brand-Forward): applied only while the page carries [data-reader] (the reader shell on
+ * Lesson, Knowledge and Problem), so the homepage and every other route keep their tokens. P8-T62 harmonizes the homepage
+ * from these values; it does not read this scope. Butter is a fill behind --reader-butter-ink; burgundy is editorial only.
+ */
+:root:has([data-reader]) {
+  --background: #fbf8f1;
+  --foreground: #1c1915;
+  --surface: #f4eee3;
+  --code-surface: #f2ebdd;
+  --card: #fbf8f1;
+  --card-foreground: #1c1915;
+  --popover: #fbf8f1;
+  --popover-foreground: #1c1915;
+  --primary: #4b6f93;
+  --primary-text: #35597d;
+  --primary-foreground: #ffffff;
+  --secondary: #f4eee3;
+  --secondary-foreground: #1c1915;
+  --muted: #f4eee3;
+  --muted-foreground: #675e53;
+  --border: #e2d9c9;
+  --ring: #35597d;
+  --gold: #f2db8c;
+  --gold-foreground: #1e2a36;
+  --premium: #7a5400;
+
+  --reader-paper: #fbf8f1;
+  --reader-desk: #f1ece2;
+  --reader-brand-soft: color-mix(in srgb, #4b6f93 13%, #fbf8f1);
+  --reader-on-brand: #ffffff;
+  --reader-butter: #f2db8c;
+  --reader-butter-ink: #1e2a36;
+  --reader-accent: #9b2c1d;
+  --reader-accent-ink: #8a2416;
+  --reader-rail-width: 76px;
+  --reader-sidebar-width: 272px;
+  --font-reader-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+}
+
+.dark:has([data-reader]) {
+  --background: #1a1612;
+  --foreground: #ece5d8;
+  --surface: #221d17;
+  --code-surface: #201b16;
+  --card: #1a1612;
+  --card-foreground: #ece5d8;
+  --popover: #1a1612;
+  --popover-foreground: #ece5d8;
+  --primary: #7f93a8;
+  --primary-text: #a9bccf;
+  --primary-foreground: #12100d;
+  --secondary: #221d17;
+  --secondary-foreground: #ece5d8;
+  --muted: #221d17;
+  --muted-foreground: #a99d8c;
+  --border: #342c24;
+  --ring: #a9bccf;
+  --gold: #e8d28a;
+  --gold-foreground: #1c1b17;
+  --premium: #e8d28a;
+
+  --reader-paper: #1a1612;
+  --reader-desk: #12100d;
+  --reader-brand-soft: color-mix(in srgb, #7f93a8 20%, #1a1612);
+  --reader-on-brand: #12100d;
+  --reader-butter: #e8d28a;
+  --reader-butter-ink: #1c1b17;
+  --reader-accent: #e07a5f;
+  --reader-accent-ink: #f0937a;
+}
+
+/* The shell: paper or desk behind the page, a brand rule under the global header and the top bar. */
+[data-reader] { background: var(--reader-paper); color: var(--foreground); }
+[data-reader][data-reader-surface="desk"] { background: var(--reader-desk); }
+:root:has([data-reader]) [data-site-header] { box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--primary) 45%, transparent); }
+[data-reader] .reader-topbar { background: color-mix(in oklab, var(--reader-paper) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--primary) 35%, transparent); }
+[data-reader] .reader-rail { background: var(--reader-paper); }
+[data-reader][data-reader-surface="desk"] .reader-rail { background: var(--reader-desk); }
+[data-reader] .reader-rail a[aria-current="page"] { background: var(--reader-brand-soft); border-color: var(--primary-text); color: var(--foreground); }
+
+/* Rail 76 px, sidebar 272 px: open on a click, or by default on the Lesson from 1440 px ("auto"). */
+[data-reader] .reader-sidebar { display: none; }
+[data-reader][data-reader-sidebar-state="open"] { --reader-rail-width: var(--reader-sidebar-width); }
+[data-reader][data-reader-sidebar-state="open"] .reader-sidebar { display: block; }
+[data-reader][data-reader-sidebar-state="open"] [data-reader-rail-icon] { display: none; }
+@media (min-width: 1440px) {
+  [data-reader][data-reader-sidebar-state="auto"] { --reader-rail-width: var(--reader-sidebar-width); }
+  [data-reader][data-reader-sidebar-state="auto"] .reader-sidebar { display: block; }
+  [data-reader][data-reader-sidebar-state="auto"] [data-reader-rail-icon] { display: none; }
+}
+
 /* The prototype's faces apply inside <main data-home> only (Inter for text, JetBrains Mono for labels); other routes keep the system stacks. */
 [data-home] {
   --font-geist-sans: var(--font-home-sans), ui-sans-serif, system-ui, sans-serif;

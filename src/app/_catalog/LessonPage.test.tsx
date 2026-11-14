@@ -124,11 +124,13 @@ describe("a readable Lesson", () => {
       for (const [a, b] of sequence.slice(1).map((el, i) => [sequence[i], el] as const)) before(a, b);
    });
 
-   it("lays out the Track sidebar and the reading column from lg, and the contents rail from xl (A-5)", async () => {
+   // P8-T26: the Track sidebar moved into the reader shell, so the page lays out only its column and its contents rail.
+   it("lays out the reading column with the contents rail from lg, the Track sidebar being the shell's (A-5, P8-T26)", async () => {
       const { container } = await show();
       expect(container.querySelector("main > div")).toHaveClass("lg:grid", "lg:justify-center");
-      expect(container.querySelector("main > div")?.className).toContain("xl:grid-cols-[16rem_minmax(0,var(--container-reading))_12rem]");
-      expect(screen.getAllByRole("navigation", { name: "Contents" })[1]).toHaveClass("hidden", "xl:block", "sticky");
+      expect(container.querySelector("main > div")?.className).toContain("lg:grid-cols-[minmax(0,var(--container-reading))_12rem]");
+      expect(container.querySelector("main")?.closest("[data-reader]")).toHaveAttribute("data-reader-surface", "paper");
+      expect(screen.getByRole("navigation", { name: "Track contents" }).closest("main")).toBeNull();
    });
 
    it("renders Knowledge references quietly and canonically inside the body", async () => {
@@ -179,19 +181,20 @@ describe("the Track sidebar (A-5, S6-RDR)", () => {
       expect(getCatalogTrack).toHaveBeenCalledTimes(1);
    });
 
-   it("sits after the page's own contents and before the body, and replaces the bottom outline only from lg", async () => {
+   // P8-T26: the sidebar is the shell's rail, before the page's <main>; the bottom outline gives way where the rail exists (md).
+   it("sits in the shell's rail before the page, and replaces the bottom outline from md", async () => {
       await show();
-      before(screen.getByRole("button", { name: "Contents" }), sidebar());
-      before(sidebar(), heading("First section", 2));
-      expect(sidebar().parentElement).toHaveClass("hidden", "lg:block");
-      expect(screen.getByText("Full outline of Home Track").closest("details")).toHaveClass("lg:hidden");
+      before(sidebar(), screen.getByRole("main"));
+      expect(sidebar().closest("#reader-track-sidebar")).not.toBeNull();
+      expect(screen.getByText("Full outline of Home Track").closest("details")).toHaveClass("md:hidden");
    });
 
-   it("opens the same outline in a drawer from a Track contents control after the breadcrumb and position line", async () => {
+   // P8-T26: the drawer's control is in the shell's top bar, before the page, and shows below md.
+   it("opens the same outline in a drawer from the shell's Track contents control below md", async () => {
       await show();
       const control = screen.getByRole("button", { name: "Track contents" });
-      before(screen.getByRole("navigation", { name: "Breadcrumb" }), control);
-      before(control, heading("Synthetic Lesson", 1));
+      expect(control.parentElement).toHaveClass("md:hidden");
+      before(control, screen.getByRole("navigation", { name: "Breadcrumb" }));
       fireEvent.click(control);
       const drawer = screen.getByRole("dialog", { name: "Home Track" });
       expect(within(drawer).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/tracks/home", "/lessons/before", "/lessons/item", "/lessons/after"]);
@@ -490,7 +493,8 @@ describe("a Lesson's close", () => {
 
    it("is a type-based route for every link except the Tracks index", async () => {
       await show();
-      for (const href of screen.getAllByRole("link").map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/#tracks" && href !== "/tracks/home#m1")) {
+      // The site footer (P8-T26) holds the header's site-wide destinations, not catalog links.
+      for (const href of screen.getAllByRole("link").filter((link) => !link.closest("footer")).map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/#tracks" && href !== "/tracks/home#m1")) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
    });

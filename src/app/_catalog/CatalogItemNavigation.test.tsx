@@ -49,7 +49,8 @@ const RELATED = {
 };
 
 const show = async (type: "lesson" | "problem" | "knowledge" = "lesson", slug = "item") => render(await CatalogItemPage({ type, slug }));
-const hrefs = () => screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+// The item page's links; the reader shell's site footer (P8-T26) holds the header's site-wide destinations.
+const hrefs = () => screen.getAllByRole("link").filter((link) => !link.closest("footer")).map((link) => link.getAttribute("href"));
 
 beforeEach(() => {
    vi.clearAllMocks();

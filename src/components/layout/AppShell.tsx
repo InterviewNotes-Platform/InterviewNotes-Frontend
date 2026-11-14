@@ -1,8 +1,9 @@
 import { Header } from "@/components/layout/Header";
+import { ReaderToolStoreProvider } from "@/components/reader/readerState";
 
 export const MAIN_CONTENT_ID = "main-content";
 
-/** Skip link, header and a focus target around the page; each page keeps its own `<main>`. */
+/** Skip link, header and a focus target around the page; each page keeps its own `<main>`. The reader's tab-level study-tool store wraps the pages. */
 export function AppShell({ children }: { children: React.ReactNode }) {
     return (
         <>
@@ -14,7 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </a>
             <Header />
             <div id={MAIN_CONTENT_ID} tabIndex={-1} className="scroll-mt-16 outline-none">
-                {children}
+                <ReaderToolStoreProvider>{children}</ReaderToolStoreProvider>
             </div>
         </>
     );

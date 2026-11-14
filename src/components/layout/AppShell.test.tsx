@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppShell, MAIN_CONTENT_ID } from "./AppShell";
+import { useReaderToolState } from "@/components/reader/readerState";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/hooks/use-auth", () => ({ useAuth: () => ({ user: null, loading: false }) }));
@@ -48,5 +49,22 @@ describe("skip link", () => {
         const { container } = shell();
         expect(container.querySelectorAll("main, [role='main']")).toHaveLength(1);
         expect(screen.getAllByRole("main")).toHaveLength(1);
+    });
+});
+
+// P8-T26: the root layout's shell provides the reader's tab-level study-tool store to every page.
+function ToolProbe() {
+    const [value] = useReaderToolState("probe", "store present");
+    return <p>{value}</p>;
+}
+
+describe("the reader's study-tool store", () => {
+    it("is provided around the pages, so it outlives any one page", () => {
+        render(
+            <AppShell>
+                <ToolProbe />
+            </AppShell>
+        );
+        expect(screen.getByText("store present")).toBeInTheDocument();
     });
 });

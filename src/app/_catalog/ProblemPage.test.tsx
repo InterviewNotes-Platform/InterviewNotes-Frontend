@@ -582,29 +582,31 @@ describe("the Track sidebar and drawer on a placed Problem (A-5, S6-RDR)", () =>
       expect(getCatalogTrack).toHaveBeenCalledTimes(1);
    });
 
-   it("keeps the Problem's own Outline distinct, with its rail waiting for xl and its disclosure covering lg", async () => {
+   // P8-T26: with the Track sidebar in the shell, the Problem's own Outline takes the page's rail from lg, as without a Track.
+   it("keeps the Problem's own Outline distinct, with its rail from lg, on the desk surface", async () => {
       const { container } = await show();
       const outlines = screen.getAllByRole("navigation", { name: "Outline" });
       expect(outlines).toHaveLength(2);
-      expect(outlines[1]).toHaveClass("hidden", "xl:block", "sticky");
-      expect(outlines[0].closest("details")).toHaveClass("xl:hidden");
+      expect(outlines[1]).toHaveClass("hidden", "lg:block", "sticky");
       expect(within(sidebar()).queryByRole("link", { name: "Frame" })).not.toBeInTheDocument();
       expect(container.querySelector("main > div")).toHaveClass("lg:grid", "lg:justify-center");
-      expect(container.querySelector("main > div")?.className).toContain("xl:grid-cols-[16rem_minmax(0,var(--container-reading))_12rem]");
+      expect(container.querySelector("main > div")?.className).toContain("lg:grid-cols-[minmax(0,var(--container-reading))_12rem]");
+      expect(container.querySelector("main")?.closest("[data-reader]")).toHaveAttribute("data-reader-surface", "desk");
    });
 
-   it("sits after the header and the Problem's outline and before the body, and replaces the bottom outline only from lg", async () => {
+   // P8-T26: the sidebar is the shell's rail, before the page's <main>; the bottom outline gives way where the rail exists (md).
+   it("sits in the shell's rail before the page, and replaces the bottom outline from md", async () => {
       await show();
-      expect(sidebar().parentElement).toHaveClass("hidden", "lg:block");
-      follows(screen.getAllByRole("navigation", { name: "Outline" })[1], sidebar());
-      follows(sidebar(), main().getByRole("heading", { level: 2, name: "Frame" }));
-      expect(screen.getByText("Full outline of Home Track").closest("details")).toHaveClass("lg:hidden");
+      expect(sidebar().closest("#reader-track-sidebar")).not.toBeNull();
+      follows(sidebar(), screen.getByRole("main"));
+      expect(screen.getByText("Full outline of Home Track").closest("details")).toHaveClass("md:hidden");
    });
 
-   it("offers a Track contents control after the breadcrumb and before the title, which opens the same outline", async () => {
+   // P8-T26: the control is in the shell's top bar, before the page, and shows below md.
+   it("offers the shell's Track contents control below md, which opens the same outline", async () => {
       await show();
       const control = screen.getByRole("button", { name: "Track contents" });
-      follows(screen.getByRole("navigation", { name: "Breadcrumb" }), control);
+      expect(control.parentElement).toHaveClass("md:hidden");
       follows(control, screen.getByRole("heading", { level: 1 }));
       fireEvent.click(control);
       const drawer = screen.getByRole("dialog", { name: "Home Track" });
