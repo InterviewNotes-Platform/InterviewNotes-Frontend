@@ -32,13 +32,17 @@ describe("/pricing", () => {
       expect(main.querySelector('[data-purchase-entry="off"]')).not.toBeNull();
    });
 
-   it("with purchase on is still not operative until checkout (P8-T33) is connected", () => {
+   it("with purchase on shows one plan-specific buy action per accepted plan, in the plan order", () => {
       vi.stubEnv("NEXT_PUBLIC_PURCHASE_ENABLED", "true");
       render(<PricingPage />);
       const main = screen.getByRole("main");
       expect(main.querySelector('[data-purchase-entry="on"]')).not.toBeNull();
-      expect(screen.getByText(PRICING_COPY.checkoutNotConnected)).toBeInTheDocument();
-      expect(within(main).queryAllByRole("button")).toEqual([]);
+      expect(screen.queryByText(PRICING_COPY.unavailable)).toBeNull();
+      expect(within(main).getAllByRole("button").map((b) => b.textContent)).toEqual([
+         "Buy Annual, $50 USD per year",
+         "Buy 3-year, $100 USD, one payment",
+         "Buy Lifetime, $150 USD, one payment",
+      ]);
       expect(main.querySelector("form")).toBeNull();
       expect(within(main).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/tracks"]);
    });

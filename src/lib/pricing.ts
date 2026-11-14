@@ -30,6 +30,5 @@ export const PRICING_COPY = {
    lead: "Most InterviewNotes content is free to read. Premium adds the content marked Premium. Prices are in US dollars.",
    unavailable: "Purchase is not available yet. Nothing is for sale today.",
    unavailableDetail: "Paid access opens only when payments and the Premium offer have been checked and approved. Until then, the plans below are for information.",
-   checkoutNotConnected: "Checkout is not connected in this build, so no payment can be made yet.",
    comparisonCaption: "What Free and Premium include today",
 } as const;

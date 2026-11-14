@@ -1,17 +1,17 @@
 import { canonical, CANARY, expect, test, type Identity } from "./harness";
 
-// P8-T32 with the build flag on. Needs a build made with NEXT_PUBLIC_PURCHASE_ENABLED=true, so it is skipped in the default run;
+// P8-T32/T33 with the build flag on (T33's checkout states are exercised by the T33 headless probe, against the fake billing double). Needs a build made with NEXT_PUBLIC_PURCHASE_ENABLED=true, so it is skipped in the default run;
 // set E2E_PURCHASE_ENABLED=true for a run whose build has the flag on.
 test.skip(process.env.E2E_PURCHASE_ENABLED !== "true", "needs a build with NEXT_PUBLIC_PURCHASE_ENABLED=true");
 
 const PREMIUM_LESSON = canonical("lesson.catalog-e2e-premium");
 
-test("/pricing with purchase on shows no operative control until checkout (P8-T33) exists", async ({ page }) => {
+test("/pricing with purchase on shows one buy action per accepted plan and no form", async ({ page }) => {
    expect((await page.goto("/pricing"))?.status()).toBe(200);
    const main = page.getByRole("main");
    await expect(main.locator('[data-purchase-entry="on"]')).toHaveCount(1);
-   await expect(main.getByText("Checkout is not connected in this build, so no payment can be made yet.")).toBeVisible();
-   await expect(main.getByRole("button")).toHaveCount(0);
+   await expect(main.getByText("Checkout is not connected in this build, so no payment can be made yet.")).toHaveCount(0);
+   await expect(main.getByRole("button")).toHaveText(["Buy Annual, $50 USD per year", "Buy 3-year, $100 USD, one payment", "Buy Lifetime, $150 USD, one payment"]);
    await expect(main.locator("form")).toHaveCount(0);
 });
 
