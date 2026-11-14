@@ -17,7 +17,7 @@ describe("error boundaries", () => {
 
       expect(screen.getByRole("alert")).toHaveTextContent("This page could not be displayed");
       expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Browse Tracks" })).toHaveAttribute("href", "/#tracks");
+      expect(screen.getByRole("link", { name: "Browse Tracks" })).toHaveAttribute("href", "/tracks");
 
       fireEvent.click(screen.getByRole("button", { name: "Try again" }));
       expect(retry).toHaveBeenCalledTimes(1);

@@ -114,12 +114,12 @@ test.describe("preview deployment", () => {
             expect(href, `${route}: ${href} leaves the deployment`).toMatch(/^(\/(?!\/)|#)/);
             expect(href).not.toMatch(/localhost:3100|127\.0\.0\.1|^https?:/);
          }
-         // `/#tracks` is the Tracks section (a Lesson's first breadcrumb step); `/knowledge` and `/knowledge?group=<id>` are the
+         // `/tracks` is the Track discovery page (a Lesson's first breadcrumb step, P8-T30); `/knowledge` and `/knowledge?group=<id>` are the
          // Knowledge index and a category group (a topic's breadcrumb); `/practice` is the Practice index (a Problem's breadcrumb);
          // `#id` is a heading anchor on this page; `/tracks/<slug>#<module-key>` is a Lesson's Module location (S-MOD-4).
          for (const href of await hrefs(page, "main a[href]")) {
             expect(href, `${route}: ${href} is not a canonical catalog route`).toMatch(
-               /^(\/#tracks|\/practice|\/knowledge(\?group=[a-z-]+)?|#[a-z0-9_-]+|\/(lessons|problems|knowledge|tracks)\/[a-z0-9-]+|\/tracks\/[a-z0-9-]+#[a-z0-9-]+|\/login\?redirect=%2F(lessons|problems|knowledge|tracks)%2F[a-z0-9-]+)$/
+               /^(\/tracks|\/practice|\/knowledge(\?group=[a-z-]+)?|#[a-z0-9_-]+|\/(lessons|problems|knowledge|tracks)\/[a-z0-9-]+|\/tracks\/[a-z0-9-]+#[a-z0-9-]+|\/login\?redirect=%2F(lessons|problems|knowledge|tracks)%2F[a-z0-9-]+)$/
             );
          }
       }
@@ -277,11 +277,11 @@ test.describe("/learn is retired", () => {
          test.use({ baseURL });
 
          // The homepage is a catalog page, so it carries the Preview marker and robots directive on the preview deployment only.
-         test("the index and a chapter redirect to the Tracks section, which has the marker only on the preview", async ({ page }) => {
+         test("the index and a chapter redirect to /tracks, which has the marker only on the preview", async ({ page }) => {
             const expected = name === "preview" ? 1 : 0;
             for (const path of ["/learn", `/learn/${legacyCourse.slug}`, `/learn/${legacyCourse.slug}/${chapter.slug}`]) {
                await page.goto(path);
-               await expect(page, path).toHaveURL("/#tracks");
+               await expect(page, path).toHaveURL("/tracks");
                await expect(page.getByRole("complementary", { name: "Preview" }), path).toHaveCount(expected);
                await expect(page.getByText(MARKER_TEXT), path).toHaveCount(expected);
                await expect(robots(page), path).toHaveCount(expected);

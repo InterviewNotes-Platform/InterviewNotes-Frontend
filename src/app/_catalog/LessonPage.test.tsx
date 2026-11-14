@@ -494,7 +494,7 @@ describe("a Lesson's close", () => {
    it("is a type-based route for every link except the Tracks index", async () => {
       await show();
       // The site footer (P8-T26) holds the header's site-wide destinations, not catalog links.
-      for (const href of screen.getAllByRole("link").filter((link) => !link.closest("footer")).map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/#tracks" && href !== "/tracks/home#m1")) {
+      for (const href of screen.getAllByRole("link").filter((link) => !link.closest("footer")).map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/tracks" && href !== "/tracks/home#m1")) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
    });

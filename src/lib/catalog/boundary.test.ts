@@ -64,6 +64,7 @@ describe("catalog browser/Git boundary", () => {
          "lib/catalog/summaries.ts",
          "lib/catalog/topics.ts",
          "lib/catalog/track.ts",
+         "lib/catalog/trackIndex.ts",
          "lib/catalog/types.ts",
       ]);
    });

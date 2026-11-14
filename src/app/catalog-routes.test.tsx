@@ -3,13 +3,14 @@ import { join, relative } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } = vi.hoisted(() => ({
+const { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack, listCatalogTracks } = vi.hoisted(() => ({
    getCatalogItem: vi.fn(),
    getCatalogItemMeta: vi.fn(),
    getCatalogRelated: vi.fn(),
    getCatalogTrack: vi.fn(),
+   listCatalogTracks: vi.fn(),
 }));
-vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack }));
+vi.mock("@/lib/catalog/client", () => ({ getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack, listCatalogTracks }));
 vi.mock("next/navigation", () => ({
    notFound: () => {
       throw new Error("NEXT_NOT_FOUND");
@@ -21,6 +22,7 @@ import KnowledgePage, * as knowledgeModule from "./knowledge/[slug]/page";
 import LessonPage, * as lessonModule from "./lessons/[slug]/page";
 import ProblemPage, * as problemModule from "./problems/[slug]/page";
 import TrackPage, * as trackModule from "./tracks/[slug]/page";
+import TracksPage, * as tracksModule from "./tracks/page";
 
 const params = (slug: string) => ({ params: Promise.resolve({ slug }) });
 const ITEM = {
@@ -77,6 +79,55 @@ describe("type-based route mapping", () => {
          title: "Synthetic Track",
          description: "Track summary",
       });
+   });
+});
+
+describe("/tracks (P8-NAV-01)", () => {
+   const summary = (slug: string) => ({ id: `track.${slug}`, slug, title: `Track ${slug}`, summary: `About ${slug}` });
+   const outlineEntry = (type: string, slug: string, access = "free") => ({ id: `${type}.${slug}`, type, slug, title: `Item ${slug}`, access, primary: true });
+
+   it("lists every published Track with its modules, access and entry links, reading only public Track metadata", async () => {
+      listCatalogTracks.mockResolvedValue({ status: "ok", data: { tracks: [summary("one"), summary("two")] } });
+      getCatalogTrack.mockImplementation(async (slug: string) => ({
+         status: "ok",
+         data: {
+            ...summary(slug),
+            modules: [{ key: "m", title: `Module of ${slug}`, position: 1, items: [outlineEntry("lesson", `${slug}-a`), outlineEntry("problem", `${slug}-b`, "premium")] }],
+         },
+      }));
+      render(await TracksPage());
+      expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+      expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Track one", "Track two"]);
+      expect(screen.getByRole("link", { name: "Open Track one" })).toHaveAttribute("href", "/tracks/one");
+      expect(screen.getByRole("link", { name: "Item one-a" })).toHaveAttribute("href", "/lessons/one-a");
+      expect(screen.getByRole("list", { name: "Track two modules" })).toHaveTextContent("Module of two1 lesson · 1 practice problem");
+      expect(screen.getAllByText("1 free item")).toHaveLength(2);
+      expect(listCatalogTracks).toHaveBeenCalledExactlyOnceWith();
+      expect(getCatalogTrack.mock.calls).toEqual([["one"], ["two"]]);
+      expect(getCatalogItem).not.toHaveBeenCalled();
+      expect(getCatalogItemMeta).not.toHaveBeenCalled();
+   });
+
+   it("leaves out a Track that is no longer published and shows no Track the list did not return", async () => {
+      listCatalogTracks.mockResolvedValue({ status: "ok", data: { tracks: [summary("gone"), summary("live")] } });
+      getCatalogTrack.mockImplementation(async (slug: string) => (slug === "gone" ? { status: "notFound" } : { status: "ok", data: { ...summary(slug), modules: [] } }));
+      render(await TracksPage());
+      expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Track live"]);
+      expect(screen.queryByText(/Track gone/)).not.toBeInTheDocument();
+   });
+
+   it("says unavailable or empty truthfully, without inventing a Track", async () => {
+      listCatalogTracks.mockResolvedValue({ status: "unavailable", cause: "upstream" });
+      render(await TracksPage());
+      expect(screen.getByRole("status")).toHaveTextContent("temporarily unavailable");
+      expect(getCatalogTrack).not.toHaveBeenCalled();
+      listCatalogTracks.mockResolvedValue({ status: "ok", data: { tracks: [] } });
+      render(await TracksPage());
+      expect(screen.getAllByRole("status").at(-1)).toHaveTextContent("No Tracks are published yet.");
+   });
+
+   it("is rendered per request, never statically", () => {
+      expect(tracksModule.dynamic).toBe("force-dynamic");
    });
 });
 
@@ -138,6 +189,7 @@ describe("catalog route security boundary", () => {
          "tracks/[slug]/error.tsx",
          "tracks/[slug]/layout.tsx",
          "tracks/[slug]/page.tsx",
+         "tracks/page.tsx",
       ]);
    });
 
@@ -181,12 +233,12 @@ describe("catalog route security boundary", () => {
    });
 });
 
-describe("retired /learn and /tracks index", () => {
-   it("serves no page or route handler under /learn or at /tracks", () => {
+describe("retired /learn; /tracks is a page (P8-NAV-01)", () => {
+   it("serves no page or route handler under /learn, and serves /tracks and /tracks/{slug}", () => {
       const served = [...files(join(APP, "learn")), ...files(join(APP, "tracks"))]
          .map((f) => relative(APP, f))
          .filter((f) => /(^|\/)(page|route)\.tsx?$/.test(f));
-      expect(served).toEqual(["tracks/[slug]/page.tsx"]);
+      expect(served.sort()).toEqual(["tracks/[slug]/page.tsx", "tracks/page.tsx"]);
    });
 
    it("keeps the legacy components and data, which are retired from serving but not deleted", () => {

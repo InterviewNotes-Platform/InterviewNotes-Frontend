@@ -182,10 +182,10 @@ test.describe("signing in with a stubbed provider", () => {
    }
 });
 
-test("UJ-5: an old /learn chapter link arrives at the Tracks section, one click from a Track", async ({ page }) => {
+test("UJ-5: an old /learn chapter link arrives at /tracks, one click from a Track", async ({ page }) => {
    await page.goto(`/learn/${legacyCourse.slug}/${legacyCourse.chapters[0].slug}`);
-   await expect(page).toHaveURL("/#tracks");
-   await trackCard(page, SEQUENCE.title).click();
+   await expect(page).toHaveURL("/tracks");
+   await page.getByRole("link", { name: `Open ${SEQUENCE.title}` }).click();
    await expect(page).toHaveURL(canonical(SEQUENCE.id));
    await expect(h1(page)).toHaveText(SEQUENCE.title);
 });
