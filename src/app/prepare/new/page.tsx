@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { STORY_ID } from "@/app/prepare/stories/href";
-import { PageContainer } from "@/components/layout/PageContainer";
+import { PrepareFrame } from "@/components/prepare/PrepareFrame";
 import { QuestionPicker, type CatalogLoad } from "@/components/prepare/picker/QuestionPicker";
 import type { CatalogResult } from "@/lib/catalog/types";
 import { newAnswerHref, questionRefFromParams } from "@/lib/prep/links";
@@ -61,8 +61,8 @@ export default async function NewAnswerPage({ searchParams }: PageProps) {
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
-        <PageContainer as="main" className="py-10 md:py-14">
+        <PrepareFrame section="answers">
             <QuestionPicker key={collection.id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} catalog={catalog} collections={options} collectionId={collection.id} requested={requested} storyId={story} />
-        </PageContainer>
+        </PrepareFrame>
     );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { PageContainer } from "@/components/layout/PageContainer";
+import { PrepareFrame } from "@/components/prepare/PrepareFrame";
 import { workspaceLabels } from "@/lib/prep/collections";
 import { prepEnabled } from "@/lib/prep-flag";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
@@ -28,8 +28,8 @@ export default async function PreparePage() {
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
-        <PageContainer as="main" className="py-10 md:py-14">
+        <PrepareFrame section="answers">
             <PrepareWorkspace apiUrl={process.env.NEXT_PUBLIC_API_URL || null} labels={labels} titles={titles} />
-        </PageContainer>
+        </PrepareFrame>
     );
 }

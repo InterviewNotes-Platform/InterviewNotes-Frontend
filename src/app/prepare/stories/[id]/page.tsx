@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { PageContainer } from "@/components/layout/PageContainer";
+import { PrepareFrame } from "@/components/prepare/PrepareFrame";
 import { StoryEditor } from "@/components/prepare/stories/StoryEditor";
 import { prepEnabled } from "@/lib/prep-flag";
 import { hasSession } from "../../hasSession";
@@ -26,8 +26,8 @@ export default async function StoryPage({ params }: PageProps) {
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
-        <PageContainer as="main" className="py-10 md:py-14">
+        <PrepareFrame section="stories">
             <StoryEditor key={id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} storyId={id} />
-        </PageContainer>
+        </PrepareFrame>
     );
 }
