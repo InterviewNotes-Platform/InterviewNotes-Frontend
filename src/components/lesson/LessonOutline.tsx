@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ContentsEntry } from "@/lib/catalog/lesson";
@@ -11,6 +11,9 @@ import { useActiveHeading } from "./useActiveHeading";
 export const DOCK_TOP = 120;
 /** Headings land clear of the docked bar (lesson-reader.css sets the same scroll margin); a heading is current from here. */
 export const LESSON_LINE = 188;
+
+/** An outline entry; one with a `note` is shown but is not a link (an empty Knowledge band, "Nothing yet"). */
+export type OutlineEntry = ContentsEntry & { note?: string };
 
 export interface Neighbour {
    href: string;
@@ -64,8 +67,19 @@ function NeighbourLink({ neighbour, direction }: { neighbour: Neighbour | null; 
  * top bar: the current chapter, the chapter progress and the section list, with the Track's previous and next Lesson at its
  * ends when the page is given them. One IntersectionObserver for docking and one for the current heading; no scroll listener.
  */
-export function LessonOutline({ entries, previous, next }: { entries: ContentsEntry[]; previous: Neighbour | null; next: Neighbour | null }) {
-   const [active, choose] = useActiveHeading(entries.map(({ id }) => id), LESSON_LINE);
+export function LessonOutline({ entries, previous, next, title = "In this lesson", label = "Lesson sections", lead, barLead, footer }: {
+   entries: OutlineEntry[];
+   previous: Neighbour | null;
+   next: Neighbour | null;
+   /** The opening contents' heading and the docked bar's name; a Knowledge entry (P8-T28) names its own. */
+   title?: string;
+   label?: string;
+   /** Page controls in the opening contents (before the list) and in the docked bar, such as Knowledge's Read at depth. */
+   lead?: ReactNode;
+   barLead?: ReactNode;
+   footer?: ReactNode;
+}) {
+   const [active, choose] = useActiveHeading(entries.filter(({ note }) => !note).map(({ id }) => id), LESSON_LINE);
    const [docked, setDocked] = useState(false);
    const [open, setOpen] = useState(false);
    const opening = useRef<HTMLElement>(null);
@@ -88,14 +102,23 @@ export function LessonOutline({ entries, previous, next }: { entries: ContentsEn
       <ol className="m-0 list-none p-0">
          {entries.map((entry) => (
             <li key={entry.id} className={entry.level === 3 ? "pl-8" : undefined}>
-               <a
-                  {...jumpProps(entry.id, choose, after)}
-                  aria-current={entry.id === active ? "location" : undefined}
-                  className={cn("lesson-outline-link flex items-baseline gap-3 py-1.5 text-foreground no-underline", touch && "min-h-11 items-center")}
-               >
-                  {entry.level === 2 ? <span className="lesson-numeral w-6 shrink-0 text-right">{numbers.get(entry.id)}</span> : null}
-                  <span className="min-w-0">{entry.text}</span>
-               </a>
+               {entry.note ? (
+                  <span className={cn("lesson-outline-link flex items-baseline gap-3 py-1.5 text-muted-foreground", touch && "min-h-11 items-center")}>
+                     {entry.level === 2 ? <span className="lesson-numeral w-6 shrink-0 text-right">{numbers.get(entry.id)}</span> : null}
+                     <span className="min-w-0">
+                        {entry.text} <em className="lesson-outline-note">— {entry.note}</em>
+                     </span>
+                  </span>
+               ) : (
+                  <a
+                     {...jumpProps(entry.id, choose, after)}
+                     aria-current={entry.id === active ? "location" : undefined}
+                     className={cn("lesson-outline-link flex items-baseline gap-3 py-1.5 text-foreground no-underline", touch && "min-h-11 items-center")}
+                  >
+                     {entry.level === 2 ? <span className="lesson-numeral w-6 shrink-0 text-right">{numbers.get(entry.id)}</span> : null}
+                     <span className="min-w-0">{entry.text}</span>
+                  </a>
+               )}
             </li>
          ))}
       </ol>
@@ -105,8 +128,9 @@ export function LessonOutline({ entries, previous, next }: { entries: ContentsEn
       <>
          <div className="lesson-dock sticky z-30 h-0" style={{ top: DOCK_TOP }}>
             <div data-docked={docked} inert={!docked} className="lesson-dock-bar">
-               <nav aria-label="Lesson sections" className="mx-auto flex max-w-reading items-center gap-1 px-2">
+               <nav aria-label={label} className="mx-auto flex max-w-reading items-center gap-1 px-2">
                   <NeighbourLink neighbour={previous} direction="previous" />
+                  {barLead}
                   <button
                      type="button"
                      aria-expanded={open}
@@ -131,8 +155,10 @@ export function LessonOutline({ entries, previous, next }: { entries: ContentsEn
             </div>
          </div>
          <nav ref={opening} aria-labelledby="lesson-contents-title" className="lesson-contents mb-14">
-            <h2 id="lesson-contents-title" className="lesson-contents-title">In this lesson</h2>
+            <h2 id="lesson-contents-title" className="lesson-contents-title">{title}</h2>
+            {lead}
             {list()}
+            {footer}
          </nav>
       </>
    );

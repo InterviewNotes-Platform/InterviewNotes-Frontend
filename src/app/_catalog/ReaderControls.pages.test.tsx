@@ -37,7 +37,12 @@ const PAGES = {
       </ReaderModeProvider>
    ),
    problem: () => <ProblemPage item={item("problem.sample")} navigation={null} stayOnDeployment={false} />,
-   knowledge: () => <KnowledgePage item={item("knowledge.sample", { body: null })} navigation={null} stayOnDeployment={false} />,
+   // Knowledge reads its mode from the shell too, since it shares the Lesson's editorial frame (P8-T28).
+   knowledge: () => (
+      <ReaderModeProvider mode="study">
+         <KnowledgePage item={item("knowledge.sample", { body: null })} navigation={null} stayOnDeployment={false} />
+      </ReaderModeProvider>
+   ),
 };
 const controls = () => screen.queryByRole("group", { name: /actions$/ });
 const markup = (container: HTMLElement) => container.innerHTML.replace(/_r_[0-9a-v]+_/g, "_r_");

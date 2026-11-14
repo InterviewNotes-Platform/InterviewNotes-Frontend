@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useReaderToolState, useToolsSheet, type CloseToolsSheet } from "@/components/reader/readerState";
 import type { ContentsEntry } from "@/lib/catalog/lesson";
 import { chapterNumbers, LESSON_LINE } from "./LessonOutline";
-import { DIAGRAM_VIEWER, EXHIBIT_OPEN, NO_PINS, PINS_KEY, SCRATCH_KEY, SCRATCH_OPEN_KEY, SHOWN_SLIPS, type Pin } from "./pins";
+import { DIAGRAM_VIEWER, EXHIBIT_OPEN, EXHIBIT_REVEAL, NO_PINS, PINS_KEY, SCRATCH_KEY, SCRATCH_OPEN_KEY, SHOWN_SLIPS, type Pin } from "./pins";
 import { useActiveHeading } from "./useActiveHeading";
 
 const SLIP_BUTTON =
@@ -22,6 +22,7 @@ function onPage(sheet: CloseToolsSheet | null, act: () => void) {
 function reach(anchor: string): boolean {
    const block = document.getElementById(anchor);
    if (!block) return false;
+   block.dispatchEvent(new CustomEvent(EXHIBIT_REVEAL, { bubbles: true }));
    block.scrollIntoView({ block: "center" });
    block.focus({ preventScroll: true });
    return true;
@@ -63,7 +64,11 @@ function Slips({ pins, route, here }: { pins: readonly Pin[]; route: string; her
    // Another page: navigate to the exhibit's own fragment; the exhibit focuses itself when the fragment names it.
    const goToSource = (pin: Pin) => onPage(sheet, () => (pin.route === route ? reach(pin.anchor) : router.push(`${pin.route}#${pin.anchor}`)));
    const expand = (pin: Pin, from: HTMLElement) =>
-      onPage(sheet, () => document.getElementById(pin.anchor)?.dispatchEvent(new CustomEvent(EXHIBIT_OPEN, { detail: sheet ? null : from })));
+      onPage(sheet, () => {
+         const exhibit = document.getElementById(pin.anchor);
+         exhibit?.dispatchEvent(new CustomEvent(EXHIBIT_REVEAL, { bubbles: true }));
+         exhibit?.dispatchEvent(new CustomEvent(EXHIBIT_OPEN, { detail: sheet ? null : from }));
+      });
    if (pins.length === 0) return <p className="lesson-folio-empty m-0">Pin a table or diagram to keep it at hand while you read.</p>;
    const shown = all ? pins : pins.slice(0, SHOWN_SLIPS);
    return (
@@ -108,14 +113,17 @@ function Slips({ pins, route, here }: { pins: readonly Pin[]; route: string; her
    );
 }
 
-function Scratch({ where }: { where: string }) {
+type ScratchKeys = { text: string; open: string };
+const LESSON_SCRATCH: ScratchKeys = { text: SCRATCH_KEY, open: SCRATCH_OPEN_KEY };
+
+function Scratch({ where, keys }: { where: string; keys: ScratchKeys }) {
    const id = useId();
    const area = useRef<HTMLTextAreaElement>(null);
    // Where the reader last left the caret in this mount; none yet means the end (a remount resets the textarea's own caret).
    const caret = useRef<number | null>(null);
    const keepCaret = () => (caret.current = area.current?.selectionStart ?? null);
-   const [text, setText] = useReaderToolState<string>(SCRATCH_KEY, "");
-   const [open, setOpen] = useReaderToolState<boolean>(SCRATCH_OPEN_KEY, false);
+   const [text, setText] = useReaderToolState<string>(keys.text, "");
+   const [open, setOpen] = useReaderToolState<boolean>(keys.open, false);
    const [copied, setCopied] = useState<string | null>(null);
 
    function insert() {
@@ -187,7 +195,7 @@ function Scratch({ where }: { where: string }) {
  * The Lesson's Margin Folio (§4.5): Now reading, the pinned slips and Scratch. Mounted by the reader shell in the margin from
  * 1280 px or in the Study tools sheet below it, never in Read. Pins and Scratch live only in the shell's tab-level store.
  */
-export function LessonFolio({ entries }: { entries: ContentsEntry[] }) {
+export function LessonFolio({ entries, scratch = LESSON_SCRATCH }: { entries: ContentsEntry[]; scratch?: ScratchKeys }) {
    const chapters = entries.filter(({ level }) => level === 2);
    const [active] = useActiveHeading(chapters.map(({ id }) => id), LESSON_LINE);
    const [pins] = useReaderToolState<readonly Pin[]>(PINS_KEY, NO_PINS);
@@ -218,7 +226,7 @@ export function LessonFolio({ entries }: { entries: ContentsEntry[] }) {
             </div>
             <p className="m-0 mt-2 text-[0.8125rem] text-muted-foreground">Pins stay in this tab only: not saved or synced.</p>
          </section>
-         <Scratch where={now?.text ?? "The opening"} />
+         <Scratch where={now?.text ?? "The opening"} keys={scratch} />
       </div>
    );
 }

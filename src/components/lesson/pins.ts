@@ -17,11 +17,16 @@ export const NO_PINS: readonly Pin[] = [];
 export const PINS_KEY = "pins";
 export const SCRATCH_KEY = "scratch:lesson";
 export const SCRATCH_OPEN_KEY = "scratch:lesson:open";
+/** The Knowledge entry's own Scratch (P8-T28), apart from the Lesson's. */
+export const KNOWLEDGE_SCRATCH_KEY = "scratch:knowledge";
+export const KNOWLEDGE_SCRATCH_OPEN_KEY = "scratch:knowledge:open";
 /** The newest this many show in the margin; the rest behind "Show all n slips". */
 export const SHOWN_SLIPS = 4;
 
 /** Dispatched on an exhibit to open its viewer (from a pinned slip); `detail` is where focus returns, if anywhere. */
 export const EXHIBIT_OPEN = "lesson:exhibit-open";
+/** Dispatched (bubbling) on an exhibit before a slip goes to it, so a page that has hidden it (Knowledge depth) shows it first. */
+export const EXHIBIT_REVEAL = "lesson:exhibit-reveal";
 
 /** A diagram's own viewer trigger: present only while the diagram overflows its column (S-DGM-6). */
 export const DIAGRAM_VIEWER = 'figure button[aria-haspopup="dialog"]';
@@ -42,16 +47,16 @@ export function togglePin(pins: readonly Pin[], pin: Omit<Pin, "no">): readonly 
    return [{ ...pin, no }, ...pins];
 }
 
-/** The section a block sits in: the last h2 with an id before it in the document. */
+/** The section a block sits in: the last h2 with an id (or titled `data-pin-section`, as on Knowledge) before it in the document. */
 export function sectionOf(block: Element): Pin["section"] {
-   const headings = block.ownerDocument.querySelectorAll<HTMLElement>("[data-catalog-body] h2[id]");
+   const headings = block.ownerDocument.querySelectorAll<HTMLElement>("[data-catalog-body] h2[id], [data-pin-section][id]");
    let found: HTMLElement | null = null;
    headings.forEach((heading) => {
       if (heading.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING) found = heading;
    });
    const heading = found as HTMLElement | null;
    if (!heading) return null;
-   const text = heading.ownerDocument.getElementById(`${heading.id}_text`)?.textContent ?? heading.textContent ?? "";
+   const text = heading.dataset.pinSection ?? heading.ownerDocument.getElementById(`${heading.id}_text`)?.textContent ?? heading.textContent ?? "";
    return { id: heading.id, title: text.trim() };
 }
 

@@ -46,7 +46,9 @@ const show = async () => render(await CatalogItemPage({ type: "knowledge", slug:
 const levels = () => [...document.querySelectorAll("h1, h2, h3, h4, h5, h6")].map((element) => Number(element.tagName[1]));
 // The mobile contents control is itself an h2 (as on a Lesson); the page's own headings are everything else.
 // The page's own headings: the reader shell's site footer (P8-T26) carries the site-wide "Explore" heading.
-const headings = (level: number) => within(screen.getByRole("main")).queryAllByRole("heading", { level }).map((element) => element.textContent).filter((name) => name !== "Contents");
+// P8-T28: the opening "In this entry" contents heading is navigation, not one of the entry's own headings.
+const headings = (level: number) =>
+   within(screen.getByRole("main")).queryAllByRole("heading", { level }).map((element) => element.textContent).filter((name) => name !== "Contents" && name !== "In this entry");
 const REF_COUNT = (name: string) => screen.queryAllByRole("navigation", { name }).length;
 
 beforeEach(() => {
@@ -124,8 +126,8 @@ describe("the topic header", () => {
       expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Knowledge" })).toHaveAttribute("href", "/knowledge");
       expect(screen.getByRole("link", { name: "Core Concepts" })).toHaveAttribute("href", "/knowledge?group=core-concepts");
       expect(screen.getByText("Synthetic summary.")).toBeInTheDocument();
-      expect(screen.getByText("Concept")).toBeInTheDocument();
-      expect(screen.getByText("Category:")).toHaveClass("sr-only");
+      // P8-T28: the category is the title page's kicker (D × F v3 §4.4), not a separate quiet line.
+      expect(screen.getByText("Knowledge · Concept")).toBeInTheDocument();
    });
 
    it.each([
@@ -138,21 +140,21 @@ describe("the topic header", () => {
    ])("labels %s as %s and links to %s", async (category, label, group) => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: knowledge({ category }) });
       await show();
-      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(screen.getByText(`Knowledge · ${label}`)).toBeInTheDocument();
       expect(screen.getByRole("link", { name: group })).toBeInTheDocument();
    });
 
    it("shows no category label and no group crumb when the item has no category", async () => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: knowledge({ category: null }) });
       await show();
-      expect(screen.queryByText("Category:")).not.toBeInTheDocument();
+      expect(document.querySelector(".lesson-kicker")).toHaveTextContent(/^Knowledge$/);
       expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(/^Knowledge$/);
    });
 
    it("shows no label for a category outside the Knowledge vocabulary", async () => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: knowledge({ category: "system_design" }) });
       await show();
-      expect(screen.queryByText("Category:")).not.toBeInTheDocument();
+      expect(document.querySelector(".lesson-kicker")).toHaveTextContent(/^Knowledge$/);
    });
 
    it("marks a premium topic the reader is entitled to, and no other", async () => {
@@ -171,41 +173,44 @@ describe("a quick reference", () => {
       expect(headings(3)).toEqual(["Quick facts"]);
       expect(screen.queryByText("Explanation")).not.toBeInTheDocument();
       expect(screen.queryByText("Deeper reference")).not.toBeInTheDocument();
-      expect(REF_COUNT("Contents")).toBe(0);
-      expect(screen.getByText("Quick reference")).toBeInTheDocument();
+      expect(REF_COUNT("In this entry")).toBe(0);
+      expect(screen.getByText("Knowledge · Quick reference")).toBeInTheDocument();
    });
 });
 
+// P8-T28 replaces the band-only contents (a collapsed control and an lg column) with the selected design's opening contents and
+// docked section bar (§4.4), which list the bands and their sections and mark the current one.
 describe("in-page navigation", () => {
-   it("is an anchor list of the bands: a collapsed control below lg and a column from lg", async () => {
+   it("opens with 'In this entry': each band, then its sections, every link reaching its own element", async () => {
       await show();
-      const navs = screen.getAllByRole("navigation", { name: "Contents" });
-      expect(navs).toHaveLength(2);
-      for (const nav of navs) {
-         const links = within(nav).getAllByRole("link");
-         expect(links.map((link) => link.textContent)).toEqual(["Fast understanding", "Explanation", "Deeper reference"]);
-         for (const link of links) expect(document.getElementById(link.getAttribute("href")!.slice(1))).toBeInstanceOf(HTMLHeadingElement);
-      }
-      expect(screen.getByRole("button", { name: "Contents" })).toHaveAttribute("aria-expanded", "false");
-   });
-
-   it("is a plain anchor list: no entry is marked current, so none can be wrong for a short last band", async () => {
-      await show();
-      expect(within(screen.getAllByRole("navigation", { name: "Contents" })[0]).getAllByRole("link")).toHaveLength(3);
-      expect(document.querySelectorAll("nav[aria-label='Contents'] [aria-current]")).toHaveLength(0);
+      const contents = screen.getByRole("navigation", { name: "In this entry" });
+      const links = within(contents).getAllByRole("link");
+      expect(links.map((link) => link.textContent)).toEqual([
+         "1Fast understanding",
+         "Heading of definition",
+         "2Explanation",
+         "Heading of how-it-works",
+         "Heading of trade-offs",
+         "3Deeper reference",
+         "Heading of failure-modes",
+         "Heading of example-one",
+         "Heading of example-two",
+      ]);
+      for (const link of links) expect(document.getElementById(link.getAttribute("href")!.slice(1))).not.toBeNull();
+      expect(screen.getByRole("navigation", { name: "Knowledge sections", hidden: true })).toBeInTheDocument();
    });
 
    it("is absent for a single band", async () => {
       getCatalogItem.mockResolvedValue({ status: "ok", data: knowledge({ sections: [section("definition"), section("why_it_matters")] }) });
       await show();
-      expect(REF_COUNT("Contents")).toBe(0);
+      expect(REF_COUNT("In this entry")).toBe(0);
+      expect(screen.queryByRole("radiogroup", { name: "Read at depth" })).not.toBeInTheDocument();
    });
 
-   it("points at band ids no section id can equal", async () => {
+   it("points band entries at band ids no section id can equal", async () => {
       await show();
-      for (const link of within(screen.getAllByRole("navigation", { name: "Contents" })[0]).getAllByRole("link")) {
-         expect(link.getAttribute("href")).toMatch(/^#knowledge_/);
-      }
+      const bands = within(screen.getByRole("navigation", { name: "In this entry" })).getAllByRole("link").filter((link) => /^\d/.test(link.textContent ?? ""));
+      for (const link of bands) expect(link.getAttribute("href")).toMatch(/^#knowledge_/);
    });
 });
 

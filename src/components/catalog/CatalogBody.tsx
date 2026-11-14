@@ -357,6 +357,8 @@ export interface ReadingMode {
    prepare?: PrepareLinks;
    /** The Lesson reader (P8-T27): tables and diagrams become exhibits with Expand and Pin; unset leaves the body as it was. */
    exhibits?: boolean;
+   /** Prefixes this body's exhibit anchors, so exhibits in several bodies on one page (Knowledge sections, P8-T28) stay unique. */
+   exhibitScope?: string;
 }
 
 interface CatalogBodyProps {
@@ -388,6 +390,7 @@ export function CatalogBody({ body, stayOnDeployment = false, reading, headingOf
             headingOffset={headingOffset}
             prepare={ids ? reading?.prepare : undefined}
             exhibits={reading?.exhibits}
+            path={reading?.exhibitScope ? `${reading.exhibitScope}-` : undefined}
          />
       </div>
    );

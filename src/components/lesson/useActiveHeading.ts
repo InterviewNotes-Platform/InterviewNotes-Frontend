@@ -25,7 +25,9 @@ export function useActiveHeading(ids: readonly string[], line = LINE) {
       if (!("IntersectionObserver" in window)) return;
       const targets = key.split("\n").flatMap((id) => document.getElementById(id) ?? []);
       if (targets.length === 0) return;
-      const read = () => choose(activeHeading(targets.map((element) => ({ id: element.id, top: element.getBoundingClientRect().top })), line));
+      // A heading the page does not render (a Knowledge band hidden by depth) has no box and is never current.
+      const shown = () => targets.filter((element) => element.checkVisibility?.() ?? true);
+      const read = () => choose(activeHeading(shown().map((element) => ({ id: element.id, top: element.getBoundingClientRect().top })), line));
       const observer = new IntersectionObserver(read, { rootMargin: `-${line}px 0px 0px 0px`, threshold: [0, 1] });
       targets.forEach((element) => observer.observe(element));
       // A long jump can carry headings from below the viewport to above it without any crossing being observed; one read at
