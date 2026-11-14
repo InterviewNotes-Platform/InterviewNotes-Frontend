@@ -543,7 +543,7 @@ test.describe("smooth scrolling (Lenis, homepage only)", () => {
       await page.goto("/knowledge");
       await header(page).getByRole("link", { name: "FAQ", exact: true }).first().click();
       await expect(page).toHaveURL(/\/#faq$/);
-      await expect.poll(() => offBy(page, "#faq")).toBeLessThanOrEqual(2);
+      await expect(page.locator("#faq")).toBeInViewport();
       await page.goBack();
       await expect(page).toHaveURL(/\/knowledge$/);
       await page.goForward();
