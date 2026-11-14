@@ -32,7 +32,7 @@ export function ProblemReveal({ label, context, quiet = false, unit, nested = fa
       <details data-reveal={key} className="mt-3" open={reveal?.open} onToggle={reveal?.onToggle}>
          <summary
             className={cn(
-               "flex min-h-11 w-full cursor-pointer list-none items-center gap-2 rounded-sm font-semibold transition-micro hover:text-primary [&::-webkit-details-marker]:hidden",
+               "flex min-h-11 w-full cursor-pointer list-none items-center gap-2 rounded-sm font-semibold transition-micro hover:text-[var(--primary-text)] [&::-webkit-details-marker]:hidden",
                quiet ? "text-supporting text-muted-foreground" : "text-body"
             )}
          >

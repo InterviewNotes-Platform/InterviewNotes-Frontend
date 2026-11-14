@@ -98,10 +98,10 @@ describe("a readable Lesson", () => {
 
    it("lists headings in contents, linking the API's ids, for both the sticky column and the disclosure", async () => {
       await show();
-      for (const nav of screen.getAllByRole("navigation", { name: "Contents" })) {
-         expect(within(nav).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["#first-section", "#a-subsection", "#second-section"]);
-      }
-      expect(screen.getByRole("button", { name: "Contents" })).toHaveAttribute("aria-expanded", "false");
+      // P8-T27: the full opening contents; the docked section bar's list opens on demand.
+      const opening = screen.getByRole("navigation", { name: "In this lesson" });
+      expect(within(opening).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["#first-section", "#a-subsection", "#second-section"]);
+      expect(within(screen.getByRole("navigation", { name: "Lesson sections" })).getByRole("button", { expanded: false })).toHaveAttribute("aria-controls", "lesson-dock-list");
    });
 
    it("reads in the intended order: orientation, Builds on, contents, body, Next, Knowledge, Practice, Problems, curriculum, secondary", async () => {
@@ -111,7 +111,7 @@ describe("a readable Lesson", () => {
          screen.getByText("Module 1 of 1 · Lesson 2 of 3"),
          heading("Synthetic Lesson", 1),
          heading("Builds on", 2),
-         screen.getByRole("button", { name: "Contents" }),
+         screen.getByRole("navigation", { name: "In this lesson" }),
          heading("First section", 2),
          screen.getByRole("navigation", { name: "Next in Home Track" }),
          heading("Related Knowledge", 2),
@@ -124,11 +124,13 @@ describe("a readable Lesson", () => {
       for (const [a, b] of sequence.slice(1).map((el, i) => [sequence[i], el] as const)) before(a, b);
    });
 
-   it("lays out the Track sidebar and the reading column from lg, and the contents rail from xl (A-5)", async () => {
+   // P8-T27: one centred 736 px editorial column; the contents open the page instead of a rail, and the Track sidebar is the shell's.
+   it("lays out one centred reading column, the Track sidebar being the shell's (A-5, P8-T26, P8-T27)", async () => {
       const { container } = await show();
-      expect(container.querySelector("main > div")).toHaveClass("lg:grid", "lg:justify-center");
-      expect(container.querySelector("main > div")?.className).toContain("xl:grid-cols-[16rem_minmax(0,var(--container-reading))_12rem]");
-      expect(screen.getAllByRole("navigation", { name: "Contents" })[1]).toHaveClass("hidden", "xl:block", "sticky");
+      expect(container.querySelector("main > div")).toHaveClass("mx-auto", "max-w-reading");
+      expect(container.querySelector("main > div")).toHaveAttribute("data-lesson-reader");
+      expect(container.querySelector("main")?.closest("[data-reader]")).toHaveAttribute("data-reader-surface", "paper");
+      expect(screen.getByRole("navigation", { name: "Track contents" }).closest("main")).toBeNull();
    });
 
    it("renders Knowledge references quietly and canonically inside the body", async () => {
@@ -179,19 +181,20 @@ describe("the Track sidebar (A-5, S6-RDR)", () => {
       expect(getCatalogTrack).toHaveBeenCalledTimes(1);
    });
 
-   it("sits after the page's own contents and before the body, and replaces the bottom outline only from lg", async () => {
+   // P8-T26: the sidebar is the shell's rail, before the page's <main>; the bottom outline gives way where the rail exists (md).
+   it("sits in the shell's rail before the page, and replaces the bottom outline from md", async () => {
       await show();
-      before(screen.getByRole("button", { name: "Contents" }), sidebar());
-      before(sidebar(), heading("First section", 2));
-      expect(sidebar().parentElement).toHaveClass("hidden", "lg:block");
-      expect(screen.getByText("Full outline of Home Track").closest("details")).toHaveClass("lg:hidden");
+      before(sidebar(), screen.getByRole("main"));
+      expect(sidebar().closest("#reader-track-sidebar")).not.toBeNull();
+      expect(screen.getByText("Full outline of Home Track").closest("details")).toHaveClass("md:hidden");
    });
 
-   it("opens the same outline in a drawer from a Track contents control after the breadcrumb and position line", async () => {
+   // P8-T26: the drawer's control is in the shell's top bar, before the page, and shows below md.
+   it("opens the same outline in a drawer from the shell's Track contents control below md", async () => {
       await show();
       const control = screen.getByRole("button", { name: "Track contents" });
-      before(screen.getByRole("navigation", { name: "Breadcrumb" }), control);
-      before(control, heading("Synthetic Lesson", 1));
+      expect(control.parentElement).toHaveClass("md:hidden");
+      before(control, screen.getByRole("navigation", { name: "Breadcrumb" }));
       fireEvent.click(control);
       const drawer = screen.getByRole("dialog", { name: "Home Track" });
       expect(within(drawer).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/tracks/home", "/lessons/before", "/lessons/item", "/lessons/after"]);
@@ -276,7 +279,8 @@ describe("a Lesson's relations", () => {
    it("renders the Next lesson once: a Next that is also related stays in the Next block and leaves Related Lessons (S-LSN-16)", async () => {
       getCatalogRelated.mockResolvedValue({ status: "ok", data: { ...RELATED, relations: { related: [meta("lesson.after"), meta("lesson.sibling")] } } });
       await show();
-      const outsideOutline = screen.getAllByRole("link").filter((link) => !link.closest("details"));
+      // The docked section bar's › end is the Track's next item by design (§4.2), not a second offer of the Lesson.
+      const outsideOutline = screen.getAllByRole("link").filter((link) => !link.closest("details") && !link.closest('[aria-label="Lesson sections"]'));
       expect(outsideOutline.filter((link) => link.getAttribute("href") === "/lessons/after")).toHaveLength(1);
       expect(within(screen.getByRole("navigation", { name: "Next in Home Track" })).getByRole("link")).toHaveAttribute("href", "/lessons/after");
       expect(within(screen.getByRole("region", { name: "Related Lessons" })).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/lessons/sibling"]);
@@ -430,9 +434,12 @@ describe("a Lesson's close", () => {
       const back = within(block).getByRole("link", { name: "Back to module: First Module" });
       expect(back).toHaveAttribute("href", "/tracks/home#m1");
       expect(back).toHaveAttribute("data-prefetch", "false");
-      const previous = within(block).getByRole("link", { name: "Previous lesson: Title before" });
+      // P8-T27: Previous moved from this block to the "Previous in the Track" card (§4.2): type, access and Module, public outline only.
+      expect(within(block).queryByRole("link", { name: /^Previous lesson/ })).not.toBeInTheDocument();
+      const previous = within(screen.getByRole("navigation", { name: "Previous in Home Track" })).getByRole("link", { name: "Previous lesson: Title before" });
       expect(previous).toHaveAttribute("href", "/lessons/before");
-      expect(previous).not.toHaveAttribute("data-variant");
+      expect(previous).toHaveAttribute("data-prefetch", "false");
+      expect(previous).toHaveAccessibleDescription("Lesson · Free · First Module");
    });
 
    it("leaves out Previous when there is none, and keeps Back to module", async () => {
@@ -440,6 +447,8 @@ describe("a Lesson's close", () => {
       await show();
       expect(screen.queryByRole("link", { name: /^Previous lesson/ })).not.toBeInTheDocument();
       expect(within(screen.getByRole("navigation", { name: "Curriculum" })).getByRole("link", { name: /^Back to module/ })).toBeInTheDocument();
+      // At the start of the Track the card leads to its overview instead (§4.2).
+      expect(within(screen.getByRole("navigation", { name: "Previous in Home Track" })).getByRole("link", { name: "Track overview: Home Track" })).toHaveAttribute("href", "/tracks/home");
    });
 
    it("drops the per-Module item list from the Lesson page and keeps the collapsed full outline", async () => {
@@ -490,7 +499,8 @@ describe("a Lesson's close", () => {
 
    it("is a type-based route for every link except the Tracks index", async () => {
       await show();
-      for (const href of screen.getAllByRole("link").map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/#tracks" && href !== "/tracks/home#m1")) {
+      // The site footer (P8-T26) holds the header's site-wide destinations, not catalog links.
+      for (const href of screen.getAllByRole("link").filter((link) => !link.closest("footer")).map((link) => link.getAttribute("href")!).filter((href) => !href.startsWith("#") && href !== "/tracks" && href !== "/tracks/home#m1")) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
    });
@@ -521,8 +531,8 @@ describe("contents are only offered when they can work", () => {
    it("is absent below two h2/h3 headings: no rail column, and a single reading column where no sidebar takes the page", async () => {
       withHeadings("## Only\n\nText.", [{ id: "only", level: 2, text: "Only" }]);
       const { container } = await show();
-      expect(screen.queryByRole("navigation", { name: "Contents" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Contents" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "In this lesson" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Lesson sections" })).not.toBeInTheDocument();
       expect(container.querySelector("main > div")?.className).not.toContain("12rem");
       getCatalogTrack.mockResolvedValue({ status: "ok", data: { ...HOME, modules: [{ ...HOME.modules[0], items: [entry("lesson.other")] }] } });
       const unplaced = await show();
@@ -533,14 +543,14 @@ describe("contents are only offered when they can work", () => {
    it("is absent when the API's headings do not match the rendered ones, so no link points nowhere", async () => {
       withHeadings("## One\n\n## Two", [{ id: "one", level: 2, text: "One" }]);
       await show();
-      expect(screen.queryByRole("navigation", { name: "Contents" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "In this lesson" })).not.toBeInTheDocument();
       expect(bodyHeadingIds()).toEqual([]);
    });
 
    it("is absent for duplicate ids rather than rewriting them", async () => {
       withHeadings("## A\n\n## B", [{ id: "x", level: 2, text: "A" }, { id: "x", level: 2, text: "B" }]);
       await show();
-      expect(screen.queryByRole("navigation", { name: "Contents" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "In this lesson" })).not.toBeInTheDocument();
       expect(bodyHeadingIds()).toEqual([]);
    });
 });
@@ -558,7 +568,7 @@ describe("a locked Lesson", () => {
 
       expect(screen.queryByText(/Intro prose/)).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Contents" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Lesson sections" })).not.toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: /First section|Builds on|Related|Practice/ })).not.toBeInTheDocument();
       expect(document.querySelectorAll("[id]")).toHaveLength(0);
       expect(getCatalogRelated).not.toHaveBeenCalled();
@@ -583,7 +593,7 @@ describe("other item pages keep their own contract", () => {
       expect(screen.getByRole("navigation", { name: "Breadcrumb" })).not.toHaveTextContent("Learn");
       expect(screen.queryByRole("navigation", { name: "Track context" })).not.toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Related content" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("navigation", { name: "Contents" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "In this lesson" })).not.toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Practice" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Lesson" })).not.toHaveAttribute("data-reference");
       expect(document.querySelector("section#definition")!.querySelectorAll("[id], [tabindex]")).toHaveLength(0);

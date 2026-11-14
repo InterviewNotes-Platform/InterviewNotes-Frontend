@@ -36,12 +36,12 @@ describe("mobile menu", () => {
         setup().open();
         const nav = within(menu()).getByRole("navigation", { name: "Primary" });
         expect(within(nav).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-            ["Tracks", "/#tracks"],
+            ["Tracks", "/tracks"],
             ["Knowledge", "/knowledge"],
-            ["Pricing", "/#pricing"],
+            ["Pricing", "/pricing"],
             ["FAQ", "/#faq"],
         ]);
-        expect(within(menu()).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/#pricing");
+        expect(within(menu()).getByRole("link", { name: "Premium" })).toHaveAttribute("href", "/pricing");
         expect(within(nav).queryByRole("link", { name: "Practice" })).toBeNull();
         expect(within(menu()).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
         expect(within(menu()).getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
@@ -79,7 +79,7 @@ describe("mobile menu", () => {
         expect(within(menu()).queryByRole("link", { name: "Sign in" })).toBeNull();
         expect(within(menu()).getByText("grace@example.com")).toBeInTheDocument();
         const tracks = within(menu()).getAllByRole("link", { name: "Tracks" });
-        expect(tracks.map((a) => a.getAttribute("href"))).toEqual(["/#tracks", "/#tracks"]);
+        expect(tracks.map((a) => a.getAttribute("href"))).toEqual(["/tracks", "/tracks"]);
         expect(within(menu()).queryByRole("link", { name: "Courses" })).toBeNull();
 
         fireEvent.click(within(menu()).getByRole("button", { name: "Log out" }));

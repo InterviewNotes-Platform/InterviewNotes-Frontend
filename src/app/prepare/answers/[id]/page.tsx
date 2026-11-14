@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { PageContainer } from "@/components/layout/PageContainer";
+import { PrepareFrame } from "@/components/prepare/PrepareFrame";
 import { AnswerEditor } from "@/components/prepare/editor/AnswerEditor";
 import { ANSWER_ID, answerHref } from "@/lib/prep/links";
 import { loadBehavioralQuestions } from "@/lib/prep/questions";
@@ -30,8 +30,8 @@ export default async function AnswerPage({ params }: PageProps) {
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
-        <PageContainer as="main" className="py-10 md:py-14">
+        <PrepareFrame section="answers">
             <AnswerEditor key={id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} answerId={id} catalog={read.status === "ok" ? read.data : null} />
-        </PageContainer>
+        </PrepareFrame>
     );
 }

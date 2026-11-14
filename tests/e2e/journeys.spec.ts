@@ -51,20 +51,23 @@ test.describe("on a desktop", () => {
    test("UJ-1: Browse Tracks, a Track card, Start, then the sidebar to the next Lesson", async ({ page }) => {
       await page.goto("/");
       await hero(page).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect(page).toHaveURL("/#tracks");
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL("/tracks");
 
-      await trackCard(page, SEQUENCE.title).click();
+      await page.getByRole("link", { name: `Open ${SEQUENCE.title}` }).click();
       await expect(page).toHaveURL(canonical(SEQUENCE.id));
       await main(page).getByRole("link", { name: `Start with ${FIRST.title}`, exact: true }).click();
       await expect(page).toHaveURL(canonical(FIRST.id));
       await expect(h1(page)).toHaveText(FIRST.title);
 
       const sidebar = page.getByRole("navigation", { name: "Track contents" });
+      // P8-T26: at 1280 px the reader shell's Track sidebar starts as a collapsed rail; one click expands it.
+      await page.getByRole("button", { name: "Expand Track sidebar" }).click();
       await expect(sidebar.locator('[aria-current="page"]')).toHaveAttribute("href", canonical(FIRST.id));
       await sidebar.getByRole("link", { name: SECOND.title }).click();
       await expect(page).toHaveURL(canonical(SECOND.id));
       await expect(h1(page)).toHaveText(SECOND.title);
+      // P8-T26: the next page's shell starts collapsed again at 1280 px.
+      await page.getByRole("button", { name: "Expand Track sidebar" }).click();
       await expect(sidebar.locator('[aria-current="page"]')).toHaveAttribute("href", canonical(SECOND.id));
    });
 
@@ -182,10 +185,10 @@ test.describe("signing in with a stubbed provider", () => {
    }
 });
 
-test("UJ-5: an old /learn chapter link arrives at the Tracks section, one click from a Track", async ({ page }) => {
+test("UJ-5: an old /learn chapter link arrives at /tracks, one click from a Track", async ({ page }) => {
    await page.goto(`/learn/${legacyCourse.slug}/${legacyCourse.chapters[0].slug}`);
-   await expect(page).toHaveURL("/#tracks");
-   await trackCard(page, SEQUENCE.title).click();
+   await expect(page).toHaveURL("/tracks");
+   await page.getByRole("link", { name: `Open ${SEQUENCE.title}` }).click();
    await expect(page).toHaveURL(canonical(SEQUENCE.id));
    await expect(h1(page)).toHaveText(SEQUENCE.title);
 });

@@ -159,8 +159,10 @@ export function PrepareWorkspace({ apiUrl, labels = {}, titles = null, getAccess
 
     return (
         <div className="space-y-8">
-            <header className="space-y-4">
-                <h1 className="text-section text-foreground">Prepare your answers</h1>
+            <header className="flex max-w-2xl flex-col items-start gap-4">
+                <p className="m-0 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Behavioral interview prep</p>
+                <h1 className="m-0 text-title text-balance text-foreground">Prepare your answers</h1>
+                <p className="text-body text-pretty text-muted-foreground">Choose a question, write your answer, and pick up where you left off.</p>
                 <div className="flex flex-wrap items-center gap-3">
                     <Button asChild size="lg">
                         <Link href={PREPARE_NEW_HREF} prefetch={false}>
@@ -172,7 +174,7 @@ export function PrepareWorkspace({ apiUrl, labels = {}, titles = null, getAccess
 
             {apiUrl && client && <Continuity apiUrl={apiUrl} client={client} titles={titles} />}
 
-            <form role="search" onSubmit={search} className="flex flex-wrap items-end gap-3">
+            <form role="search" onSubmit={search} className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
                 <div className="grid min-w-64 flex-1 gap-1.5">
                     <Label htmlFor="answer-search">Search answers</Label>
                     <Input id="answer-search" type="search" value={typed} maxLength={SEARCH_MAX} disabled={!client} onChange={(event) => setTyped(event.target.value)} />
@@ -284,7 +286,9 @@ function Section({
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-subsection">{title}</CardTitle>
+                <CardTitle className="text-subsection">
+                    <h2 className="m-0">{title}</h2>
+                </CardTitle>
             </CardHeader>
             <CardContent>
                 {loading ? (

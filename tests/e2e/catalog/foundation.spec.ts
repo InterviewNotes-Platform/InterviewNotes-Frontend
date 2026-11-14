@@ -7,7 +7,8 @@ const TECHNICAL = "/lessons/p2-t1-technical";
 
 /** Tab until `target` has focus, so the focus ring comes from real keyboard modality. */
 async function tabTo(page: Page, target: ReturnType<Page["locator"]>) {
-   for (let stop = 0; stop < 12; stop++) {
+   // P8-T26: the reader shell's rail controls and Study/Read sit before the page's breadcrumb in the tab order.
+   for (let stop = 0; stop < 20; stop++) {
       await page.keyboard.press("Tab");
       if (await target.evaluate((element) => element === document.activeElement)) return;
    }

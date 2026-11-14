@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { PageContainer } from "@/components/layout/PageContainer";
+import { ReadingColumn } from "@/components/layout/PageContainer";
+import { PrepareFrame } from "@/components/prepare/PrepareFrame";
 import { prepEnabled } from "@/lib/prep-flag";
 import { hasSession } from "../hasSession";
 import { PREPARE_DATA_HREF } from "./href";
@@ -21,8 +22,10 @@ export default async function YourDataPage() {
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
-        <PageContainer as="main" className="py-10 md:py-14">
-            <YourData apiUrl={process.env.NEXT_PUBLIC_API_URL || null} />
-        </PageContainer>
+        <PrepareFrame section="data">
+            <ReadingColumn>
+                <YourData apiUrl={process.env.NEXT_PUBLIC_API_URL || null} />
+            </ReadingColumn>
+        </PrepareFrame>
     );
 }

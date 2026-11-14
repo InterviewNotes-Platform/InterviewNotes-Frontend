@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LessonPosition } from "@/lib/catalog/curriculum";
 import { levelsOf } from "@/lib/catalog/levelChoice";
@@ -9,6 +9,19 @@ import { catalogEntryHref } from "@/lib/catalog/routes";
 import { PremiumMark } from "./EntryRow";
 
 const trackHref = ({ track }: TrackPlacement) => catalogEntryHref({ ...track, type: "track" });
+
+/**
+ * The Premium mark on a filled primary action (P8-T26 F-1): it takes the button's own foreground on a transparent ground, so
+ * its contrast is the button text's (measured in the T27 report) instead of gold on blue.
+ */
+function PremiumOnFill() {
+   return (
+      <span data-premium-mark className="inline-flex items-center gap-1 rounded-md border border-current px-2 py-0.5 text-xs font-semibold text-current">
+         <Lock aria-hidden="true" className="size-3" />
+         Premium
+      </span>
+   );
+}
 
 /**
  * The one primary action of a Lesson's close: the canonical Next Lesson with its summary when the read succeeded.
@@ -32,7 +45,7 @@ export function NextLesson({ placement, summary }: { placement: TrackPlacement; 
                   <span className="block text-supporting font-normal">Next lesson</span>
                   <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-semibold">
                      <span className="min-w-0 text-balance break-words">{next.title}</span>
-                     {premium ? <PremiumMark /> : null}
+                     {premium ? <PremiumOnFill /> : null}
                   </span>
                   {summary ? <span className="mt-2 block text-supporting font-normal text-pretty opacity-90">{summary}</span> : null}
                </span>
@@ -139,6 +152,43 @@ export function CurriculumBlock({ placement, position }: { placement: TrackPlace
                </Link>
             </div>
          ) : null}
+      </nav>
+   );
+}
+
+const CARD =
+   "group block rounded-lg border border-border p-4 no-underline transition-micro hover:border-[var(--primary-text)] hover:bg-muted";
+
+/**
+ * The end-of-page "Previous in the Track" card (§4.2): the previous Lesson's type, access and Module from the Track's public
+ * outline (the same entries the shell's sidebar shows), or, at the start of the Track, the way to its overview. "Next" stays the
+ * one Next lesson action above (S-LSN-16). Readable pages only, like every other piece of Track orientation (S-LSN-18).
+ */
+export function PreviousInTrack({ placement }: { placement: TrackPlacement }) {
+   const previous = placement.previousLesson;
+   const href = previous ? catalogEntryHref(previous) : trackHref(placement);
+   if (!href) return null;
+   const containing = previous ? placement.track.modules.find(({ items }) => items.some(({ id }) => id === previous.id)) : null;
+   const premium = previous?.access === "premium";
+   const metaId = `previous_in_track_${placement.track.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+   return (
+      <nav aria-label={`Previous in ${placement.track.title}`}>
+         <Link
+            href={href}
+            prefetch={false}
+            aria-label={previous ? `Previous lesson: ${previous.title}${premium ? ", premium" : ""}` : `Track overview: ${placement.track.title}`}
+            aria-describedby={metaId}
+            className={CARD}
+         >
+            <span className="flex items-center gap-1 text-supporting font-medium text-[var(--primary-text)]">
+               <ChevronLeft aria-hidden="true" className="size-4" />
+               {previous ? "Previous in the Track" : "Start of the Track"}
+            </span>
+            <span className="lesson-card-title mt-1 block text-body font-semibold text-foreground">{previous ? previous.title : placement.track.title}</span>
+            <span id={metaId} className="mt-1 block text-supporting text-muted-foreground">
+               {previous ? ["Lesson", premium ? "Premium" : "Free", containing?.title].filter(Boolean).join(" · ") : "Back to the Track overview"}
+            </span>
+         </Link>
       </nav>
    );
 }

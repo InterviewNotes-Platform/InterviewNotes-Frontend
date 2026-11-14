@@ -12,7 +12,7 @@ import {
    type FixtureTrack,
 } from "./harness";
 
-// P2-T4 Learn: the curriculum-first Track page; `/tracks` itself redirects to the homepage Tracks section (P6-T7).
+// P2-T4 Learn: the curriculum-first Track page; `/tracks` is the Track discovery page (P8-NAV-01, P8-T30).
 const CURRICULUM = track("p2-t4-curriculum");
 const EMPTY_TRACK = track("p2-t4-empty");
 const HOME = track("catalog-e2e-home");
@@ -51,15 +51,17 @@ const typesIn = (t: FixtureTrack) => t.modules.flatMap((m) => m.items).map((id) 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
 test.describe("/tracks", () => {
-   test("is a temporary redirect to the homepage Tracks section and no longer renders a Track grid", async ({ page, request }) => {
-      const redirect = await request.get("/tracks", { maxRedirects: 0 });
-      expect(redirect.status()).toBe(307);
-      expect(redirect.headers().location).toBe("/#tracks");
+   test("answers 200 itself (no redirect) and lists every published Track, each linking to its page", async ({ page, request }) => {
+      const response = await request.get("/tracks", { maxRedirects: 0 });
+      expect(response.status()).toBe(200);
 
       await page.goto("/tracks");
-      await expect(page).toHaveURL("/#tracks");
-      await expect(page.locator("#tracks")).toBeInViewport();
-      await expect(page.getByRole("heading", { level: 1, name: "Learn, one Track at a time." })).toHaveCount(0);
+      await expect(page).toHaveURL("/tracks");
+      await expect(page.getByRole("heading", { level: 1, name: "Learn in order, one Track at a time." })).toBeVisible();
+      await expect(page.getByRole("link", { name: `Open ${CURRICULUM.title}` })).toHaveAttribute("href", canonical(CURRICULUM.id));
+      await page.getByRole("link", { name: `Open ${CURRICULUM.title}` }).click();
+      await expect(page).toHaveURL(canonical(CURRICULUM.id));
+      await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/tracks");
    });
 });
 
@@ -190,7 +192,9 @@ test.describe("Track page", () => {
    test("no Module has a URL of its own, and every link is a canonical item route", async ({ page, request }) => {
       await page.goto(canonical(CURRICULUM.id));
       for (const control of await outline(page, CURRICULUM).getByRole("button").all()) await control.click();
-      const hrefs = await main(page).locator("a[href]").evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
+      // The breadcrumb's `/tracks` step (P8-T30) is the one link that is not an item route.
+      await expect(main(page).getByRole("navigation", { name: "Breadcrumb" }).getByRole("link")).toHaveAttribute("href", "/tracks");
+      const hrefs = await main(page).locator("a[href]:not(nav[aria-label=Breadcrumb] a)").evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
       expect(hrefs.length).toBeGreaterThan(0);
       for (const href of hrefs) expect(href).toMatch(/^\/(lessons|problems|knowledge)\/[a-z0-9]+(-[a-z0-9]+)*$/);
 

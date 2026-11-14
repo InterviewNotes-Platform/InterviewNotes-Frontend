@@ -117,11 +117,11 @@ describe("hero", () => {
         expect(within(h1).getByText(HERO.subject, { selector: ".sr-only" })).toBeInTheDocument();
     });
 
-    it("offers Browse Tracks to the Tracks section on this page, and a free chapter that opens its Lesson", () => {
+    it("offers Browse Tracks to the /tracks page, and a free chapter that opens its Lesson", () => {
         renderHome();
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
         expect(HERO.primaryAction.label).toBe("Browse Tracks");
-        expect(within(hero).getByRole("link", { name: HERO.primaryAction.label })).toHaveAttribute("href", "/#tracks");
+        expect(within(hero).getByRole("link", { name: HERO.primaryAction.label })).toHaveAttribute("href", "/tracks");
         expect(within(hero).getByRole("link", { name: HERO.freeChapterLabel })).toHaveAttribute("href", FREE_HREF);
         expect(within(hero).getByRole("link", { name: HERO.freeChapterLabel })).toHaveAttribute("data-prefetch", "false");
         expect(within(hero).getAllByRole("link")).toHaveLength(2);
@@ -739,10 +739,10 @@ describe("link inventory", () => {
         expect(hrefs.every((href) => href && href !== "#")).toBe(true);
         const inMain = [...screen.getByRole("main").querySelectorAll("a")].map((a) => a.getAttribute("href")!);
         expect(inMain.filter((href) => href.startsWith("/learn"))).toEqual([]);
-        expect(TRACKS_ENTRY).toBe("/#tracks");
+        expect(TRACKS_ENTRY).toBe("/tracks");
     });
 
-    it("sends the hero, the pricing path and the closing action to the same Tracks section", () => {
+    it("sends the hero, the pricing path and the closing action to the same /tracks page", () => {
         renderHome();
         const hero = screen.getByRole("region", { name: new RegExp(HERO.tail) });
         const targets = [
@@ -750,7 +750,7 @@ describe("link inventory", () => {
             within(pricing()).getByRole("link", { name: PRICING.free.action.label }),
             within(section(CLOSING.heading)).getByRole("link", { name: CLOSING.action.label }),
         ];
-        expect(targets.map((a) => a.getAttribute("href"))).toEqual(["/#tracks", "/#tracks", "/#tracks"]);
+        expect(targets.map((a) => a.getAttribute("href"))).toEqual(["/tracks", "/tracks", "/tracks"]);
     });
 });
 
@@ -838,10 +838,10 @@ describe("catalog reads", () => {
 });
 
 describe("footer", () => {
-    it("sits outside the main landmark and sends Tracks to the homepage section, never into /learn", () => {
+    it("sits outside the main landmark and sends Tracks to /tracks, never into /learn", () => {
         renderHome();
         const footer = screen.getByRole("contentinfo");
-        expect(within(footer).getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
+        expect(within(footer).getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/tracks");
         for (const a of footer.querySelectorAll("a")) expect(a.getAttribute("href")).not.toMatch(/^\/learn/);
         expect(screen.getByRole("main")).not.toContainElement(footer);
     });

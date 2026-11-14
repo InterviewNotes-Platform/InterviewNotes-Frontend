@@ -1,7 +1,7 @@
 export const DEFAULT_AUTH_REDIRECT = "/#tracks";
 
 const PARSE_BASE = "http://redirect.invalid";
-const CATALOG_STATIC_PATHS = new Set(["/", "/knowledge", "/practice", "/prepare", "/prepare/new", "/prepare/data", "/prepare/stories", "/prepare/stories/new"]);
+const CATALOG_STATIC_PATHS = new Set(["/", "/knowledge", "/practice", "/pricing", "/prepare", "/prepare/new", "/prepare/data", "/prepare/stories", "/prepare/stories/new"]);
 const PREPARE_ANSWER_PATH = /^\/prepare\/answers\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PREPARE_STORY_PATH = /^\/prepare\/stories\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CATALOG_ITEM_PATH = /^\/(tracks|lessons|problems|knowledge)\/[A-Za-z0-9._~-]+$/;

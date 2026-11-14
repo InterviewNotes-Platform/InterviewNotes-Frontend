@@ -14,7 +14,16 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 test.use({ baseURL: READER_ORIGIN });
 
-const log = async (request: APIRequestContext) => (await (await request.get(`${ITEM_API_ORIGIN}/__item-state-log`)).json()) as string[];
+// The browser calls the item-state API itself, so a test counts its own page's requests there; the double's log is shared
+// by every test running at the same time, so it cannot say which page made a request.
+const own = (page: Page) => {
+   const sent: string[] = [];
+   page.on("request", (made) => {
+      const url = new URL(made.url());
+      if (url.origin === ITEM_API_ORIGIN) sent.push(`${made.method()} ${url.pathname}`);
+   });
+   return sent;
+};
 const row = (page: Page, title: RegExp) => page.getByRole("navigation", { name: /outline$/ }).getByRole("link", { name: title });
 const slot = (page: Page, title: RegExp) => row(page, title).locator('[data-slot="entry-leading"]');
 const boxOf = async (page: Page, title: RegExp) => ({ row: await row(page, title).boundingBox(), slot: await slot(page, title).boundingBox() });
@@ -62,23 +71,23 @@ test.describe("signed in, M2 on", () => {
       await expect(row(page, foundations)).toHaveAttribute("href", /\/lessons\//);
    });
 
-   test("asks for the capability, then reads only the open Module's entries, and writes nothing", async ({ page, request }) => {
-      const before = (await log(request)).length;
+   test("asks for the capability, then reads only the open Module's entries, and writes nothing", async ({ page }) => {
+      const sent = own(page);
       const origins = new Set<string>();
-      page.on("request", (sent) => origins.add(new URL(sent.url()).origin));
+      page.on("request", (made) => origins.add(new URL(made.url()).origin));
       await page.goto(`/tracks/${TRACK}`);
       await expect(slot(page, /Synthetic Foundations Lesson/)).toHaveAttribute("data-state", "completed");
       await page.waitForTimeout(500);
       // The browser reaches no catalog origin: beyond the app and its sign-in service, it calls only the item-state API.
       expect([...origins].filter((origin) => origin !== READER_ORIGIN && origin !== FAKE_AUTH_ORIGIN)).toEqual([ITEM_API_ORIGIN]);
-      const made = (await log(request)).slice(before);
+      const made = [...sent];
       expect(made[0]).toBe("GET /me/prep/features");
       expect(made.filter((line) => line.includes(DONE))).toEqual([`GET /me/prep/item-state/${DONE}`]);
       expect(made.filter((line) => line.includes(HIDDEN))).toEqual([]);
       expect(made.every((line) => line.startsWith("GET "))).toBe(true);
 
       await page.getByRole("button", { name: /^Module 2 /i }).click();
-      await expect.poll(async () => (await log(request)).slice(before).filter((line) => line.includes(HIDDEN)).length).toBe(1);
+      await expect.poll(() => sent.filter((line) => line.includes(HIDDEN)).length).toBe(1);
    });
 
    test("leaves the mark out of the tab order: the entry links are the only stops, in order", async ({ page }) => {
@@ -90,8 +99,9 @@ test.describe("signed in, M2 on", () => {
          await page.keyboard.press("Tab");
          stops.push(await page.evaluate(() => `${document.activeElement?.tagName}:${(document.activeElement?.textContent ?? "").trim().slice(0, 40)}`));
       }
-      expect(stops[0]).toMatch(/^A:Completed\s*Synthetic Foundations Lesson/);
-      expect(stops[1]).toMatch(/^A:Synthetic Practice Step/);
+      // P8-T30 numbers the Track's items once, so each entry link starts with its numeral.
+      expect(stops[0]).toMatch(/^A:\d*Completed\s*Synthetic Foundations Lesson/);
+      expect(stops[1]).toMatch(/^A:\d*Synthetic Practice Step/);
       expect(stops[2]).toMatch(/^BUTTON:Module 2/);
       expect(await page.locator('[data-slot="entry-leading"] :is(a, button, [tabindex])').count()).toBe(0);
    });
@@ -116,12 +126,12 @@ test.describe("signed in, M2 on", () => {
 test.describe("signed out", () => {
    test.use({ identity: "signed-out" });
 
-   test("shows no mark and makes no request to the item-state API", async ({ page, request }) => {
-      const before = (await log(request)).length;
+   test("shows no mark and makes no request to the item-state API", async ({ page }) => {
+      const sent = own(page);
       await page.goto(`/tracks/${TRACK}`);
       await expect(row(page, /Synthetic Foundations Lesson/)).toBeVisible();
       await page.waitForTimeout(500);
       expect(await page.locator('[data-state="completed"]').count()).toBe(0);
-      expect((await log(request)).slice(before)).toEqual([]);
+      expect(sent).toEqual([]);
    });
 });

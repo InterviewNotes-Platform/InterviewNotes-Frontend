@@ -147,24 +147,21 @@ test("a visitor reaches real content: a Track card opens its Track page", async 
 });
 
 test.describe("Browse Tracks", () => {
-   test("in the hero and at the end of the page lands on the Tracks section", async ({ page }) => {
+   test("in the hero and at the end of the page opens the /tracks page", async ({ page }) => {
       await page.goto("/");
       await hero(page).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL(/\/tracks$/);
 
       await page.goto("/");
       await page.getByRole("region", { name: "Pick a Track and start reading" }).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect(page.locator("#tracks")).toBeInViewport();
+      await expect(page).toHaveURL(/\/tracks$/);
    });
 
-   test("the header's Tracks link lands on the section from another page, and names it by its heading", async ({ page }) => {
+   test("the header's Tracks link opens the /tracks page from another page", async ({ page }) => {
       await page.goto("/knowledge");
       await page.getByRole("banner").getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Tracks" }).click();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect(page.locator("#tracks")).toBeInViewport();
-      await expect(page.getByRole("region", { name: "Choose Your Track" })).toBeVisible();
+      await expect(page).toHaveURL(/\/tracks$/);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
    });
 
    test("no link in the page's main content still sends Track discovery to /learn", async ({ page }) => {
@@ -473,12 +470,15 @@ const header = (page: Page) => page.getByRole("banner");
 const offBy = (page: Page, selector: string) =>
    page.locator(selector).evaluate((el) => Math.round(el.getBoundingClientRect().top - parseFloat(getComputedStyle(el).scrollMarginTop)));
 
-test("the homepage uses the prototype's three self-hosted faces, and the shared header and other routes do not", async ({ page }) => {
+// P8-D-073: the headings take the reader's system serif (P8-D-071) and the mono labels its sans, so Inter is the only web font.
+test("the homepage self-hosts Inter only, sets its headings in the reader's system serif, and the shared header and other routes load no web font", async ({ page }) => {
    await page.goto("/");
    await page.evaluate(() => document.fonts.ready);
    const family = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).fontFamily);
-   const loaded = await page.evaluate(() => [...document.fonts].filter((face) => face.status === "loaded").map((face) => face.family));
-   expect(loaded.length).toBeGreaterThanOrEqual(2); // Newsreader and Inter load for the first view; JetBrains Mono loads on use
+   const faces = await page.evaluate(() => [...document.fonts].map((face) => ({ family: face.family, status: face.status })));
+   expect(faces.filter((face) => face.status === "loaded")).toHaveLength(1);
+   expect(faces.map((face) => face.family).join(" ")).not.toMatch(/Newsreader|JetBrains/i);
+   for (const heading of ["main[data-home] h1", "main[data-home] h2", "main[data-home] h3"]) expect(await family(heading)).toMatch(/^"Iowan Old Style"/);
    expect(await family("main[data-home] p")).not.toBe(await family("[data-site-header] a"));
    const requests: string[] = [];
    page.on("request", (request) => requests.push(request.url()));
@@ -510,11 +510,7 @@ test.describe("smooth scrolling (Lenis, homepage only)", () => {
       await expect(html(page)).not.toHaveClass(/lenis/);
    });
 
-   for (const [name, selector] of [
-      ["Tracks", "#tracks"],
-      ["Pricing", "#pricing"],
-      ["FAQ", "#faq"],
-   ] as const) {
+   for (const [name, selector] of [["FAQ", "#faq"]] as const) {
       test(`the header's ${name} link scrolls with easing, lands the section at its scroll margin, and keeps #${selector.slice(1)} in the URL`, async ({ page }) => {
          await page.goto("/");
          await expect(html(page)).toHaveClass(/\blenis\b/);
@@ -537,16 +533,6 @@ test.describe("smooth scrolling (Lenis, homepage only)", () => {
       });
    }
 
-   test("the hero and closing Browse Tracks actions land on the Tracks section", async ({ page }) => {
-      await page.goto("/");
-      await expect(html(page)).toHaveClass(/\blenis\b/);
-      await hero(page).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
-      await page.evaluate(() => scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
-      await page.getByRole("region", { name: "Pick a Track and start reading" }).getByRole("link", { name: "Browse Tracks" }).click();
-      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
-   });
-
    test("a direct load with a fragment lands on the section", async ({ page }) => {
       await page.goto("/#pricing");
       await expect(html(page)).toHaveClass(/\blenis\b/);
@@ -555,14 +541,13 @@ test.describe("smooth scrolling (Lenis, homepage only)", () => {
 
    test("a link from another route lands on the fragment, and back and forward move through the history", async ({ page }) => {
       await page.goto("/knowledge");
-      await header(page).getByRole("link", { name: "Tracks", exact: true }).first().click();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
+      await header(page).getByRole("link", { name: "FAQ", exact: true }).first().click();
+      await expect(page).toHaveURL(/\/#faq$/);
+      await expect(page.locator("#faq")).toBeInViewport();
       await page.goBack();
       await expect(page).toHaveURL(/\/knowledge$/);
       await page.goForward();
-      await expect(page).toHaveURL(/\/#tracks$/);
-      await expect.poll(() => offBy(page, "#tracks")).toBe(0);
+      await expect(page).toHaveURL(/\/#faq$/);
       await expect(html(page)).toHaveClass(/\blenis\b/);
    });
 

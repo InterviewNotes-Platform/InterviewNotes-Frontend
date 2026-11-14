@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { canonical, expect, item, test } from "./harness";
+import { canonical, expect, item, showStage, test } from "./harness";
 
 // P4-T17 the static Self-review (AC-11, S-RUB-1 … 5, S-SEN-1 … 4, S-LAY-4) on the synthetic P4 Problems: SD carries structured
 // expectations for Senior and Staff and two rubric dimensions; ML carries legacy prose expectations. The lens is deferred (SA-D3).
@@ -21,6 +21,7 @@ const COMMUNICATION = `Show rubric: ${titleOf(SD.id, "rubric-communication")}`;
 
 async function openSelfReview(page: Page) {
    await page.goto(sd);
+   await showStage(page, "Self-review");
    await control(review(page), "Open self-review").click();
 }
 
@@ -39,6 +40,7 @@ test.describe("expectations by seniority (S-SEN-2, S-SEN-4)", () => {
 
    test("legacy prose is shown as authored, with no bar labels and no untargeted lines", async ({ page }) => {
       await page.goto(ml);
+      await showStage(page, "Self-review");
       await control(review(page), "Open self-review").click();
       await expect(main(page).getByText(textOf(ML.id, "level-expectations"))).toBeVisible();
       const group = review(page).getByRole("heading", { level: 3, name: "Expectations by seniority" }).locator("..");
@@ -136,6 +138,7 @@ test.describe("keyboard and without JavaScript (AC-19, AC-22)", () => {
 
          test("Self-review, a dimension and common mistakes open from the keyboard and show the static content", async ({ page }) => {
             await page.goto(sd);
+            await showStage(page, "Self-review");
             for (const name of ["Open self-review", DELIVERY, "Show common mistakes"]) {
                const summary = control(review(page), name);
                await summary.focus();

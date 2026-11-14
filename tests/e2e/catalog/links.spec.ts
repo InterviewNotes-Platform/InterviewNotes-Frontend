@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { P4_DECISION_CANARY, P4_FOLLOW_UP_CANARY, P4_TARGET_ID_CANARY, P4_TARGET_TITLE_CANARY } from "../../leak/canaries";
-import { canonical, expect, item, test } from "./harness";
+import { canonical, expect, item, showStage, test } from "./harness";
 
 // P4-T16 links in presentation (S-DEC, S-FUP, S-ALT, S-LNK-13, S-AX-7) on the synthetic P4 Problems: SD carries decisions, deep
 // dives, a follow-up with a branch, probes lines and alternatives; the premium Problems carry links to withheld targets.
@@ -25,6 +25,7 @@ test.describe("Depth & Trade-offs and the Reference Solution: every unit separat
    test("decisions and deep dives are listed in authored order, and each opens alone", async ({ page }) => {
       await page.goto(sd);
       const depth = band(page, "Depth & Trade-offs");
+      await showStage(page, "Depth & Trade-offs");
       await control(depth, "Compare with the topics").click();
       expect(await headings(depth, 3)).toEqual(["Delivery guarantees", "Ordering", "Queue or direct send?", "How are retries bounded?"]);
 
@@ -39,6 +40,7 @@ test.describe("Depth & Trade-offs and the Reference Solution: every unit separat
    test("the Reference Solution says what it is, opens the design with the alternatives listed after it, and each alternative opens alone", async ({ page }) => {
       await page.goto(sd);
       const solution = band(page, "Reference Solution");
+      await showStage(page, "Reference Solution");
       await expect(solution.getByText("Other designs can be just as strong", { exact: false })).toBeVisible();
       await expect(solution.locator("summary").first()).toHaveText("Show the reference solution");
       await expect(main(page).getByText(textOf(SD.id, "reference-design"))).toBeHidden();
@@ -62,6 +64,7 @@ test.describe("Follow-ups: probes, dimension, branches under their parent, two l
    test("each top-level follow-up says what it probes, in authored order, with a quiet dimension label", async ({ page }) => {
       await page.goto(sd);
       const followUps = band(page, "Follow-ups");
+      await showStage(page, "Follow-ups");
       await control(followUps, "Show the follow-up questions").click();
       expect(await headings(followUps, 3)).toEqual([
          titleOf(SD.id, "follow-up-lag"),
@@ -80,6 +83,7 @@ test.describe("Follow-ups: probes, dimension, branches under their parent, two l
    test("a branch sits under its open parent, closed, and nowhere else; no third level exists", async ({ page }) => {
       await page.goto(sd);
       const followUps = band(page, "Follow-ups");
+      await showStage(page, "Follow-ups");
       const branch = titleOf(SD.id, "follow-up-lag-branch");
       await control(followUps, "Show the follow-up questions").click();
       expect(await headings(followUps, 3)).not.toContain(branch); // not a top-level follow-up
@@ -106,6 +110,7 @@ test.describe("Follow-ups: probes, dimension, branches under their parent, two l
    test("a fragment naming a branch opens its parent and the branch", async ({ page }) => {
       await page.goto(`${sd}#follow-up-lag-branch`);
       const followUps = band(page, "Follow-ups");
+      await showStage(page, "Follow-ups");
       await expect(followUps.getByText(textOf(SD.id, "follow-up-lag"))).toBeVisible();
       await expect(followUps.getByText(textOf(SD.id, "follow-up-lag-branch"))).toBeVisible();
       await expect(followUps.getByText(textOf(SD.id, "follow-up-ordering"))).toBeHidden();
@@ -119,6 +124,7 @@ for (const identity of ["signed-out", "unentitled"] as const) {
       test("a follow-up linking to a withheld decision shows the generic line and the premium mark, and nothing of the decision", async ({ page }) => {
          await page.goto(canonical(UNITS.id));
          const followUps = band(page, "Follow-ups");
+         await showStage(page, "Follow-ups");
          await control(followUps, "Show the follow-up questions").click();
          const note = unit(page, "follow-up-released").locator("p").first();
          await expect(note).toHaveText(`Premium${GENERIC}`);
@@ -136,6 +142,7 @@ for (const identity of ["signed-out", "unentitled"] as const) {
       test("a follow-up under a withheld parent is a top-level follow-up with the same line, while a released parent keeps its branch", async ({ page }) => {
          await page.goto(canonical(FOLLOW_UPS.id));
          const followUps = band(page, "Follow-ups");
+         await showStage(page, "Follow-ups");
          await control(followUps, "Show the follow-up questions").click();
          expect(await headings(followUps, 3)).toEqual([
             titleOf(FOLLOW_UPS.id, "branch-of-withheld"),

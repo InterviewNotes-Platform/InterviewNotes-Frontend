@@ -4,16 +4,13 @@
  */
 export const LEGACY_REDIRECTS: Readonly<Record<string, string>> = {};
 
-const TRACKS_SECTION = "/#tracks";
+/** The Track discovery page (P8-NAV-01); `/tracks` itself is a page, so it is no longer redirected (P8 spec §5). */
+const TRACKS_INDEX = "/tracks";
 
-/** Temporary (307) redirects for `/tracks`, `/learn` and every `/learn/...` path, in match order. */
+/** Temporary (307) redirects for `/learn` and every `/learn/...` path, in match order. Next keeps the query string. */
 export function compatibilityRedirects(approved: Readonly<Record<string, string>> = LEGACY_REDIRECTS) {
    const mapped = Object.entries(approved)
       .sort(([a], [b]) => b.split("/").length - a.split("/").length)
       .map(([key, destination]) => ({ source: `/learn/${key}/:path*`, destination, permanent: false }));
-   return [
-      { source: "/tracks", destination: TRACKS_SECTION, permanent: false },
-      ...mapped,
-      { source: "/learn/:path*", destination: TRACKS_SECTION, permanent: false },
-   ];
+   return [...mapped, { source: "/learn/:path*", destination: TRACKS_INDEX, permanent: false }];
 }

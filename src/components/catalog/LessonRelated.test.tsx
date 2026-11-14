@@ -191,7 +191,7 @@ describe("LessonBreadcrumb", () => {
       const nav = screen.getByRole("navigation", { name: "Breadcrumb" });
       expect(within(nav).getAllByRole("listitem")).toHaveLength(3);
       expect(within(nav).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
-         ["Tracks", "/#tracks"],
+         ["Tracks", "/tracks"],
          ["A Rather Long Home Track Title", "/tracks/home"],
          ["A Rather Long Module Title", "/tracks/home#m"],
       ]);

@@ -1198,7 +1198,8 @@ describe("version conflicts (P7-T21)", () => {
       await act(async () => {});
       fireEvent.click(keepMine());
       await waitFor(() => expect(status()).toBe("Saved"));
-      expect(document.activeElement).toBe(statusRegion());
+      // Focus moves in an effect after the status text, so on a slow runner it can land a tick later.
+      await waitFor(() => expect(document.activeElement).toBe(statusRegion()));
    });
 
    it("focus: loading the server version leaves focus on the status", async () => {

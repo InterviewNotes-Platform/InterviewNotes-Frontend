@@ -55,7 +55,7 @@ export function Disclosure({
                aria-expanded={open}
                aria-controls={panelId}
                onClick={toggle}
-               className="flex min-h-11 w-full items-center gap-4 rounded-md px-2 py-3 text-left transition-micro -outline-offset-2 hover:text-primary"
+               className="flex min-h-11 w-full items-center gap-4 rounded-md px-2 py-3 text-left transition-micro -outline-offset-2 hover:text-[var(--primary-text)]"
             >
                <span className={cn("min-w-0 flex-1 text-balance", compact ? "text-body font-semibold" : "text-subsection")}>{title}</span>
                {detail ? (

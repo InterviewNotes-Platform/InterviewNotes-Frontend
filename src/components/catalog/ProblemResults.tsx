@@ -55,7 +55,7 @@ export function ProblemCount({ count }: { count: number }) {
 }
 
 const NOTICE = "rounded-lg bg-surface px-6 py-12 text-center";
-const NOTICE_LINK = "inline-flex min-h-11 items-center text-body text-primary underline underline-offset-4";
+const NOTICE_LINK = "inline-flex min-h-11 items-center text-body text-[var(--primary-text)] underline underline-offset-4";
 
 /** What an empty list means: nothing published yet, nothing matching the filters, or a stale cursor past the end. */
 export function NoProblems({ query, filtered }: { query: PracticeQuery; filtered: boolean }) {
@@ -97,7 +97,7 @@ export function ProblemPager({ query, next }: { query: PracticeQuery; next: stri
             </Link>
          ) : null}
          {next ? (
-            <Link href={practiceHref({ ...query, cursor: next })} prefetch={false} rel="next" className="ml-auto inline-flex items-center gap-1 font-medium text-primary">
+            <Link href={practiceHref({ ...query, cursor: next })} prefetch={false} rel="next" className="ml-auto inline-flex items-center gap-1 font-medium text-[var(--primary-text)]">
                Next page
                <ArrowRight aria-hidden="true" className="size-4" />
             </Link>

@@ -103,8 +103,9 @@ export function TrackHeader({
    const summary = curriculumSummary(curriculum);
    return (
       <header>
-         <p className="m-0 mb-3 text-supporting font-medium text-muted-foreground">Track</p>
-         <h1 className="m-0 text-title text-balance">{track.title}</h1>
+         <p className="m-0 mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Track</p>
+         {/* P8-D-071: the Track title, module titles and outline numerals are the Track page's only serif display text. */}
+         <h1 className="m-0 text-title font-medium text-balance font-[family-name:var(--font-reader-serif)]">{track.title}</h1>
          {track.summary ? <p className="mt-4 mb-0 text-body text-pretty text-muted-foreground">{track.summary}</p> : null}
          {summary ? (
             <p data-slot="curriculum-summary" className="mt-6 mb-0 text-supporting text-muted-foreground">
@@ -122,15 +123,18 @@ export function TrackHeader({
 }
 
 /** One ordered row. The leading slot has a fixed size; a completed row shows its mark there (P7-T46). */
-function CurriculumEntry({ entry, href, summary }: PlacedEntry & { summary?: string }) {
+function CurriculumEntry({ entry, href, summary, number }: PlacedEntry & { summary?: string; number: number }) {
    const { label, Icon } = STEP[entry.type];
    return (
       <li>
          <Link
             href={href}
             prefetch={false}
-            className="group -mx-2 grid min-h-11 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-surface"
+            className="group -mx-2 grid min-h-11 grid-cols-[2rem_2rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-[var(--reader-brand-soft)]"
          >
+            <span aria-hidden="true" data-slot="curriculum-number" className="text-body text-muted-foreground italic tabular-nums font-[family-name:var(--font-reader-serif)]">
+               {String(number).padStart(2, "0")}
+            </span>
             <EntryLeading contentId={entry.id}>
                <Icon className="size-4" />
             </EntryLeading>
@@ -162,6 +166,8 @@ interface TrackCurriculumProps {
 export function TrackCurriculum({ track, curriculum, summaries, itemState }: TrackCurriculumProps) {
    // A Track with no modules has nothing to outline; the Start state in its header already says so.
    if (curriculum.modules.length === 0) return null;
+   // Items are numbered once across the Track, in curriculum order, so a number never repeats between Modules.
+   const numbers = new Map(curriculum.modules.flatMap(({ rows }) => rows).map(({ entry }, index) => [entry.id, index + 1]));
    const outline = (
       <nav aria-label={`${track.title} outline`} className="border-b border-border">
          {curriculum.modules.map(({ module, rows, counts }, index) => (
@@ -170,7 +176,8 @@ export function TrackCurriculum({ track, curriculum, summaries, itemState }: Tra
                id={moduleFragmentId(module)}
                title={
                   <>
-                     <span className="block text-supporting font-normal text-muted-foreground">Module {index + 1}</span> {module.title}
+                     <span className="block text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Module {index + 1}</span>{" "}
+                     <span className="font-[family-name:var(--font-reader-serif)] text-subsection font-medium">{module.title}</span>
                   </>
                }
                detail={moduleCounts(counts)}
@@ -179,7 +186,12 @@ export function TrackCurriculum({ track, curriculum, summaries, itemState }: Tra
                {rows.length ? (
                   <ol role="list" className="m-0 list-none p-0 pb-4">
                      {rows.map((row) => (
-                        <CurriculumEntry key={row.entry.id} {...row} summary={row.entry.type === "lesson" ? summaries?.get(row.entry.id) : undefined} />
+                        <CurriculumEntry
+                           key={row.entry.id}
+                           {...row}
+                           number={numbers.get(row.entry.id) ?? 0}
+                           summary={row.entry.type === "lesson" ? summaries?.get(row.entry.id) : undefined}
+                        />
                      ))}
                   </ol>
                ) : (

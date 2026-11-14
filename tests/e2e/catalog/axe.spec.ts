@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { canonical, expect, test } from "./harness";
+import { canonical, eachStage, expect, test } from "./harness";
 
 // One page of each P3 reading shape: a Lesson with code and diagrams, a Lesson with Next and Practice, a Track, a Problem placed in a Track.
 const PAGES = [
@@ -58,10 +58,15 @@ for (const colorScheme of ["light", "dark"] as const) {
                   };
                   const closed = await scan("closed");
                   // A hint's next control exists only inside the previous hint, so opening runs until nothing is left closed.
+                  // P8-T29: one stage is shown at a time, so each stage is opened and scanned in turn.
                   const reveals = page.locator("main details:not([open]) > summary").filter({ visible: true });
-                  for (let pass = 0; pass < 40 && (await reveals.count()) > 0; pass++) await reveals.first().click();
-                  await expect(reveals).toHaveCount(0);
-                  expect([...closed, ...(await scan("open"))]).toEqual([]);
+                  const open: string[] = [];
+                  await eachStage(page, async () => {
+                     for (let pass = 0; pass < 40 && (await reveals.count()) > 0; pass++) await reveals.first().click();
+                     await expect(reveals).toHaveCount(0);
+                     open.push(...(await scan("open")));
+                  });
+                  expect([...closed, ...new Set(open)]).toEqual([]);
                });
             }
          });

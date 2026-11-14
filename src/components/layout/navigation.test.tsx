@@ -15,8 +15,8 @@ describe("public navigation", () => {
     it("header links go to Tracks, Knowledge, the homepage Pricing and FAQ sections, and sign-in only", () => {
         render(<Header />);
         const links = hrefs();
-        expect(links).toEqual(expect.arrayContaining(["/#tracks", "/knowledge", "/#pricing", "/#faq"]));
-        for (const href of links) expect(["/", "/#tracks", "/knowledge", "/#pricing", "/#faq", "/login"]).toContain(href);
+        expect(links).toEqual(expect.arrayContaining(["/tracks", "/knowledge", "/pricing", "/#faq"]));
+        for (const href of links) expect(["/", "/tracks", "/knowledge", "/pricing", "/#faq", "/login"]).toContain(href);
     });
 
     it("the Tracks link opens the same place in the header, the mobile menu and the homepage actions", () => {
@@ -30,18 +30,18 @@ describe("public navigation", () => {
         const mobile = within(screen.getByRole("dialog")).getByRole("link", { name: "Tracks" });
         const targets = [desktop, mobile, ...homeTargets];
         expect(new Set(targets.map((a) => a.getAttribute("href")))).toEqual(new Set([TRACKS_ENTRY]));
-        expect(TRACKS_ENTRY).toBe("/#tracks");
+        expect(TRACKS_ENTRY).toBe("/tracks");
     });
 
-    it("header sends Pricing and Premium to the informational pricing section, never to a purchase route", () => {
+    it("header sends Pricing and Premium to the /pricing page, never to a purchase route", () => {
         render(<Header />);
-        for (const name of ["Pricing", "Premium"]) expect(screen.getByRole("link", { name })).toHaveAttribute("href", "/#pricing");
+        for (const name of ["Pricing", "Premium"]) expect(screen.getByRole("link", { name })).toHaveAttribute("href", "/pricing");
         expect(hrefs().filter((h) => /checkout|billing|purchase|subscribe|stripe|payment|practice/i.test(h ?? ""))).toEqual([]);
     });
 
     it("footer links are real routes and expose no dead placeholders", () => {
         render(<Footer />);
-        expect(hrefs()).toEqual(["/", "/#tracks", "/knowledge", "/#pricing", "/#faq", "/privacy"]);
+        expect(hrefs()).toEqual(["/", "/tracks", "/knowledge", "/pricing", "/#faq", "/privacy"]);
         for (const href of hrefs()) expect(href).not.toMatch(/^\/learn/);
         // The one legal link is the real Privacy & AI Use route (P7-T35); P7 has no Terms of Service page.
         expect(screen.getByRole("link", { name: "Privacy & AI Use" })).toHaveAttribute("href", "/privacy");

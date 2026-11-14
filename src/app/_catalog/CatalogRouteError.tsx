@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
+import { TRACKS_INDEX_HREF } from "@/lib/primary-navigation";
 
 /** What a reader sees when a catalog page throws while rendering. Item states (404, 410, 401, 402, 5xx) never reach it: they are `CatalogStateNotice`. */
 export function CatalogRouteError({ retry }: { retry: () => void }) {
@@ -17,7 +18,7 @@ export function CatalogRouteError({ retry }: { retry: () => void }) {
                      Try again
                   </Button>
                   <Button asChild variant="outline" className="h-8 text-sm">
-                     <Link href="/#tracks">Browse Tracks</Link>
+                     <Link href={TRACKS_INDEX_HREF}>Browse Tracks</Link>
                   </Button>
                </div>
             </div>
