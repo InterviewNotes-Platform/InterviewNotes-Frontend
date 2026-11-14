@@ -45,7 +45,7 @@
   --color-home-raised: var(--home-raised);
   --color-home-sky: var(--home-sky);
   --color-home-sky-2: var(--home-sky-2);
-  --font-home-heading: var(--font-home-serif), Georgia, serif;
+  --font-home-heading: var(--home-serif);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -250,21 +250,21 @@
  * --premium the text-safe tone for access signalling. --home-edge is the 3:1 boundary of a butter control on the light page.
  */
 :root:has([data-home]) {
-  --background: #f3f5f7;
-  --foreground: #1e2a36;
-  --surface: #e9eef2;
-  --card: #ffffff;
-  --card-foreground: #1e2a36;
-  --popover: #ffffff;
-  --popover-foreground: #1e2a36;
+  --background: #fbf8f1;
+  --foreground: #1c1915;
+  --surface: #f4eee3;
+  --card: #fffdf8;
+  --card-foreground: #1c1915;
+  --popover: #fffdf8;
+  --popover-foreground: #1c1915;
   --primary: #4b6f93;
   --primary-text: #35597d;
   --primary-foreground: #ffffff;
-  --secondary: #e9eef2;
-  --secondary-foreground: #1e2a36;
-  --muted: #e9eef2;
-  --muted-foreground: #526070;
-  --border: #d5dde4;
+  --secondary: #f4eee3;
+  --secondary-foreground: #1c1915;
+  --muted: #f4eee3;
+  --muted-foreground: #675e53;
+  --border: #e2d9c9;
   --ring: #35597d;
   --gold: #f2db8c;
   --gold-foreground: #1e2a36;
@@ -272,14 +272,19 @@
   --premium: #7a5400;
 
   --home-edge: #6b7c8c;
-  --home-sky-a: #dbe6ef;
-  --home-sky-b: #f3f5f7;
+  --home-line: #e2d9c9;
+  --home-rule: #d6cab6;
+  --home-mist: #e2d9c9;
+  --home-raised: #fffdf8;
+  --home-editorial: #8a2416;
+  --home-sky-a: #f1ece2;
+  --home-sky-b: #fbf8f1;
   --home-hill-sky: #9fb3c8bf;
   --home-hill-sun: #f2db8ce6;
-  --home-hill-mist: #d5dde4;
-  --home-hill-top: #ffffff;
+  --home-hill-mist: #e2d9c9;
+  --home-hill-top: #fbf8f1;
   --home-window-shadow: 0 30px 80px rgb(30 42 54 / 0.16), 0 2px 6px rgb(30 42 54 / 0.06);
-  --home-sh: 30 42 54;
+  --home-sh: 40 30 15;
   --home-shine: 0.75;
   --home-ring: #f2db8c;
   --home-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -287,21 +292,21 @@
 }
 
 .dark:has([data-home]) {
-  --background: #111110;
-  --foreground: #eeeeec;
-  --surface: #191918;
-  --card: #191918;
-  --card-foreground: #eeeeec;
-  --popover: #191918;
-  --popover-foreground: #eeeeec;
+  --background: #1a1612;
+  --foreground: #ece5d8;
+  --surface: #221d17;
+  --card: #221d17;
+  --card-foreground: #ece5d8;
+  --popover: #221d17;
+  --popover-foreground: #ece5d8;
   --primary: #7f93a8;
   --primary-text: #a9bccf;
-  --primary-foreground: #111110;
-  --secondary: #222221;
-  --secondary-foreground: #eeeeec;
-  --muted: #222221;
-  --muted-foreground: #a09e97;
-  --border: #2a2a28;
+  --primary-foreground: #12100d;
+  --secondary: #221d17;
+  --secondary-foreground: #ece5d8;
+  --muted: #221d17;
+  --muted-foreground: #a99d8c;
+  --border: #342c24;
   --ring: #a9bccf;
   --gold: #e8d28a;
   --gold-foreground: #1c1b17;
@@ -309,12 +314,17 @@
   --premium: #e8d28a;
 
   --home-edge: #e8d28a;
-  --home-sky-a: #1f1f1d;
-  --home-sky-b: #111110;
+  --home-line: #342c24;
+  --home-rule: #3d342a;
+  --home-mist: #2a231c;
+  --home-raised: #221d17;
+  --home-editorial: #f0937a;
+  --home-sky-a: #12100d;
+  --home-sky-b: #1a1612;
   --home-hill-sky: rgb(127 147 168 / 0.2);
   --home-hill-sun: rgb(232 210 138 / 0.45);
-  --home-hill-mist: #1a1a19;
-  --home-hill-top: #191918;
+  --home-hill-mist: #221d17;
+  --home-hill-top: #221d17;
   --home-window-shadow: 0 30px 80px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
   --home-sh: 0 0 0;
   --home-shine: 0.1;
@@ -413,12 +423,24 @@
   [data-reader][data-reader-sidebar-state="auto"] [data-reader-rail-icon] { display: none; }
 }
 
-/* The prototype's faces apply inside <main data-home> only (Inter for text, JetBrains Mono for labels); other routes keep the system stacks. */
+/* Faces inside <main data-home> only (P8-D-073): Inter for text, the reader's system serif (P8-D-071) for h1-h3, and the
+   reader's tracked sans where the page had mono labels. Other routes keep the system stacks. */
 [data-home] {
+  --home-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   --font-geist-sans: var(--font-home-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-geist-mono: var(--font-home-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-geist-mono: ui-sans-serif, -apple-system, "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
   font-family: var(--font-geist-sans);
 }
+
+main[data-home] :is(h1, h2, h3) { font-family: var(--home-serif); }
+main[data-home] :is(h2, h3) { font-weight: 500; letter-spacing: -0.012em; }
+
+/* P8-D-073: section eyebrows take the reader's burgundy (Pricing keeps its premium tone, owner 2026-11-14); the primary
+   actions (both Browse Tracks, the header's Sign in) brand blue. */
+main[data-home] p.font-mono { font-weight: 600; letter-spacing: 0.12em; }
+main[data-home] p.font-mono:not(.text-premium) { color: var(--home-editorial); }
+main[data-home] a.home-btn.bg-foreground,
+:root:has([data-home]) [data-site-header] a.bg-foreground { background: var(--primary-text); color: var(--primary-foreground); }
 
 /* The shared header and mobile menu, restyled inside the homepage scope only; the header keeps its 64px + 1px border. */
 :root:has([data-home]) [data-site-header] {
