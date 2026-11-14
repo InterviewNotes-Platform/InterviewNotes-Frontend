@@ -8,16 +8,16 @@ export const SCROLL_OFFSET = 112;
 const LINE = SCROLL_OFFSET + 8;
 
 /** The last heading at or above the line, in document order; none before the first heading. Deterministic however many cross at once. */
-export function activeHeading(tops: readonly { id: string; top: number }[]): string | null {
-   return tops.reduce<string | null>((active, { id, top }) => (top <= LINE ? id : active), null);
+export function activeHeading(tops: readonly { id: string; top: number }[], line = LINE): string | null {
+   return tops.reduce<string | null>((active, { id, top }) => (top <= line ? id : active), null);
 }
 
 /**
  * Which heading the reader is in, from the page's own headings: an IntersectionObserver wakes it when one
- * crosses the line, and it then reads each position once. No scroll listener, no request. `choose` records a
+ * crosses the line, and it then reads each position once; `scrollend` re-reads once after a long jump. No request. `choose` records a
  * jump at once; the observer takes over as the page settles.
  */
-export function useActiveHeading(ids: readonly string[]) {
+export function useActiveHeading(ids: readonly string[], line = LINE) {
    const [active, choose] = useState<string | null>(null);
    const key = ids.join("\n");
 
@@ -25,11 +25,17 @@ export function useActiveHeading(ids: readonly string[]) {
       if (!("IntersectionObserver" in window)) return;
       const targets = key.split("\n").flatMap((id) => document.getElementById(id) ?? []);
       if (targets.length === 0) return;
-      const read = () => choose(activeHeading(targets.map((element) => ({ id: element.id, top: element.getBoundingClientRect().top }))));
-      const observer = new IntersectionObserver(read, { rootMargin: `-${LINE}px 0px 0px 0px`, threshold: [0, 1] });
+      const read = () => choose(activeHeading(targets.map((element) => ({ id: element.id, top: element.getBoundingClientRect().top })), line));
+      const observer = new IntersectionObserver(read, { rootMargin: `-${line}px 0px 0px 0px`, threshold: [0, 1] });
       targets.forEach((element) => observer.observe(element));
-      return () => observer.disconnect();
-   }, [key]);
+      // A long jump can carry headings from below the viewport to above it without any crossing being observed; one read at
+      // the end of each scroll (not per frame) settles it.
+      window.addEventListener("scrollend", read);
+      return () => {
+         observer.disconnect();
+         window.removeEventListener("scrollend", read);
+      };
+   }, [key, line]);
 
    return [active, choose] as const;
 }

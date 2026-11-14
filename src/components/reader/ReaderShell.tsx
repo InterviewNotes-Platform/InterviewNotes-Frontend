@@ -11,7 +11,7 @@ import type { TrackSidebarOutline } from "@/lib/catalog/outline";
 import { inertPage } from "@/lib/inertPage";
 import { readerOrientation, type ReaderAccess, type ReaderMode, type ReaderSurface } from "@/lib/reader/shellPolicy";
 import { cn } from "@/lib/utils";
-import { ReaderModeProvider, useMediaQuery } from "./readerState";
+import { ReaderModeProvider, ToolsSheetProvider, useMediaQuery } from "./readerState";
 
 /** One shell per page, so the sidebar's id is fixed. */
 const SIDEBAR_ID = "reader-track-sidebar";
@@ -76,6 +76,12 @@ function ModeControl({ mode, onChange }: { mode: ReaderMode; onChange: (mode: Re
 function ToolsSheet({ tools }: { tools: ReactNode }) {
    const [open, setOpen] = useState(false);
    const release = useRef<() => void>(undefined);
+   // A tool that moves the reader (Go to source) closes the sheet first and acts once focus would return (P8-T27).
+   const after = useRef<() => void>(undefined);
+   const closeThen = (next: () => void) => {
+      after.current = next;
+      change(false);
+   };
    function change(next: boolean) {
       release.current?.();
       release.current = next ? inertPage() : undefined;
@@ -90,12 +96,24 @@ function ToolsSheet({ tools }: { tools: ReactNode }) {
                Study tools
             </button>
          </SheetTrigger>
-         <SheetContent side="right" className="gap-0 motion-reduce:animate-none">
+         <SheetContent
+            side="right"
+            className="gap-0 motion-reduce:animate-none"
+            onCloseAutoFocus={(event) => {
+               const next = after.current;
+               if (!next) return;
+               after.current = undefined;
+               event.preventDefault();
+               next();
+            }}
+         >
             <SheetHeader className="min-h-16 justify-center border-b px-6 py-3 pr-16">
                <SheetTitle className="text-body">Study tools</SheetTitle>
                <SheetDescription className="sr-only">Tools for the page you are reading</SheetDescription>
             </SheetHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{tools}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+               <ToolsSheetProvider value={closeThen}>{tools}</ToolsSheetProvider>
+            </div>
          </SheetContent>
       </Sheet>
    );

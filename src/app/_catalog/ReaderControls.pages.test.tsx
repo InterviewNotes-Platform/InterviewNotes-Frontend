@@ -17,6 +17,7 @@ vi.mock("@/lib/supabase/client", () => ({
 import { forgetItemStateAvailability } from "@/components/prepare/reader/itemStateAvailable";
 import type { CatalogItem } from "@/lib/catalog/types";
 import { createFakePrepApi } from "@/lib/prep/fakeApi";
+import { ReaderModeProvider } from "@/components/reader/readerState";
 import { KnowledgePage } from "./KnowledgePage";
 import { LessonPage } from "./LessonPage";
 import { ProblemPage } from "./ProblemPage";
@@ -29,7 +30,12 @@ const item = (id: string, over: Partial<CatalogItem> = {}): CatalogItem => {
    } as CatalogItem;
 };
 const PAGES = {
-   lesson: () => <LessonPage item={item("lesson.sample")} navigation={null} stayOnDeployment={false} />,
+   // The Lesson reads its Study/Read mode from the reader shell it is always mounted in (P8-T27).
+   lesson: () => (
+      <ReaderModeProvider mode="study">
+         <LessonPage item={item("lesson.sample")} navigation={null} stayOnDeployment={false} />
+      </ReaderModeProvider>
+   ),
    problem: () => <ProblemPage item={item("problem.sample")} navigation={null} stayOnDeployment={false} />,
    knowledge: () => <KnowledgePage item={item("knowledge.sample", { body: null })} navigation={null} stayOnDeployment={false} />,
 };

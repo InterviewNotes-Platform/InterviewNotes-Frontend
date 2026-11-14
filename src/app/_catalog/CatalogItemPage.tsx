@@ -14,7 +14,7 @@ import type { CatalogItemType, CatalogMeta } from "@/lib/catalog/types";
 import type { ReaderSurface } from "@/lib/reader/shellPolicy";
 import { CatalogStateNotice } from "./CatalogStateNotice";
 import { KnowledgePage } from "./KnowledgePage";
-import { LessonPage } from "./LessonPage";
+import { LessonPage, lessonTools } from "./LessonPage";
 import { PreviewMarker, withPreviewRobots } from "./PreviewMarker";
 import { ProblemPage } from "./ProblemPage";
 
@@ -54,7 +54,7 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
       return (
          <>
             <PreviewMarker />
-            <ReaderShell access="readable" surface={SURFACE[type]} outline={outline} expandWide={type === "lesson"}>
+            <ReaderShell access="readable" surface={SURFACE[type]} outline={outline} expandWide={type === "lesson"} tools={type === "lesson" ? lessonTools(result.data) : undefined}>
                <Page item={result.data} navigation={navigation} stayOnDeployment={isPreview()} />
             </ReaderShell>
          </>

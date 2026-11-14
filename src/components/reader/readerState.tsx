@@ -61,6 +61,14 @@ export function ReaderToolStoreProvider({ children }: { children: ReactNode }) {
    );
 }
 
+/** Closes the Study tools sheet, then runs `after` once the page is interactive again; null where the tools are not in a sheet. */
+export type CloseToolsSheet = (after: () => void) => void;
+const ToolsSheetContext = createContext<CloseToolsSheet | null>(null);
+export const ToolsSheetProvider = ToolsSheetContext.Provider;
+export function useToolsSheet(): CloseToolsSheet | null {
+   return useContext(ToolsSheetContext);
+}
+
 /** The reading mode of one page's shell; it does not carry across pages. */
 export function ReaderModeProvider({ mode, children }: { mode: ReaderMode; children: ReactNode }) {
    return <ModeContext.Provider value={mode}>{children}</ModeContext.Provider>;
