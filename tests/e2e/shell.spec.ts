@@ -172,11 +172,12 @@ test.describe("retired /learn", () => {
       await expect(primary(page).getByRole("link")).toHaveText(NAMES);
    });
 
-   test("/learn, a legacy chapter and /tracks all end on the homepage Tracks section", async ({ page }) => {
+   // P8-T30 (P8 spec §5): /tracks is a page, and /learn/* redirects to it.
+   test("/learn and a legacy chapter end on the /tracks page, which is a page of its own", async ({ page }) => {
       for (const route of ["/learn", `/learn/${legacyCourse.slug}/${freeChapter.slug}`, "/tracks"]) {
          await page.goto(route);
-         await expect(page, route).toHaveURL("/#tracks");
-         await expect(page.locator("#tracks"), route).toBeInViewport();
+         await expect(page, route).toHaveURL("/tracks");
+         await expect(page.getByRole("heading", { level: 1 }), route).toHaveText("Learn in order, one Track at a time.");
       }
    });
 

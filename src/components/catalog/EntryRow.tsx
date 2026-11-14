@@ -43,13 +43,13 @@ export function EntryRow({ entry, href, current = false, currentLabel, prefetch 
                href={href}
                prefetch={entry.access === "premium" ? false : prefetch}
                aria-current={current ? "page" : undefined}
-               className={cn("text-body font-medium transition-micro hover:text-primary", current ? "text-primary" : "text-foreground")}
+               className={cn("text-body font-medium transition-micro hover:text-[var(--primary-text)]", current ? "text-[var(--primary-text)]" : "text-foreground")}
             >
                {entry.title}
             </Link>
             <span className="text-supporting text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
             {entry.access === "premium" ? <PremiumMark /> : null}
-            {current && currentLabel ? <span className="text-supporting font-medium text-primary">{currentLabel}</span> : null}
+            {current && currentLabel ? <span className="text-supporting font-medium text-[var(--primary-text)]">{currentLabel}</span> : null}
          </div>
          {entry.summary ? <p className="mt-1 mb-0 text-supporting text-muted-foreground">{entry.summary}</p> : null}
       </li>

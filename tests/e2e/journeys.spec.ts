@@ -61,10 +61,14 @@ test.describe("on a desktop", () => {
       await expect(h1(page)).toHaveText(FIRST.title);
 
       const sidebar = page.getByRole("navigation", { name: "Track contents" });
+      // P8-T26: at 1280 px the reader shell's Track sidebar starts as a collapsed rail; one click expands it.
+      await page.getByRole("button", { name: "Expand Track sidebar" }).click();
       await expect(sidebar.locator('[aria-current="page"]')).toHaveAttribute("href", canonical(FIRST.id));
       await sidebar.getByRole("link", { name: SECOND.title }).click();
       await expect(page).toHaveURL(canonical(SECOND.id));
       await expect(h1(page)).toHaveText(SECOND.title);
+      // P8-T26: the next page's shell starts collapsed again at 1280 px.
+      await page.getByRole("button", { name: "Expand Track sidebar" }).click();
       await expect(sidebar.locator('[aria-current="page"]')).toHaveAttribute("href", canonical(SECOND.id));
    });
 

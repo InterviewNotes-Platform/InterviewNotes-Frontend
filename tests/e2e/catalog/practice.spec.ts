@@ -387,7 +387,8 @@ test.describe("Practice in a preview deployment", () => {
       const mine = async (request: APIRequestContext, since: number) =>
          (await log(request))
             .slice(since)
-            .filter((entry) => entry.query.includes("type=problem") || entry.path.includes("p2-t7-"))
+            // P8-T30's /tracks reads Track outlines named p2-t7-* on the same double, so only item reads are attributed here.
+            .filter((entry) => entry.query.includes("type=problem") || (entry.path.startsWith("/catalog/items/") && entry.path.includes("p2-t7-")))
             .map(({ path, query: q }) => `${path}?${q}`);
 
       test("a page is two list reads (capped Topic scan, then one page of Problems), and no Problem is ever fetched", async ({ page, request }) => {

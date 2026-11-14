@@ -212,7 +212,8 @@ test.describe("production deployment", () => {
          await expect(heading(page)).toHaveText(title);
          if (reveal) await page.getByRole("main").locator("summary", { hasText: reveal }).click();
          await expect(page.getByRole("main").getByText(content)).toBeVisible();
-         await expect(page.getByRole("complementary")).toHaveCount(0);
+         // The P8-T26 reader shell has its own landmarks (Track navigation, Study tools); only the Preview marker must be absent.
+         await expect(page.getByRole("complementary", { name: "Preview" })).toHaveCount(0);
          await expect(page.getByText(MARKER_TEXT)).toHaveCount(0);
          await expect(robots(page)).toHaveCount(0);
 

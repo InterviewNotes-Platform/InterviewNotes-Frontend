@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { P4_FOLLOW_UP_CANARY } from "../../leak/canaries";
-import { canonical, expect, item, test } from "./harness";
+import { canonical, expect, item, showStage, test } from "./harness";
 
 // P4-T15 hint sequences (S-HNT-5 … 9) on the synthetic P4 Problems: SD carries hints in a narrative stage and in both unit
 // stages; STAGES has a free hint over a withheld follow-up (X-1).
@@ -22,6 +22,7 @@ test.describe("hints open one at a time, in authored order (AC-6, S-HNT-6)", () 
    test("a stage's hints: one closed control, the next only inside the previous hint, the others untouched", async ({ page }) => {
       await page.goto(sd);
       const design = band(page, "Design");
+      await showStage(page, "Design");
       const first = textOf(SD.id, "hint-design-1");
       const second = textOf(SD.id, "hint-design-2");
 
@@ -54,6 +55,7 @@ test.describe("hints open one at a time, in authored order (AC-6, S-HNT-6)", () 
       await page.goto(sd);
       await expect(main(page).getByText(EXPLANATION)).toHaveCount(1);
       await expect(band(page, "Frame").getByText(EXPLANATION)).toBeVisible();
+      await showStage(page, "Design");
       await control(band(page, "Design"), "Show a hint").click();
       await expect(main(page).getByText(EXPLANATION)).toHaveCount(1);
    });
@@ -61,6 +63,7 @@ test.describe("hints open one at a time, in authored order (AC-6, S-HNT-6)", () 
    test("a unit's hints sit between its heading and its body control, and its body opens no hint", async ({ page }) => {
       await page.goto(sd);
       const depth = band(page, "Depth & Trade-offs");
+      await showStage(page, "Depth & Trade-offs");
       await control(depth, "Compare with the topics").click();
       const heading = depth.getByRole("heading", { name: "Delivery guarantees", level: 3 });
       const hints = control(depth, "Show a hint, hint 1 for Delivery guarantees");
@@ -88,6 +91,7 @@ test.describe("hints open one at a time, in authored order (AC-6, S-HNT-6)", () 
 
    test("a reload returns every sequence to closed, with nothing kept", async ({ page }) => {
       await page.goto(sd);
+      await showStage(page, "Design");
       await control(band(page, "Design"), "Show a hint").click();
       await page.reload();
       expect(await openCount(page)).toBe(0);
@@ -102,6 +106,7 @@ for (const identity of ["signed-out", "unentitled"] as const) {
       test("sits in the stage's own sequence and shows nothing about its target", async ({ page }) => {
          await page.goto(stages);
          const followUps = band(page, "Follow-ups");
+         await showStage(page, "Follow-ups");
          await expect(followUps.getByText("Some material in this stage is included with full access.")).toBeVisible();
          await expect(followUps.locator("summary")).toHaveText(["Show a hint, hint 1 for Follow-ups"]); // no list: its only follow-up is withheld
 
@@ -122,6 +127,7 @@ for (const identity of ["signed-out", "unentitled"] as const) {
       test("hints over withheld references in a narrative stage are still that stage's one sequence", async ({ page }) => {
          await page.goto(stages);
          const design = band(page, "Design");
+         await showStage(page, "Design");
          await expect(design.locator("summary")).toHaveText(["Show a hint, hint 1 for Design", "Show the next hint, hint 2 for Design"]);
          await control(design, "Show a hint").click();
          await control(design, "Show the next hint").click();
@@ -137,6 +143,7 @@ test.describe("without JavaScript (AC-22, S-RVL-12b)", () => {
    test("each hint opens in order from the keyboard, the next control existing only once the previous is shown", async ({ page }) => {
       await page.goto(sd);
       const design = band(page, "Design");
+      await showStage(page, "Design");
       const first = control(design, "Show a hint");
       for (let stop = 0; stop < 80 && !(await first.evaluate((element) => element === document.activeElement)); stop++) await page.keyboard.press("Tab");
       await expect(first).toBeFocused();

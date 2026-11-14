@@ -40,7 +40,7 @@ export function Everything({ announce, beside }: { announce: (message: string) =
             announce(everything ? EVERYTHING.hidden : EVERYTHING.shown);
          }}
          className={cn(
-            "flex min-h-11 w-full cursor-pointer items-center rounded-sm text-supporting font-semibold text-foreground transition-micro hover:text-primary",
+            "flex min-h-11 w-full cursor-pointer items-center rounded-sm text-supporting font-semibold text-foreground transition-micro hover:text-[var(--primary-text)]",
             beside ? "xl:min-h-0 xl:py-1.5" : "lg:min-h-0 lg:py-1.5"
          )}
       >

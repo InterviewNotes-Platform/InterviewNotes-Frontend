@@ -97,18 +97,29 @@ test.describe("signed in, M2 on", () => {
    });
 });
 
+// The browser calls the item-state API itself, so a test counts its own page's requests there; the double's log is shared
+// by every test running at the same time, so it cannot say which page made a request.
+const own = (page: Page) => {
+   const sent: string[] = [];
+   page.on("request", (made) => {
+      const url = new URL(made.url());
+      if (url.origin === ITEM_API_ORIGIN) sent.push(`${made.method()} ${url.pathname}`);
+   });
+   return sent;
+};
+
 test.describe("signed out", () => {
    test.use({ identity: "signed-out" });
 
    for (const id of [LESSON, PROBLEM]) {
-      test(`${id}: no control, no learner state in the page, no request to the item-state API`, async ({ page, request }) => {
-         const before = (await log(request)).length;
+      test(`${id}: no control, no learner state in the page, no request to the item-state API`, async ({ page }) => {
+         const sent = own(page);
          await page.goto(canonical(id));
          await expect(page.locator("h1").first()).toBeVisible();
          await page.waitForTimeout(500);
          await expect(controls(page)).toHaveCount(0);
          expect(await page.locator("[data-reader-controls]").count()).toBe(0);
-         expect((await log(request)).slice(before)).toEqual([]);
+         expect(sent).toEqual([]);
       });
    }
 });

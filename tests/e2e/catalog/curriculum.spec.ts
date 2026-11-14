@@ -26,8 +26,9 @@ const cases: { name: string; id: string; previous: Side; next: Side; premiumNext
 ];
 
 // A Problem keeps the paired steps; a Lesson has Next in its close and a quiet Previous in the Curriculum block (P3-T5).
+// P8-T27: a Lesson's Previous moved from the Curriculum block to the "Previous in <Track>" card at the end of the page.
 const scopeOf = (page: Page, id: string, label: "Previous lesson" | "Next lesson") =>
-   id.startsWith("problem.") ? steps(page) : page.getByRole("navigation", { name: label === "Next lesson" ? /^Next in / : "Curriculum" });
+   id.startsWith("problem.") ? steps(page) : page.getByRole("navigation", { name: label === "Next lesson" ? /^Next in / : /^Previous in / });
 
 for (const { name, id, previous, next, premiumNext } of cases) {
    test(name, async ({ page }) => {

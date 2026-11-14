@@ -40,6 +40,8 @@ test("a level closes with Other levels and Back to Track, never Next, Previous o
 test("the Track sidebar lists the levels in order and marks only the current one (S6-RDR-16)", async ({ page }) => {
    await page.setViewportSize({ width: 1280, height: 900 });
    await page.goto(canonical(ids[2]));
+   // P8-T26: below 1440 px the reader shell's Track sidebar starts as a collapsed rail; one click expands it.
+   await page.getByRole("button", { name: "Expand Track sidebar" }).click();
    const sidebar = page.getByRole("navigation", { name: "Track contents" });
    await expect(sidebar.getByRole("link").filter({ hasNotText: levels.title })).toHaveText(ids.map((id) => item(id).title));
    await expect(sidebar.locator('[aria-current="page"]')).toHaveCount(1);
@@ -47,8 +49,9 @@ test("the Track sidebar lists the levels in order and marks only the current one
    await expect(page.getByText(`Full outline of ${levels.title}`)).toBeHidden();
 });
 
-test("below 1024px the outline keeps the levels in order and marks only the current one", async ({ page }) => {
-   await page.setViewportSize({ width: 800, height: 900 });
+test("below 768px the outline keeps the levels in order and marks only the current one", async ({ page }) => {
+   // P8-T26: from 768 px the shell's rail replaces the Full outline disclosure, which now shows only below 768 px.
+   await page.setViewportSize({ width: 700, height: 900 });
    await page.goto(canonical(ids[2]));
    await page.getByText(`Full outline of ${levels.title}`).click();
    const outline = page.getByRole("navigation", { name: `${levels.title} outline` });

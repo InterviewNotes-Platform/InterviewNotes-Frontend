@@ -336,11 +336,21 @@ test.describe("every P4 interaction leaves no trace and asks the server for noth
                const requested = traffic.requests.length;
 
                const closed = page.locator("main details:not([open]) > summary").filter({ visible: true });
+               // P8-T29: one stage is shown at a time, so every stage is visited through the stage bar, which must itself
+               // write and fetch nothing (S-RVL-10).
+               const stages = page.getByRole("navigation", { name: "Problem stages" }).getByRole("button");
+               const visits = Math.max(await stages.count(), 1);
                let pressed = 0;
-               // A hint's next control and a branch exist only inside their parent, so pressing runs until nothing visible is closed.
-               for (; pressed < 60 && (await closed.count()) > 0; pressed++) await closed.first().click();
+               for (let visit = 0; visit < visits; visit++) {
+                  if ((await stages.count()) > 0) {
+                     await page.evaluate(() => window.scrollTo(0, 0));
+                     await stages.nth(visit).click();
+                  }
+                  // A hint's next control and a branch exist only inside their parent, so pressing runs until nothing visible is closed.
+                  for (let here = 0; here < 60 && (await closed.count()) > 0; here++, pressed++) await closed.first().click();
+                  await expect(closed).toHaveCount(0);
+               }
                expect(pressed, "the Problem offers reveals").toBeGreaterThan(0);
-               await expect(closed).toHaveCount(0);
                const everything = page.getByRole("button", { name: /^(Show|Hide) everything$/ });
                await expect(everything).toHaveCount(1);
                for (let press = 0; press < 3; press++) await everything.click();
