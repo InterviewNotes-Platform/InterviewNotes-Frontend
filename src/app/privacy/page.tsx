@@ -119,7 +119,8 @@ export default function PrivacyPage() {
                         We store the item&apos;s ID with these, not its text. The workspace uses them to show your own Continue
                         card and bookmarks back to you. Knowledge entries are not included. Your progress is associated
                         with your account and is not visible to other learners. We don&apos;t sell or share it, we don&apos;t
-                        put your notes in our logs and we don&apos;t send a note to an AI feature.
+                        put your notes in our logs and we don&apos;t send a Lesson or Problem note to an AI feature. (The
+                        &ldquo;notes&rdquo; that Draft uses are the text in an answer&apos;s editor, described under AI features.)
                      </p>
                      <p>
                         Unmarking an item or clearing a note empties that field; the item&apos;s record, including the time
@@ -190,23 +191,33 @@ export default function PrivacyPage() {
                      </p>
                   </Subsection>
 
-                  <Subsection title="What is sent">
-                     <p>Each request carries our instructions for the task, plus:</p>
+                  <Subsection title="What is sent when you use AI features">
+                     <p>Each request carries our instructions for the task, plus what is listed here.</p>
                      <ul>
                         <li>
-                           <strong className="text-foreground">Draft:</strong> the question, its guidance (from the Lesson,
-                           or a company collection&apos;s explanation), the format you chose (STAR or free form), your notes and
-                           up to five stories you selected.
+                           <strong className="text-foreground">Draft:</strong> We send the question, your selected answer
+                           format (STAR or free form), and the text currently entered in that answer&apos;s editor. This
+                           includes text you have typed but not yet saved. The Draft button refers to this editor text as
+                           &ldquo;your notes.&rdquo;
                         </li>
                         <li>
-                           <strong className="text-foreground">Review:</strong> the question, its guidance, the format, your
-                           answer text and up to five stories you selected.
+                           <strong className="text-foreground">Review:</strong> We send the question, your selected answer
+                           format, and the answer text submitted for review.
+                        </li>
+                        <li>
+                           <strong className="text-foreground">Lesson and Problem notes:</strong> Personal notes you save
+                           while reading Lessons or Problems are not included in AI requests.
+                        </li>
+                        <li>
+                           <strong className="text-foreground">Guidance and Story Bank stories:</strong> We currently do not
+                           include the question&apos;s guidance or your selected Story Bank stories in Draft or Review requests.
                         </li>
                      </ul>
                      <p>
                         Nothing else you&apos;ve saved is read for the request. Our servers don&apos;t keep the text of the request or
                         the response, and our logs don&apos;t contain your text.
                      </p>
+                     <p>AI requests are processed according to the AI privacy and retention disclosures elsewhere on this page.</p>
                   </Subsection>
 
                   <Subsection title="Which provider processes it">
