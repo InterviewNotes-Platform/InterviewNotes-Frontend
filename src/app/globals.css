@@ -403,6 +403,53 @@
   --reader-accent-ink: #f0937a;
 }
 
+/*
+ * Pricing identity (P8-T32): the reader's warm palette values for /pricing only, in a scope of its own so that /pricing is not
+ * a reader route and P8-D-072's reader scope is not widened. Same values as [data-reader]; no reader-only variables.
+ */
+:root:has([data-pricing]) {
+  --background: #fbf8f1;
+  --foreground: #1c1915;
+  --surface: #f4eee3;
+  --card: #fbf8f1;
+  --card-foreground: #1c1915;
+  --primary: #4b6f93;
+  --primary-text: #35597d;
+  --primary-foreground: #ffffff;
+  --secondary: #f4eee3;
+  --secondary-foreground: #1c1915;
+  --muted: #f4eee3;
+  --muted-foreground: #675e53;
+  --border: #e2d9c9;
+  --ring: #35597d;
+  --gold: #f2db8c;
+  --gold-foreground: #1e2a36;
+  --premium: #7a5400;
+}
+
+.dark:has([data-pricing]) {
+  --background: #1a1612;
+  --foreground: #ece5d8;
+  --surface: #221d17;
+  --card: #1a1612;
+  --card-foreground: #ece5d8;
+  --primary: #7f93a8;
+  --primary-text: #a9bccf;
+  --primary-foreground: #12100d;
+  --secondary: #221d17;
+  --secondary-foreground: #ece5d8;
+  --muted: #221d17;
+  --muted-foreground: #a99d8c;
+  --border: #342c24;
+  --ring: #a9bccf;
+  --gold: #e8d28a;
+  --gold-foreground: #1c1b17;
+  --premium: #e8d28a;
+}
+
+[data-pricing] { background: #f1ece2; color: var(--foreground); }
+.dark [data-pricing] { background: #12100d; }
+
 /* The shell: paper or desk behind the page, a brand rule under the global header and the top bar. */
 [data-reader] { background: var(--reader-paper); color: var(--foreground); }
 [data-reader][data-reader-surface="desk"] { background: var(--reader-desk); }
