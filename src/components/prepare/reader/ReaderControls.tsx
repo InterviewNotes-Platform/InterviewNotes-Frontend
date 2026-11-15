@@ -24,7 +24,6 @@ export function ReaderControls({ contentId, ...api }: Props) {
    if (view.kind === "hidden") return null;
 
    const state = view.kind === "ready" ? view.state : null;
-   const busy = view.kind !== "ready" || pending !== null;
    const kind = contentId.startsWith("problem.") ? "Problem" : "Lesson";
    const marks: { field: ReaderField; label: string; on: boolean; Icon: typeof Circle }[] = [
       { field: "completed", label: "Mark complete", on: Boolean(state?.completed_at), Icon: state?.completed_at ? CheckCircle2 : Circle },
@@ -40,8 +39,8 @@ export function ReaderControls({ contentId, ...api }: Props) {
                   type="button"
                   variant="outline"
                   aria-pressed={on}
-                  aria-disabled={busy}
-                  aria-busy={view.kind === "loading" || pending === field}
+                  aria-disabled={view.kind !== "ready" || pending.has(field)}
+                  aria-busy={view.kind === "loading" || pending.has(field)}
                   disabled={view.kind !== "ready"}
                   onClick={() => void toggle(field)}
                   className={cn("min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", on && "border-primary bg-accent font-semibold")}

@@ -34,8 +34,10 @@ export function useReaderItem(contentId: string, api: StoryApiProps) {
    const client = useStoryClient(api);
    const [view, setView] = useState<ReaderView>({ kind: "hidden" });
    const [save, setSave] = useState<ReaderSave>({ status: "idle" });
-   const [pending, setPending] = useState<ReaderField | null>(null);
-   const toggling = useRef(false);
+   const [pending, setPending] = useState<ReadonlySet<ReaderField>>(new Set());
+   const pendingRef = useRef(new Set<ReaderField>());
+   // The first failure among toggles that overlap stays on screen until all of them have ended.
+   const failed = useRef<ReaderSave | null>(null);
    const lane = useRef<Promise<unknown>>(Promise.resolve());
    const stateRef = useRef<ItemState | null>(null);
    // Set when a note write ended without the server's answer and the re-read failed too: the next write reads first.
@@ -77,37 +79,49 @@ export function useReaderItem(contentId: string, api: StoryApiProps) {
       setAttempt((count) => count + 1);
    }, [show]);
 
+   /**
+    * A press is the learner's wish for the state they saw ("on" or "off"), taken when they press. A press on one control
+    * while the other's save runs is queued in the lane, not dropped (CO-1); a second press on a control already saving is ignored.
+    */
    const toggle = useCallback(
       async (field: ReaderField) => {
-         if (!client || toggling.current || !stateRef.current) return;
-         toggling.current = true;
-         setPending(field);
-         setSave({ status: "saving" });
-         await exclusive(async () => {
-            const current = stateRef.current;
-            if (!current) return;
-            const wanted = current[COLUMN[field]] === null;
-            const result: PrepResult<ItemState> = await client.updateItemState(contentId, { version: current.version, [field]: wanted });
-            if (result.status === "ok") {
-               show({ kind: "ready", state: result.data });
-               setSave({ status: "saved" });
-            } else if (result.status === "notFound" || result.status === "unauthenticated") {
-               show({ kind: "hidden" });
-               setSave({ status: "idle" });
-            } else {
+         const seen = stateRef.current;
+         if (!client || pendingRef.current.has(field) || !seen) return;
+         const wanted = seen[COLUMN[field]] === null;
+         if (pendingRef.current.size === 0) failed.current = null;
+         pendingRef.current.add(field);
+         setPending(new Set(pendingRef.current));
+         if (!failed.current) setSave({ status: "saving" });
+         let outcome: ReaderSave = { status: "error", message: `Couldn't save the ${LABEL[field]}. Try again.` };
+         try {
+            outcome = await exclusive(async (): Promise<ReaderSave> => {
+               const current = stateRef.current;
+               if (!current) return { status: "idle" };
+               if ((current[COLUMN[field]] !== null) === wanted) return { status: "saved" };
+               const result: PrepResult<ItemState> = await client.updateItemState(contentId, { version: current.version, [field]: wanted });
+               if (result.status === "ok") {
+                  show({ kind: "ready", state: result.data });
+                  return { status: "saved" };
+               }
+               if (result.status === "notFound" || result.status === "unauthenticated") {
+                  show({ kind: "hidden" });
+                  return { status: "idle" };
+               }
                // A conflict, or a write whose outcome is unknown, is answered by reading again: nothing is overwritten.
                const fresh = await client.getItemState(contentId);
                if (fresh.status === "ok") show({ kind: "ready", state: fresh.data });
                const applied = fresh.status === "ok" && (fresh.data[COLUMN[field]] !== null) === wanted;
-               setSave(
-                  result.status === "conflict" || !applied
-                     ? { status: "error", message: result.status === "conflict" ? `This changed elsewhere. Showing the latest ${LABEL[field]}; try again if you still want to.` : `Couldn't save the ${LABEL[field]}. Try again.` }
-                     : { status: "saved" }
-               );
-            }
-         });
-         toggling.current = false;
-         setPending(null);
+               return result.status === "conflict" || !applied
+                  ? { status: "error", message: result.status === "conflict" ? `This changed elsewhere. Showing the latest ${LABEL[field]}; try again if you still want to.` : `Couldn't save the ${LABEL[field]}. Try again.` }
+                  : { status: "saved" };
+            });
+         } finally {
+            pendingRef.current.delete(field);
+            setPending(new Set(pendingRef.current));
+            if (outcome.status === "error") failed.current ??= outcome;
+            if (pendingRef.current.size === 0) setSave(failed.current ?? outcome);
+            else if (failed.current) setSave(failed.current);
+         }
       },
       [client, contentId, exclusive, show]
    );
