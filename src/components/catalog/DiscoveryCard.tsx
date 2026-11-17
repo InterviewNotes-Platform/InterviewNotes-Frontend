@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { PendingLink } from "@/components/navigation/PendingLink";
 import { ArrowRight } from "lucide-react";
 
 interface DiscoveryCardProps {
@@ -18,16 +18,16 @@ interface DiscoveryCardProps {
 /**
  * A discovery surface for one catalog entry, built only from list metadata. The title link stretches over the card, so
  * there is one link, one focus stop and no nested control. It never prefetches: that would make the server read every
- * target just to list them.
+ * target just to list them. A click is acknowledged at once (PendingLink, P8-RSP-02); the card is the positioned row.
  */
 export function DiscoveryCard({ title, summary, href, cue, eyebrow, meta }: DiscoveryCardProps) {
    return (
       <article className="group relative flex h-full flex-col rounded-lg bg-surface p-6 transition-micro hover:bg-secondary has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-ring">
          {eyebrow !== undefined ? <p className="m-0 mb-3 flex min-h-6 flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">{eyebrow}</p> : null}
          <h3 className="m-0 text-subsection text-balance">
-            <Link href={href} prefetch={false} className="outline-none after:absolute after:inset-0">
+            <PendingLink href={href} stretched className="outline-none after:absolute after:inset-0">
                {title}
-            </Link>
+            </PendingLink>
          </h3>
          {summary ? <p className={`mt-2 ${meta ? "mb-3" : "mb-6"} text-body text-pretty text-muted-foreground`}>{summary}</p> : null}
          {meta ? <p className={`${summary ? "" : "mt-2 "}m-0 mb-6 text-supporting text-muted-foreground`}>{meta}</p> : null}

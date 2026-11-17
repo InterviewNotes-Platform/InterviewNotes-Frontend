@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/link", async () => {
    const { createElement } = await import("react");
    return {
+      useLinkStatus: () => ({ pending: false }),
       default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) =>
          createElement("a", { "data-prefetch": String(prefetch), ...props }),
    };

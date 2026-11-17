@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/navigation/LinkPending";
 import { Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -43,9 +44,10 @@ export function EntryRow({ entry, href, current = false, currentLabel, prefetch 
                href={href}
                prefetch={entry.access === "premium" ? false : prefetch}
                aria-current={current ? "page" : undefined}
-               className={cn("text-body font-medium transition-micro hover:text-[var(--primary-text)]", current ? "text-[var(--primary-text)]" : "text-foreground")}
+               className={cn("relative text-body font-medium transition-micro hover:text-[var(--primary-text)]", current ? "text-[var(--primary-text)]" : "text-foreground")}
             >
                {entry.title}
+               <LinkPending />
             </Link>
             <span className="text-supporting text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
             {entry.access === "premium" ? <PremiumMark /> : null}
