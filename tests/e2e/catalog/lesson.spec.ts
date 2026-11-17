@@ -20,10 +20,27 @@ const HEADINGS = (fixture.items.find(({ id }) => id === LONG.id) as unknown as {
 const CONTENTS = HEADINGS.filter(({ level }) => level === 2 || level === 3);
 
 const main = (page: Page) => page.getByRole("main");
-const contents = (page: Page) => page.getByRole("navigation", { name: "Contents", exact: true });
+// P8-T27: the Lesson's contents are the opening "In this lesson" list at every width, plus a "Lesson sections" bar that docks
+// under the shell's top bar once that list scrolls away (it replaces the old sticky "Contents" rail and its narrow disclosure).
+const contents = (page: Page) => page.getByRole("navigation", { name: "In this lesson", exact: true });
+const dock = (page: Page) => page.getByRole("navigation", { name: "Lesson sections" });
+const dockToggle = (page: Page) => dock(page).locator('button[aria-controls="lesson-dock-list"]');
+const dockList = (page: Page) => page.locator("#lesson-dock-list");
 const trackContents = (page: Page) => page.getByRole("navigation", { name: "Track contents" });
-const toggle = (page: Page) => page.getByRole("button", { name: "Contents", exact: true });
+// P8-T26: the reader shell's Track rail (expands to the sidebar from 768 px) and the Lesson's study tools (margin from 1280 px).
+const rail = (page: Page) => page.getByRole("complementary", { name: "Track navigation" });
+const expandSidebar = (page: Page) => page.getByRole("button", { name: "Expand Track sidebar" });
+const folio = (page: Page) => page.getByRole("complementary", { name: "Study tools" });
+const toolsButton = (page: Page) => page.getByRole("button", { name: "Study tools" });
 const current = (page: Page) => contents(page).locator('[aria-current="location"]');
+/** P8-T27: a heading's scroll margin clears the header, the shell's top bar and the docked section bar (lesson-reader.css). */
+const LANDING = 180;
+/** P8-T27: chapter (h2) entries lead with their number, so an entry's text ends with its heading's. */
+const entryText = (text: string) => new RegExp(`${plainHeading(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+const scrollDown = async (page: Page) => {
+   await page.evaluate(() => window.scrollTo({ top: 2400, behavior: "instant" }));
+   await expect(dock(page)).toBeVisible();
+};
 const heading = (page: Page, id: string) => page.locator(`[id="${id}"]`);
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 const top = (locator: Locator) => locator.evaluate((element) => Math.round(element.getBoundingClientRect().top));
@@ -59,7 +76,7 @@ test.describe("the long Lesson", () => {
 
       const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
       await expect(crumbs).toHaveText(new RegExp(`^Tracks\\s*/\\s*${READING.title}\\s*/\\s*${FOUNDATIONS.title}$`));
-      await expect(crumbs.getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
+      await expect(crumbs.getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/tracks");
       await expect(crumbs.getByRole("link", { name: READING.title })).toHaveAttribute("href", canonical(READING.id));
       await expect(crumbs.getByRole("link", { name: FOUNDATIONS.title })).toHaveAttribute("href", `${canonical(READING.id)}#${FOUNDATIONS.key}`);
       await expect(crumbs.getByRole("link")).toHaveCount(3);
@@ -142,7 +159,7 @@ test.describe("relations", () => {
       await expect(quiet.getByRole("link")).toHaveText(["Related Practice Problem", "T24 Premium Solution Problem"]);
       const hrefs = await main(page).locator('a[href^="/"]').evaluateAll((links) => links.map((link) => link.getAttribute("href")!));
       // the breadcrumb's Module location is the one fragment link (S-MOD-4)
-      for (const href of hrefs.filter((candidate) => candidate !== "/#tracks" && candidate !== `${canonical(READING.id)}#${FOUNDATIONS.key}`)) {
+      for (const href of hrefs.filter((candidate) => candidate !== "/tracks" && candidate !== `${canonical(READING.id)}#${FOUNDATIONS.key}`)) {
          expect(href).toMatch(/^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/);
       }
       // an authored inline reference may name a Problem the relations also list; the relation groups may not repeat one
@@ -158,7 +175,9 @@ test.describe("relations", () => {
       for (const name of ["Builds on", "Related Knowledge", "Related Lessons", "Practice", "Related Problems"]) {
          await expect(main(page).getByRole("heading", { name })).toHaveCount(0);
       }
-      await expect(page.getByRole("navigation", { name: "Contents", exact: true })).toHaveCount(0); // one heading: no contents
+      // P8-T27: the contents are now "In this lesson" and the docking section bar
+      await expect(contents(page)).toHaveCount(0); // one heading: no contents
+      await expect(page.locator(".lesson-dock-bar")).toHaveCount(0);
    });
 
    test("following the Practice transition opens the Problem at its own canonical URL", async ({ page }) => {
@@ -170,14 +189,18 @@ test.describe("relations", () => {
 });
 
 test.describe("curriculum", () => {
-   test("Next follows the home Track's order across the module boundary; Previous is the quiet link in the Curriculum block", async ({ page }) => {
+   test("Next follows the home Track's order across the module boundary; Previous is the quiet card after the Curriculum block", async ({ page }) => {
       await page.goto(route);
       const next = page.getByRole("navigation", { name: `Next in ${READING.title}` }).getByRole("link");
       await expect(next).toHaveAttribute("href", canonical(PREMIUM.id));
       await expect(next).toHaveAccessibleName(`Next lesson: ${PREMIUM.title}, premium`);
       await expect(next.getByText("Premium", { exact: true })).toBeVisible();
       const curriculum = page.getByRole("navigation", { name: "Curriculum" });
-      await expect(curriculum.getByRole("link", { name: /^Previous lesson/ })).toHaveAttribute("href", canonical(PRIMER.id));
+      // P8-T27: Previous moved from the Curriculum block to the quiet "Previous in the Track" card that closes the page
+      const previous = page.getByRole("navigation", { name: `Previous in ${READING.title}` }).getByRole("link", { name: /^Previous lesson/ });
+      await expect(previous).toHaveAttribute("href", canonical(PRIMER.id));
+      await expect(previous).toContainText("Previous in the Track");
+      await expect(curriculum.getByRole("link", { name: /^Previous lesson/ })).toHaveCount(0);
       await expect(curriculum.getByRole("link", { name: `Back to module: ${FOUNDATIONS.title}` })).toHaveAttribute("href", `${canonical(READING.id)}#${FOUNDATIONS.key}`);
       await expect(page.getByRole("navigation", { name: `Module: ${FOUNDATIONS.title}` })).toHaveCount(0); // the per-Module list is gone from Lessons
       expect(DEEPER.items).toEqual([PREMIUM.id]);
@@ -187,45 +210,56 @@ test.describe("curriculum", () => {
 test.describe("desktop contents", () => {
    test.use({ viewport: { width: 1440, height: 900 } });
 
-   test("is a three-column layout: the Track sidebar, a reading column of at most 46rem, and a sticky Contents beside it", async ({ page }) => {
+   test("is a three-column layout: the Track sidebar, a reading column of at most 46rem, and the sticky Margin Folio beside it", async ({ page }) => {
       await page.goto(route);
-      const column = (await page.locator("main > div > div").first().boundingBox())!;
+      // P8-T26/T27: the sidebar is open by default at 1440 px; the Margin Folio (study tools) replaces the Contents rail beside the column
+      const column = (await page.locator("[data-lesson-reader]").boundingBox())!;
       expect(column.width).toBeGreaterThanOrEqual(640);
       expect(column.width).toBeLessThanOrEqual(736);
-      const side = (await contents(page).boundingBox())!;
+      const side = (await folio(page).boundingBox())!;
       expect(side.x).toBeGreaterThan(column.x + column.width);
       expect((await trackContents(page).boundingBox())!.x + 256).toBeLessThanOrEqual(column.x);
       expect(await overflows(page)).toBe(false);
 
-      const before = await top(contents(page));
-      await page.evaluate(() => window.scrollTo({ top: 2400, behavior: "instant" }));
-      await expect.poll(() => top(contents(page))).toBeLessThanOrEqual(115);
-      expect(await top(contents(page))).toBeGreaterThanOrEqual(100);
-      expect(before).toBeGreaterThan(115); // it started lower and stuck
+      // P8-T26/T27: the folio sticks at the shell's offset (top-32) and the section bar docks under the top bar as the column scrolls
+      await expect(dock(page)).toBeHidden();
+      const before = await top(page.locator("[data-lesson-reader]"));
+      await scrollDown(page);
+      expect(await top(page.locator("[data-lesson-reader]"))).toBeLessThan(before - 2000);
+      await expect.poll(() => top(folio(page))).toBe(128);
+      expect(await top(dock(page))).toBeGreaterThanOrEqual(115);
+      expect(await top(dock(page))).toBeLessThanOrEqual(125);
+      const bar = (await dock(page).boundingBox())!;
+      expect(bar.x + bar.width).toBeLessThanOrEqual(side.x);
    });
 
    test("lists the Lesson's h2 and h3 headings, as text, in order, as a labelled navigation", async ({ page }) => {
       await page.goto(route);
       await expect(contents(page)).toHaveCount(1);
-      await expect(contents(page).getByRole("link")).toHaveText(CONTENTS.map(({ text }) => plainHeading(text)));
+      // P8-T27: chapter entries are numbered, so each entry ends with its heading's text
+      await expect(contents(page).getByRole("link")).toHaveText(CONTENTS.map(({ text }) => entryText(text)));
       await expect(contents(page).getByRole("link").first()).toHaveAttribute("href", `#${CONTENTS[0].id}`);
-      await expect(toggle(page)).toHaveCount(0); // the disclosure is for narrow screens
+      // P8-T27: the docked section bar replaces the old disclosure; it is hidden and inert while the opening list is in view
+      await expect(dock(page)).toBeHidden();
+      await expect(page.locator(".lesson-dock-bar")).toHaveAttribute("inert", "");
    });
 
    test("a click moves the heading under the header, focuses it and records the section", async ({ page }) => {
       await page.goto(route);
       await contents(page).getByRole("link", { name: "Sizing the kv_cache budget" }).click();
       const target = heading(page, "sizing-the-kv-cache-budget");
-      await expect.poll(() => top(target), { timeout: 5000 }).toBe(112);
+      // P8-T27: headings land clear of the header, the shell's top bar and the docked section bar
+      await expect.poll(() => top(target), { timeout: 5000 }).toBe(LANDING);
       await expect(target).toBeFocused();
       await expect(page).toHaveURL(`${route}#sizing-the-kv-cache-budget`);
-      await expect(current(page)).toHaveText("Sizing the kv_cache budget");
+      await expect(current(page)).toHaveText(entryText("Sizing the kv_cache budget"));
    });
 
    test("the active entry follows the page as it scrolls, and a duplicate heading finds its own entry", async ({ page }) => {
       await page.goto(route);
       for (const id of ["the-latency-budget", "example", "example-2", "summary"]) {
-         await page.evaluate((target) => window.scrollTo({ top: document.getElementById(target)!.getBoundingClientRect().top + scrollY - 112, behavior: "instant" }), id);
+         // P8-T27: the reading line moved below the docked section bar
+         await page.evaluate(([target, line]) => window.scrollTo({ top: document.getElementById(target)!.getBoundingClientRect().top + scrollY - line, behavior: "instant" }), [id, LANDING] as const);
          await expect(current(page)).toHaveAttribute("href", `#${id}`);
          await expect(current(page)).toHaveCount(1);
       }
@@ -242,7 +276,8 @@ test.describe("desktop contents", () => {
       await expect(target).toBeFocused();
       await expect(target).toHaveCSS("outline-style", "solid");
       await expect(target).toHaveCSS("outline-width", "2px");
-      await expect.poll(() => top(target)).toBe(112);
+      // P8-T27: headings land clear of the docked section bar
+      await expect.poll(() => top(target)).toBe(LANDING);
 
       await page.keyboard.press("Tab");
       await expect(page.getByRole("link", { name: "Link to section: Where the pipeline spends its time" })).toBeFocused();
@@ -252,35 +287,50 @@ test.describe("desktop contents", () => {
    test("Tab order reaches the breadcrumb, prerequisites and contents before the body", async ({ page }) => {
       await page.goto(route);
       const order: string[] = [];
-      for (let stop = 0; stop < 18; stop++) {
+      for (let stop = 0; stop < 28; stop++) {
          await page.keyboard.press("Tab");
          order.push(await page.evaluate(() => document.activeElement?.getAttribute("href") ?? document.activeElement?.tagName ?? ""));
       }
-      const at = (href: string) => order.indexOf(href);
-      expect(at("/#tracks")).toBeGreaterThan(-1);
-      expect(at(canonical(READING.id))).toBeGreaterThan(at("/#tracks"));
+      // The breadcrumb's first step is now `/tracks` (P8-T30), so the Track step is searched after it: the shell's rail,
+      // before the page, already links the Track overview (P8-T26).
+      const at = (href: string, from = 0) => order.indexOf(href, from);
+      expect(at("/tracks")).toBeGreaterThan(-1);
+      expect(at(canonical(READING.id), at("/tracks"))).toBeGreaterThan(at("/tracks"));
       expect(at("/knowledge/catalog-e2e-sections")).toBeGreaterThan(at(canonical(READING.id)));
       expect(at(`#${CONTENTS[0].id}`)).toBeGreaterThan(at(canonical(PRIMER.id)));
    });
 });
 
 test.describe("at 1024px and 768px", () => {
-   test("1024: the Track sidebar and a reading column of 640px or more, with Contents collapsed above the body, and no page overflow", async ({ page }) => {
+   test("1024: the Track sidebar and a reading column of 640px or more, with the contents above the body, and no page overflow", async ({ page }) => {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.goto(route);
-      const column = (await page.locator("main > div > div").first().boundingBox())!;
-      expect(column.width).toBeGreaterThanOrEqual(640);
+      const column = page.locator("[data-lesson-reader]");
+      // P8-T26: the sidebar starts as the collapsed rail below 1440 px; the column keeps 640 px with it collapsed and expanded
+      await expect(rail(page)).toBeVisible();
+      await expect(trackContents(page)).toBeHidden();
+      expect((await column.boundingBox())!.width).toBeGreaterThanOrEqual(640);
+      await expandSidebar(page).click();
       await expect(trackContents(page)).toBeVisible();
-      await expect(toggle(page)).toBeVisible();
-      await expect(page.locator("nav[aria-label='Contents'].sticky")).toBeHidden();
+      expect((await column.boundingBox())!.width).toBeGreaterThanOrEqual(640);
+      // P8-T27: the contents open the Lesson above the body; the study tools are a sheet below 1280 px, not a margin
+      await expect(contents(page)).toBeVisible();
+      expect((await contents(page).boundingBox())!.y).toBeLessThan((await heading(page, CONTENTS[0].id).boundingBox())!.y);
+      await expect(toolsButton(page)).toBeVisible();
+      await expect(folio(page)).toHaveCount(0);
       expect(await overflows(page)).toBe(false);
    });
 
-   test("768: one column, the disclosure in place of the sidebar, no page overflow", async ({ page }) => {
+   test("768: one column beside the collapsed rail, the contents above the body, no page overflow", async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
       await page.goto(route);
-      await expect(toggle(page)).toBeVisible();
-      await expect(page.locator("nav[aria-label='Contents'].sticky")).toBeHidden();
+      // P8-T26/T27: the rail (not the sheet) from 768 px, collapsed; the opening contents in place of a disclosure
+      await expect(rail(page)).toBeVisible();
+      await expect(trackContents(page)).toBeHidden();
+      await expect(page.getByRole("button", { name: "Track contents" })).toBeHidden();
+      await expect(contents(page)).toBeVisible();
+      expect((await contents(page).boundingBox())!.y).toBeLessThan((await heading(page, CONTENTS[0].id).boundingBox())!.y);
+      await expect(folio(page)).toHaveCount(0);
       expect(await overflows(page)).toBe(false);
    });
 });
@@ -328,30 +378,47 @@ test.describe("Track sidebar (A-5, S6-RDR)", () => {
 
    test("is sticky below the header with its own scroll, and the bottom-of-page outline is not drawn beside it", async ({ page }) => {
       await page.goto(route);
+      // P8-T26: the shell's rail is sticky at the header's height (top-16) and scrolls on its own
+      await expect(trackContents(page)).toBeVisible();
+      const start = await top(rail(page));
+      expect(start).toBeGreaterThanOrEqual(64);
+      expect(start).toBeLessThanOrEqual(66); // directly under the header
       const before = await top(trackContents(page));
       await page.evaluate(() => window.scrollTo({ top: 2400, behavior: "instant" }));
-      await expect.poll(() => top(trackContents(page))).toBeLessThanOrEqual(115);
-      expect(before).toBeGreaterThan(0);
+      await expect.poll(() => top(rail(page))).toBe(64);
+      expect(await top(trackContents(page))).toBeLessThanOrEqual(before);
+      expect(await top(trackContents(page))).toBeGreaterThan(64); // it stays in the rail, not scrolled away with the page
+      await expect(rail(page)).toHaveCSS("overflow-y", "auto");
       await expect(page.getByText(`Full outline of ${READING.title}`)).toBeHidden();
    });
 
-   test("keeps Contents as a rail at 1280px and above and collapses it from 1279px down to 1024px, with no overflow at any width", async ({ page }) => {
-      for (const [width, rail] of [[1440, true], [1280, true], [1279, false], [1024, false]] as const) {
+   test("keeps the Margin Folio beside the column at 1280px and above and moves it to a sheet from 1279px down to 1024px, with no overflow at any width", async ({ page }) => {
+      // P8-T26/T27: the margin column (study tools) replaces the Contents rail; the sidebar is open by default only from 1440 px
+      for (const [width, margin] of [[1440, true], [1280, true], [1279, false], [1024, false]] as const) {
          await page.setViewportSize({ width, height: 900 });
          await page.goto(route);
-         await expect(trackContents(page), `${width}: sidebar`).toBeVisible();
-         if (rail) await expect(contents(page).first(), `${width}: rail`).toBeVisible();
-         await expect(toggle(page), `${width}: collapsed Contents`).toHaveCount(rail ? 0 : 1);
+         await expect(rail(page), `${width}: rail`).toBeVisible();
+         if (width >= 1440) await expect(trackContents(page), `${width}: sidebar`).toBeVisible();
+         else await expect(trackContents(page), `${width}: collapsed sidebar`).toBeHidden();
+         if (margin) await expect(folio(page), `${width}: margin`).toBeVisible();
+         else await expect(folio(page), `${width}: no margin`).toHaveCount(0);
+         await expect(toolsButton(page), `${width}: tools sheet`).toHaveCount(margin ? 0 : 1);
          expect(await overflows(page), `${width}: overflow`).toBe(false);
       }
    });
 
-   test("below 1024px the page is unchanged: no sidebar, and the Full outline disclosure stays", async ({ page }) => {
-      for (const width of [1023, 768, 390]) {
+   test("below 768px there is no rail or sidebar, and the Track sheet and the Full outline disclosure stay", async ({ page }) => {
+      // P8-T26: the rail now reaches down to 768 px (collapsed); below it, the top bar's Track sheet and the Full outline remain
+      for (const [width, hasRail] of [[1023, true], [768, true], [767, false], [390, false]] as const) {
          await page.setViewportSize({ width, height: 900 });
          await page.goto(route);
          await expect(trackContents(page), `${width}`).toBeHidden();
-         await expect(page.getByText(`Full outline of ${READING.title}`), `${width}`).toBeVisible();
+         if (hasRail) await expect(rail(page), `${width}: rail`).toBeVisible();
+         else await expect(rail(page), `${width}: rail`).toBeHidden();
+         await expect(page.getByRole("button", { name: "Track contents" }), `${width}: sheet`).toHaveCount(hasRail ? 0 : 1);
+         const outline = page.getByText(`Full outline of ${READING.title}`);
+         if (hasRail) await expect(outline, `${width}: outline`).toBeHidden();
+         else await expect(outline, `${width}: outline`).toBeVisible();
          expect(await overflows(page), `${width}: overflow`).toBe(false);
       }
    });
@@ -368,49 +435,56 @@ test.describe("phone contents", () => {
 
    test("starts collapsed, opens and closes with the button, and keeps collapsed entries out of the tab order", async ({ page }) => {
       await page.goto(route);
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
-      await expect(contents(page)).toBeHidden();
-      await expect(page.locator("nav[aria-label='Contents'].sticky")).toBeHidden();
-      const panel = page.locator(`[id="${await toggle(page).getAttribute("aria-controls")}"]`);
-      await expect(panel).toHaveAttribute("inert", "");
+      // P8-T27: the section bar docks (and leaves inert) once the opening contents scroll away; its list is the disclosure
+      await expect(page.locator(".lesson-dock-bar")).toHaveAttribute("inert", "");
+      await scrollDown(page);
+      await expect(page.locator(".lesson-dock-bar")).not.toHaveAttribute("inert", "");
+      await expect(dockToggle(page)).toHaveAttribute("aria-expanded", "false");
+      await expect(dockList(page)).toHaveCount(0);
 
-      await toggle(page).focus();
+      await dockToggle(page).focus();
       await page.keyboard.press("Enter");
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-      await expect(contents(page).getByRole("link")).toHaveCount(CONTENTS.length);
+      await expect(dockToggle(page)).toHaveAttribute("aria-expanded", "true");
+      await expect(dockList(page).getByRole("link")).toHaveCount(CONTENTS.length);
       await page.keyboard.press("Space");
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+      await expect(dockToggle(page)).toHaveAttribute("aria-expanded", "false");
+      await expect(dockList(page)).toHaveCount(0);
       await page.keyboard.press("Tab");
-      expect(await page.evaluate(() => document.activeElement?.closest("nav[aria-label='Contents']") !== null)).toBe(false);
+      expect(await page.evaluate(() => document.activeElement?.closest("#lesson-dock-list") !== null)).toBe(false);
    });
 
    test("picking an entry closes the panel, focuses the heading and lands it under the header", async ({ page }) => {
       await page.goto(route);
-      await toggle(page).click();
-      await contents(page).getByRole("link", { name: "A back-of-the-envelope estimate" }).click();
+      // P8-T27: the docked section bar's list is the phone's contents panel; headings land clear of it
+      await scrollDown(page);
+      await dockToggle(page).click();
+      await dockList(page).getByRole("link", { name: "A back-of-the-envelope estimate" }).click();
       const target = heading(page, "a-back-of-the-envelope-estimate");
       await expect(target).toBeFocused();
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
-      await expect.poll(() => top(target), { timeout: 5000 }).toBe(112);
+      await expect(dockToggle(page)).toHaveAttribute("aria-expanded", "false");
+      await expect.poll(() => top(target), { timeout: 5000 }).toBe(LANDING);
       await expect(page).toHaveURL(`${route}#a-back-of-the-envelope-estimate`);
    });
 
    test("is reachable by keyboard alone: open, Tab to an entry, Enter", async ({ page }) => {
       await page.goto(route);
-      await toggle(page).focus();
+      // P8-T27: the docked section bar's disclosure; Tab passes its Next-in-Track link on the way to the list
+      await scrollDown(page);
+      await dockToggle(page).focus();
       await page.keyboard.press("Enter");
-      await page.keyboard.press("Tab");
-      await expect(contents(page).getByRole("link").first()).toBeFocused();
+      await tabTo(page, dockList(page).getByRole("link").first());
       await page.keyboard.press("Enter");
       await expect(heading(page, CONTENTS[0].id)).toBeFocused();
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+      await expect(dockToggle(page)).toHaveAttribute("aria-expanded", "false");
    });
 
    test("has 44px touch targets, a breadcrumb that truncates, and no page-level horizontal overflow, even with Contents open", async ({ page }) => {
       await page.goto(route);
-      expect((await toggle(page).boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      await toggle(page).click();
-      for (const link of await contents(page).getByRole("link").all()) expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      // P8-T27: the docked section bar's controls and list entries are the phone's contents targets
+      await scrollDown(page);
+      for (const control of await dock(page).locator("a, button").all()) expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await dockToggle(page).click();
+      for (const link of await dockList(page).getByRole("link").all()) expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       expect(await overflows(page)).toBe(false);
       const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
       expect((await crumbs.boundingBox())!.width).toBeLessThanOrEqual(358);
@@ -509,10 +583,12 @@ test.describe("themes", () => {
                   code: style("[data-slot=technical-scroll]:has(pre)").backgroundColor,
                   note: style('[data-callout="tip"] > div').backgroundColor,
                   reference: style('a[data-reference="knowledge"]').textDecorationColor,
-                  rail: style("nav[aria-label='Contents'].sticky a").borderLeftColor,
+                  // P8-T27: the contents' chapter numerals take the reader's accent ink
+                  rail: style("nav[aria-labelledby='lesson-contents-title'] .lesson-numeral").color,
                };
             });
-            expect(colours.page).toBe(scheme === "dark" ? "rgb(15, 15, 17)" : "rgb(255, 255, 255)");
+            // P8-T26: the reader shell sets the page to the reader paper
+            expect(colours.page).toBe(scheme === "dark" ? "rgb(26, 22, 18)" : "rgb(251, 248, 241)");
             expect(colours.text).not.toBe(colours.page);
             expect(colours.code).not.toBe(colours.page);
             expect(colours.note).not.toBe(colours.page);
@@ -531,7 +607,8 @@ test.describe("themes", () => {
       await page.getByRole("banner").getByRole("button", { name: "Toggle theme" }).click();
       await page.getByRole("menuitem", { name: "Dark" }).click();
       await expect(page.locator("html")).toHaveClass(/dark/);
-      await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 15, 17)");
+      // P8-T26: the reader's dark paper
+      await expect(page.locator("body")).toHaveCSS("background-color", "rgb(26, 22, 18)");
       await diagrams(page);
    });
 });
@@ -542,14 +619,17 @@ test.describe("reduced motion", () => {
    test("a contents jump lands at once, the panel and its chevron change instantly, and smooth scrolling is off", async ({ page }) => {
       await page.goto(route);
       await expect(page.locator("html")).toHaveCSS("scroll-behavior", "auto");
-      await expect(toggle(page).locator("svg")).toHaveCSS("transition-duration", "1e-05s");
-      await toggle(page).click();
-      await contents(page).getByRole("link", { name: "Summary" }).click();
+      // P8-T27: the panel is the docked section bar's list; the bar itself and its chevron change without a transition
+      await scrollDown(page);
+      await expect(page.locator(".lesson-dock-bar")).toHaveCSS("transition-duration", "1e-05s");
+      await expect(dockToggle(page).locator("svg")).toHaveCSS("transition-duration", "1e-05s");
+      await dockToggle(page).click();
+      await dockList(page).getByRole("link", { name: "Summary" }).click();
       const target = heading(page, "summary");
       // no animation to wait for: the heading is already in place a moment after the click
-      await expect.poll(() => top(target), { timeout: 1500 }).toBe(112);
+      await expect.poll(() => top(target), { timeout: 1500 }).toBe(LANDING);
       await expect(target).toBeFocused();
-      await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
+      await expect(dockToggle(page)).toHaveAttribute("aria-expanded", "false");
    });
 
    test("a diagram is drawn the same size as with motion, so its layout does not depend on it", async ({ page, browser }) => {
@@ -578,10 +658,13 @@ test.describe("access", () => {
             await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(PREMIUM.title);
             await expect(page.getByText("Level: Advanced")).toBeVisible();
             await expect(main(page).getByRole("status")).toBeVisible();
-            for (const name of ["Breadcrumb", "Contents", "Track contents", `Next in ${READING.title}`, "Curriculum", `Module: ${DEEPER.title}`]) {
+            // P8-T26/T27: also none of the new contents, section bar, Previous card, Track rail or study tools
+            for (const name of ["Breadcrumb", "Contents", "In this lesson", "Lesson sections", "Track contents", `Next in ${READING.title}`, `Previous in ${READING.title}`, "Curriculum", `Module: ${DEEPER.title}`]) {
                await expect(page.getByRole("navigation", { name }), name).toHaveCount(0);
             }
             await expect(page.getByRole("button", { name: "Contents", exact: true })).toHaveCount(0);
+            await expect(page.locator("[data-reader-sidebar], .lesson-dock-bar")).toHaveCount(0);
+            await expect(page.getByRole("button", { name: /Track sidebar|Track contents|Study tools/ })).toHaveCount(0);
             await expect(main(page).getByRole("heading", { level: 2 })).toHaveCount(0);
             await expect(page.locator("main [id]")).toHaveCount(0);
             await expect(page.getByRole("heading", { name: "Practice" })).toHaveCount(0);
@@ -595,7 +678,8 @@ test.describe("access", () => {
       test("the same Lesson is read in full, with its own contents, relations and Practice", async ({ page }) => {
          await page.goto(canonical(PREMIUM.id));
          await expect(main(page).getByText(CANARY)).toBeVisible();
-         await expect(contents(page).getByRole("link")).toHaveText(["Premium reading heading", "Premium reading second heading", "Premium reading subsection"]);
+         // P8-T27: chapter entries are numbered, so each entry ends with its heading's text
+         await expect(contents(page).getByRole("link")).toHaveText(["Premium reading heading", "Premium reading second heading", "Premium reading subsection"].map(entryText));
          await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText(DEEPER.title);
          const practice = page.getByRole("region", { name: "Practice" });
          await expect(practice.getByRole("link")).toHaveText(["Synthetic Premium Practice Problem"]);
@@ -637,7 +721,9 @@ test.describe("preview deployment", () => {
       const bottom = (await marker.boundingBox())!.y + (await marker.boundingBox())!.height;
       await contents(page).getByRole("link", { name: "Summary" }).click();
       await expect.poll(() => top(heading(page, "summary"))).toBeGreaterThanOrEqual(Math.round(bottom));
-      expect(await top(contents(page))).toBeGreaterThanOrEqual(Math.round(bottom));
+      // P8-T27: once scrolled, the contents are the docked section bar
+      await expect(dock(page)).toBeVisible();
+      expect(await top(dock(page))).toBeGreaterThanOrEqual(Math.round(bottom));
    });
 
    test("rendering reads the item, its relations and its Track once each, plus the Next lesson's public meta and the shown Practice Problems' relations, and nothing else", async ({ page, request }) => {
@@ -675,7 +761,8 @@ test.describe("preview deployment", () => {
    test("following previous/next reads only the page followed to", async ({ page, request }) => {
       await page.goto(route);
       const since = await logged(request);
-      await page.getByRole("navigation", { name: "Curriculum" }).getByRole("link", { name: /^Previous lesson/ }).click();
+      // P8-T27: the Previous link is the "Previous in the Track" card now
+      await page.getByRole("navigation", { name: `Previous in ${READING.title}` }).getByRole("link", { name: /^Previous lesson/ }).click();
       await expect(main(page).getByRole("heading", { level: 1 })).toHaveText(PRIMER.title);
       const paths = await reads(request, since);
       // the followed page's own reads, and the public meta of its own Next lesson (P3 S-CUR-8): nothing else
@@ -696,7 +783,8 @@ test.describe("Track contents drawer (A-5, S6-RDR-4, S6-RDR-7)", () => {
    const PLACED = [canonical("lesson.p3-seq-one"), canonical("problem.p3-seq-check")];
    const opener = (page: Page) => page.getByRole("button", { name: "Track contents" });
 
-   for (const width of [390, 768]) {
+   // P8-T26: the drawer is the top bar's Track sheet below 768 px (the rail starts at 768), so its widest case is 767
+   for (const width of [390, 767]) {
       for (const path of PLACED) {
          test(`${width} ${path}: opens, filters, closes with Escape and returns focus, and picking an entry navigates`, async ({ page, request }) => {
             await page.setViewportSize({ width, height: 900 });
@@ -733,13 +821,19 @@ test.describe("Track contents drawer (A-5, S6-RDR-4, S6-RDR-7)", () => {
       }
    }
 
-   test("1024: the sidebar shows and the drawer control does not", async ({ page }) => {
-      await page.setViewportSize({ width: 1024, height: 900 });
-      for (const path of PLACED) {
-         await page.goto(path);
-         await expect(trackContents(page)).toBeVisible();
-         await expect(opener(page)).toBeHidden();
-         expect(await overflows(page)).toBe(false);
+   test("768 and 1024: the sidebar shows and the drawer control does not", async ({ page }) => {
+      // P8-T26: from 768 px the shell's rail replaces the drawer; it starts collapsed and one click shows the sidebar
+      for (const width of [768, 1024]) {
+         await page.setViewportSize({ width, height: 900 });
+         for (const path of PLACED) {
+            await page.goto(path);
+            await expect(rail(page), `${width} ${path}`).toBeVisible();
+            await expect(opener(page)).toBeHidden();
+            await expandSidebar(page).click();
+            await expect(trackContents(page)).toBeVisible();
+            await expect(trackContents(page).locator('a[aria-current="page"]')).toHaveAttribute("href", path);
+            expect(await overflows(page)).toBe(false);
+         }
       }
    });
 });

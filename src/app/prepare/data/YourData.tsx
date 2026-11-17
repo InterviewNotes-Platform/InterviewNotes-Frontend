@@ -38,7 +38,7 @@ export function YourData({ apiUrl, getAccessToken = sessionToken, fetch: fetchIm
                 <Link href={PREPARE_HREF} prefetch={false} className="text-supporting text-muted-foreground underline underline-offset-4 hover:text-foreground">
                     Back to your workspace
                 </Link>
-                <h1 className="text-section text-foreground">Your data</h1>
+                <h1 className="text-title text-foreground">Your data</h1>
                 <p className="max-w-reading text-body text-muted-foreground">Your preparation belongs to you: set your target level, take a copy, or delete it all.</p>
                 <p className="max-w-reading text-body text-muted-foreground">
                     Once Lesson and Problem progress is on, this also covers when you complete, bookmark and open a Lesson or Problem, and any personal note you write on one. Your progress is associated with your account and is not visible to other learners.

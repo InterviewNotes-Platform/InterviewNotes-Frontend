@@ -70,8 +70,10 @@ export default function PrivacyPage() {
                         to their documentation. We don&apos;t claim that they keep nothing.
                      </li>
                      <li>
-                        We don&apos;t currently keep backups, so we can&apos;t restore lost data. Keep your own copy of
-                        anything important.
+                        We don&apos;t keep backups of the live service&apos;s database, so we can&apos;t restore lost data
+                        from it. Keep your own copy of anything important. We keep encrypted test backups of the beta
+                        environment&apos;s database only, and a beta copy made before you use Delete all still holds your
+                        data until it is replaced.
                      </li>
                      <li>
                         The workspace lets you delete and export what you save, and once AI is available you can withdraw
@@ -117,7 +119,8 @@ export default function PrivacyPage() {
                         We store the item&apos;s ID with these, not its text. The workspace uses them to show your own Continue
                         card and bookmarks back to you. Knowledge entries are not included. Your progress is associated
                         with your account and is not visible to other learners. We don&apos;t sell or share it, we don&apos;t
-                        put your notes in our logs and we don&apos;t send a note to an AI feature.
+                        put your notes in our logs and we don&apos;t send a Lesson or Problem note to an AI feature. (The
+                        &ldquo;notes&rdquo; that Draft uses are the text in an answer&apos;s editor, described under AI features.)
                      </p>
                      <p>
                         Unmarking an item or clearing a note empties that field; the item&apos;s record, including the time
@@ -151,9 +154,21 @@ export default function PrivacyPage() {
                      uses is in South Asia (Mumbai). That may be outside the country where you live.
                   </p>
                   <p>
-                     As of 27 October 2026, we haven&apos;t set up backups for either database, the live service&apos;s or
-                     beta&apos;s, so we can&apos;t restore lost data. None of Supabase&apos;s replica, pipeline or log
-                     export features is set up for them either. If we start keeping backups, this page will say so first.
+                     We don&apos;t keep backups of the live service&apos;s database, so we can&apos;t restore lost data from
+                     it. None of Supabase&apos;s replica, pipeline or log export features is set up for it. We don&apos;t
+                     claim anything about copies Supabase may keep itself.
+                  </p>
+                  <p>
+                     For our separate beta environment we keep encrypted backup copies of its database, made to test that
+                     restoring works. A copy holds everything in the beta database when it was made, including account
+                     records and saved stories, answers and notes. Copies are encrypted and stored on a computer controlled
+                     by the operator, and are not uploaded to another service or location. We make them occasionally, keep
+                     only the three most recent, and a new copy deletes the oldest.
+                  </p>
+                  <p>
+                     If you use Delete all on the beta environment, your data leaves the beta database but not the copies made
+                     before you did. It stays in them until newer copies replace them, and we can&apos;t say when that will
+                     be. If we start keeping backups of the live service&apos;s database, this page will say so first.
                   </p>
                </Section>
 
@@ -176,23 +191,33 @@ export default function PrivacyPage() {
                      </p>
                   </Subsection>
 
-                  <Subsection title="What is sent">
-                     <p>Each request carries our instructions for the task, plus:</p>
+                  <Subsection title="What is sent when you use AI features">
+                     <p>Each request carries our instructions for the task, plus what is listed here.</p>
                      <ul>
                         <li>
-                           <strong className="text-foreground">Draft:</strong> the question, its guidance (from the Lesson,
-                           or a company collection&apos;s explanation), the format you chose (STAR or free form), your notes and
-                           up to five stories you selected.
+                           <strong className="text-foreground">Draft:</strong> We send the question, your selected answer
+                           format (STAR or free form), and the text currently entered in that answer&apos;s editor. This
+                           includes text you have typed but not yet saved. The Draft button refers to this editor text as
+                           &ldquo;your notes.&rdquo;
                         </li>
                         <li>
-                           <strong className="text-foreground">Review:</strong> the question, its guidance, the format, your
-                           answer text and up to five stories you selected.
+                           <strong className="text-foreground">Review:</strong> We send the question, your selected answer
+                           format, and the answer text submitted for review.
+                        </li>
+                        <li>
+                           <strong className="text-foreground">Lesson and Problem notes:</strong> Personal notes you save
+                           while reading Lessons or Problems are not included in AI requests.
+                        </li>
+                        <li>
+                           <strong className="text-foreground">Guidance and Story Bank stories:</strong> We currently do not
+                           include the question&apos;s guidance or your selected Story Bank stories in Draft or Review requests.
                         </li>
                      </ul>
                      <p>
                         Nothing else you&apos;ve saved is read for the request. Our servers don&apos;t keep the text of the request or
                         the response, and our logs don&apos;t contain your text.
                      </p>
+                     <p>AI requests are processed according to the AI privacy and retention disclosures elsewhere on this page.</p>
                   </Subsection>
 
                   <Subsection title="Which provider processes it">

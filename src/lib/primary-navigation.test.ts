@@ -4,9 +4,9 @@ import { activeArea, PREPARE_HREF, primaryNav, PRIMARY_NAV } from "./primary-nav
 describe("primary navigation", () => {
    it("lists Tracks, Knowledge, Pricing and FAQ with their exact destinations, and no Practice", () => {
       expect(PRIMARY_NAV.map(({ label, href }) => [label, href])).toEqual([
-         ["Tracks", "/#tracks"],
+         ["Tracks", "/tracks"],
          ["Knowledge", "/knowledge"],
-         ["Pricing", "/#pricing"],
+         ["Pricing", "/pricing"],
          ["FAQ", "/#faq"],
       ]);
    });
@@ -30,10 +30,10 @@ describe("primaryNav", () => {
    it("adds Prepare after Knowledge, and nowhere else, when the flag is on", () => {
       vi.stubEnv("NEXT_PUBLIC_PREP_ENABLED", "true");
       expect(primaryNav().map(({ label, href }) => [label, href])).toEqual([
-         ["Tracks", "/#tracks"],
+         ["Tracks", "/tracks"],
          ["Knowledge", "/knowledge"],
          ["Prepare", PREPARE_HREF],
-         ["Pricing", "/#pricing"],
+         ["Pricing", "/pricing"],
          ["FAQ", "/#faq"],
       ]);
       expect(PREPARE_HREF).toBe("/prepare");

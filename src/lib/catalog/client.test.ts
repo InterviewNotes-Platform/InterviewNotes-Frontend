@@ -99,11 +99,12 @@ describe("getCatalogItem request", () => {
       expect(init.next).toBeUndefined();
    });
 
-   it("sends no credentials and allows a 60 s cache when signed out", async () => {
+   it("sends no credentials and never caches the item body when signed out (F-1)", async () => {
       await getCatalogItem("lesson", "dynamic-batching");
       const [, init] = fetchMock.mock.calls[0];
       expect(init.headers).toEqual({});
-      expect(init.next).toEqual({ revalidate: 60 });
+      expect(init.cache).toBe("no-store");
+      expect(init.next).toBeUndefined();
    });
 
    it("treats an unreadable session as signed out", async () => {
@@ -334,6 +335,15 @@ describe("getCatalogRelated", () => {
       const [, init] = fetchMock.mock.calls[0];
       expect(init.headers).toEqual({ Authorization: "Bearer synthetic-token" });
       expect(init.cache).toBe("no-store");
+   });
+
+   it("never caches a signed-out read (F-1)", async () => {
+      fetchMock.mockResolvedValue(reply(200, RELATED));
+      await getCatalogRelated("lesson", "dynamic-batching");
+      const [, init] = fetchMock.mock.calls[0];
+      expect(init.headers).toEqual({});
+      expect(init.cache).toBe("no-store");
+      expect(init.next).toBeUndefined();
    });
 
    it("maps the premium gate and removal states without exposing detail", async () => {

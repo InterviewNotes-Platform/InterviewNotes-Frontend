@@ -1,0 +1,49 @@
+/*
+ * The Prepare workspace's own warm scope, applied only while a page carries [data-prepare]. It is deliberately not the
+ * reader scope ([data-reader], P8-D-072), which belongs to Track detail, Lesson, Knowledge and Problem: Prepare takes the same
+ * Brand-Forward palette values under its own marker, and adds no header rule. Light first, then dark (same specificity, later wins).
+ */
+:root:has([data-prepare]) {
+  --background: #fbf8f1;
+  --foreground: #1c1915;
+  --surface: #f4eee3;
+  --card: #fbf8f1;
+  --card-foreground: #1c1915;
+  --popover: #fbf8f1;
+  --popover-foreground: #1c1915;
+  --primary: #4b6f93;
+  --primary-text: #35597d;
+  --primary-foreground: #ffffff;
+  --secondary: #f4eee3;
+  --secondary-foreground: #1c1915;
+  --muted: #f4eee3;
+  --muted-foreground: #675e53;
+  --border: #e2d9c9;
+  --ring: #35597d;
+  --prepare-desk: #f1ece2;
+}
+
+.dark:has([data-prepare]) {
+  --background: #1a1612;
+  --foreground: #ece5d8;
+  --surface: #221d17;
+  --card: #1a1612;
+  --card-foreground: #ece5d8;
+  --popover: #1a1612;
+  --popover-foreground: #ece5d8;
+  --primary: #7f93a8;
+  --primary-text: #a9bccf;
+  --primary-foreground: #12100d;
+  --secondary: #221d17;
+  --secondary-foreground: #ece5d8;
+  --muted: #221d17;
+  --muted-foreground: #a99d8c;
+  --border: #342c24;
+  --ring: #a9bccf;
+  --prepare-desk: #12100d;
+}
+
+[data-prepare] {
+  background: var(--prepare-desk);
+  color: var(--foreground);
+}

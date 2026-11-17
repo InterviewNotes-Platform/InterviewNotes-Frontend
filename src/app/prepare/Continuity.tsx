@@ -183,7 +183,7 @@ function Panel({ id, title, children }: { id: string; title: string; children: R
             <Card className="h-full">
                 <CardHeader>
                     <CardTitle className="text-subsection">
-                        <h2 id={id}>{title}</h2>
+                        <h2 id={id} className="m-0">{title}</h2>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">{children}</CardContent>

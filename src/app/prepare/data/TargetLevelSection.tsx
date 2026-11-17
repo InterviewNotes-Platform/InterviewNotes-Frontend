@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { SaveStatus, type SaveState } from "@/components/ui/save-status";
 import type { PrepClient } from "@/lib/prep/client";
@@ -90,7 +90,7 @@ export function TargetLevelSection({ client }: { client: PrepClient | null }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-subsection">Target level</CardTitle>
+                <h2 className="text-subsection text-foreground">Target level</h2>
             </CardHeader>
             <CardContent className="space-y-4">
                 {load.phase === "loading" && (

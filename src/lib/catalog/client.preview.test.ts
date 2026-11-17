@@ -86,18 +86,24 @@ describe.each(reads)("%s read in a preview deployment", (_name, read, body, with
    });
 });
 
-describe.each(reads)("%s read in production", (_name, read, body) => {
+describe.each(reads)("%s read in production", (_name, read, body, withSession) => {
    beforeEach(() => {
       vi.stubEnv("CATALOG_PREVIEW_TOKEN", "");
       fetchMock.mockResolvedValue(reply(200, body));
    });
 
-   it("sends no preview header, in any casing, and keeps its shareable cache", async () => {
+   it("sends no preview header, in any casing, and caches only public metadata for 60 s (F-1)", async () => {
       await read();
       const [, init] = fetchMock.mock.calls[0];
       expect(Object.keys(init.headers).map((name) => name.toLowerCase())).not.toContain("x-preview-token");
       expect(JSON.stringify(init)).not.toMatch(/preview/i);
-      expect(init.next).toEqual({ revalidate: 60 });
+      if (withSession) {
+         expect(init.cache).toBe("no-store");
+         expect(init.next).toBeUndefined();
+      } else {
+         expect(init.cache).toBeUndefined();
+         expect(init.next).toEqual({ revalidate: 60 });
+      }
    });
 });
 

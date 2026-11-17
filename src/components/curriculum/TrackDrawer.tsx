@@ -8,13 +8,15 @@ import type { TrackSidebarOutline } from "@/lib/catalog/outline";
 import { cn } from "@/lib/utils";
 import { TrackSidebar } from "./TrackSidebar";
 
+const HIDE_FROM = { md: "md:hidden", lg: "lg:hidden" } as const;
+
 /**
- * Below `lg`, the Track's contents in the existing Sheet from the inline-start edge (S6-RDR-7). Radix traps focus, closes on
+ * Below `below` (`lg` by default; the reader shell's rail starts at `md`), the Track's contents in the existing Sheet from the inline-start edge (S6-RDR-7). Radix traps focus, closes on
  * Escape and returns focus to the control; choosing an entry navigates and closes it. The page behind is made inert as the
  * diagram dialog does, since Radix's `aria-hidden` spares a page with a live region. The list inside is the sidebar's, so the two
  * never differ, and opening it reads nothing.
  */
-export function TrackDrawer({ outline, className }: { outline: TrackSidebarOutline; className?: string }) {
+export function TrackDrawer({ outline, className, below = "lg" }: { outline: TrackSidebarOutline; className?: string; below?: keyof typeof HIDE_FROM }) {
    const [open, setOpen] = useState(false);
    const releasePage = useRef<() => void>(undefined);
 
@@ -27,7 +29,7 @@ export function TrackDrawer({ outline, className }: { outline: TrackSidebarOutli
    useEffect(() => () => releasePage.current?.(), []);
 
    return (
-      <div className={cn("lg:hidden", className)}>
+      <div className={cn(HIDE_FROM[below], className)}>
          <Sheet open={open} onOpenChange={changeOpen}>
             <SheetTrigger asChild>
                <button
@@ -38,7 +40,7 @@ export function TrackDrawer({ outline, className }: { outline: TrackSidebarOutli
                   Track contents
                </button>
             </SheetTrigger>
-            <SheetContent side="left" className="gap-0 data-[state=closed]:duration-150 data-[state=open]:duration-200 motion-reduce:animate-none lg:hidden">
+            <SheetContent side="left" className={cn("gap-0 data-[state=closed]:duration-150 data-[state=open]:duration-200 motion-reduce:animate-none", HIDE_FROM[below])}>
                <SheetHeader className="min-h-16 justify-center border-b px-6 py-3 pr-16">
                   <SheetTitle className="text-body leading-snug">{outline.title}</SheetTitle>
                   <SheetDescription className="sr-only">The Modules and entries of this Track</SheetDescription>

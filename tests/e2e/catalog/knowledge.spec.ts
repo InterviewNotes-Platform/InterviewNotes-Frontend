@@ -50,7 +50,8 @@ const cards = (page: Page) => main(page).locator("article");
 const cardTitles = (page: Page) => cards(page).getByRole("heading", { level: 3 }).allTextContents();
 const bands = (page: Page) => main(page).locator("h2#knowledge_fast, h2#knowledge_explanation, h2#knowledge_reference");
 /** The header's quiet category line; its visually hidden "Category: " prefix is part of its text. */
-const categoryLine = (page: Page, label: string) => main(page).locator("header").filter({ hasText: `Category: ${label}` });
+// P8-T28: a readable topic names its category in the opening kicker ("Knowledge · Concept"); a locked teaser keeps "Category:".
+const categoryLine = (page: Page, label: string) => main(page).locator("header p").filter({ hasText: new RegExp(`^(Category: |Knowledge · )${label}`) });
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 /** The topic list is collapsed until wanted: open it (once) and return it. */
 async function openTopics(page: Page) {
@@ -373,29 +374,29 @@ test.describe("a Knowledge topic", () => {
    test.describe("in-page navigation", () => {
       test.use({ viewport: { width: 1280, height: 800 } });
 
-      test("a desktop contents column jumps to a band and moves focus there", async ({ page }) => {
+      // P8-T28: the topic's contents are the opening "In this entry" list, which docks into the section bar.
+      test("the In this entry contents jump to a band and move focus there", async ({ page }) => {
          await page.goto(route);
-         const contents = page.getByRole("navigation", { name: "Contents" });
-         await expect(contents.getByRole("link")).toHaveText(["Fast understanding", "Explanation", "Deeper reference"]);
+         const contents = page.getByRole("navigation", { name: "In this entry" });
+         await expect(contents.getByRole("link")).toContainText(["Fast understanding", "Explanation", "Deeper reference"]);
          await contents.getByRole("link", { name: "Deeper reference" }).click();
          await expect(page).toHaveURL(/#knowledge_reference$/);
          await expect(page.locator("#knowledge_reference")).toBeFocused();
          await expect(page.locator("#knowledge_reference")).toBeInViewport();
-         // A plain anchor list: nothing tracks the scroll, so no entry can be marked current wrongly.
-         await expect(contents.locator("[aria-current]")).toHaveCount(0);
+         // P8-T28: the contents follow the reader (T27's outline), so exactly one entry is marked current.
+         await expect(contents.locator("[aria-current]")).toHaveCount(1);
       });
    });
 
    test.describe("on a phone", () => {
       test.use({ viewport: { width: 390, height: 844 } });
 
-      test("contents are one collapsed control near the top, and nothing overflows the page", async ({ page }) => {
+      // P8-T28: the In this entry contents sit near the top of the topic on a phone too; the section bar docks once scrolled.
+      test("the In this entry contents are near the top, lead to a band, and nothing overflows the page", async ({ page }) => {
          await page.goto(route);
-         const toggle = main(page).getByRole("button", { name: "Contents" });
-         await expect(toggle).toHaveAttribute("aria-expanded", "false");
-         await toggle.click();
-         await expect(toggle).toHaveAttribute("aria-expanded", "true");
-         await main(page).getByRole("navigation", { name: "Contents" }).getByRole("link", { name: "Explanation" }).click();
+         const contents = page.getByRole("navigation", { name: "In this entry" });
+         await expect(contents).toBeVisible();
+         await contents.getByRole("link", { name: /Explanation/ }).click();
          await expect(page).toHaveURL(/#knowledge_explanation$/);
          expect(await overflows(page)).toBe(false);
       });
@@ -415,7 +416,7 @@ test.describe("a Knowledge topic", () => {
       await expect(h1(page)).toHaveText(QUICK.title);
       await expect(bands(page)).toHaveText(["Fast understanding"]);
       expect(await main(page).locator("section h3").allTextContents()).toEqual(["Quick facts"]);
-      await expect(page.getByRole("navigation", { name: "Contents" })).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: "In this entry" })).toHaveCount(0); // one band needs no contents
       await expect(categoryLine(page, "Quick reference")).toBeVisible();
       await expect(main(page).locator("table")).toBeVisible();
    });

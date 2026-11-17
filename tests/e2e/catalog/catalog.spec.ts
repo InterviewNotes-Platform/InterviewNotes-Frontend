@@ -35,8 +35,9 @@ const breadcrumb = (page: Page) => page.getByRole("navigation", { name: "Breadcr
 const LESSON_RELATED = /^(Builds on|Related Knowledge|Related Lessons|Practice|Related Problems)$/;
 const steps = (page: Page) => page.getByRole("navigation", { name: `Previous and next in ${HOME.title}` });
 /** Where a neighbour link lives: a Lesson closes with Next, then the Curriculum block; a Problem keeps the paired steps (P3 S-LSN-10, S-LSN-14). */
+// P8-T27: a Lesson's Previous moved from the Curriculum block to the "Previous in <Track>" card at the end of the page.
 const neighbours = (page: Page, type: string, label: "Previous lesson" | "Next lesson") =>
-   type === "problem" ? steps(page) : page.getByRole("navigation", { name: label === "Next lesson" ? `Next in ${HOME.title}` : "Curriculum" });
+   type === "problem" ? steps(page) : page.getByRole("navigation", { name: label === "Next lesson" ? `Next in ${HOME.title}` : `Previous in ${HOME.title}` });
 const premiumMark = { name: "Premium", exact: true } as const;
 
 test.describe("type-based routes", () => {
@@ -216,7 +217,11 @@ test.describe("related content", () => {
          const paths = () => traffic.requests.map((url) => new URL(url).pathname);
 
          await page.goto(canonical(PROBLEM.id));
-         const inView = main(page).locator('a[href^="/"]').filter({ visible: true }); // page content; header links are not under test
+         // P8-T26: the reader shell's Track sidebar starts collapsed below 1440 px; expand it so its links are in view too.
+         await page.getByRole("button", { name: "Expand Track sidebar" }).click();
+         // P8-T26: the sidebar now sits in the shell's "Track navigation" aside beside <main>, so both are page content here.
+         const content = main(page).or(page.getByRole("complementary", { name: "Track navigation" }));
+         const inView = content.locator('a[href^="/"]').filter({ visible: true }); // page content; header links are not under test
          // Related Lessons, the paired Next step, the module list and the Track contents sidebar (T10): all must be rendered before the prefetch check.
          await expect(inView.and(page.locator(`a[href="${premium}"]`))).toHaveCount(4);
          const targets = await inView.evaluateAll((links) => links.map((a) => new URL((a as HTMLAnchorElement).href).pathname));
@@ -367,12 +372,16 @@ test.describe("failing reads", () => {
       await page.goto(canonical(lesson.id));
       await expect(title(page)).toHaveText(lesson.title);
       await expect(sidebar).toHaveCount(0);
+      // P8-T26: with no outline the shell renders no rail, so there is nothing to expand.
+      await expect(page.getByRole("button", { name: "Expand Track sidebar" })).toHaveCount(0);
       await expect(boundary(page)).toHaveCount(0);
       await expect(page.getByText(UNAVAILABLE)).toHaveCount(0);
 
       await request.delete(`${FAULT_API_ORIGIN}/__fault`);
       await page.reload();
       await expect(title(page)).toHaveText(lesson.title);
+      // P8-T26: the sidebar is back as a collapsed rail below 1440 px; one click shows it.
+      await page.getByRole("button", { name: "Expand Track sidebar" }).click();
       await expect(sidebar.first()).toBeVisible();
    });
 });

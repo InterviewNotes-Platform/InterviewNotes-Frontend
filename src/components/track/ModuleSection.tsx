@@ -51,7 +51,7 @@ export function ModuleSection({ id, title, detail, defaultOpen, children }: Modu
    };
 
    return (
-      <div id={id ?? undefined} ref={ref} className="scroll-mt-28">
+      <div id={id ?? undefined} ref={ref} className="scroll-mt-32">
          <Disclosure title={title} detail={detail} open={open} onOpenChange={toggle} instant={arrivals > 0} className="border-t border-border">
             <ModuleOpenContext value={open}>{children}</ModuleOpenContext>
          </Disclosure>

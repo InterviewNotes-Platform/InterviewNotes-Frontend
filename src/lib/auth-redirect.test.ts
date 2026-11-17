@@ -13,6 +13,7 @@ describe("safeRedirectPath", () => {
         "/knowledge",
         "/knowledge/chunking-long-inputs",
         "/practice",
+        "/pricing",
         "/prepare",
         "/prepare/new",
         "/prepare/data",

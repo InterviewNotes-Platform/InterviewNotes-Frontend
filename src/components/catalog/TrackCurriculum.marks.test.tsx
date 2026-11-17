@@ -10,7 +10,7 @@ import { createFakePrepApi } from "@/lib/prep/fakeApi";
 
 vi.mock("next/link", async () => {
    const { createElement } = await import("react");
-   return { default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }) };
+   return { useLinkStatus: () => ({ pending: false }), default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }) };
 });
 
 import { TrackCurriculum } from "./TrackCurriculum";

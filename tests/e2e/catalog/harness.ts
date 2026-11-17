@@ -287,3 +287,36 @@ export async function expectNoCanary(page: Page, traffic: Traffic, route: string
    const leaks = await exposures(page, received, CANARY);
    expect(leaks, `${route} as ${identity}: premium canary reached the browser`).toEqual([]);
 }
+
+/**
+ * P8-T29 split Problem reader: one stage is shown at a time, so a test first selects the stage it acts on (and, below
+ * 1024 px, the Work pane). Both controls exist only once the page is interactive; without JavaScript, or on a Problem
+ * with one position, every band is already shown and this does nothing.
+ */
+export async function showStage(page: Page, name: string): Promise<void> {
+   const ready = (selector: ReturnType<Page["locator"]>) => selector.waitFor({ state: "attached", timeout: 5000 }).then(() => true, () => false);
+   const work = page.getByRole("radio", { name: "Work" });
+   if ((await ready(work)) && (await work.isVisible())) await work.check({ force: true });
+   const bar = page.getByRole("navigation", { name: "Problem stages" });
+   if (!(await ready(bar))) return;
+   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+   const button = bar.getByRole("button", { name: new RegExp(`^\\d*\\s*${escaped}$`) });
+   // After a stage change the bar can sit under the sticky shell chrome, so the page returns to the top first.
+   await expect(async () => {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await button.click();
+      await expect(button).toHaveAttribute("aria-current", "step", { timeout: 1000 });
+   }).toPass({ timeout: 10_000 });
+}
+
+/** Every stage of a split Problem in turn (P8-T29), running `each` once per shown stage; once when there is no stage bar. */
+export async function eachStage(page: Page, each: () => Promise<void>): Promise<void> {
+   const buttons = page.getByRole("navigation", { name: "Problem stages" }).getByRole("button");
+   const count = await buttons.count();
+   if (count === 0) return each();
+   for (let index = 0; index < count; index++) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await buttons.nth(index).click();
+      await each();
+   }
+}

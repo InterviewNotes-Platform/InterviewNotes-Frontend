@@ -325,6 +325,39 @@ function itemStateApi(req, res, path, body) {
    return respond(res, 200, next);
 }
 
+/**
+ * Test double of payment-spec §6.1, §9.1 and §9.2 for `/me/billing`. `PUT /__billing?checkout=<mode>&status=a,b,c` scripts it:
+ * checkout modes ok | disabled | entitled | subscription | unavailable | slow | badurl | loopback | malformed; `status` is the state sequence
+ * the confirm call and each status read take in turn (the last repeats). It grants nothing: Premium is only what a status says.
+ */
+const billing = { checkout: "ok", states: ["none"], reads: 0, log: [] };
+const SESSION = /^cs_(test|live)_[A-Za-z0-9]+$/;
+function billingBody(state) {
+   const premium = ["active", "canceling", "past_due"].includes(state);
+   return { premium, source: state === "none" ? "none" : "stripe", plan: premium ? "annual" : null, state, active_until: premium ? "2027-11-10T09:30:00Z" : null, grace_until: null, renews: state === "active", purchase_enabled: true };
+}
+function billingApi(req, res, path, body) {
+   billing.log.push(`${req.method} ${path}`);
+   if (!identityOf(req)) return respond(res, 401, { detail: "Not authenticated", code: "unauthenticated" });
+   const nextStatus = () => billingBody(billing.states[Math.min(billing.reads++, billing.states.length - 1)]);
+   if (req.method === "GET" && path === "/me/billing/status") return respond(res, 200, nextStatus());
+   if (req.method === "POST" && path === "/me/billing/checkout/confirm") {
+      if (!SESSION.test(body.session_id ?? "") || body.session_id.includes("unknown")) return respond(res, 404, { detail: "Not found", code: "not_found" });
+      return respond(res, 200, nextStatus());
+   }
+   if (req.method !== "POST" || path !== "/me/billing/checkout") return respond(res, 404, { detail: "Not found", code: "not_found" });
+   if (Object.keys(body).join() !== "plan" || !["annual", "three_year", "lifetime"].includes(body.plan)) return respond(res, 422, { detail: "Invalid", code: "validation_error" });
+   const refusals = { disabled: [403, "billing_disabled"], entitled: [409, "already_entitled"], subscription: [409, "subscription_active"], unavailable: [503, "billing_unavailable"] };
+   if (refusals[billing.checkout]) {
+      const [status, code] = refusals[billing.checkout];
+      return respond(res, status, { detail: "Refused", code });
+   }
+   // "ok" answers a Stripe-shaped URL; a browser test intercepts that host, so nothing reaches Stripe.
+   const url = { badurl: "https://evil.example/pay", loopback: `http://${req.headers.host}/__test-checkout`, malformed: false }[billing.checkout] ?? `https://checkout.stripe.com/c/pay/cs_test_fake?plan=${body.plan}`;
+   const reply = () => respond(res, 200, url === false ? { url: 1 } : { checkout_url: url });
+   return billing.checkout === "slow" ? void setTimeout(reply, 1500) : reply();
+}
+
 const api = createServer((req, res) => {
    const { pathname: path, searchParams: query } = new URL(req.url, `http://${HOST}`);
    if (req.method === "OPTIONS") return res.writeHead(204, CORS).end();
@@ -339,6 +372,16 @@ const api = createServer((req, res) => {
       let raw = "";
       req.on("data", (chunk) => (raw += chunk));
       return void req.on("end", () => itemStateApi(req, res, path, raw ? JSON.parse(raw) : {}));
+   }
+   if (path === "/__billing" && req.method === "PUT") {
+      Object.assign(billing, { checkout: query.get("checkout") ?? "ok", states: (query.get("status") ?? "none").split(","), reads: 0, log: [] });
+      return respond(res, 200, billing);
+   }
+   if (path === "/__billing-log") return respond(res, 200, billing.log);
+   if (path.startsWith("/me/billing/")) {
+      let raw = "";
+      req.on("data", (chunk) => (raw += chunk));
+      return void req.on("end", () => billingApi(req, res, path, raw ? JSON.parse(raw) : {}));
    }
    if (path === "/__fault" && (req.method === "PUT" || req.method === "DELETE")) {
       fault = req.method === "PUT" ? { path: query.get("path"), delayMs: Number(query.get("delayMs") ?? 0), status: Number(query.get("status") ?? 0) } : null;

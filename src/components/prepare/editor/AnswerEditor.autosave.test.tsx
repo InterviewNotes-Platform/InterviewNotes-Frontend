@@ -1188,7 +1188,9 @@ describe("version conflicts (P7-T21)", () => {
       fireEvent.click(keepMine());
       // While the retry is in the air the status holds focus; the reopened choice must still take it from there.
       await waitFor(() => expect(race.release).toBeDefined());
-      expect(document.activeElement).toBe(statusRegion());
+      // The PATCH leaves before React removes the button and runs the focus effect, so wait for focus; the retry is still held.
+      await waitFor(() => expect(document.activeElement).toBe(statusRegion()));
+      expect(race.release).toBeDefined();
       race.hold = false;
       await act(async () => void race.release?.());
       await waitFor(() => expect(status()).toContain("changed again"));
@@ -1198,7 +1200,8 @@ describe("version conflicts (P7-T21)", () => {
       await act(async () => {});
       fireEvent.click(keepMine());
       await waitFor(() => expect(status()).toBe("Saved"));
-      expect(document.activeElement).toBe(statusRegion());
+      // Focus moves in an effect after the status text, so on a slow runner it can land a tick later.
+      await waitFor(() => expect(document.activeElement).toBe(statusRegion()));
    });
 
    it("focus: loading the server version leaves focus on the status", async () => {

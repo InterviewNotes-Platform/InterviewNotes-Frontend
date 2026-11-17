@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import Link from "next/link";
 import { ArrowRight, BookOpen, PencilRuler, type LucideIcon } from "lucide-react";
 import type { StoryApiProps } from "@/components/prepare/stories/useStoryClient";
 import { CompletionMarksProvider, EntryLeading } from "@/components/track/CompletionMarks";
@@ -10,11 +9,13 @@ import { moduleFragmentId } from "@/lib/catalog/moduleLocation";
 import type { Curriculum, PlacedEntry } from "@/lib/catalog/track";
 import type { CatalogTrack } from "@/lib/catalog/types";
 import { PremiumMark } from "./EntryRow";
+import { PendingLink } from "@/components/navigation/PendingLink";
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
 // Prefetching a link makes the server render its target page, which reads that item. A Track page
-// reads the catalog once; only following a link reads the next page, so none of these links prefetch.
+// reads the catalog once; only following a link reads the next page, so none of these links prefetch. Each one
+// acknowledges a click at once with a pending hint instead (PendingLink, P8-RSP-02).
 
 // Inside Learn a Problem is a practice step in the curriculum, not an entry in a Problem library.
 const STEP: Record<PlacedEntry["entry"]["type"], { label: string; Icon: LucideIcon }> = {
@@ -42,10 +43,10 @@ function TrackStart({ curriculum: { start, counts } }: { curriculum: Curriculum 
    return (
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
          <Button asChild size="lg" className="h-auto min-h-11 max-w-full px-6 py-2 text-left text-body whitespace-normal">
-            <Link href={start.href} prefetch={false} aria-describedby="track_start_note">
+            <PendingLink href={start.href} aria-describedby="track_start_note">
                Start with {start.entry.title}
                <ArrowRight aria-hidden="true" />
-            </Link>
+            </PendingLink>
          </Button>
          <p id="track_start_note" className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">
             <span>Recommended starting point</span>
@@ -70,9 +71,8 @@ function LevelChoice({ curriculum, summaries }: { curriculum: Curriculum; summar
          <ul role="list" className="m-0 mt-3 list-none p-0">
             {levels.map(({ entry, href }) => (
                <li key={entry.id}>
-                  <Link
+                  <PendingLink
                      href={href}
-                     prefetch={false}
                      className="group -mx-2 block min-h-11 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-surface"
                   >
                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -82,7 +82,7 @@ function LevelChoice({ curriculum, summaries }: { curriculum: Curriculum; summar
                      {summaries?.get(entry.id) ? (
                         <span className="mt-1 block text-supporting text-pretty text-muted-foreground">{summaries.get(entry.id)}</span>
                      ) : null}
-                  </Link>
+                  </PendingLink>
                </li>
             ))}
          </ul>
@@ -103,8 +103,9 @@ export function TrackHeader({
    const summary = curriculumSummary(curriculum);
    return (
       <header>
-         <p className="m-0 mb-3 text-supporting font-medium text-muted-foreground">Track</p>
-         <h1 className="m-0 text-title text-balance">{track.title}</h1>
+         <p className="m-0 mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Track</p>
+         {/* P8-D-071: the Track title, module titles and outline numerals are the Track page's only serif display text. */}
+         <h1 className="m-0 text-title font-medium text-balance font-[family-name:var(--font-reader-serif)]">{track.title}</h1>
          {track.summary ? <p className="mt-4 mb-0 text-body text-pretty text-muted-foreground">{track.summary}</p> : null}
          {summary ? (
             <p data-slot="curriculum-summary" className="mt-6 mb-0 text-supporting text-muted-foreground">
@@ -122,15 +123,17 @@ export function TrackHeader({
 }
 
 /** One ordered row. The leading slot has a fixed size; a completed row shows its mark there (P7-T46). */
-function CurriculumEntry({ entry, href, summary }: PlacedEntry & { summary?: string }) {
+function CurriculumEntry({ entry, href, summary, number }: PlacedEntry & { summary?: string; number: number }) {
    const { label, Icon } = STEP[entry.type];
    return (
       <li>
-         <Link
+         <PendingLink
             href={href}
-            prefetch={false}
-            className="group -mx-2 grid min-h-11 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-surface"
+            className="group -mx-2 grid min-h-11 grid-cols-[2rem_2rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-[var(--reader-brand-soft)]"
          >
+            <span aria-hidden="true" data-slot="curriculum-number" className="text-body text-muted-foreground italic tabular-nums font-[family-name:var(--font-reader-serif)]">
+               {String(number).padStart(2, "0")}
+            </span>
             <EntryLeading contentId={entry.id}>
                <Icon className="size-4" />
             </EntryLeading>
@@ -140,7 +143,7 @@ function CurriculumEntry({ entry, href, summary }: PlacedEntry & { summary?: str
                {summary ? <span className="mt-1 block text-supporting text-pretty text-muted-foreground">{summary}</span> : null}
             </span>
             {entry.access === "premium" ? <PremiumMark /> : null}
-         </Link>
+         </PendingLink>
       </li>
    );
 }
@@ -162,6 +165,8 @@ interface TrackCurriculumProps {
 export function TrackCurriculum({ track, curriculum, summaries, itemState }: TrackCurriculumProps) {
    // A Track with no modules has nothing to outline; the Start state in its header already says so.
    if (curriculum.modules.length === 0) return null;
+   // Items are numbered once across the Track, in curriculum order, so a number never repeats between Modules.
+   const numbers = new Map(curriculum.modules.flatMap(({ rows }) => rows).map(({ entry }, index) => [entry.id, index + 1]));
    const outline = (
       <nav aria-label={`${track.title} outline`} className="border-b border-border">
          {curriculum.modules.map(({ module, rows, counts }, index) => (
@@ -170,7 +175,8 @@ export function TrackCurriculum({ track, curriculum, summaries, itemState }: Tra
                id={moduleFragmentId(module)}
                title={
                   <>
-                     <span className="block text-supporting font-normal text-muted-foreground">Module {index + 1}</span> {module.title}
+                     <span className="block text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Module {index + 1}</span>{" "}
+                     <span className="font-[family-name:var(--font-reader-serif)] text-subsection font-medium">{module.title}</span>
                   </>
                }
                detail={moduleCounts(counts)}
@@ -179,7 +185,12 @@ export function TrackCurriculum({ track, curriculum, summaries, itemState }: Tra
                {rows.length ? (
                   <ol role="list" className="m-0 list-none p-0 pb-4">
                      {rows.map((row) => (
-                        <CurriculumEntry key={row.entry.id} {...row} summary={row.entry.type === "lesson" ? summaries?.get(row.entry.id) : undefined} />
+                        <CurriculumEntry
+                           key={row.entry.id}
+                           {...row}
+                           number={numbers.get(row.entry.id) ?? 0}
+                           summary={row.entry.type === "lesson" ? summaries?.get(row.entry.id) : undefined}
+                        />
                      ))}
                   </ol>
                ) : (
@@ -208,13 +219,12 @@ export function TrackSupport({ curriculum }: { curriculum: Curriculum }) {
          <ul role="list" className="m-0 list-none p-0">
             {practice.map(({ entry, href, module }) => (
                <li key={entry.id} className="flex flex-wrap items-center gap-x-2">
-                  <Link
+                  <PendingLink
                      href={href}
-                     prefetch={false}
                      className="inline-flex min-h-11 items-center font-medium text-foreground transition-micro hover:text-primary"
                   >
                      {entry.title}
-                  </Link>
+                  </PendingLink>
                   <span className="text-supporting text-muted-foreground">/ {module.title}</span>
                </li>
             ))}

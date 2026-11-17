@@ -89,7 +89,7 @@ describe("completion", () => {
       expect(await other.getItemState(LESSON)).toMatchObject({ data: { version: 3, completed_at: null } });
    });
 
-   it("ignores a second press while the first is pending", async () => {
+   it("ignores a second press while the first is pending, and queues a bookmark press behind it (CO-1)", async () => {
       const { api } = setup();
       await loaded();
       await act(async () => {
@@ -97,7 +97,11 @@ describe("completion", () => {
          fireEvent.click(complete());
          fireEvent.click(bookmark());
       });
-      expect(calls(api).filter((call) => call.startsWith("PATCH"))).toHaveLength(1);
+      await waitFor(() => expect(bookmark()).toHaveAttribute("aria-pressed", "true"));
+      expect(api.requests.filter(({ method }) => method === "PATCH").map(({ body }) => body)).toEqual([
+         { version: 1, completed: true },
+         { version: 2, bookmarked: true },
+      ]);
    });
 
    it("keeps focus on the control after a save", async () => {

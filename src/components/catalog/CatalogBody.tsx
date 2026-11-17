@@ -3,10 +3,12 @@ import Link from "next/link";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
+import { Exhibit } from "@/components/lesson/Exhibit";
+import { exhibitAnchor } from "@/components/lesson/pins";
 import { KnowledgeAbout } from "@/components/lesson/KnowledgeAbout";
 import { PrepareAnswerLink, PrepareLinkSession } from "@/components/prepare/lesson-link/PrepareAnswerLink";
 import { CopyCode } from "@/components/mdx/CopyCode";
-import { codeName, languageLabel, parseFence, type FenceInfo } from "@/components/mdx/fence";
+import { codeName, diagramName, languageLabel, parseFence, type FenceInfo } from "@/components/mdx/fence";
 import { HIGHLIGHT } from "@/components/mdx/highlight";
 import { Mermaid } from "@/components/mdx/Mermaid";
 import { Tip, type TipType } from "@/components/mdx/Tip";
@@ -134,6 +136,27 @@ const components: Components = {
    img: () => null,
 };
 
+/** A Lesson table as an exhibit (P8-T27): Expand and Pin under it, and its size from the authored rows and cells. */
+const exhibitTable = (blockPath: string): Components["table"] => function ExhibitTable({ node, ...props }) {
+   const rows = node?.children.flatMap((part) => (part.type === "element" ? part.children.filter((row) => row.type === "element" && row.tagName === "tr") : [])) ?? [];
+   const body = rows.length > 0 ? rows.length - 1 : 0;
+   const first = rows[0];
+   const cells = first?.type === "element" ? first.children.filter((cell) => cell.type === "element") : [];
+   const header = cells.map(textOf).map((text) => text.trim()).filter(Boolean).join(", ");
+   return (
+      <Exhibit
+         kind="Table"
+         anchor={exhibitAnchor(blockPath, node?.position?.start.offset)}
+         size={`${body} rows · ${cells.length} columns`}
+         label={header ? `Table: ${header}` : "Table"}
+      >
+         <TechnicalScroll label="Table">
+            <table className="w-full border-collapse text-supporting" {...props} />
+         </TechnicalScroll>
+      </Exhibit>
+   );
+};
+
 const EYEBROW = "m-0 mb-2 text-supporting font-semibold uppercase tracking-wide text-muted-foreground";
 const LINK_STYLE = "text-primary underline underline-offset-4 decoration-primary/40 transition-micro hover:decoration-primary";
 // A reference to Knowledge reads as a reference, not a link away: quiet, dotted, and distinct from LINK_STYLE.
@@ -141,11 +164,19 @@ const KNOWLEDGE_REF_STYLE =
    "text-foreground underline decoration-dotted decoration-muted-foreground underline-offset-4 transition-micro hover:text-primary hover:decoration-primary";
 
 /** Intercepted at `pre`: <Mermaid /> emits a <div>, which is invalid inside <pre>. */
-function codeBlock(adaptive: boolean): Components["pre"] {
+/** `exhibitPath`, set only in the Lesson reader, is the block's place in the body: diagrams become exhibits anchored there. */
+function codeBlock(adaptive: boolean, exhibitPath: string | null = null): Components["pre"] {
    return function Pre({ node, children, ...props }) {
       const fence = fenceOf(node);
       if (fence?.language === "mermaid" && fence.source.trim()) {
-         return <Mermaid chart={fence.source} adaptive={adaptive} figure={{ caption: fence.caption, alt: fence.alt }} />;
+         const diagram = <Mermaid chart={fence.source} adaptive={adaptive} figure={{ caption: fence.caption, alt: fence.alt }} />;
+         return exhibitPath !== null ? (
+            <Exhibit kind="Diagram" anchor={exhibitAnchor(exhibitPath, node?.position?.start.offset)} label={diagramName(fence)}>
+               {diagram}
+            </Exhibit>
+         ) : (
+            diagram
+         );
       }
       const label = fence ? languageLabel(fence.language) : null;
       const name = codeName(label, fence?.title);
@@ -222,6 +253,10 @@ interface BlocksProps {
    /** Levels added to every authored heading, capped at h6; 0 renders headings as authored. */
    headingOffset: number;
    prepare?: PrepareLinks;
+   /** Lesson reading only: tables and diagrams carry Expand and Pin (P8-T27). */
+   exhibits?: boolean;
+   /** This list's place in the body ("" at the top), so every exhibit gets a stable, unique anchor. */
+   path?: string;
 }
 
 type HeadingTag = keyof typeof HEADING_STYLE;
@@ -256,9 +291,10 @@ function withEvidenceRows(blocks: Block[]): (Block | Block[])[] {
    }, []);
 }
 
-function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffset, prepare }: BlocksProps) {
-   const view = (block: Block, index: number) =>
-      block.type === "markdown" ? (
+function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffset, prepare, exhibits = false, path = "" }: BlocksProps) {
+   const view = (block: Block, index: number, base = path) => {
+      const at = `${base}${index}`;
+      return block.type === "markdown" ? (
          <ReactMarkdown
             key={index}
             remarkPlugins={[remarkGfm]}
@@ -266,7 +302,8 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffs
             components={{
                ...components,
                ...headingComponents(ids?.get(block), headingOffset, prepare),
-               pre: codeBlock(reading),
+               ...(exhibits ? { table: exhibitTable(at) } : {}),
+               pre: codeBlock(reading, exhibits ? at : null),
                a: anchor(stayOnDeployment, reading, aboutIn(block, knowledge)),
             }}
             urlTransform={safeUrl}
@@ -277,7 +314,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffs
       ) : block.type === "part" ? (
          <div key={index} data-part={block.name} className="mt-6 first:mt-0">
             {partLabel(block) ? <p className={EYEBROW}>{partLabel(block)}</p> : null}
-            <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} headingOffset={headingOffset} prepare={prepare} />
+            <Blocks blocks={block.children} stayOnDeployment={stayOnDeployment} reading={reading} ids={ids} knowledge={knowledge} headingOffset={headingOffset} prepare={prepare} exhibits={exhibits} path={`${at}-`} />
          </div>
       ) : (
          <div key={index} role="note" data-callout={block.kind} className="[&_p:last-child]:mb-0">
@@ -290,16 +327,19 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffs
                   knowledge={knowledge}
                   headingOffset={headingOffset}
                   prepare={prepare}
+                  exhibits={exhibits}
+                  path={`${at}-`}
                />
             </Tip>
          </div>
       );
+   };
    return (
       <>
          {withEvidenceRows(canonicalParts(blocks)).map((entry, index) =>
             Array.isArray(entry) ? (
                <div key={index} className={EVIDENCE_ROW}>
-                  {entry.map(view)}
+                  {entry.map((block, inner) => view(block, inner, `${path}${index}r`))}
                </div>
             ) : (
                view(entry, index)
@@ -315,6 +355,10 @@ export interface ReadingMode {
    knowledge?: ReadonlyMap<string, KnowledgeSupport>;
    /** Set only for a Behavioral Lesson while the frontend `PREP_ENABLED` flag is on; unset leaves the body exactly as it was. */
    prepare?: PrepareLinks;
+   /** The Lesson reader (P8-T27): tables and diagrams become exhibits with Expand and Pin; unset leaves the body as it was. */
+   exhibits?: boolean;
+   /** Prefixes this body's exhibit anchors, so exhibits in several bodies on one page (Knowledge sections, P8-T28) stay unique. */
+   exhibitScope?: string;
 }
 
 interface CatalogBodyProps {
@@ -345,6 +389,8 @@ export function CatalogBody({ body, stayOnDeployment = false, reading, headingOf
             knowledge={knowledge}
             headingOffset={headingOffset}
             prepare={ids ? reading?.prepare : undefined}
+            exhibits={reading?.exhibits}
+            path={reading?.exhibitScope ? `${reading.exhibitScope}-` : undefined}
          />
       </div>
    );

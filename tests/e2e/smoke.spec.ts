@@ -14,7 +14,8 @@ test("signup links through to login", async ({ page }) => {
 
     await page.getByRole("main").getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByText("Welcome Back")).toBeVisible();
+    // P8-T34: the sign-in card's title is its one h1, so the check names the heading rather than any matching text.
+    await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
 });
 
 test("demo page renders article content", async ({ page }) => {

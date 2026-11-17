@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/layout/BrandMark";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { MobileMenu } from "@/components/layout/MobileMenu";
+import { LinkPending } from "@/components/navigation/LinkPending";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useAuth } from "@/hooks/use-auth";
@@ -43,8 +44,9 @@ export function Header() {
                                         variant="ghost"
                                         className="h-9 text-sm font-medium text-foreground/70 hover:bg-muted/50 hover:text-foreground aria-[current=page]:bg-muted/50 aria-[current=page]:text-foreground"
                                     >
-                                        <Link href={href} prefetch={PREFETCH_PRIMARY} aria-current={area && area === active ? "page" : undefined}>
+                                        <Link href={href} prefetch={PREFETCH_PRIMARY} aria-current={area && area === active ? "page" : undefined} className="relative">
                                             {label}
+                                            <LinkPending />
                                         </Link>
                                     </Button>
                                 </li>

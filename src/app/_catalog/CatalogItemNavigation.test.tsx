@@ -21,7 +21,7 @@ import { CatalogItemPage } from "./CatalogItemPage";
 
 const MODULE_LOCATION = "/tracks/home#m1";
 const CANONICAL = /^\/(lessons|problems|knowledge|tracks)\/[a-z0-9]+(-[a-z0-9]+)*$/;
-const TRACKS_INDEX = "/#tracks"; // the Tracks crumb: the homepage section, the one non-item link a Lesson carries
+const TRACKS_INDEX = "/tracks"; // the Tracks crumb: the /tracks page (P8 spec §5), the one non-item link a Lesson carries
 const entry = (id: string, over = {}) => {
    const [type, slug] = id.split(".");
    return { id, type, slug, title: `Title ${slug}`, access: "free", primary: true, ...over };
@@ -49,7 +49,8 @@ const RELATED = {
 };
 
 const show = async (type: "lesson" | "problem" | "knowledge" = "lesson", slug = "item") => render(await CatalogItemPage({ type, slug }));
-const hrefs = () => screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+// The item page's links; the reader shell's site footer (P8-T26) holds the header's site-wide destinations.
+const hrefs = () => screen.getAllByRole("link").filter((link) => !link.closest("footer")).map((link) => link.getAttribute("href"));
 
 beforeEach(() => {
    vi.clearAllMocks();
@@ -68,7 +69,7 @@ describe("item page navigation", () => {
       expect(screen.getByText("Synthetic free body.")).toBeInTheDocument();
       const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
       expect(crumbs).toHaveTextContent(/^Tracks\s*\/\s*Home Track\s*\/\s*First Module$/);
-      expect(within(crumbs).getByRole("link", { name: "Tracks" })).toHaveAttribute("href", "/#tracks");
+      expect(within(crumbs).getByRole("link", { name: "Tracks" })).toHaveAttribute("href", TRACKS_INDEX);
       expect(within(crumbs).getByRole("link", { name: "Home Track" })).toHaveAttribute("href", "/tracks/home");
       expect(within(crumbs).getByRole("link", { name: "First Module" })).toHaveAttribute("href", MODULE_LOCATION);
       expect(screen.getByText("Module 1 of 2 · Lesson 2 of 2")).toBeInTheDocument();

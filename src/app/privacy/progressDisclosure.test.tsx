@@ -30,9 +30,20 @@ describe("Privacy page: Lesson and Problem progress", () => {
    it("ties it to the account and says other learners cannot see it, without claiming no other access path exists", () => {
       const { container, part } = section();
       expect(part).toHaveTextContent("Your progress is associated with your account and is not visible to other learners.");
-      expect(part).toHaveTextContent("we don't put your notes in our logs and we don't send a note to an AI feature");
+      expect(part).toHaveTextContent("we don't put your notes in our logs and we don't send a Lesson or Problem note to an AI feature");
       expect(part).toHaveTextContent("We don't sell or share it");
       expect(container).not.toHaveTextContent(/only you can reach|private to your account|never send|unable to access|no one else/i);
+   });
+
+   it("tells the answer-editor text Draft sends apart from Lesson and Problem notes, and says guidance and stories are not sent (P8-T51, CO-2)", () => {
+      const { container } = section();
+      const sent = within(screen.getByRole("heading", { name: "What is sent when you use AI features" }).closest("div") ?? container);
+      expect(container).toHaveTextContent("the text currently entered in that answer's editor. This includes text you have typed but not yet saved.");
+      expect(container).toHaveTextContent("The Draft button refers to this editor text as “your notes.”");
+      expect(container).toHaveTextContent("Personal notes you save while reading Lessons or Problems are not included in AI requests.");
+      expect(container).toHaveTextContent("We currently do not include the question's guidance or your selected Story Bank stories in Draft or Review requests.");
+      expect(sent.queryByText(/up to five stories|its guidance/i)).toBeNull();
+      expect(container).not.toHaveTextContent(/never stored|end-to-end|only processed locally|never shared with an AI provider/i);
    });
 
    it("says unmarking or clearing empties the field but leaves the record until Delete all", () => {
@@ -49,9 +60,10 @@ describe("Privacy page: Lesson and Problem progress", () => {
       expect(container).toHaveTextContent(/Once Lesson and Problem progress is on, the workspace also keeps/);
    });
 
-   it("keeps the TL;DR first and claims no backups for the new data either", () => {
+   it("keeps the TL;DR first, claims no live-service backups and says beta copies hold deleted data until replaced", () => {
       const { container } = section();
       expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent("TL;DR");
-      expect(container).toHaveTextContent("We don't currently keep backups, so we can't restore lost data.");
+      expect(container).toHaveTextContent("We don't keep backups of the live service's database, so we can't restore lost data from it.");
+      expect(container).toHaveTextContent("a beta copy made before you use Delete all still holds your data until it is replaced.");
    });
 });
