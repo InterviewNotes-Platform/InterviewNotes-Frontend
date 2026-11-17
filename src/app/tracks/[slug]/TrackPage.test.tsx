@@ -17,7 +17,10 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/link", async () => {
    const { createElement } = await import("react");
-   return { default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }) };
+   return {
+      default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }),
+      useLinkStatus: () => ({ pending: false }),
+   };
 });
 
 import TrackPage from "./page";

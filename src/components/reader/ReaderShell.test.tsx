@@ -27,6 +27,7 @@ vi.mock("@/lib/supabase/client", () => ({
 vi.mock("next/link", async () => {
    const { createElement } = await import("react");
    return {
+      useLinkStatus: () => ({ pending: false }),
       default: ({ prefetch, ...props }: { href: string; prefetch?: boolean; children: ReactNode }) =>
          createElement("a", { "data-prefetch": String(prefetch), ...props }),
    };

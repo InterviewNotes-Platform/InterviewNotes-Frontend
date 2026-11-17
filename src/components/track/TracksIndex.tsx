@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PremiumMark } from "@/components/catalog/EntryRow";
+import { LinkPending } from "@/components/navigation/LinkPending";
 import { Button } from "@/components/ui/button";
 import type { IndexOutline, IndexTrack, TracksIndex as TracksIndexData } from "@/lib/catalog/trackIndex";
 
@@ -64,8 +65,9 @@ function TrackEntry({ track }: { track: IndexTrack }) {
          <article aria-labelledby={headingId} className="rounded-xl border border-border bg-[var(--reader-paper)] p-6 md:p-8">
             <p className={KICKER}>{join("Track", track.outline ? scope(track.outline) : "")}</p>
             <h2 id={headingId} className="m-0 mt-3 text-subsection text-balance md:text-section">
-               <Link href={track.href} prefetch={false} className="text-foreground transition-micro hover:text-[var(--primary-text)]">
+               <Link href={track.href} prefetch={false} className="relative text-foreground transition-micro hover:text-[var(--primary-text)]">
                   {track.title}
+                  <LinkPending />
                </Link>
             </h2>
             {track.summary ? <p className="mt-3 mb-0 max-w-reading text-body text-pretty text-muted-foreground">{track.summary}</p> : null}
@@ -76,9 +78,10 @@ function TrackEntry({ track }: { track: IndexTrack }) {
             )}
             <div className="mt-6">
                <Button asChild className="h-auto min-h-11 max-w-full bg-[var(--primary-text)] px-5 py-2 text-left text-body whitespace-normal text-[var(--reader-on-brand)] hover:bg-[var(--primary-text)]/90">
-                  <Link href={track.href} prefetch={false} aria-label={`Open ${track.title}`}>
+                  <Link href={track.href} prefetch={false} aria-label={`Open ${track.title}`} className="relative">
                      Open Track
                      <ArrowRight aria-hidden="true" />
+                     <LinkPending />
                   </Link>
                </Button>
             </div>
