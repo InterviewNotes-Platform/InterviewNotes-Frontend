@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { LinkedMeta } from "@/lib/catalog/lesson";
 import type { PracticeRow } from "@/lib/catalog/practiceStep";
 import { DIFFICULTY_LABEL, PremiumMark, TYPE_LABEL } from "./EntryRow";
+import { PendingLink } from "@/components/navigation/PendingLink";
 
 // Page-level ids use `_`, which a heading slug (`[a-z0-9-]`) can never contain, so they cannot collide with one.
 const GROUP_LABEL = "m-0 mb-3 text-supporting font-semibold uppercase tracking-wide text-muted-foreground";
@@ -36,9 +36,9 @@ export function RelationGroup({ id, label, rows, withSummary = false, summaryOff
                return (
                   <li key={entry.id}>
                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <Link href={href} prefetch={false} className="text-body font-medium text-foreground transition-micro hover:text-primary">
+                        <PendingLink href={href} className="text-body font-medium text-foreground transition-micro hover:text-primary">
                            {entry.title}
-                        </Link>
+                        </PendingLink>
                         {detail ? <span className="text-supporting text-muted-foreground">{detail}</span> : null}
                         {entry.access === "premium" ? <PremiumMark /> : null}
                      </div>
@@ -64,9 +64,9 @@ export function BuildsOn({ rows }: { rows: LinkedMeta[] }) {
          <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-1 p-0">
             {rows.map(({ entry, href }) => (
                <li key={entry.id} className="flex flex-wrap items-baseline gap-x-2">
-                  <Link href={href} prefetch={false} className="text-body font-medium text-foreground transition-micro hover:text-primary">
+                  <PendingLink href={href} className="text-body font-medium text-foreground transition-micro hover:text-primary">
                      {entry.title}
-                  </Link>
+                  </PendingLink>
                   <span className="text-supporting text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
                   {entry.access === "premium" ? <PremiumMark /> : null}
                </li>
@@ -96,9 +96,9 @@ export function PracticeTransition({ problems }: { problems: PracticeRow[] }) {
                >
                   <div className="min-w-0 flex-1">
                      <p className="m-0 mb-1 text-supporting text-muted-foreground">{TYPE_LABEL.problem}</p>
-                     <Link href={href} prefetch={false} className="text-subsection text-balance outline-none after:absolute after:inset-0">
+                     <PendingLink href={href} stretched className="text-subsection text-balance outline-none after:absolute after:inset-0">
                         {title}
-                     </Link>
+                     </PendingLink>
                      {summary ? <p className="mt-1 mb-0 text-body text-pretty text-muted-foreground">{summary}</p> : null}
                      <p className="m-0 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">
                         {difficulty ? <span>{DIFFICULTY_LABEL[difficulty]}</span> : null}

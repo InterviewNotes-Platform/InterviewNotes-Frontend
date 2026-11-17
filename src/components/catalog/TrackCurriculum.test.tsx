@@ -11,6 +11,7 @@ vi.mock("next/link", async () => {
    return {
       default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) =>
          createElement("a", { "data-prefetch": String(prefetch), ...props }),
+      useLinkStatus: () => ({ pending: false }),
    };
 });
 

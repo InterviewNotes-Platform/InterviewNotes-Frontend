@@ -1,11 +1,11 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore } from "react";
-import Link from "next/link";
 import { ChevronRight, PencilRuler } from "lucide-react";
 import { filterOutline, type TrackSidebarOutline } from "@/lib/catalog/outline";
 import { cn } from "@/lib/utils";
 import { PremiumMark } from "@/components/catalog/EntryRow";
+import { PendingLink } from "@/components/navigation/PendingLink";
 
 const subscribe = () => () => {};
 /** False in the server HTML and while hydrating, so the filter, which needs JavaScript, is absent until it can work. */
@@ -42,9 +42,9 @@ export function TrackSidebar({
       <nav aria-label="Track contents" className={cn("space-y-4", className)}>
          <p className="m-0 text-body font-semibold leading-snug">
             {href ? (
-               <Link href={href} prefetch={false} onClick={onNavigate} className="text-foreground transition-micro hover:text-primary">
+               <PendingLink href={href} onClick={onNavigate} className="text-foreground transition-micro hover:text-primary">
                   {title}
-               </Link>
+               </PendingLink>
             ) : (
                title
             )}
@@ -94,9 +94,8 @@ export function TrackSidebar({
                   <ol className="m-0 list-none space-y-0.5 p-0 pb-2">
                      {group.entries.map((entry) => (
                         <li key={entry.id}>
-                           <Link
+                           <PendingLink
                               href={entry.href}
-                              prefetch={false}
                               onClick={onNavigate}
                               aria-current={entry.current ? "page" : undefined}
                               className={cn(
@@ -119,7 +118,7 @@ export function TrackSidebar({
                                     {entry.access === "premium" ? <PremiumMark /> : null}
                                  </span>
                               ) : null}
-                           </Link>
+                           </PendingLink>
                         </li>
                      ))}
                   </ol>

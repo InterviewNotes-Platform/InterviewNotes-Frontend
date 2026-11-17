@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import Link from "next/link";
 import { ArrowRight, BookOpen, PencilRuler, type LucideIcon } from "lucide-react";
 import type { StoryApiProps } from "@/components/prepare/stories/useStoryClient";
 import { CompletionMarksProvider, EntryLeading } from "@/components/track/CompletionMarks";
@@ -10,11 +9,13 @@ import { moduleFragmentId } from "@/lib/catalog/moduleLocation";
 import type { Curriculum, PlacedEntry } from "@/lib/catalog/track";
 import type { CatalogTrack } from "@/lib/catalog/types";
 import { PremiumMark } from "./EntryRow";
+import { PendingLink } from "@/components/navigation/PendingLink";
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
 // Prefetching a link makes the server render its target page, which reads that item. A Track page
-// reads the catalog once; only following a link reads the next page, so none of these links prefetch.
+// reads the catalog once; only following a link reads the next page, so none of these links prefetch. Each one
+// acknowledges a click at once with a pending hint instead (PendingLink, P8-RSP-02).
 
 // Inside Learn a Problem is a practice step in the curriculum, not an entry in a Problem library.
 const STEP: Record<PlacedEntry["entry"]["type"], { label: string; Icon: LucideIcon }> = {
@@ -42,10 +43,10 @@ function TrackStart({ curriculum: { start, counts } }: { curriculum: Curriculum 
    return (
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
          <Button asChild size="lg" className="h-auto min-h-11 max-w-full px-6 py-2 text-left text-body whitespace-normal">
-            <Link href={start.href} prefetch={false} aria-describedby="track_start_note">
+            <PendingLink href={start.href} aria-describedby="track_start_note">
                Start with {start.entry.title}
                <ArrowRight aria-hidden="true" />
-            </Link>
+            </PendingLink>
          </Button>
          <p id="track_start_note" className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-supporting text-muted-foreground">
             <span>Recommended starting point</span>
@@ -70,9 +71,8 @@ function LevelChoice({ curriculum, summaries }: { curriculum: Curriculum; summar
          <ul role="list" className="m-0 mt-3 list-none p-0">
             {levels.map(({ entry, href }) => (
                <li key={entry.id}>
-                  <Link
+                  <PendingLink
                      href={href}
-                     prefetch={false}
                      className="group -mx-2 block min-h-11 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-surface"
                   >
                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -82,7 +82,7 @@ function LevelChoice({ curriculum, summaries }: { curriculum: Curriculum; summar
                      {summaries?.get(entry.id) ? (
                         <span className="mt-1 block text-supporting text-pretty text-muted-foreground">{summaries.get(entry.id)}</span>
                      ) : null}
-                  </Link>
+                  </PendingLink>
                </li>
             ))}
          </ul>
@@ -127,9 +127,8 @@ function CurriculumEntry({ entry, href, summary, number }: PlacedEntry & { summa
    const { label, Icon } = STEP[entry.type];
    return (
       <li>
-         <Link
+         <PendingLink
             href={href}
-            prefetch={false}
             className="group -mx-2 grid min-h-11 grid-cols-[2rem_2rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2 py-2.5 transition-micro -outline-offset-2 hover:bg-[var(--reader-brand-soft)]"
          >
             <span aria-hidden="true" data-slot="curriculum-number" className="text-body text-muted-foreground italic tabular-nums font-[family-name:var(--font-reader-serif)]">
@@ -144,7 +143,7 @@ function CurriculumEntry({ entry, href, summary, number }: PlacedEntry & { summa
                {summary ? <span className="mt-1 block text-supporting text-pretty text-muted-foreground">{summary}</span> : null}
             </span>
             {entry.access === "premium" ? <PremiumMark /> : null}
-         </Link>
+         </PendingLink>
       </li>
    );
 }
@@ -220,13 +219,12 @@ export function TrackSupport({ curriculum }: { curriculum: Curriculum }) {
          <ul role="list" className="m-0 list-none p-0">
             {practice.map(({ entry, href, module }) => (
                <li key={entry.id} className="flex flex-wrap items-center gap-x-2">
-                  <Link
+                  <PendingLink
                      href={href}
-                     prefetch={false}
                      className="inline-flex min-h-11 items-center font-medium text-foreground transition-micro hover:text-primary"
                   >
                      {entry.title}
-                  </Link>
+                  </PendingLink>
                   <span className="text-supporting text-muted-foreground">/ {module.title}</span>
                </li>
             ))}
