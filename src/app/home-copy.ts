@@ -102,6 +102,14 @@ export const TRACKS = {
    empty: "No Tracks are published yet.",
    /** Shown with a link to Knowledge when the Track list cannot be read (S6-HOME-2). */
    unavailable: "Tracks could not be loaded right now.",
+   /** While the Track list is still on its way. Says nothing about the catalog: no count, no title. */
+   pending: "Loading Tracks.",
+   pendingSlow: "Still loading. The server may be starting, which can take up to a minute. Tracks will appear here as soon as it is ready.",
+   stalled: "Tracks are taking longer than usual to load.",
+   retry: "Try again",
+   retrying: "Trying again",
+   noscript: "Tracks are still loading, and this page cannot refresh itself without JavaScript. Reload the page in a minute to see them.",
+   noscriptRetry: "Reload the page to try again.",
 };
 
 /** The explorer's own group ids (lib/catalog/knowledge.ts); a test holds each href to `explorerHref`. */

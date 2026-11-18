@@ -11,8 +11,45 @@ export interface HomeTrackCard {
    href: string;
 }
 
-/** What the homepage's Tracks section shows: cards, the empty sentence, or the unavailable sentence. */
-export type HomeTracks = { status: "ok"; cards: HomeTrackCard[] } | { status: "empty" } | { status: "unavailable" };
+/**
+ * What the homepage's Tracks section shows: cards, the empty sentence, the unavailable sentence, or `pending`: the read
+ * is still waiting on the API (for example while the free-tier backend starts), so the page says so instead of holding
+ * everything back. `pending` is never a statement about the catalog and never carries a card.
+ */
+export type HomeTracks =
+   | { status: "ok"; cards: HomeTrackCard[] }
+   | { status: "empty" }
+   | { status: "unavailable" }
+   | { status: "pending" };
+
+/**
+ * How long the homepage waits for its two public reads before it renders what it has. A Data Cache answer or a running
+ * API answers well inside this; a sleeping free-tier API does not, and holding the hero for it takes the whole page.
+ */
+export const HOME_READ_BUDGET_MS = 800;
+
+export type Bounded<T> = { settled: true; value: T } | { settled: false };
+
+/**
+ * `read`'s answer, or `{ settled: false }` once `ms` has passed without one. The read is never cancelled: it goes on and
+ * fills the same cache it always did. A null budget waits as long as the read takes (a crawler is given the whole page).
+ */
+export function withinBudget<T>(read: Promise<T>, ms: number | null): Promise<Bounded<T>> {
+   if (ms === null) return read.then((value) => ({ settled: true as const, value }));
+   return new Promise<Bounded<T>>((resolve, reject) => {
+      const timer = setTimeout(() => resolve({ settled: false }), ms);
+      read.then(
+         (value) => {
+            clearTimeout(timer);
+            resolve({ settled: true, value });
+         },
+         (error: unknown) => {
+            clearTimeout(timer);
+            reject(error);
+         }
+      );
+   });
+}
 
 /**
  * The published Tracks in the API's order, each with its canonical route. Only an empty list is "empty": a list whose

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { FREE_CHAPTER_LESSON_SLUG, freeChapterHref, homeTracks } from "./home";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { FREE_CHAPTER_LESSON_SLUG, freeChapterHref, homeTracks, withinBudget } from "./home";
 import type { CatalogMeta, CatalogResult, CatalogTrackList } from "./types";
 
 const track = (slug: string, title = `${slug} title`, summary = `${slug} summary`) => ({ id: `track.${slug}`, slug, title, summary });
@@ -103,5 +103,44 @@ describe("freeChapterHref", () => {
       expect(freeChapterHref(lesson({ slug: "something-else", id: "lesson.something-else" }))).toBeNull();
       expect(freeChapterHref(lesson({ type: "knowledge", id: `knowledge.${FREE_CHAPTER_LESSON_SLUG}` }))).toBeNull();
       expect(freeChapterHref(lesson({ id: "lesson.another" }))).toBeNull();
+   });
+});
+
+describe("withinBudget", () => {
+   afterEach(() => vi.useRealTimers());
+
+   it("returns the answer, and clears its timer, when the read answers inside the budget", async () => {
+      vi.useFakeTimers();
+      const answered = withinBudget(Promise.resolve("answer"), 800);
+      await expect(answered).resolves.toEqual({ settled: true, value: "answer" });
+      expect(vi.getTimerCount()).toBe(0);
+   });
+
+   it("gives up waiting at the budget but leaves the read running to its own end", async () => {
+      vi.useFakeTimers();
+      let finish!: (value: string) => void;
+      const read = new Promise<string>((resolve) => (finish = resolve));
+      const bounded = withinBudget(read, 800);
+      await vi.advanceTimersByTimeAsync(799);
+      let outcome: unknown = "waiting";
+      void bounded.then((value) => (outcome = value));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(outcome).toBe("waiting");
+      await vi.advanceTimersByTimeAsync(1);
+      expect(outcome).toEqual({ settled: false });
+      finish("late");
+      await expect(read).resolves.toBe("late");
+   });
+
+   it("waits as long as the read takes for a null budget", async () => {
+      vi.useFakeTimers();
+      const read = new Promise<string>((resolve) => setTimeout(() => resolve("slow"), 60_000));
+      const bounded = withinBudget(read, null);
+      await vi.advanceTimersByTimeAsync(60_000);
+      await expect(bounded).resolves.toEqual({ settled: true, value: "slow" });
+   });
+
+   it("passes a rejection on rather than reporting it as pending", async () => {
+      await expect(withinBudget(Promise.reject(new Error("boom")), 800)).rejects.toThrow("boom");
    });
 });
