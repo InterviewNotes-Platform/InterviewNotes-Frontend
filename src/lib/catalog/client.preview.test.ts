@@ -5,7 +5,7 @@ vi.mock("@/lib/supabase/server", () => ({
    createClient: async () => ({ auth: { getSession } }),
 }));
 
-import { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack } from "./client";
+import { getCatalogItem, getCatalogItemMeta, getCatalogRelated, getCatalogTrack, publicReadsAreCached } from "./client";
 
 const TOKEN = "unit-synthetic-preview-token-0123456789abcdef";
 const META = {
@@ -154,5 +154,31 @@ describe("a preview that cannot send its credential safely", () => {
       }
       expect(fetchMock).not.toHaveBeenCalled();
       expect(logged()).not.toContain(token);
+   });
+});
+
+describe("publicReadsAreCached", () => {
+   afterEach(() => vi.unstubAllEnvs());
+
+   it("is true for production, which holds no preview credential and so stores public answers", () => {
+      vi.stubEnv("API_URL", "https://api.example.test");
+      vi.stubEnv("CATALOG_PREVIEW_TOKEN", "");
+      expect(publicReadsAreCached()).toBe(true);
+   });
+
+   it("is false for a preview, whose answers are private to this server, and says nothing else about the credential", () => {
+      vi.stubEnv("API_URL", "https://api.example.test");
+      vi.stubEnv("CATALOG_PREVIEW_TOKEN", TOKEN);
+      expect(publicReadsAreCached()).toBe(false);
+      expect(String(publicReadsAreCached())).not.toContain(TOKEN);
+   });
+
+   it("is false when no request can be made at all: no API address, or a credential that cannot be sent safely", () => {
+      vi.stubEnv("API_URL", "");
+      vi.stubEnv("CATALOG_PREVIEW_TOKEN", "");
+      expect(publicReadsAreCached()).toBe(false);
+      vi.stubEnv("API_URL", "http://api.example.test");
+      vi.stubEnv("CATALOG_PREVIEW_TOKEN", TOKEN);
+      expect(publicReadsAreCached()).toBe(false);
    });
 });

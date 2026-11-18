@@ -68,6 +68,16 @@ describe("the Lesson's outline", () => {
       expect(bar.closest("[inert]")).not.toBeNull();
       expect(within(bar).getByRole("link", { name: "Next in the Track: B, premium", hidden: true })).toHaveAttribute("href", "/lessons/b");
    });
+
+   it("acknowledges a click on the Track's previous and next arrows with the pending hint (P8-RSP-02)", () => {
+      render(<LessonOutline entries={ENTRIES} previous={{ href: "/lessons/z", title: "Z", premium: false }} next={{ href: "/lessons/b", title: "B", premium: false }} />);
+      const bar = screen.getByRole("navigation", { name: "Lesson sections", hidden: true });
+      for (const name of ["Previous in the Track: Z", "Next in the Track: B"]) {
+         const link = within(bar).getByRole("link", { name, hidden: true });
+         expect(link).toHaveClass("relative");
+         expect(link.querySelector('span[aria-hidden="true"]')).not.toBeNull();
+      }
+   });
 });
 
 /** Two exhibits with identical content; the folio can be unmounted, as the shell does in Read. */

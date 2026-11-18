@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import {
    CANARY,
@@ -384,4 +385,150 @@ test.describe("failing reads", () => {
       await page.getByRole("button", { name: "Expand Track sidebar" }).click();
       await expect(sidebar.first()).toBeVisible();
    });
+});
+
+// P8 hot path: the homepage must not hold its hero for a Track list that is slow to arrive (a free-tier API starting). The fault
+// deployment reads uncached, so a delay always lands. The delay is longer than the page's wait and shorter than the test's.
+test.describe("a slow Track list on the homepage", () => {
+   test.use({ baseURL: FAULT_ORIGIN });
+
+   const SLOW = 12_000;
+   const slow = (request: APIRequestContext) => request.put(`${FAULT_API_ORIGIN}/__fault`, { params: { path: "/catalog/tracks", delayMs: SLOW } });
+   const clear = (request: APIRequestContext) => request.delete(`${FAULT_API_ORIGIN}/__fault`);
+   test.afterEach(async ({ request }) => void (await clear(request)));
+
+   const tracksRegion = (page: Page) => page.getByRole("region", { name: "Choose Your Track" });
+   const trackLinks = (page: Page) => tracksRegion(page).getByRole("list").last().getByRole("link");
+   const hero = (page: Page) => page.getByRole("region", { name: /Crack Your Next/ });
+
+   test("shows the hero and the primary action at once, says the Tracks are loading with no card, then shows them without a reload", async ({ page, request }) => {
+      await slow(request);
+      const started = Date.now();
+      await page.goto("/");
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(hero(page).getByRole("link", { name: "Browse Tracks" })).toBeVisible();
+      // The page answered at its own wait, not at the API's: the delay is 12 s, the budget under 1 s.
+      expect(Date.now() - started, "the homepage waited for the slow API").toBeLessThan(SLOW - 4000);
+
+      await expect(tracksRegion(page).getByRole("status")).toHaveText("Loading Tracks.");
+      await expect(tracksRegion(page).getByRole("heading", { level: 3 })).toHaveCount(0);
+      await expect(tracksRegion(page).getByRole("link")).toHaveCount(0);
+      await expect(tracksRegion(page).getByText(/could not be loaded|No Tracks are published/)).toHaveCount(0);
+
+      // The skeleton is decorative and holds two cards' space.
+      const skeleton = tracksRegion(page).locator("[data-tracks-skeleton]");
+      await expect(skeleton).toHaveAttribute("aria-hidden", "true");
+      await expect(skeleton.locator("li")).toHaveCount(2);
+
+      // The API recovers; the page's own first retry (6 s) brings the real cards in place, with no reload and no browser request to the API.
+      await clear(request);
+      await expect(trackLinks(page).first()).toBeVisible({ timeout: 15_000 });
+      await expect(tracksRegion(page).locator("[data-tracks-pending]")).toHaveCount(0);
+      await expect(tracksRegion(page).getByRole("status")).toHaveCount(0);
+   });
+
+   test("explains a long wait in text, keeps the whole page usable meanwhile, and acknowledges a click on a link whose destination is also slow", async ({ page, request }) => {
+      await slow(request);
+      await page.goto("/");
+      await expect(tracksRegion(page).getByRole("status")).toContainText("The server may be starting", { timeout: 10_000 });
+      // The rest of the page does not wait: Knowledge and Pricing are still there and their links work.
+      await expect(page.locator("#knowledge")).toBeVisible();
+      await expect(page.locator("#pricing")).toBeVisible();
+      // /tracks reads the same slow list, so its destination waits too: the click is acknowledged at once, in the link itself.
+      const action = hero(page).getByRole("link", { name: "Browse Tracks" });
+      await action.click();
+      await expect(action.locator('[data-nav-pending="link"]')).toBeAttached({ timeout: 1000 });
+   });
+
+   test("without JavaScript says the Tracks are still loading, hides the skeleton, links on, and shows the cards once the API answers", async ({ browser, request }) => {
+      const context = await browser.newContext({ javaScriptEnabled: false, baseURL: FAULT_ORIGIN });
+      const page = await context.newPage();
+      try {
+         await slow(request);
+         const response = await page.goto("/");
+         expect(response?.status()).toBe(200);
+         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+         await expect(tracksRegion(page).getByText(/cannot refresh itself without JavaScript/)).toBeVisible();
+         await expect(tracksRegion(page).locator("[data-tracks-js]")).toBeHidden();
+         await expect(tracksRegion(page).getByRole("link", { name: "Browse Knowledge" })).toHaveAttribute("href", "/knowledge");
+         // P8-D-074: a working link to the Tracks page sits in the loading state itself, and the page says to reload.
+         await expect(tracksRegion(page).getByRole("link", { name: "Browse Tracks" })).toHaveAttribute("href", "/tracks");
+         await expect(tracksRegion(page).getByText(/Reload the page in a minute/)).toBeVisible();
+         await expect(tracksRegion(page).getByRole("heading", { level: 3 })).toHaveCount(0);
+
+         await clear(request);
+         await page.reload();
+         await expect(trackLinks(page).first()).toBeVisible();
+         await expect(tracksRegion(page).locator("[data-tracks-pending]")).toHaveCount(0);
+      } finally {
+         await context.close();
+      }
+   });
+
+   test("without JavaScript the Browse Tracks link in the loading state opens the Tracks page once the API answers", async ({ browser, request }) => {
+      const context = await browser.newContext({ javaScriptEnabled: false, baseURL: FAULT_ORIGIN });
+      const page = await context.newPage();
+      try {
+         await slow(request);
+         await page.goto("/");
+         const link = tracksRegion(page).getByRole("link", { name: "Browse Tracks" });
+         await expect(link).toBeVisible();
+         await clear(request);
+         await link.click();
+         await expect(page).toHaveURL(/\/tracks$/);
+         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      } finally {
+         await context.close();
+      }
+   });
+
+   test("gives a crawler the whole page: it waits for the Tracks and never sees the pending state", async ({ browser, request }) => {
+      const context = await browser.newContext({ userAgent: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", baseURL: FAULT_ORIGIN });
+      const page = await context.newPage();
+      try {
+         await request.put(`${FAULT_API_ORIGIN}/__fault`, { params: { path: "/catalog/tracks", delayMs: 3000 } });
+         await page.goto("/");
+         await expect(trackLinks(page).first()).toBeVisible();
+         await expect(tracksRegion(page).locator("[data-tracks-pending]")).toHaveCount(0);
+      } finally {
+         await context.close();
+      }
+   });
+
+   test("a failed Track list says so, offers Try again and Knowledge, and recovers on Try again; the cards are never made up", async ({ page, request }) => {
+      await request.put(`${FAULT_API_ORIGIN}/__fault`, { params: { path: "/catalog/tracks", status: 500 } });
+      const response = await page.goto("/");
+      expect(response?.status()).toBe(200);
+      await expect(tracksRegion(page).getByText("Tracks could not be loaded right now.")).toBeVisible();
+      await expect(tracksRegion(page).getByRole("heading", { level: 3 })).toHaveCount(0);
+      await expect(tracksRegion(page).getByRole("link")).toHaveText(["Browse Knowledge"]);
+
+      await clear(request);
+      await tracksRegion(page).getByRole("button", { name: "Try again" }).click();
+      await expect(trackLinks(page).first()).toBeVisible();
+      await expect(tracksRegion(page).getByText("Tracks could not be loaded right now.")).toHaveCount(0);
+   });
+
+   test("honours reduced motion: the skeleton does not animate", async ({ page, request }) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await slow(request);
+      await page.goto("/");
+      const bars = tracksRegion(page).locator("[data-tracks-skeleton] [class*='motion-safe:animate-pulse']");
+      await expect(bars.first()).toBeAttached();
+      for (const animation of await bars.evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).animationName))) expect(animation).toBe("none");
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      expect(await bars.first().evaluate((node) => getComputedStyle(node).animationName)).not.toBe("none");
+   });
+
+   for (const width of [1280, 390]) {
+      test(`the pending state has no WCAG A or AA violation and no horizontal overflow at ${width}px`, async ({ page, request }) => {
+         await page.setViewportSize({ width, height: 900 });
+         await slow(request);
+         await page.goto("/");
+         await expect(tracksRegion(page).getByRole("status")).toBeVisible();
+         const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+         expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      });
+   }
 });

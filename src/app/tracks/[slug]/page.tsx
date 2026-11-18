@@ -11,6 +11,7 @@ import { outlineOf } from "@/lib/catalog/outline";
 import { loadLessonSummaries } from "@/lib/catalog/summaries";
 import { prepApiUrl, prepEnabled } from "@/lib/prep-flag";
 import { curriculumOf } from "@/lib/catalog/track";
+import { reportRender } from "@/lib/perf/hotpath";
 import type { CatalogTrack } from "@/lib/catalog/types";
 import { TRACKS_INDEX_HREF } from "@/lib/primary-navigation";
 
@@ -58,6 +59,7 @@ function TrackBody({ track, summaries }: { track: CatalogTrack; summaries: Reado
 
 // Tracks are public and never gated, so unlike item pages this route sends no session.
 export default async function TrackPage({ params }: PageProps) {
+   reportRender("track");
    const result = await getCatalogTrack((await params).slug);
    if (result.status === "notFound") notFound();
    // Lesson summaries are one bounded list scan, and only when the outline has a Lesson to describe.

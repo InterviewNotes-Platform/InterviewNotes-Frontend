@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { PendingLink } from "@/components/navigation/PendingLink";
 import { ListTree, NotebookPen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { TrackDrawer } from "@/components/curriculum/TrackDrawer";
 import { TrackSidebar } from "@/components/curriculum/TrackSidebar";
@@ -169,15 +169,14 @@ export function ReaderShell({ access, surface, outline, expandWide = false, tool
                         <span className="sr-only">{expanded ? "Collapse Track sidebar" : "Expand Track sidebar"}</span>
                      </button>
                      {track.href ? (
-                        <Link
+                        <PendingLink
                            href={track.href}
-                           prefetch={false}
                            data-reader-rail-icon
                            className="flex size-11 items-center justify-center rounded-md text-muted-foreground transition-micro hover:bg-muted hover:text-foreground"
                         >
                            <ListTree aria-hidden="true" className="size-5" />
                            <span className="sr-only">Track overview: {track.title}</span>
-                        </Link>
+                        </PendingLink>
                      ) : null}
                   </div>
                   <div id={SIDEBAR_ID} data-reader-sidebar className="reader-sidebar px-4 pb-6">

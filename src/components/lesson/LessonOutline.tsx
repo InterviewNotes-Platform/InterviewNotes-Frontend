@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import Link from "next/link";
+import { PendingLink } from "@/components/navigation/PendingLink";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ContentsEntry } from "@/lib/catalog/lesson";
 import { cn } from "@/lib/utils";
@@ -56,9 +56,9 @@ function NeighbourLink({ neighbour, direction }: { neighbour: Neighbour | null; 
    const Icon = direction === "previous" ? ChevronLeft : ChevronRight;
    const label = `${direction === "previous" ? "Previous" : "Next"} in the Track: ${neighbour.title}${neighbour.premium ? ", premium" : ""}`;
    return (
-      <Link href={neighbour.href} prefetch={false} aria-label={label} title={label} className="flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--primary-text)] transition-micro hover:bg-muted">
+      <PendingLink href={neighbour.href} aria-label={label} title={label} className="flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--primary-text)] transition-micro hover:bg-muted">
          <Icon aria-hidden="true" className="size-5" />
-      </Link>
+      </PendingLink>
    );
 }
 

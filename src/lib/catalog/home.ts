@@ -11,8 +11,78 @@ export interface HomeTrackCard {
    href: string;
 }
 
-/** What the homepage's Tracks section shows: cards, the empty sentence, or the unavailable sentence. */
-export type HomeTracks = { status: "ok"; cards: HomeTrackCard[] } | { status: "empty" } | { status: "unavailable" };
+/**
+ * What the homepage's Tracks section shows: cards, the empty sentence, the unavailable sentence, or `pending`: the read
+ * is still waiting on the API (for example while the free-tier backend starts), so the page says so instead of holding
+ * everything back. `pending` is never a statement about the catalog and never carries a card.
+ */
+export type HomeTracks =
+   | { status: "ok"; cards: HomeTrackCard[] }
+   | { status: "empty" }
+   | { status: "unavailable" }
+   | { status: "pending" };
+
+/**
+ * How long a production homepage waits for its two public reads before it renders what it has. A Data Cache answer or a
+ * running API answers well inside this; a sleeping free-tier API does not, and holding the hero for it takes the whole page.
+ */
+export const HOME_READ_BUDGET_MS = 800;
+const MIN_BUDGET_MS = 100;
+
+/**
+ * The wait the homepage allows its reads, or null to wait as long as they take (the page as it was before the budget).
+ *
+ * A budget only helps when an abandoned read is not wasted: a production read goes through the Data Cache, so the read
+ * the page stopped waiting for still finishes and the next render finds it. A preview's reads are never cached, so an
+ * abandoned read would be lost and a steady, slow answer would never be shown: where reads are not cached the page waits
+ * unless `HOME_READ_BUDGET_MS` is set (a number of milliseconds, or `off`). An environment value also overrides production,
+ * as a switch.
+ */
+export function homeReadBudgetMs(readsAreCached: boolean, setting: string | undefined = process.env.HOME_READ_BUDGET_MS): number | null {
+   const value = setting?.trim().toLowerCase();
+   if (value === "off") return null;
+   if (value) {
+      const ms = Number(value);
+      // Below the floor a timer would lose to a Data Cache answer and every render would show pending.
+      if (Number.isFinite(ms) && ms >= MIN_BUDGET_MS) return ms;
+   }
+   return readsAreCached ? HOME_READ_BUDGET_MS : null;
+}
+
+/**
+ * Whether a request should be given the whole page rather than the budgeted one. The budgeted page is for a person with a
+ * browser, so the test is positive: the framework does not call it a bot, it names a user agent, and it carries the
+ * `Sec-Fetch-Mode` header that every current browser sends on a navigation and on the page's own refresh request and that a
+ * script cannot set from a page. Search and AI crawlers, link checkers and content-checking monitors (curl, python-requests,
+ * a synthetic monitor) send none of that, so they are given the page as it was before the budget and what they index or
+ * check does not depend on the API's mood. A browser too old to send the header gets the page as it was: the safe direction.
+ */
+export function wantsWholePage(userAgent: string | null | undefined, frameworkSaysBot: boolean, secFetchMode: string | null | undefined): boolean {
+   return frameworkSaysBot || !userAgent?.trim() || !secFetchMode?.trim();
+}
+
+export type Bounded<T> = { settled: true; value: T } | { settled: false };
+
+/**
+ * `read`'s answer, or `{ settled: false }` once `ms` has passed without one. The read is never cancelled: it goes on and
+ * fills the same cache it always did. A null budget waits as long as the read takes (a crawler is given the whole page).
+ */
+export function withinBudget<T>(read: Promise<T>, ms: number | null): Promise<Bounded<T>> {
+   if (ms === null) return read.then((value) => ({ settled: true as const, value }));
+   return new Promise<Bounded<T>>((resolve, reject) => {
+      const timer = setTimeout(() => resolve({ settled: false }), ms);
+      read.then(
+         (value) => {
+            clearTimeout(timer);
+            resolve({ settled: true, value });
+         },
+         (error: unknown) => {
+            clearTimeout(timer);
+            reject(error);
+         }
+      );
+   });
+}
 
 /**
  * The published Tracks in the API's order, each with its canonical route. Only an empty list is "empty": a list whose

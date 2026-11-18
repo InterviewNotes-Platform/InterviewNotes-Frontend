@@ -3,21 +3,29 @@ import { useEffect, type ComponentProps } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HomeContent } from "./HomeContent";
-import { FREE_CHAPTER_LESSON_SLUG } from "@/lib/catalog/home";
+import { FREE_CHAPTER_LESSON_SLUG, HOME_READ_BUDGET_MS } from "@/lib/catalog/home";
 import { explorerHref, parseGroup } from "@/lib/catalog/knowledge";
 import { TRACKS_ENTRY } from "@/lib/primary-navigation";
 import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STAGE, STATS, STATS_DISCLOSURE, TESTIMONIALS, TESTIMONIALS_SECTION, TRACKS } from "./home-copy";
 import HomePage, * as homeModule from "./page";
 import { TOPIC_STEP_MS } from "./RotatingTopic";
 
-const { listCatalogTracks, getCatalogItemMeta, listCatalogItems } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn(), listCatalogItems: vi.fn() }));
-vi.mock("@/lib/catalog/client", () => ({ listCatalogTracks, getCatalogItemMeta, listCatalogItems }));
+const { listCatalogTracks, getCatalogItemMeta, listCatalogItems, publicReadsAreCached } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn(), listCatalogItems: vi.fn(), publicReadsAreCached: vi.fn(() => true) }));
+vi.mock("@/lib/catalog/client", () => ({ listCatalogTracks, getCatalogItemMeta, listCatalogItems, publicReadsAreCached }));
+// The page reads the request's user agent (a crawler is given the whole page) and reports late reads for the function log.
+const request = vi.hoisted(() => ({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", secFetchMode: "navigate" as string | null }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ "user-agent": request.userAgent, ...(request.secFetchMode ? { "sec-fetch-mode": request.secFetchMode } : {}) }) }));
+const { reportHomeLate } = vi.hoisted(() => ({ reportHomeLate: vi.fn() }));
+vi.mock("@/lib/perf/hotpath", () => ({ reportRender: vi.fn(), reportHomeLate }));
 vi.mock("@/lib/courses", () => {
     throw new Error("the homepage must not import the course loader");
 });
+const router = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/navigation")>()), useRouter: () => router }));
+const linkStatus = vi.hoisted(() => ({ pending: false }));
 vi.mock("next/link", async () => {
     const { createElement } = await import("react");
-    return { default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }) };
+    return { useLinkStatus: () => linkStatus, default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }) };
 });
 
 const CARDS = [
@@ -44,7 +52,10 @@ const knowledge = () => section(KNOWLEDGE.heading);
 const testimonials = () => section(TESTIMONIALS_SECTION.heading);
 const pricing = () => section(PRICING.heading);
 
-beforeEach(() => stubMotion(false));
+beforeEach(() => {
+    linkStatus.pending = false;
+    stubMotion(false);
+});
 afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -835,6 +846,168 @@ describe("catalog reads", () => {
     it("is rendered per request, so a build cannot freeze an unavailable catalog into it", () => {
         expect(homeModule.dynamic).toBe("force-dynamic");
     });
+
+    it("offers a retry beside Knowledge when the Track list failed, and still shows no card", async () => {
+        listCatalogTracks.mockResolvedValue({ status: "unavailable", cause: "upstream" });
+        await page();
+        expect(within(tracks()).getByRole("button", { name: TRACKS.retry })).toBeInTheDocument();
+        expect(within(tracks()).getByRole("link", { name: KNOWLEDGE.action.label })).toBeInTheDocument();
+        expect(tracks().querySelector("[data-tracks-pending]")).toBeNull();
+        expect(within(tracks()).getByRole("status"), "the live region that announces a failed retry starts empty").toBeEmptyDOMElement();
+    });
+
+    it("never reports a read as late, and never shows a pending state, when both answer inside the budget", async () => {
+        await page();
+        expect(reportHomeLate).not.toHaveBeenCalled();
+        expect(tracks().querySelector("[data-tracks-pending], [data-free-chapter-pending]")).toBeNull();
+    });
+});
+
+// P8 hot path: a sleeping free-tier API must not hold the hero. The page waits `HOME_READ_BUDGET_MS`, then renders what it has.
+describe("a slow API", () => {
+    const FREE_META = { id: `lesson.${FREE_CHAPTER_LESSON_SLUG}`, type: "lesson", slug: FREE_CHAPTER_LESSON_SLUG, title: "Free", summary: "s", tags: [], category: null, difficulty: null, level: null, access: "free" };
+    const LIST = { tracks: [{ id: "track.alpha", slug: "alpha", title: "Alpha Track", summary: "Alpha summary." }] };
+    const later = <T,>(value: T, ms: number) => new Promise<T>((resolve) => setTimeout(() => resolve(value), ms));
+    const heroLinks = () => within(screen.getByRole("region", { name: new RegExp(HERO.tail) })).getAllByRole("link").map((a) => a.getAttribute("href"));
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.useFakeTimers();
+        request.userAgent = "Mozilla/5.0 Chrome/130.0.0.0 Safari/537.36";
+        request.secFetchMode = "navigate";
+        publicReadsAreCached.mockReturnValue(true);
+        listCatalogTracks.mockResolvedValue({ status: "ok", data: LIST });
+        getCatalogItemMeta.mockResolvedValue({ status: "ok", data: FREE_META });
+    });
+
+    /** Start the page, let the budget pass, and render what it returned. */
+    async function renderAfterBudget() {
+        const rendering = HomePage();
+        await vi.advanceTimersByTimeAsync(HOME_READ_BUDGET_MS);
+        return render(await rendering);
+    }
+
+    it("renders the hero and a pending Tracks section at the budget, with no card, count or title, and keeps the read going", async () => {
+        const tracksRead = later({ status: "ok", data: LIST }, 30_000);
+        listCatalogTracks.mockReturnValue(tracksRead);
+        await renderAfterBudget();
+
+        expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+        expect(heroLinks()).toEqual([TRACKS_ENTRY, FREE_HREF]);
+        const section = tracks();
+        expect(within(section).getByRole("status")).toHaveTextContent(TRACKS.pending);
+        expect(within(section).queryAllByRole("link")).toHaveLength(0);
+        expect(section.textContent).not.toContain("Alpha");
+        expect(section.querySelector("[data-tracks-skeleton]")).toHaveAttribute("aria-hidden", "true");
+        expect(reportHomeLate).toHaveBeenCalledTimes(1);
+        expect(reportHomeLate.mock.calls[0][0]).toEqual(["tracks"]);
+        // The outstanding read is handed over to be awaited, so the request outlives the response and fills the cache.
+        expect(reportHomeLate.mock.calls[0][1]).toBeInstanceOf(Promise);
+        expect(listCatalogTracks).toHaveBeenCalledTimes(1);
+    });
+
+    it("holds the free-chapter slot, invisibly and out of the accessibility tree, while that read is outstanding", async () => {
+        getCatalogItemMeta.mockReturnValue(later({ status: "ok", data: FREE_META }, 30_000));
+        await renderAfterBudget();
+
+        expect(heroLinks()).toEqual([TRACKS_ENTRY]);
+        const slot = document.querySelector("[data-free-chapter-pending]")!;
+        expect(slot).toHaveAttribute("aria-hidden", "true");
+        expect(slot).toHaveClass("invisible");
+        expect(slot.tagName).toBe("SPAN");
+        expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
+        expect(reportHomeLate.mock.calls[0][0]).toEqual(["free"]);
+    });
+
+    it("says nothing is pending when the answers arrive just inside the budget", async () => {
+        listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, HOME_READ_BUDGET_MS - 100));
+        await renderAfterBudget();
+        expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
+        expect(reportHomeLate).not.toHaveBeenCalled();
+    });
+
+    it("gives a crawler the whole page: it waits for a slow read and never renders a pending state for it", async () => {
+        request.userAgent = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+        listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 25_000));
+        const rendering = HomePage();
+        await vi.advanceTimersByTimeAsync(HOME_READ_BUDGET_MS * 2);
+        let settled = false;
+        void rendering.then(() => (settled = true));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(settled, "the page returned before the crawler's read did").toBe(false);
+        await vi.advanceTimersByTimeAsync(25_000);
+        render(await rendering);
+        expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
+        expect(reportHomeLate).not.toHaveBeenCalled();
+        expect(document.querySelector("[data-tracks-pending]")).toBeNull();
+    });
+
+    it("gives every client that is not a browser the whole page: no navigation header (crawlers, curl, monitors), or no user agent", async () => {
+        for (const [agent, mode] of [["Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)", null], ["curl/8.4.0", null], ["Datadog/Synthetics", null], ["", "navigate"]] as const) {
+            request.userAgent = agent;
+            request.secFetchMode = mode;
+            listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 25_000));
+            const rendering = HomePage();
+            await vi.advanceTimersByTimeAsync(HOME_READ_BUDGET_MS * 2);
+            let settled = false;
+            void rendering.then(() => (settled = true));
+            await vi.advanceTimersByTimeAsync(0);
+            expect(settled, `the page returned before the read did for "${agent}" / ${mode}`).toBe(false);
+            await vi.advanceTimersByTimeAsync(25_000);
+            const { unmount } = render(await rendering);
+            expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
+            unmount();
+        }
+        expect(reportHomeLate).not.toHaveBeenCalled();
+    });
+
+    it("waits as it always did where public reads are not cached (a preview), so a steady slow answer is shown rather than given up on", async () => {
+        publicReadsAreCached.mockReturnValue(false);
+        listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 1500));
+        const rendering = HomePage();
+        await vi.advanceTimersByTimeAsync(HOME_READ_BUDGET_MS * 3);
+        render(await rendering);
+        expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
+        expect(document.querySelector("[data-tracks-pending]")).toBeNull();
+        expect(reportHomeLate).not.toHaveBeenCalled();
+    });
+
+    it("applies the budget where reads are not cached when HOME_READ_BUDGET_MS asks for it (the e2e fault deployment does)", async () => {
+        publicReadsAreCached.mockReturnValue(false);
+        vi.stubEnv("HOME_READ_BUDGET_MS", "800");
+        listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 30_000));
+        await renderAfterBudget();
+        expect(within(tracks()).getByRole("status")).toHaveTextContent(TRACKS.pending);
+        vi.unstubAllEnvs();
+    });
+
+    it("retries a late free-chapter read on its own when the Tracks have arrived, with the same bounded refresh and no skeleton", async () => {
+        getCatalogItemMeta.mockReturnValue(later({ status: "ok", data: FREE_META }, 30_000));
+        await renderAfterBudget();
+        expect(document.querySelector("[data-tracks-pending]")).toBeNull();
+        router.refresh.mockClear();
+        await act(() => vi.advanceTimersByTimeAsync(6000));
+        expect(router.refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs one retry sequence, not two, when both reads are late", async () => {
+        listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 30_000));
+        getCatalogItemMeta.mockReturnValue(later({ status: "ok", data: FREE_META }, 30_000));
+        await renderAfterBudget();
+        router.refresh.mockClear();
+        await act(() => vi.advanceTimersByTimeAsync(6000));
+        expect(router.refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows an answer that arrives inside the budget as it always did: a 404, 401 or 410 is unavailable, never pending", async () => {
+        for (const answer of [{ status: "notFound" }, { status: "unauthenticated" }, { status: "retired" }]) {
+            listCatalogTracks.mockResolvedValue(answer);
+            const { unmount } = await renderAfterBudget();
+            expect(within(tracks()).getByText(TRACKS.unavailable)).toBeInTheDocument();
+            expect(document.querySelector("[data-tracks-pending]")).toBeNull();
+            unmount();
+        }
+    });
 });
 
 describe("footer", () => {
@@ -886,5 +1059,50 @@ describe("metadata", () => {
         expect(metadata.title).toEqual(expect.stringContaining("InterviewNotes"));
         expect(typeof metadata.description).toBe("string");
         expect(metadata.description).not.toMatch(/\d|guarantee|best|#1|trusted|ranked/i);
+    });
+});
+
+// P8-RSP-02 follow-up: the homepage's catalog links acknowledge a click at once (Home to Track, Tracks, Knowledge, Pricing).
+describe("pending-link feedback", () => {
+    const hint = (link: HTMLElement) => link.querySelector('[data-nav-pending="link"]');
+    const internalLinks = () => screen.getAllByRole("link").filter((link) => (link.getAttribute("href") ?? "").startsWith("/") && !link.getAttribute("href")!.startsWith("//"));
+
+    it("shows the decorative hint in every internal homepage link while its navigation is pending, and only then", () => {
+        renderHome();
+        const links = internalLinks();
+        expect(links.length).toBeGreaterThan(8);
+        const missing = (scope: HTMLElement[]) => scope.filter((link) => link.closest("[data-site-header], footer") === null && !link.querySelector("span[aria-hidden='true'].pointer-events-none"));
+        expect(missing(links).map((link) => link.getAttribute("href"))).toEqual([]);
+        for (const link of links) expect(hint(link)).toBeNull(); // idle: the hint element is there but not shown
+    });
+
+    it("covers the hero actions, the Track cards, the Knowledge cards and actions, Pricing and the closing action", () => {
+        linkStatus.pending = true;
+        renderHome();
+        const hero = screen.getByRole("heading", { level: 1 }).closest("section")!;
+        for (const link of within(hero).getAllByRole("link")) expect(hint(link)).not.toBeNull();
+        for (const link of within(tracks()).getAllByRole("link")) {
+            expect(hint(link)).not.toBeNull();
+            expect(link).toHaveClass("relative");
+        }
+        for (const link of within(knowledge()).getAllByRole("link")) expect(hint(link)).not.toBeNull();
+        expect(hint(within(pricing()).getByRole("link", { name: PRICING.free.action.label }))).not.toBeNull();
+        expect(hint(within(section(CLOSING.heading)).getByRole("link", { name: CLOSING.action.label }))).not.toBeNull();
+    });
+
+    it("keeps every link a real anchor with the same prefetch rule as before: the cards and the free Lesson never prefetch", () => {
+        renderHome();
+        for (const link of within(tracks()).getAllByRole("link")) {
+            expect(link.tagName).toBe("A");
+            expect(link).toHaveAttribute("data-prefetch", "false");
+        }
+        expect(within(screen.getByRole("heading", { level: 1 }).closest("section")!).getByRole("link", { name: HERO.freeChapterLabel })).toHaveAttribute("data-prefetch", "false");
+        expect(within(section(CLOSING.heading)).getByRole("link", { name: CLOSING.action.label })).toHaveAttribute("data-prefetch", "false"); // PREFETCH_PRIMARY, unchanged
+    });
+
+    it("adds no nested interactive element and no accessible name to the links", () => {
+        renderHome();
+        expect(document.querySelectorAll(NESTED_INTERACTIVE)).toHaveLength(0);
+        for (const link of within(tracks()).getAllByRole("link")) expect(link).not.toHaveAccessibleName(/pending|loading/i);
     });
 });

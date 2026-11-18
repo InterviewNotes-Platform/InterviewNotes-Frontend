@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { PendingLink } from "@/components/navigation/PendingLink";
 import { Info } from "lucide-react";
 import type { KnowledgeSupport } from "@/lib/catalog/lesson";
 
@@ -91,9 +91,9 @@ export function KnowledgeAbout({ title, summary, href }: KnowledgeSupport) {
                >
                   <span className="block font-semibold text-balance">{title}</span>
                   <span className="mt-1 block text-pretty text-muted-foreground">{summary}</span>
-                  <Link href={href} prefetch={false} className="mt-2 inline-flex min-h-11 items-center text-primary underline underline-offset-4">
+                  <PendingLink href={href} className="mt-2 inline-flex min-h-11 items-center text-primary underline underline-offset-4">
                      Open {title}
-                  </Link>
+                  </PendingLink>
                </span>
             ) : null}
          </span>

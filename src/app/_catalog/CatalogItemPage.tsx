@@ -11,6 +11,7 @@ import { outlineOf } from "@/lib/catalog/outline";
 import { isPreview } from "@/lib/catalog/preview";
 import { catalogHref } from "@/lib/catalog/routes";
 import type { CatalogItemType, CatalogMeta } from "@/lib/catalog/types";
+import { reportRender } from "@/lib/perf/hotpath";
 import type { ReaderSurface } from "@/lib/reader/shellPolicy";
 import { CatalogStateNotice } from "./CatalogStateNotice";
 import { KnowledgePage, knowledgeTools } from "./KnowledgePage";
@@ -44,6 +45,7 @@ const SURFACE: Record<CatalogItemType, ReaderSurface> = { lesson: "paper", knowl
  * shell, which shows Track orientation only for `access="readable"` (S-LSN-18).
  */
 export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; slug: string }) {
+   reportRender(type);
    const result = await getCatalogItem(type, slug);
    if (result.status === "notFound") notFound();
 
