@@ -86,7 +86,9 @@ function SkeletonCard() {
 /**
  * The Tracks section while the Track list has not arrived. It says what is happening, in text, and holds the space the
  * cards will take; it never shows a card, a count or a title the catalog did not send. Without script it hides the
- * skeleton and the retry timer's wording and says to reload, because nothing here can retry itself.
+ * skeleton and the retry timer's wording and says to reload, because nothing here can retry itself, and links to the
+ * Tracks page and to Knowledge (P8-D-074). With script, those two links appear once the bounded retries have stopped;
+ * until then the hero's own Browse Tracks action and the header navigation are the way on.
  */
 export function TracksPending() {
    const { stalled, retry, cycle } = useBoundedRefresh();
@@ -125,6 +127,9 @@ export function TracksPending() {
                   >
                      {TRACKS.retry}
                   </button>
+                  <PendingLink href={TRACKS.browse.href} className={ACTION}>
+                     {TRACKS.browse.label}
+                  </PendingLink>
                   <PendingLink href={KNOWLEDGE.action.href} className={ACTION}>
                      {KNOWLEDGE.action.label}
                   </PendingLink>
@@ -134,7 +139,10 @@ export function TracksPending() {
          <noscript>
             <style>{"[data-tracks-js]{display:none}"}</style>
             <p className="m-0 mx-auto max-w-2xl text-center text-body text-pretty text-muted-foreground">{TRACKS.noscript}</p>
-            <p className="m-0 mt-4 text-center">
+            <p className="m-0 mt-4 flex flex-wrap items-center justify-center gap-3">
+               <a href={TRACKS.browse.href} className={ACTION}>
+                  {TRACKS.browse.label}
+               </a>
                <a href={KNOWLEDGE.action.href} className={ACTION}>
                   {KNOWLEDGE.action.label}
                </a>

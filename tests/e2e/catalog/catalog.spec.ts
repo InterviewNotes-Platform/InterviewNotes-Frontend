@@ -451,12 +451,32 @@ test.describe("a slow Track list on the homepage", () => {
          await expect(tracksRegion(page).getByText(/cannot refresh itself without JavaScript/)).toBeVisible();
          await expect(tracksRegion(page).locator("[data-tracks-js]")).toBeHidden();
          await expect(tracksRegion(page).getByRole("link", { name: "Browse Knowledge" })).toHaveAttribute("href", "/knowledge");
+         // P8-D-074: a working link to the Tracks page sits in the loading state itself, and the page says to reload.
+         await expect(tracksRegion(page).getByRole("link", { name: "Browse Tracks" })).toHaveAttribute("href", "/tracks");
+         await expect(tracksRegion(page).getByText(/Reload the page in a minute/)).toBeVisible();
          await expect(tracksRegion(page).getByRole("heading", { level: 3 })).toHaveCount(0);
 
          await clear(request);
          await page.reload();
          await expect(trackLinks(page).first()).toBeVisible();
          await expect(tracksRegion(page).locator("[data-tracks-pending]")).toHaveCount(0);
+      } finally {
+         await context.close();
+      }
+   });
+
+   test("without JavaScript the Browse Tracks link in the loading state opens the Tracks page once the API answers", async ({ browser, request }) => {
+      const context = await browser.newContext({ javaScriptEnabled: false, baseURL: FAULT_ORIGIN });
+      const page = await context.newPage();
+      try {
+         await slow(request);
+         await page.goto("/");
+         const link = tracksRegion(page).getByRole("link", { name: "Browse Tracks" });
+         await expect(link).toBeVisible();
+         await clear(request);
+         await link.click();
+         await expect(page).toHaveURL(/\/tracks$/);
+         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       } finally {
          await context.close();
       }

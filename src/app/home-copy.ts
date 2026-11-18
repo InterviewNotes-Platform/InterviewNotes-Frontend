@@ -110,6 +110,8 @@ export const TRACKS = {
    retrying: "Trying again",
    retryFailed: "Tracks could not be loaded yet.",
    noscript: "Tracks are still loading, and this page cannot refresh itself without JavaScript. Reload the page in a minute to see them.",
+   /** The fallback while the cards are on their way: the Tracks page itself (P8-D-074). Same destination as the hero's primary action. */
+   browse: { label: "Browse Tracks", href: TRACKS_ENTRY },
    noscriptRetry: "Reload the page to try again.",
 };
 

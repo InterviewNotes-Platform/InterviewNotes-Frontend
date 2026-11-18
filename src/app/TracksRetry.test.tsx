@@ -71,12 +71,13 @@ describe("TracksPending", () => {
       expect(elapsed).toBeLessThanOrEqual(90_000);
    });
 
-   it("stops after the last try, says so, and offers Try again and Knowledge; it makes no further request on its own", async () => {
+   it("stops after the last try, says so, and offers Try again, the Tracks page and Knowledge; it makes no further request on its own", async () => {
       render(<TracksPending />);
       await runAllTries();
       expect(router.refresh).toHaveBeenCalledTimes(RETRY_DELAYS_MS.length);
       expect(screen.getByRole("status")).toHaveTextContent(TRACKS.stalled);
       expect(screen.getByRole("button", { name: TRACKS.retry })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: TRACKS.browse.label })).toHaveAttribute("href", "/tracks");
       expect(screen.getByRole("link", { name: KNOWLEDGE.action.label })).toHaveAttribute("href", KNOWLEDGE.action.href);
 
       await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
@@ -111,13 +112,17 @@ describe("TracksPending", () => {
       expect(vi.getTimerCount()).toBe(0);
    });
 
-   it("tells a visitor without script that it cannot refresh itself, hides the skeleton and links on", () => {
+   it("tells a visitor without script that it cannot refresh itself, hides the skeleton and links to the Tracks page and Knowledge", () => {
       // React's client renderer drops <noscript> children; what a visitor without script gets is the server's HTML.
       const html = renderToString(<TracksPending />);
       const noscript = html.slice(html.indexOf("<noscript>"), html.indexOf("</noscript>"));
       expect(noscript).toContain(TRACKS.noscript);
       expect(noscript).toContain("[data-tracks-js]{display:none}");
+      // Real anchors, so they work with no script: the Tracks page first (P8-D-074), then Knowledge.
+      expect(noscript).toContain(`<a href="/tracks"`);
       expect(noscript).toContain(`href="${KNOWLEDGE.action.href}"`);
+      expect(noscript.indexOf('href="/tracks"')).toBeLessThan(noscript.indexOf(`href="${KNOWLEDGE.action.href}"`));
+      expect(noscript).toContain(`>${TRACKS.browse.label}</a>`);
       expect(html.indexOf("data-tracks-js"), "the skeleton and its wording are marked to be hidden without script").toBeGreaterThan(-1);
    });
 });
