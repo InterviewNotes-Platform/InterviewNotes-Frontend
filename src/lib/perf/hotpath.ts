@@ -5,8 +5,14 @@ import { after } from "next/server";
 
 /**
  * P8 hot-path timing: one JSON line per rendered catalog page, written to the function log, so the time a page spends
- * waiting for catalog reads, in cache and in CPU can be separated from the transport floor. It observes only. It sends
+ * waiting for catalog reads can be compared with the CPU the process used while it rendered. It observes only. It sends
  * nothing, adds no header, changes no cache option and reads no session.
+ *
+ * Read two fields as proxies, never as proof. `a` is an age class taken from the response `Date` header: it suggests a
+ * Data Cache answer (a stored response keeps the `Date` it was stored with) but is not a hit or miss signal, because a
+ * revalidated entry and an upstream answer that carries an old `Date` look the same. `cpu` is the CPU time of the whole
+ * server process over the render's interval, so every other request running on the same instance adds to it; it is not
+ * the CPU of one request.
  *
  * What it may write is an allowlist: a route label from a closed set, a read kind from a closed set, and numbers. It
  * never receives a slug, a URL, a query value, a token, a body or a user identifier, because `readKind` reduces a path
@@ -19,7 +25,11 @@ export type HotpathRoute = "home" | "lesson" | "knowledge" | "problem" | "track"
 type ItemKind = "knowledge" | "lesson" | "problem";
 /** The closed set of read kinds a line may carry: a kind, never a path. */
 export type ReadKind = "tracks" | "track" | "list" | "other" | `item:${ItemKind}` | `meta:${ItemKind}` | `related:${ItemKind}`;
-/** `m`: no-store or revalidating read. `a`: `f` the answer is under two seconds old, `c` older (a Data Cache answer), `u` unknown. */
+/**
+ * `m`: no-store or revalidating read. `a`: an age class from the response `Date` header, a proxy for a Data Cache answer and
+ * not a hit or miss signal: `f` the `Date` is under two seconds old (an answer fetched just now, or one stored just now),
+ * `c` older (consistent with a stored answer), `u` unknown (no usable `Date`).
+ */
 export interface ReadRecord {
    k: ReadKind;
    /** Start, ms after the request's first read. */
@@ -70,7 +80,7 @@ export function readKind(path: string): ReadKind {
 /** One store per server render, so the layout guard, the metadata and the page add to the same timeline. */
 const store = cache((): Store => ({ t0: performance.now(), cpu0: process.cpuUsage(), reads: [] }));
 
-/** The age of an answer by its `Date` header: a Data Cache entry keeps the header it was stored with. */
+/** An age class from the answer's `Date` header. A proxy, not a cache signal: see the note at the top of this file. */
 function ageOf(response: Response | null): ReadRecord["a"] {
    const date = response?.headers.get("date");
    if (!date) return "u";
@@ -149,7 +159,7 @@ export interface RenderLine {
    route: HotpathRoute;
    /** Wall ms from the first read to the end of the response. */
    wall: number;
-   /** Process CPU ms (user + system) over the same interval; other requests on the same instance add to it. */
+   /** Process-wide CPU ms (user + system) of the whole server process over the same interval. Not request-only: other requests on the same instance add to it. */
    cpu: number;
    waves: number;
    reads: ReadRecord[];
