@@ -108,6 +108,7 @@ export const TRACKS = {
    stalled: "Tracks are taking longer than usual to load.",
    retry: "Try again",
    retrying: "Trying again",
+   retryFailed: "Tracks could not be loaded yet.",
    noscript: "Tracks are still loading, and this page cannot refresh itself without JavaScript. Reload the page in a minute to see them.",
    noscriptRetry: "Reload the page to try again.",
 };

@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { STAGE } from "../../src/app/home-copy";
 import fixture from "./catalog/fixture.json";
-import { EMPTY_ORIGIN, expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, PREVIEW_ORIGIN, REJECTED_ORIGIN, test } from "./catalog/harness";
+import { COLD_API_ORIGIN, COLD_ORIGIN, EMPTY_ORIGIN, expect, ISOLATED_API_ORIGIN, ISOLATED_ORIGIN, PREVIEW_ORIGIN, REJECTED_ORIGIN, test } from "./catalog/harness";
 
 // Homepage: Tracks lead and are the published catalog Tracks; Knowledge supports them. Look and feel is validated by hand.
 const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -688,3 +688,32 @@ for (const colorScheme of ["light", "dark"] as const) {
       }
    });
 }
+
+// P8 hot path, production mode: the Track list is slow on a cold Data Cache. The page stops waiting, but the read it started is not
+// wasted: it finishes after the response and fills the cache, so the page's own retry finds the answer and makes no further API read.
+test.describe("a slow Track list on a cold cache (production mode)", () => {
+   test.use({ baseURL: COLD_ORIGIN });
+
+   test("the read the page stopped waiting for fills the cache, so the retry costs no further API read and the cards arrive without a reload", async ({ page, request }) => {
+      const reads = async () => ((await (await request.get(`${COLD_API_ORIGIN}/__catalog-log`)).json()) as { path: string }[]).filter((entry) => entry.path === "/catalog/tracks").length;
+      expect(await reads(), "this deployment's API must be unread, or the cache is not cold").toBe(0);
+      await request.put(`${COLD_API_ORIGIN}/__fault`, { params: { path: "/catalog/tracks", delayMs: 4000 } });
+      try {
+         const started = Date.now();
+         await page.goto("/");
+         expect(Date.now() - started, "the homepage waited for the slow API").toBeLessThan(3500);
+         await expect(tracks(page).getByRole("status")).toHaveText("Loading Tracks.");
+         await expect(trackCards(page).first()).toBeVisible({ timeout: 20_000 });
+
+         // The document render and the header link's prefetch of `/` each began a read before the cache was filled (the API logs a read when
+         // it answers, four seconds on); the retry that brought the cards in began none. Waiting on shows nothing else is polling.
+         const afterArrival = await reads();
+         expect(afterArrival, "more API reads than the renders that started before the cache was filled").toBeLessThanOrEqual(2);
+         await page.waitForTimeout(3000);
+         expect(await reads(), "the page went on reading after the Tracks arrived").toBe(afterArrival);
+         await expect(tracks(page).locator("[data-tracks-pending]")).toHaveCount(0);
+      } finally {
+         await request.delete(`${COLD_API_ORIGIN}/__fault`);
+      }
+   });
+});

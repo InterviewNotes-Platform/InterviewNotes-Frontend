@@ -23,10 +23,40 @@ export type HomeTracks =
    | { status: "pending" };
 
 /**
- * How long the homepage waits for its two public reads before it renders what it has. A Data Cache answer or a running
- * API answers well inside this; a sleeping free-tier API does not, and holding the hero for it takes the whole page.
+ * How long a production homepage waits for its two public reads before it renders what it has. A Data Cache answer or a
+ * running API answers well inside this; a sleeping free-tier API does not, and holding the hero for it takes the whole page.
  */
 export const HOME_READ_BUDGET_MS = 800;
+
+/**
+ * The wait the homepage allows its reads, or null to wait as long as they take (the page as it was before the budget).
+ *
+ * A budget only helps when an abandoned read is not wasted: a production read goes through the Data Cache, so the read
+ * the page stopped waiting for still finishes and the next render finds it. A preview's reads are never cached, so an
+ * abandoned read would be lost and a steady, slow answer would never be shown: where reads are not cached the page waits
+ * unless `HOME_READ_BUDGET_MS` is set (a number of milliseconds, or `off`). An environment value also overrides production,
+ * as a switch.
+ */
+export function homeReadBudgetMs(readsAreCached: boolean, setting: string | undefined = process.env.HOME_READ_BUDGET_MS): number | null {
+   const value = setting?.trim().toLowerCase();
+   if (value === "off") return null;
+   if (value) {
+      const ms = Number(value);
+      if (Number.isFinite(ms) && ms >= 0) return ms;
+   }
+   return readsAreCached ? HOME_READ_BUDGET_MS : null;
+}
+
+const CRAWLER_TOKENS = /bot|crawl|spider|slurp|lighthouse|pagespeed|pingdom|uptime|monitor|ahrefs|semrush/i;
+
+/**
+ * Whether a request should be given the whole page rather than the budgeted one: a search or AI crawler, a monitor, or a
+ * client that says nothing about itself. What is indexed or checked then does not depend on the API's mood. The framework's
+ * own list is checked first; the tokens catch what it misses.
+ */
+export function wantsWholePage(userAgent: string | null | undefined, frameworkSaysBot: boolean): boolean {
+   return frameworkSaysBot || !userAgent?.trim() || CRAWLER_TOKENS.test(userAgent);
+}
 
 export type Bounded<T> = { settled: true; value: T } | { settled: false };
 

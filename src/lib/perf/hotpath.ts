@@ -16,10 +16,12 @@ import { after } from "next/server";
  */
 
 export type HotpathRoute = "home" | "lesson" | "knowledge" | "problem" | "track";
+type ItemKind = "knowledge" | "lesson" | "problem";
+/** The closed set of read kinds a line may carry: a kind, never a path. */
+export type ReadKind = "tracks" | "track" | "list" | "other" | `item:${ItemKind}` | `meta:${ItemKind}` | `related:${ItemKind}`;
 /** `m`: no-store or revalidating read. `a`: `f` the answer is under two seconds old, `c` older (a Data Cache answer), `u` unknown. */
 export interface ReadRecord {
-   /** The kind of read: a closed set, never a path. */
-   k: string;
+   k: ReadKind;
    /** Start, ms after the request's first read. */
    s: number;
    /** Wall ms to the end of the body. */
@@ -42,7 +44,7 @@ interface Store {
 
 const MAX_READS = 16;
 const FRESH_MS = 2000;
-const ITEM_TYPES = new Set(["knowledge", "lesson", "problem"]);
+const ITEM_TYPES = new Set<string>(["knowledge", "lesson", "problem"]);
 
 /** Whether timing is on. Read per call so a test, or an environment change, takes effect without a reload. */
 export function hotpathEnabled(): boolean {
@@ -50,14 +52,14 @@ export function hotpathEnabled(): boolean {
 }
 
 /** A request path reduced to the kind of read it is. Anything unrecognised is `other`; no segment is ever kept. */
-export function readKind(path: string): string {
+export function readKind(path: string): ReadKind {
    const [pathname] = path.split("?");
    const parts = pathname.split("/").filter(Boolean);
    if (parts[0] !== "catalog") return "other";
    if (parts[1] === "tracks") return parts.length === 2 ? "tracks" : parts.length === 3 ? "track" : "other";
    if (parts[1] !== "items") return "other";
    if (parts.length === 2) return "list";
-   const type = ITEM_TYPES.has(parts[2]) ? parts[2] : null;
+   const type = ITEM_TYPES.has(parts[2]) ? (parts[2] as ItemKind) : null;
    if (!type || parts.length < 4) return "other";
    if (parts.length === 4) return `item:${type}`;
    if (parts.length === 5 && parts[4] === "meta") return `meta:${type}`;
@@ -91,30 +93,41 @@ const NOOP: ReadTimer = { session() {}, headers() {}, end() {} };
 /** Time one catalog read, from before its session read to the end of its body. */
 export function timeRead(path: string): ReadTimer {
    if (!hotpathEnabled()) return NOOP;
-   const s = store();
-   const start = performance.now();
-   let au = 0;
-   let h = 0;
-   let m: ReadRecord["m"] = "ns";
-   let a: ReadRecord["a"] = "u";
-   let ended = false;
-   return {
-      session() {
-         au = performance.now() - start;
-      },
-      headers(response, mode) {
-         h = performance.now() - start;
-         m = mode;
-         a = ageOf(response);
-      },
-      end(status) {
-         if (ended) return;
-         ended = true;
-         if (s.reads.length >= MAX_READS) return;
-         const now = performance.now();
-         s.reads.push({ k: readKind(path), s: round(start - s.t0), ms: round(now - start), h: round(h || now - start), au: round(au), st: status, m, a });
-      },
-   };
+   // Observability must never change what a read returns: every step is guarded, and a failure is a lost measurement.
+   try {
+      const s = store();
+      const start = performance.now();
+      let au = 0;
+      let h = 0;
+      let m: ReadRecord["m"] = "ns";
+      let a: ReadRecord["a"] = "u";
+      let ended = false;
+      return {
+         session() {
+            try {
+               au = performance.now() - start;
+            } catch {}
+         },
+         headers(response, mode) {
+            try {
+               h = performance.now() - start;
+               m = mode;
+               a = ageOf(response);
+            } catch {}
+         },
+         end(status) {
+            try {
+               if (ended) return;
+               ended = true;
+               if (s.reads.length >= MAX_READS) return;
+               const now = performance.now();
+               s.reads.push({ k: readKind(path), s: round(start - s.t0), ms: round(now - start), h: round(h || now - start), au: round(au), st: status, m, a });
+            } catch {}
+         },
+      };
+   } catch {
+      return NOOP;
+   }
 }
 
 const round = (value: number) => Math.round(value * 10) / 10;

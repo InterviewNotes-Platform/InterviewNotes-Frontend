@@ -37,6 +37,16 @@ function apiUrl(): string | null {
    return url ? url.replace(/\/$/, "") : null;
 }
 
+/**
+ * Whether a public catalog read is stored in the Data Cache on this deployment: true for production, false for a preview,
+ * whose answers are private to this server and never stored, and false when no request can be made at all. Only a boolean:
+ * the page that asks it never sees the credential or how it is delivered.
+ */
+export function publicReadsAreCached(): boolean {
+   const base = apiUrl();
+   return Boolean(base && previewDelivery(base)?.shareable);
+}
+
 /** The caller's Supabase access token, or null when signed out or Supabase is unreachable. */
 async function getAccessToken(): Promise<string | null> {
    try {

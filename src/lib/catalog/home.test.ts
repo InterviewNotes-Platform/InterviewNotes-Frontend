@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FREE_CHAPTER_LESSON_SLUG, freeChapterHref, homeTracks, withinBudget } from "./home";
+import { FREE_CHAPTER_LESSON_SLUG, HOME_READ_BUDGET_MS, freeChapterHref, homeReadBudgetMs, homeTracks, wantsWholePage, withinBudget } from "./home";
 import type { CatalogMeta, CatalogResult, CatalogTrackList } from "./types";
 
 const track = (slug: string, title = `${slug} title`, summary = `${slug} summary`) => ({ id: `track.${slug}`, slug, title, summary });
@@ -142,5 +142,43 @@ describe("withinBudget", () => {
 
    it("passes a rejection on rather than reporting it as pending", async () => {
       await expect(withinBudget(Promise.reject(new Error("boom")), 800)).rejects.toThrow("boom");
+   });
+});
+
+describe("homeReadBudgetMs", () => {
+   it("gives cached reads (production) their budget and uncached ones (a preview) none, because an abandoned uncached read is lost", () => {
+      expect(homeReadBudgetMs(true, undefined)).toBe(HOME_READ_BUDGET_MS);
+      expect(homeReadBudgetMs(false, undefined)).toBeNull();
+   });
+
+   it("lets HOME_READ_BUDGET_MS set a number of milliseconds for either, or turn the budget off", () => {
+      expect(homeReadBudgetMs(false, "800")).toBe(800);
+      expect(homeReadBudgetMs(true, "1500")).toBe(1500);
+      expect(homeReadBudgetMs(true, "off")).toBeNull();
+      expect(homeReadBudgetMs(true, " OFF ")).toBeNull();
+   });
+
+   it("ignores a value that is not a number of milliseconds", () => {
+      for (const bad of ["", "soon", "-5", "NaN"]) expect(homeReadBudgetMs(true, bad), bad).toBe(HOME_READ_BUDGET_MS);
+   });
+});
+
+describe("wantsWholePage", () => {
+   const BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+
+   it("gives a visitor with a browser the budgeted page", () => {
+      expect(wantsWholePage(BROWSER, false)).toBe(false);
+      expect(wantsWholePage("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1", false)).toBe(false);
+   });
+
+   it("gives the whole page to what the framework calls a bot, and to the crawlers and monitors it misses", () => {
+      expect(wantsWholePage(BROWSER, true)).toBe(true);
+      for (const agent of ["Mozilla/5.0 (compatible; ClaudeBot/1.0)", "Mozilla/5.0 (compatible; AhrefsBot/7.0)", "Mozilla/5.0 (compatible; SemrushBot/7)", "Mozilla/5.0+(compatible; UptimeRobot/2.0)", "Pingdom.com_bot_version_1.4", "Mozilla/5.0 Chrome-Lighthouse", "Mozilla/5.0 (compatible; Googlebot/2.1)", "Mozilla/5.0 (compatible; Yahoo! Slurp)"]) {
+         expect(wantsWholePage(agent, false), agent).toBe(true);
+      }
+   });
+
+   it("gives the whole page to a client that says nothing about itself", () => {
+      for (const missing of [undefined, null, "", "   "]) expect(wantsWholePage(missing, false)).toBe(true);
    });
 });

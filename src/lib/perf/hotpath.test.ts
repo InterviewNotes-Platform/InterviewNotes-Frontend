@@ -154,3 +154,12 @@ describe("reportHomeLate", () => {
       expect(log).not.toHaveBeenCalled();
    });
 });
+
+describe("a timer never changes what a read returns", () => {
+   it("swallows a failure while reading a response that has no headers", async () => {
+      const { timeRead } = await load();
+      const read = timeRead("/catalog/tracks");
+      expect(() => read.headers({} as unknown as Response, "rv")).not.toThrow();
+      expect(() => read.end(200)).not.toThrow();
+   });
+});

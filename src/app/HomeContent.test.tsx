@@ -10,8 +10,8 @@ import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STAGE,
 import HomePage, * as homeModule from "./page";
 import { TOPIC_STEP_MS } from "./RotatingTopic";
 
-const { listCatalogTracks, getCatalogItemMeta, listCatalogItems } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn(), listCatalogItems: vi.fn() }));
-vi.mock("@/lib/catalog/client", () => ({ listCatalogTracks, getCatalogItemMeta, listCatalogItems }));
+const { listCatalogTracks, getCatalogItemMeta, listCatalogItems, publicReadsAreCached } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn(), listCatalogItems: vi.fn(), publicReadsAreCached: vi.fn(() => true) }));
+vi.mock("@/lib/catalog/client", () => ({ listCatalogTracks, getCatalogItemMeta, listCatalogItems, publicReadsAreCached }));
 // The page reads the request's user agent (a crawler is given the whole page) and reports late reads for the function log.
 const request = vi.hoisted(() => ({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "user-agent": request.userAgent }) }));
@@ -20,7 +20,8 @@ vi.mock("@/lib/perf/hotpath", () => ({ reportRender: vi.fn(), reportHomeLate }))
 vi.mock("@/lib/courses", () => {
     throw new Error("the homepage must not import the course loader");
 });
-vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/navigation")>()), useRouter: () => ({ refresh: vi.fn() }) }));
+const router = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/navigation")>()), useRouter: () => router }));
 const linkStatus = vi.hoisted(() => ({ pending: false }));
 vi.mock("next/link", async () => {
     const { createElement } = await import("react");
@@ -851,13 +852,14 @@ describe("catalog reads", () => {
         await page();
         expect(within(tracks()).getByRole("button", { name: TRACKS.retry })).toBeInTheDocument();
         expect(within(tracks()).getByRole("link", { name: KNOWLEDGE.action.label })).toBeInTheDocument();
-        expect(within(tracks()).queryByRole("status")).toBeNull();
+        expect(tracks().querySelector("[data-tracks-pending]")).toBeNull();
+        expect(within(tracks()).getByRole("status"), "the live region that announces a failed retry starts empty").toBeEmptyDOMElement();
     });
 
     it("never reports a read as late, and never shows a pending state, when both answer inside the budget", async () => {
         await page();
         expect(reportHomeLate).not.toHaveBeenCalled();
-        expect(tracks().querySelector("[data-tracks-pending], [aria-busy='true'], [data-free-chapter-pending]")).toBeNull();
+        expect(tracks().querySelector("[data-tracks-pending], [data-free-chapter-pending]")).toBeNull();
     });
 });
 
@@ -872,6 +874,7 @@ describe("a slow API", () => {
         vi.clearAllMocks();
         vi.useFakeTimers();
         request.userAgent = "Mozilla/5.0 Chrome/130.0.0.0 Safari/537.36";
+        publicReadsAreCached.mockReturnValue(true);
         listCatalogTracks.mockResolvedValue({ status: "ok", data: LIST });
         getCatalogItemMeta.mockResolvedValue({ status: "ok", data: FREE_META });
     });
@@ -938,7 +941,63 @@ describe("a slow API", () => {
         expect(document.querySelector("[data-tracks-pending]")).toBeNull();
     });
 
-    it("keeps a pending page free of an authorization or publication verdict: a 404, 401 or 410 answer is never shown as pending", async () => {
+    it("gives a crawler the monitors and agents the framework's list misses the whole page too, and a client with no user agent", async () => {
+        for (const agent of ["Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)", "Mozilla/5.0+(compatible; UptimeRobot/2.0)", ""]) {
+            request.userAgent = agent;
+            listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 25_000));
+            const rendering = HomePage();
+            await vi.advanceTimersByTimeAsync(HOME_READ_BUDGET_MS * 2);
+            let settled = false;
+            void rendering.then(() => (settled = true));
+            await vi.advanceTimersByTimeAsync(0);
+            expect(settled, `the page returned before the read did for "${agent}"`).toBe(false);
+            await vi.advanceTimersByTimeAsync(25_000);
+            const { unmount } = render(await rendering);
+            expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
+            unmount();
+        }
+        expect(reportHomeLate).not.toHaveBeenCalled();
+    });
+
+    it("waits as it always did where public reads are not cached (a preview), so a steady slow answer is shown rather than given up on", async () => {
+        publicReadsAreCached.mockReturnValue(false);
+        listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 1500));
+        const rendering = HomePage();
+        await vi.advanceTimersByTimeAsync(HOME_READ_BUDGET_MS * 3);
+        render(await rendering);
+        expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();
+        expect(document.querySelector("[data-tracks-pending]")).toBeNull();
+        expect(reportHomeLate).not.toHaveBeenCalled();
+    });
+
+    it("applies the budget where reads are not cached when HOME_READ_BUDGET_MS asks for it (the e2e fault deployment does)", async () => {
+        publicReadsAreCached.mockReturnValue(false);
+        vi.stubEnv("HOME_READ_BUDGET_MS", "800");
+        listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 30_000));
+        await renderAfterBudget();
+        expect(within(tracks()).getByRole("status")).toHaveTextContent(TRACKS.pending);
+        vi.unstubAllEnvs();
+    });
+
+    it("retries a late free-chapter read on its own when the Tracks have arrived, with the same bounded refresh and no skeleton", async () => {
+        getCatalogItemMeta.mockReturnValue(later({ status: "ok", data: FREE_META }, 30_000));
+        await renderAfterBudget();
+        expect(document.querySelector("[data-tracks-pending]")).toBeNull();
+        router.refresh.mockClear();
+        await act(() => vi.advanceTimersByTimeAsync(6000));
+        expect(router.refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs one retry sequence, not two, when both reads are late", async () => {
+        listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 30_000));
+        getCatalogItemMeta.mockReturnValue(later({ status: "ok", data: FREE_META }, 30_000));
+        await renderAfterBudget();
+        router.refresh.mockClear();
+        await act(() => vi.advanceTimersByTimeAsync(6000));
+        expect(router.refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows an answer that arrives inside the budget as it always did: a 404, 401 or 410 is unavailable, never pending", async () => {
         for (const answer of [{ status: "notFound" }, { status: "unauthenticated" }, { status: "retired" }]) {
             listCatalogTracks.mockResolvedValue(answer);
             const { unmount } = await renderAfterBudget();

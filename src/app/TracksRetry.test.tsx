@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KNOWLEDGE, TRACKS } from "./home-copy";
-import { RETRY_DELAYS_MS, SLOW_AFTER_MS, TracksPending, TracksRetryButton } from "./TracksRetry";
+import { FreeChapterRefresh, RETRY_DELAYS_MS, SLOW_AFTER_MS, TracksPending, TracksRetryButton } from "./TracksRetry";
 
 const router = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -122,10 +122,59 @@ describe("TracksPending", () => {
    });
 });
 
+describe("TracksPending, after Try again", () => {
+   it("moves focus to the status line, which says what is happening, instead of dropping it with the button", async () => {
+      render(<TracksPending />);
+      await runAllTries();
+      const button = screen.getByRole("button", { name: TRACKS.retry });
+      button.focus();
+      fireEvent.click(button);
+      expect(screen.getByRole("status")).toHaveFocus();
+      expect(screen.getByRole("status")).toHaveTextContent(TRACKS.pending);
+   });
+
+   it("earns the 'server may be starting' wording again in the new sequence", async () => {
+      render(<TracksPending />);
+      await runAllTries();
+      fireEvent.click(screen.getByRole("button", { name: TRACKS.retry }));
+      expect(screen.getByRole("status")).toHaveTextContent(TRACKS.pending);
+      await act(() => vi.advanceTimersByTimeAsync(SLOW_AFTER_MS));
+      expect(screen.getByRole("status")).toHaveTextContent(TRACKS.pendingSlow);
+   });
+});
+
+describe("FreeChapterRefresh", () => {
+   it("renders nothing and runs the bounded retry, ending after the last try", async () => {
+      const { container } = render(<FreeChapterRefresh />);
+      expect(container).toBeEmptyDOMElement();
+      await runAllTries();
+      expect(router.refresh).toHaveBeenCalledTimes(RETRY_DELAYS_MS.length);
+      await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+      expect(router.refresh).toHaveBeenCalledTimes(RETRY_DELAYS_MS.length);
+   });
+});
+
 describe("TracksRetryButton", () => {
-   it("re-renders the page on the server once, then says it is trying", () => {
+   it("re-renders the page on the server once per click", () => {
       render(<TracksRetryButton />);
       fireEvent.click(screen.getByRole("button", { name: TRACKS.retry }));
       expect(router.refresh).toHaveBeenCalledTimes(1);
+   });
+
+   it("says so, politely, when a retry ends with the Tracks still unavailable", async () => {
+      render(<TracksRetryButton />);
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+      await act(async () => {
+         fireEvent.click(screen.getByRole("button", { name: TRACKS.retry }));
+      });
+      expect(screen.getByRole("status")).toHaveTextContent(TRACKS.retryFailed);
+   });
+
+   it("is hidden from a visitor without script, who is told to reload, so no dead control is offered", () => {
+      const html = renderToString(<TracksRetryButton />);
+      expect(html).toContain("data-retry-js");
+      const noscript = html.slice(html.indexOf("<noscript>"), html.indexOf("</noscript>"));
+      expect(noscript).toContain("[data-retry-js]{display:none}");
+      expect(noscript).toContain(TRACKS.noscriptRetry);
    });
 });

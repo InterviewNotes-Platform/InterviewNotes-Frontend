@@ -17,8 +17,8 @@ import { HOME_FONT_VARIABLES } from "./home-font";
 import { RotatingTopic } from "./RotatingTopic";
 import { SectionIntro } from "./SectionIntro";
 import { CARD_GRID } from "./tracksGrid";
-import { TracksPending, TracksRetryButton } from "./TracksRetry";
 import { Testimonials } from "./Testimonials";
+import { FreeChapterRefresh, TracksPending, TracksRetryButton } from "./TracksRetry";
 
 const KNOWLEDGE_ICONS: Record<(typeof KNOWLEDGE.groups)[number]["key"], LucideIcon> = {
    "core-concepts": Lightbulb,
@@ -56,7 +56,7 @@ function Tick() {
  * actions, then the rising reader window. The free-chapter action appears only when the API confirmed the Lesson is
  * free (S6-HOME-4).
  */
-function Hero({ freeChapterHref, freeChapterPending }: { freeChapterHref: string | null; freeChapterPending: boolean }) {
+function Hero({ freeChapterHref, freeChapterPending, refreshFreeChapter }: { freeChapterHref: string | null; freeChapterPending: boolean; refreshFreeChapter: boolean }) {
    return (
       <section aria-labelledby="home-heading">
          <HeroMotion className="relative overflow-clip bg-gradient-to-b from-(--home-sky-a) to-(--home-sky-b) pt-[21px]">
@@ -108,6 +108,7 @@ function Hero({ freeChapterHref, freeChapterPending }: { freeChapterHref: string
                      // The free-chapter answer is still on its way: hold its slot so the primary action does not move when it arrives.
                      <span aria-hidden="true" data-free-chapter-pending className={`${BUTTON} pointer-events-none invisible select-none`}>
                         {HERO.freeChapterLabel}
+                        {refreshFreeChapter ? <FreeChapterRefresh /> : null}
                      </span>
                   ) : null}
                </div>
@@ -167,7 +168,6 @@ function StatsBand() {
       </div>
    );
 }
-
 
 /** The prototype's track icons, cycled by position: decoration only, they say nothing about a Track. */
 function TrackIcon({ index }: { index: number }) {
@@ -453,7 +453,7 @@ export function HomeContent({
       <>
          <HomeSmoothScroll />
          <main data-home className={HOME_FONT_VARIABLES}>
-            <Hero freeChapterHref={freeChapterHref} freeChapterPending={freeChapterPending} />
+            <Hero freeChapterHref={freeChapterHref} freeChapterPending={freeChapterPending} refreshFreeChapter={tracks.status !== "pending"} />
             <Tracks tracks={tracks} />
             <StatsBand />
             <Knowledge />

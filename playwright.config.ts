@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 import {
+    COLD_API_ORIGIN,
+    COLD_API_PORT,
+    COLD_PORT,
     EMPTY_ORIGIN,
     EMPTY_PORT,
     EMPTY_TOKEN,
@@ -87,6 +90,25 @@ export default defineConfig({
             reuseExistingServer: !process.env.CI,
             env: {
                 API_URL: ISOLATED_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: "",
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // A private double for one test that needs a cold Data Cache and a count of the reads that fill it (home.spec.ts).
+            command: `node tests/e2e/catalog/fake-api.mjs ${COLD_API_PORT}`,
+            url: `${COLD_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            // The production build above, served again with `API_URL` at that double. Nothing else reads it, so its cache is cold.
+            command: `npx next start -p ${COLD_PORT}`,
+            url: `http://localhost:${COLD_PORT}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                API_URL: COLD_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: "",
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
@@ -208,6 +230,8 @@ export default defineConfig({
                 NEXT_DIST_DIR: PREVIEW_DIST,
                 API_URL: FAULT_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: PREVIEW_TOKEN,
+                // A preview waits for its reads by default (they are never cached); this one opts in so the pending state can be seen.
+                HOME_READ_BUDGET_MS: "800",
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
                 NEXT_TELEMETRY_DISABLED: "1",
