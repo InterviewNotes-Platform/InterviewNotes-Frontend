@@ -15,9 +15,10 @@ vi.mock("@/lib/catalog/client", () => ({ listCatalogTracks, getCatalogItemMeta, 
 vi.mock("@/lib/courses", () => {
     throw new Error("the homepage must not import the course loader");
 });
+const linkStatus = vi.hoisted(() => ({ pending: false }));
 vi.mock("next/link", async () => {
     const { createElement } = await import("react");
-    return { default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }) };
+    return { useLinkStatus: () => linkStatus, default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }) };
 });
 
 const CARDS = [
@@ -44,7 +45,10 @@ const knowledge = () => section(KNOWLEDGE.heading);
 const testimonials = () => section(TESTIMONIALS_SECTION.heading);
 const pricing = () => section(PRICING.heading);
 
-beforeEach(() => stubMotion(false));
+beforeEach(() => {
+    linkStatus.pending = false;
+    stubMotion(false);
+});
 afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -886,5 +890,50 @@ describe("metadata", () => {
         expect(metadata.title).toEqual(expect.stringContaining("InterviewNotes"));
         expect(typeof metadata.description).toBe("string");
         expect(metadata.description).not.toMatch(/\d|guarantee|best|#1|trusted|ranked/i);
+    });
+});
+
+// P8-RSP-02 follow-up: the homepage's catalog links acknowledge a click at once (Home to Track, Tracks, Knowledge, Pricing).
+describe("pending-link feedback", () => {
+    const hint = (link: HTMLElement) => link.querySelector('[data-nav-pending="link"]');
+    const internalLinks = () => screen.getAllByRole("link").filter((link) => (link.getAttribute("href") ?? "").startsWith("/") && !link.getAttribute("href")!.startsWith("//"));
+
+    it("shows the decorative hint in every internal homepage link while its navigation is pending, and only then", () => {
+        renderHome();
+        const links = internalLinks();
+        expect(links.length).toBeGreaterThan(8);
+        const missing = (scope: HTMLElement[]) => scope.filter((link) => link.closest("[data-site-header], footer") === null && !link.querySelector("span[aria-hidden='true'].pointer-events-none"));
+        expect(missing(links).map((link) => link.getAttribute("href"))).toEqual([]);
+        for (const link of links) expect(hint(link)).toBeNull(); // idle: the hint element is there but not shown
+    });
+
+    it("covers the hero actions, the Track cards, the Knowledge cards and actions, Pricing and the closing action", () => {
+        linkStatus.pending = true;
+        renderHome();
+        const hero = screen.getByRole("heading", { level: 1 }).closest("section")!;
+        for (const link of within(hero).getAllByRole("link")) expect(hint(link)).not.toBeNull();
+        for (const link of within(tracks()).getAllByRole("link")) {
+            expect(hint(link)).not.toBeNull();
+            expect(link).toHaveClass("relative");
+        }
+        for (const link of within(knowledge()).getAllByRole("link")) expect(hint(link)).not.toBeNull();
+        expect(hint(within(pricing()).getByRole("link", { name: PRICING.free.action.label }))).not.toBeNull();
+        expect(hint(within(section(CLOSING.heading)).getByRole("link", { name: CLOSING.action.label }))).not.toBeNull();
+    });
+
+    it("keeps every link a real anchor with the same prefetch rule as before: the cards and the free Lesson never prefetch", () => {
+        renderHome();
+        for (const link of within(tracks()).getAllByRole("link")) {
+            expect(link.tagName).toBe("A");
+            expect(link).toHaveAttribute("data-prefetch", "false");
+        }
+        expect(within(screen.getByRole("heading", { level: 1 }).closest("section")!).getByRole("link", { name: HERO.freeChapterLabel })).toHaveAttribute("data-prefetch", "false");
+        expect(within(section(CLOSING.heading)).getByRole("link", { name: CLOSING.action.label })).toHaveAttribute("data-prefetch", "false"); // PREFETCH_PRIMARY, unchanged
+    });
+
+    it("adds no nested interactive element and no accessible name to the links", () => {
+        renderHome();
+        expect(document.querySelectorAll(NESTED_INTERACTIVE)).toHaveLength(0);
+        for (const link of within(tracks()).getAllByRole("link")) expect(link).not.toHaveAccessibleName(/pending|loading/i);
     });
 });

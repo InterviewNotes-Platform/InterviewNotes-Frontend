@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PendingLink } from "@/components/navigation/PendingLink";
 import type { PreparationGroup } from "@/lib/catalog/problem";
 import { PremiumMark, TYPE_LABEL } from "./EntryRow";
 
@@ -21,9 +21,9 @@ export function ProblemPreparation({ groups }: { groups: PreparationGroup[] }) {
                   <ul className="m-0 list-none space-y-2 p-0">
                      {rows.map(({ entry, href }) => (
                         <li key={entry.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                           <Link href={href} prefetch={false} className="text-body font-medium text-foreground transition-micro hover:text-primary">
+                           <PendingLink href={href} className="text-body font-medium text-foreground transition-micro hover:text-primary">
                               {entry.title}
-                           </Link>
+                           </PendingLink>
                            <span className="text-supporting text-muted-foreground">{TYPE_LABEL[entry.type]}</span>
                            {entry.access === "premium" ? <PremiumMark /> : null}
                         </li>

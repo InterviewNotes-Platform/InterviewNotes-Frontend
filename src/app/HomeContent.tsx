@@ -3,6 +3,8 @@ import { ArrowRight, BookOpen, CheckCircle2, FlaskConical, Layers, Lightbulb, Sp
 import { Footer } from "@/components/layout/Footer";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
+import { LinkPending } from "@/components/navigation/LinkPending";
+import { PendingLink } from "@/components/navigation/PendingLink";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { HomeTracks } from "@/lib/catalog/home";
 import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
@@ -88,18 +90,18 @@ function Hero({ freeChapterHref }: { freeChapterHref: string | null }) {
                </p>
 
                <div className="home-fade-up flex flex-wrap justify-center gap-3 pt-2" style={delay(660)}>
-                  <Link href={HERO.primaryAction.href} prefetch={PREFETCH_PRIMARY} className={`${BUTTON} bg-foreground text-background hover:bg-foreground/90`}>
+                  <Link href={HERO.primaryAction.href} prefetch={PREFETCH_PRIMARY} className={`relative ${BUTTON} bg-foreground text-background hover:bg-foreground/90`}>
                      {HERO.primaryAction.label}
                      <ArrowRight aria-hidden="true" className="ml-2 size-4" />
+                     <LinkPending />
                   </Link>
                   {freeChapterHref ? (
-                     <Link
+                     <PendingLink
                         href={freeChapterHref}
-                        prefetch={false}
                         className={`${BUTTON} bg-card text-foreground shadow-[0_1px_2px_rgb(var(--home-sh)/0.08)] dark:bg-home-raised dark:shadow-[inset_0_0_0_1px_var(--home-line)]`}
                      >
                         {HERO.freeChapterLabel}
-                     </Link>
+                     </PendingLink>
                   ) : null}
                </div>
 
@@ -209,9 +211,8 @@ function TrackCards({ tracks }: { tracks: HomeTracks }) {
          <ul className={cn("m-0 mx-auto grid list-none grid-cols-1 gap-5 p-0", CARD_GRID(tracks.cards.length))}>
             {tracks.cards.map(({ id, title, summary, href }, i) => (
                <li key={id} className="flex">
-                  <Link
+                  <PendingLink
                      href={href}
-                     prefetch={false}
                      style={{ "--s": `${(i % 3) * 4}%` } as CSSProperties}
                      className="home-lift home-reveal group flex w-full flex-col gap-8 wrap-anywhere rounded-[20px] border border-home-line bg-card p-7"
                   >
@@ -224,7 +225,7 @@ function TrackCards({ tracks }: { tracks: HomeTracks }) {
                            <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
                         </span>
                      </span>
-                  </Link>
+                  </PendingLink>
                </li>
             ))}
          </ul>
@@ -235,9 +236,9 @@ function TrackCards({ tracks }: { tracks: HomeTracks }) {
       <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 rounded-[20px] border border-home-line bg-card px-6 py-10 text-center">
          <p className="m-0 text-body text-pretty text-muted-foreground">{tracks.status === "empty" ? TRACKS.empty : TRACKS.unavailable}</p>
          {tracks.status === "unavailable" ? (
-            <Link href={KNOWLEDGE.action.href} prefetch={false} className={`${BUTTON} bg-card text-foreground shadow-[0_0_0_1px_var(--home-rule)]`}>
+            <PendingLink href={KNOWLEDGE.action.href} className={`${BUTTON} bg-card text-foreground shadow-[0_0_0_1px_var(--home-rule)]`}>
                {KNOWLEDGE.action.label}
-            </Link>
+            </PendingLink>
          ) : null}
       </div>
    );
@@ -286,9 +287,8 @@ function Knowledge() {
                   const Icon = KNOWLEDGE_ICONS[key];
                   return (
                      <li key={key} className="flex">
-                        <Link
+                        <PendingLink
                            href={href}
-                           prefetch={false}
                            style={{ "--s": `${i * 3}%` } as CSSProperties}
                            className="home-reveal group flex w-full flex-col rounded-2xl border border-border/60 bg-background p-6 text-left transition-[color,background-color,border-color,box-shadow] duration-300 hover:border-gold/50 hover:shadow-xl hover:shadow-gold/10"
                         >
@@ -297,16 +297,17 @@ function Knowledge() {
                            </span>
                            <h3 className="m-0 mb-2 text-lg font-bold transition-micro group-hover:text-premium">{title}</h3>
                            <p className="m-0 text-supporting text-pretty text-muted-foreground">{description}</p>
-                        </Link>
+                        </PendingLink>
                      </li>
                   );
                })}
             </ul>
             <div className="mt-14 text-center">
                <Button asChild size="lg" variant="outline" className="h-12 rounded-xl border-2 border-foreground/20 px-8 font-bold hover:border-foreground/40 hover:bg-muted/60 hover:text-foreground">
-                  <Link href={KNOWLEDGE.action.href} prefetch={PREFETCH_PRIMARY}>
+                  <Link href={KNOWLEDGE.action.href} prefetch={PREFETCH_PRIMARY} className="relative">
                      {KNOWLEDGE.action.label}
                      <ArrowRight aria-hidden="true" className="size-5" />
+                     <LinkPending />
                   </Link>
                </Button>
             </div>
@@ -361,8 +362,9 @@ function Pricing() {
                   <p className="m-0 max-w-2xl text-supporting text-pretty text-muted-foreground">{PRICING.free.body}</p>
                </div>
                <Button asChild variant="outline" size="lg" className="h-11 shrink-0 rounded-xl border-2 border-foreground/20 font-bold hover:bg-muted/60 hover:text-foreground">
-                  <Link href={PRICING.free.action.href} prefetch={PREFETCH_PRIMARY}>
+                  <Link href={PRICING.free.action.href} prefetch={PREFETCH_PRIMARY} className="relative">
                      {PRICING.free.action.label}
+                     <LinkPending />
                   </Link>
                </Button>
             </div>
@@ -415,9 +417,10 @@ function Closing() {
                   {CLOSING.heading}
                </h2>
                <div className="relative flex flex-wrap justify-center gap-3 pt-3">
-                  <Link href={CLOSING.action.href} prefetch={PREFETCH_PRIMARY} className={`${BUTTON} bg-foreground text-background hover:bg-foreground/90`}>
+                  <Link href={CLOSING.action.href} prefetch={PREFETCH_PRIMARY} className={`relative ${BUTTON} bg-foreground text-background hover:bg-foreground/90`}>
                      {CLOSING.action.label}
                      <ArrowRight aria-hidden="true" className="ml-2 size-4" />
+                     <LinkPending />
                   </Link>
                </div>
             </div>

@@ -1,5 +1,6 @@
 import { Children, type ComponentPropsWithoutRef, type ElementType, type ReactNode } from "react";
 import Link from "next/link";
+import { InlineLinkPending } from "@/components/navigation/InlineLinkPending";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -163,6 +164,9 @@ const LINK_STYLE = "text-primary underline underline-offset-4 decoration-primary
 const KNOWLEDGE_REF_STYLE =
    "text-foreground underline decoration-dotted decoration-muted-foreground underline-offset-4 transition-micro hover:text-primary hover:decoration-primary";
 
+/** A prose link wraps across lines, so while its navigation is pending it dims and thickens its underline (InlineLinkPending). */
+const PENDING_STYLE = "has-[[data-nav-pending]]:opacity-60 has-[[data-nav-pending]]:decoration-2"; // no transition: it leaves `transition-micro` alone and is static for reduced motion
+
 /** Intercepted at `pre`: <Mermaid /> emits a <div>, which is invalid inside <pre>. */
 /** `exhibitPath`, set only in the Lesson reader, is the block's place in the body: diagrams become exhibits anchored there. */
 function codeBlock(adaptive: boolean, exhibitPath: string | null = null): Components["pre"] {
@@ -222,9 +226,10 @@ function anchor(stayOnDeployment: boolean, reading: boolean, aboutAt?: (offset: 
                href={internal}
                prefetch={reading ? false : undefined}
                data-reference={knowledge ? "knowledge" : undefined}
-               className={knowledge ? KNOWLEDGE_REF_STYLE : LINK_STYLE}
+               className={cn(knowledge ? KNOWLEDGE_REF_STYLE : LINK_STYLE, PENDING_STYLE)}
             >
                {children}
+               <InlineLinkPending />
             </Link>
          );
          return about ? (

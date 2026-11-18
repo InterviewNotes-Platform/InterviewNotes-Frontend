@@ -112,6 +112,19 @@ describe("ReaderShell", () => {
       expect(screen.getByText("Page body")).toBeInTheDocument();
    });
 
+   it("acknowledges a click on the rail's Track overview icon: never prefetched, with the pending hint (P8-RSP-02)", () => {
+      render(
+         <ReaderShell access="readable" surface="paper" outline={OUTLINE}>
+            {page}
+         </ReaderShell>
+      );
+      const overview = document.querySelector("[data-reader-rail-icon]") as HTMLElement;
+      expect(overview).toHaveAttribute("href", "/tracks/home");
+      expect(overview).toHaveAttribute("data-prefetch", "false");
+      expect(overview).toHaveClass("relative");
+      expect(overview.querySelector('span[aria-hidden="true"]')).not.toBeNull(); // LinkPending, shown only while pending
+   });
+
    it("offers Study/Read on a readable page with no Track and no tools, such as an unplaced Knowledge entry (T26-1)", () => {
       render(
          <ReaderShell access="readable" surface="desk" outline={null}>

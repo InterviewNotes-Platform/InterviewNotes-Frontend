@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { PendingLink } from "@/components/navigation/PendingLink";
 import type { LessonPosition, Position } from "@/lib/catalog/curriculum";
 import { moduleLocation } from "@/lib/catalog/moduleLocation";
 import { catalogEntryHref } from "@/lib/catalog/routes";
@@ -103,9 +104,8 @@ function Step({ label, entry, reading, onward = false }: StepProps) {
    if (!entry || !href) return null;
    const premium = entry.access === "premium";
    return (
-      <Link
+      <PendingLink
          href={href}
-         prefetch={false}
          aria-label={`${label}: ${entry.title}${premium ? ", premium" : ""}`}
          className={cn(
             reading ? "group block min-h-11" : "block rounded-lg border border-border p-4 transition-micro hover:border-primary",
@@ -119,7 +119,7 @@ function Step({ label, entry, reading, onward = false }: StepProps) {
             </span>
             {premium ? <PremiumMark /> : null}
          </span>
-      </Link>
+      </PendingLink>
    );
 }
 
