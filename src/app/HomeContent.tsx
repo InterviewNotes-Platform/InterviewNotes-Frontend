@@ -16,7 +16,9 @@ import { HeroStage } from "./HeroStage";
 import { HOME_FONT_VARIABLES } from "./home-font";
 import { RotatingTopic } from "./RotatingTopic";
 import { SectionIntro } from "./SectionIntro";
+import { CARD_GRID } from "./tracksGrid";
 import { Testimonials } from "./Testimonials";
+import { FreeChapterRefresh, TracksPending, TracksRetryButton } from "./TracksRetry";
 
 const KNOWLEDGE_ICONS: Record<(typeof KNOWLEDGE.groups)[number]["key"], LucideIcon> = {
    "core-concepts": Lightbulb,
@@ -54,7 +56,7 @@ function Tick() {
  * actions, then the rising reader window. The free-chapter action appears only when the API confirmed the Lesson is
  * free (S6-HOME-4).
  */
-function Hero({ freeChapterHref }: { freeChapterHref: string | null }) {
+function Hero({ freeChapterHref, freeChapterPending, refreshFreeChapter }: { freeChapterHref: string | null; freeChapterPending: boolean; refreshFreeChapter: boolean }) {
    return (
       <section aria-labelledby="home-heading">
          <HeroMotion className="relative overflow-clip bg-gradient-to-b from-(--home-sky-a) to-(--home-sky-b) pt-[21px]">
@@ -102,6 +104,12 @@ function Hero({ freeChapterHref }: { freeChapterHref: string | null }) {
                      >
                         {HERO.freeChapterLabel}
                      </PendingLink>
+                  ) : freeChapterPending ? (
+                     // The free-chapter answer is still on its way: hold its slot so the primary action does not move when it arrives.
+                     <span aria-hidden="true" data-free-chapter-pending className={`${BUTTON} pointer-events-none invisible select-none`}>
+                        {HERO.freeChapterLabel}
+                        {refreshFreeChapter ? <FreeChapterRefresh /> : null}
+                     </span>
                   ) : null}
                </div>
 
@@ -161,9 +169,6 @@ function StatsBand() {
    );
 }
 
-/** One card per published Track; a lone Track or a pair is centred rather than left in a wider grid. */
-const CARD_GRID = (count: number) => (count === 1 ? "max-w-xl" : count === 2 ? "max-w-4xl md:grid-cols-2" : "max-w-6xl md:grid-cols-2 lg:grid-cols-3");
-
 /** The prototype's track icons, cycled by position: decoration only, they say nothing about a Track. */
 function TrackIcon({ index }: { index: number }) {
    const line = { fill: "none", stroke: "var(--foreground)", strokeWidth: 1.2 } as const;
@@ -206,6 +211,7 @@ function TrackIcon({ index }: { index: number }) {
 
 /** The published catalog Tracks, or one truthful sentence in their place; never a made-up card (S6-HOME-2, -3). */
 function TrackCards({ tracks }: { tracks: HomeTracks }) {
+   if (tracks.status === "pending") return <TracksPending />;
    if (tracks.status === "ok") {
       return (
          <ul className={cn("m-0 mx-auto grid list-none grid-cols-1 gap-5 p-0", CARD_GRID(tracks.cards.length))}>
@@ -236,9 +242,12 @@ function TrackCards({ tracks }: { tracks: HomeTracks }) {
       <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 rounded-[20px] border border-home-line bg-card px-6 py-10 text-center">
          <p className="m-0 text-body text-pretty text-muted-foreground">{tracks.status === "empty" ? TRACKS.empty : TRACKS.unavailable}</p>
          {tracks.status === "unavailable" ? (
-            <PendingLink href={KNOWLEDGE.action.href} className={`${BUTTON} bg-card text-foreground shadow-[0_0_0_1px_var(--home-rule)]`}>
-               {KNOWLEDGE.action.label}
-            </PendingLink>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+               <TracksRetryButton />
+               <PendingLink href={KNOWLEDGE.action.href} className={`${BUTTON} bg-card text-foreground shadow-[0_0_0_1px_var(--home-rule)]`}>
+                  {KNOWLEDGE.action.label}
+               </PendingLink>
+            </div>
          ) : null}
       </div>
    );
@@ -430,12 +439,21 @@ function Closing() {
 }
 
 /** The homepage is a vertical sequence of sections: a later section (e.g. learner state) joins the flow without restructuring. */
-export function HomeContent({ tracks, freeChapterHref }: { tracks: HomeTracks; freeChapterHref: string | null }) {
+export function HomeContent({
+   tracks,
+   freeChapterHref,
+   freeChapterPending = false,
+}: {
+   tracks: HomeTracks;
+   freeChapterHref: string | null;
+   /** The free-chapter read is still outstanding: its slot is held, nothing is claimed about the Lesson. */
+   freeChapterPending?: boolean;
+}) {
    return (
       <>
          <HomeSmoothScroll />
          <main data-home className={HOME_FONT_VARIABLES}>
-            <Hero freeChapterHref={freeChapterHref} />
+            <Hero freeChapterHref={freeChapterHref} freeChapterPending={freeChapterPending} refreshFreeChapter={tracks.status !== "pending"} />
             <Tracks tracks={tracks} />
             <StatsBand />
             <Knowledge />

@@ -417,6 +417,15 @@ test.describe("positive control: an entitled reader of the production deployment
 
    test("the entitled reader of a Problem whose Design stage is premium sees the stage with no access indication", async ({ page }) => {
       await page.goto(canonical("problem.p4-premium-stages"));
+      // The server document holds every released stage, and the split reader shows one at a time once the page is interactive (P8-T29).
+      // So the stage is selected after hydration, through the stage bar a visitor uses, and only then asserted: the assertion is the same.
+      const stageBar = page.getByRole("navigation", { name: "Problem stages" });
+      const designButton = stageBar.getByRole("button", { name: /^\d*\s*Design$/ });
+      await expect(async () => {
+         await page.evaluate(() => window.scrollTo(0, 0));
+         await designButton.click();
+         await expect(designButton).toHaveAttribute("aria-current", "step", { timeout: 1000 });
+      }).toPass({ timeout: 10_000 });
       const design = page.getByRole("main").getByRole("region", { name: "Design", exact: true });
       await expect(design).toBeVisible();
       await expect(page.getByRole("main").locator("[role=note]:not([data-callout])")).toHaveCount(0);

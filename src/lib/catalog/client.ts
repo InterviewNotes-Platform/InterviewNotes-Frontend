@@ -1,5 +1,6 @@
 import "server-only";
 
+import { timeRead } from "@/lib/perf/hotpath";
 import { createClient } from "@/lib/supabase/server";
 import { previewDelivery } from "./preview";
 import type {
@@ -34,6 +35,16 @@ function unavailable(cause: Unavailable["cause"]): Unavailable {
 function apiUrl(): string | null {
    const url = process.env.API_URL;
    return url ? url.replace(/\/$/, "") : null;
+}
+
+/**
+ * Whether a public catalog read is stored in the Data Cache on this deployment: true for production, false for a preview,
+ * whose answers are private to this server and never stored, and false when no request can be made at all. Only a boolean:
+ * the page that asks it never sees the credential or how it is delivered.
+ */
+export function publicReadsAreCached(): boolean {
+   const base = apiUrl();
+   return Boolean(base && previewDelivery(base)?.shareable);
 }
 
 /** The caller's Supabase access token, or null when signed out or Supabase is unreachable. */
@@ -246,42 +257,51 @@ async function request<T>(
       return unavailable("transport");
    }
 
+   const timer = timeRead(path);
    const token = withSession ? await getAccessToken() : null;
-   let response: Response;
+   timer.session();
+   const noStore = withSession || Boolean(token) || !delivery.shareable;
+   let response: Response | null = null;
+   let status = 0;
    try {
-      response = await fetch(`${base}${path}`, {
-         headers: { ...delivery.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-         // Signed-in, preview and session-path (item body, /related) reads are never cached: a cached 200
-         // would outlive a later 401/404/410 (F-1). Only public metadata and lists keep the 60 s cache.
-         ...(withSession || token || !delivery.shareable
-            ? { cache: "no-store" as const }
-            : { next: { revalidate: REVALIDATE_SECONDS } }),
-      });
-   } catch (error) {
-      console.error(`catalog: request to ${path} failed:`, error);
-      return unavailable("transport");
-   }
+      try {
+         response = await fetch(`${base}${path}`, {
+            headers: { ...delivery.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            // Signed-in, preview and session-path (item body, /related) reads are never cached: a cached 200
+            // would outlive a later 401/404/410 (F-1). Only public metadata and lists keep the 60 s cache.
+            ...(noStore ? { cache: "no-store" as const } : { next: { revalidate: REVALIDATE_SECONDS } }),
+         });
+      } catch (error) {
+         console.error(`catalog: request to ${path} failed:`, error);
+         return unavailable("transport");
+      } finally {
+         timer.headers(response, noStore ? "ns" : "rv");
+      }
 
-   if (response.status === 401) return { status: "unauthenticated" };
-   if (response.status === 402) return { status: "unentitled" };
-   if (response.status === 404) return { status: "notFound" };
-   if (response.status === 410) return { status: "retired" };
-   if (!response.ok) {
-      console.error(`catalog: ${path} returned ${response.status}`);
-      return unavailable("upstream");
-   }
+      status = response.status;
+      if (response.status === 401) return { status: "unauthenticated" };
+      if (response.status === 402) return { status: "unentitled" };
+      if (response.status === 404) return { status: "notFound" };
+      if (response.status === 410) return { status: "retired" };
+      if (!response.ok) {
+         console.error(`catalog: ${path} returned ${response.status}`);
+         return unavailable("upstream");
+      }
 
-   let body: unknown;
-   try {
-      body = await response.json();
-   } catch {
-      return unavailable("malformed");
+      let body: unknown;
+      try {
+         body = await response.json();
+      } catch {
+         return unavailable("malformed");
+      }
+      if (!isValid(body)) {
+         console.error(`catalog: ${path} returned an unexpected shape`);
+         return unavailable("malformed");
+      }
+      return { status: "ok", data: body };
+   } finally {
+      timer.end(status);
    }
-   if (!isValid(body)) {
-      console.error(`catalog: ${path} returned an unexpected shape`);
-      return unavailable("malformed");
-   }
-   return { status: "ok", data: body };
 }
 
 function itemPath(type: CatalogItemType, slug: string): string {
