@@ -19,11 +19,13 @@ export const RETRY_DELAYS_MS = [6000, 14000, 24000, 36000] as const;
 export const SLOW_AFTER_MS = 6000;
 
 const ACTION =
-   "home-btn inline-flex h-auto rounded-full bg-card px-6 py-3.5 text-[15px]/4.5 font-medium text-foreground shadow-[0_0_0_1px_var(--home-rule)] disabled:opacity-60";
+   "home-btn inline-flex h-auto rounded-full bg-card px-6 py-3.5 text-[15px]/4.5 font-medium text-foreground shadow-[0_0_0_1px_var(--home-rule)] disabled:opacity-60 aria-disabled:opacity-60";
 
 /**
  * The bounded retry: one server refresh at a time, at the delays above, never for a hidden tab, then it stops. `retry`
- * starts a fresh sequence. Used by whatever is pending on the homepage, so there is exactly one such sequence per page.
+ * starts a fresh sequence. Used by whatever is pending on the homepage: only one component runs it at a time, but when the
+ * Tracks arrive while the free chapter is still late, the sequence passes from `TracksPending` to `FreeChapterRefresh` and
+ * starts again, so a visitor sees at most two sequences (eight refreshes), each bounded.
  */
 function useBoundedRefresh() {
    const router = useRouter();
@@ -174,7 +176,7 @@ export function TracksRetryButton() {
             >
                {refreshing ? TRACKS.retrying : TRACKS.retry}
             </button>
-            <span role="status" className="text-sm text-muted-foreground empty:hidden">
+            <span role="status" className="text-sm text-muted-foreground empty:sr-only">
                {failedAgain ? TRACKS.retryFailed : ""}
             </span>
          </span>

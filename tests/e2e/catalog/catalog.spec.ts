@@ -420,7 +420,7 @@ test.describe("a slow Track list on the homepage", () => {
       await expect(skeleton).toHaveAttribute("aria-hidden", "true");
       await expect(skeleton.locator("li")).toHaveCount(2);
 
-      // The API recovers; the page's own first retry (4 s) brings the real cards in place, with no reload and no browser request to the API.
+      // The API recovers; the page's own first retry (6 s) brings the real cards in place, with no reload and no browser request to the API.
       await clear(request);
       await expect(trackLinks(page).first()).toBeVisible({ timeout: 15_000 });
       await expect(tracksRegion(page).locator("[data-tracks-pending]")).toHaveCount(0);

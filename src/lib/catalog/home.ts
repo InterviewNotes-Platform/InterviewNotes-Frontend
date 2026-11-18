@@ -27,6 +27,7 @@ export type HomeTracks =
  * running API answers well inside this; a sleeping free-tier API does not, and holding the hero for it takes the whole page.
  */
 export const HOME_READ_BUDGET_MS = 800;
+const MIN_BUDGET_MS = 100;
 
 /**
  * The wait the homepage allows its reads, or null to wait as long as they take (the page as it was before the budget).
@@ -42,20 +43,22 @@ export function homeReadBudgetMs(readsAreCached: boolean, setting: string | unde
    if (value === "off") return null;
    if (value) {
       const ms = Number(value);
-      if (Number.isFinite(ms) && ms >= 0) return ms;
+      // Below the floor a timer would lose to a Data Cache answer and every render would show pending.
+      if (Number.isFinite(ms) && ms >= MIN_BUDGET_MS) return ms;
    }
    return readsAreCached ? HOME_READ_BUDGET_MS : null;
 }
 
-const CRAWLER_TOKENS = /bot|crawl|spider|slurp|lighthouse|pagespeed|pingdom|uptime|monitor|ahrefs|semrush/i;
-
 /**
- * Whether a request should be given the whole page rather than the budgeted one: a search or AI crawler, a monitor, or a
- * client that says nothing about itself. What is indexed or checked then does not depend on the API's mood. The framework's
- * own list is checked first; the tokens catch what it misses.
+ * Whether a request should be given the whole page rather than the budgeted one. The budgeted page is for a person with a
+ * browser, so the test is positive: the framework does not call it a bot, it names a user agent, and it carries the
+ * `Sec-Fetch-Mode` header that every current browser sends on a navigation and on the page's own refresh request and that a
+ * script cannot set from a page. Search and AI crawlers, link checkers and content-checking monitors (curl, python-requests,
+ * a synthetic monitor) send none of that, so they are given the page as it was before the budget and what they index or
+ * check does not depend on the API's mood. A browser too old to send the header gets the page as it was: the safe direction.
  */
-export function wantsWholePage(userAgent: string | null | undefined, frameworkSaysBot: boolean): boolean {
-   return frameworkSaysBot || !userAgent?.trim() || CRAWLER_TOKENS.test(userAgent);
+export function wantsWholePage(userAgent: string | null | undefined, frameworkSaysBot: boolean, secFetchMode: string | null | undefined): boolean {
+   return frameworkSaysBot || !userAgent?.trim() || !secFetchMode?.trim();
 }
 
 export type Bounded<T> = { settled: true; value: T } | { settled: false };

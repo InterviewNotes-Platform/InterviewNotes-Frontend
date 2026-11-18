@@ -163,3 +163,21 @@ describe("a timer never changes what a read returns", () => {
       expect(() => read.end(200)).not.toThrow();
    });
 });
+
+describe("the homepage line's whole-page flag", () => {
+   it("carries wp as 0 or 1 for the homepage only, and adds no other key", async () => {
+      const { reportRender } = await load();
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      reportRender("home", true);
+      afterCallbacks[0]();
+      expect(JSON.parse(String(log.mock.calls[0][0]))).toMatchObject({ route: "home", wp: 1 });
+      afterCallbacks.length = 0;
+      log.mockClear();
+      render.memo = undefined;
+      const again = await load();
+      again.reportRender("home", false);
+      afterCallbacks[0]();
+      expect(JSON.parse(String(log.mock.calls[0][0]))).toMatchObject({ wp: 0 });
+      expect(Object.keys(JSON.parse(String(log.mock.calls[0][0]))).sort()).toEqual(["cpu", "hp", "reads", "route", "wall", "waves", "wp"]);
+   });
+});

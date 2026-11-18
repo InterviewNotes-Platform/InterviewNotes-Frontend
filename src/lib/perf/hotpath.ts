@@ -153,10 +153,12 @@ export interface RenderLine {
    cpu: number;
    waves: number;
    reads: ReadRecord[];
+   /** Homepage only: 1 when the request was given the whole page (no budget), 0 when it got the budgeted page. */
+   wp?: 0 | 1;
 }
 
 /** Build the line for a finished render. Pure, so a test can hold it to its allowlist. */
-export function renderLine(route: HotpathRoute, s: Pick<Store, "t0" | "cpu0" | "reads">, now: number, cpu: NodeJS.CpuUsage): RenderLine {
+export function renderLine(route: HotpathRoute, s: Pick<Store, "t0" | "cpu0" | "reads">, now: number, cpu: NodeJS.CpuUsage, wholePage?: boolean): RenderLine {
    return {
       hp: 1,
       route,
@@ -164,6 +166,7 @@ export function renderLine(route: HotpathRoute, s: Pick<Store, "t0" | "cpu0" | "
       cpu: round((cpu.user + cpu.system) / 1000),
       waves: waveCount(s.reads),
       reads: s.reads,
+      ...(wholePage === undefined ? {} : { wp: wholePage ? (1 as const) : (0 as const) }),
    };
 }
 
@@ -171,13 +174,13 @@ export function renderLine(route: HotpathRoute, s: Pick<Store, "t0" | "cpu0" | "
  * Write the line for this render once its response has finished, so the wall and CPU cover the whole render and the
  * stream, not only the reads. A failure to schedule or write is a lost measurement and nothing else.
  */
-export function reportRender(route: HotpathRoute): void {
+export function reportRender(route: HotpathRoute, wholePage?: boolean): void {
    if (!hotpathEnabled()) return;
    const s = store();
    try {
       after(() => {
          try {
-            console.log(JSON.stringify(renderLine(route, s, performance.now(), process.cpuUsage(s.cpu0))));
+            console.log(JSON.stringify(renderLine(route, s, performance.now(), process.cpuUsage(s.cpu0), wholePage)));
          } catch {
             // Observability must never affect the response.
          }

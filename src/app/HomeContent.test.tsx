@@ -13,8 +13,8 @@ import { TOPIC_STEP_MS } from "./RotatingTopic";
 const { listCatalogTracks, getCatalogItemMeta, listCatalogItems, publicReadsAreCached } = vi.hoisted(() => ({ listCatalogTracks: vi.fn(), getCatalogItemMeta: vi.fn(), listCatalogItems: vi.fn(), publicReadsAreCached: vi.fn(() => true) }));
 vi.mock("@/lib/catalog/client", () => ({ listCatalogTracks, getCatalogItemMeta, listCatalogItems, publicReadsAreCached }));
 // The page reads the request's user agent (a crawler is given the whole page) and reports late reads for the function log.
-const request = vi.hoisted(() => ({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" }));
-vi.mock("next/headers", () => ({ headers: async () => new Headers({ "user-agent": request.userAgent }) }));
+const request = vi.hoisted(() => ({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", secFetchMode: "navigate" as string | null }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ "user-agent": request.userAgent, ...(request.secFetchMode ? { "sec-fetch-mode": request.secFetchMode } : {}) }) }));
 const { reportHomeLate } = vi.hoisted(() => ({ reportHomeLate: vi.fn() }));
 vi.mock("@/lib/perf/hotpath", () => ({ reportRender: vi.fn(), reportHomeLate }));
 vi.mock("@/lib/courses", () => {
@@ -874,6 +874,7 @@ describe("a slow API", () => {
         vi.clearAllMocks();
         vi.useFakeTimers();
         request.userAgent = "Mozilla/5.0 Chrome/130.0.0.0 Safari/537.36";
+        request.secFetchMode = "navigate";
         publicReadsAreCached.mockReturnValue(true);
         listCatalogTracks.mockResolvedValue({ status: "ok", data: LIST });
         getCatalogItemMeta.mockResolvedValue({ status: "ok", data: FREE_META });
@@ -941,16 +942,17 @@ describe("a slow API", () => {
         expect(document.querySelector("[data-tracks-pending]")).toBeNull();
     });
 
-    it("gives a crawler the monitors and agents the framework's list misses the whole page too, and a client with no user agent", async () => {
-        for (const agent of ["Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)", "Mozilla/5.0+(compatible; UptimeRobot/2.0)", ""]) {
+    it("gives every client that is not a browser the whole page: no navigation header (crawlers, curl, monitors), or no user agent", async () => {
+        for (const [agent, mode] of [["Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)", null], ["curl/8.4.0", null], ["Datadog/Synthetics", null], ["", "navigate"]] as const) {
             request.userAgent = agent;
+            request.secFetchMode = mode;
             listCatalogTracks.mockReturnValue(later({ status: "ok", data: LIST }, 25_000));
             const rendering = HomePage();
             await vi.advanceTimersByTimeAsync(HOME_READ_BUDGET_MS * 2);
             let settled = false;
             void rendering.then(() => (settled = true));
             await vi.advanceTimersByTimeAsync(0);
-            expect(settled, `the page returned before the read did for "${agent}"`).toBe(false);
+            expect(settled, `the page returned before the read did for "${agent}" / ${mode}`).toBe(false);
             await vi.advanceTimersByTimeAsync(25_000);
             const { unmount } = render(await rendering);
             expect(within(tracks()).getByRole("link", { name: /^Alpha Track\b/ })).toBeInTheDocument();

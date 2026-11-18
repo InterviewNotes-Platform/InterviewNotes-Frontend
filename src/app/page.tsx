@@ -39,10 +39,12 @@ export function generateMetadata(): Metadata {
  * Tracks are required content without script. With script off, a pending page says so and links on.
  */
 export default async function HomePage() {
-   reportRender("home");
    const requestHeaders = await headers();
    const agent = userAgent({ headers: requestHeaders });
-   const budget = wantsWholePage(requestHeaders.get("user-agent"), agent.isBot) ? null : homeReadBudgetMs(publicReadsAreCached());
+   const wholePage = wantsWholePage(requestHeaders.get("user-agent"), agent.isBot, requestHeaders.get("sec-fetch-mode"));
+   // Called before the reads start so the timeline begins with them; `wp` shows on a hosted run whether browsers take the budgeted path.
+   reportRender("home", wholePage);
+   const budget = wholePage ? null : homeReadBudgetMs(publicReadsAreCached());
 
    const tracksRead = listCatalogTracks();
    const freeRead = getCatalogItemMeta("lesson", FREE_CHAPTER_LESSON_SLUG);

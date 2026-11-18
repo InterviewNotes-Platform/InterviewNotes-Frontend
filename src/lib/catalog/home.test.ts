@@ -158,27 +158,35 @@ describe("homeReadBudgetMs", () => {
       expect(homeReadBudgetMs(true, " OFF ")).toBeNull();
    });
 
-   it("ignores a value that is not a number of milliseconds", () => {
-      for (const bad of ["", "soon", "-5", "NaN"]) expect(homeReadBudgetMs(true, bad), bad).toBe(HOME_READ_BUDGET_MS);
+   it("ignores a value that is not a number of milliseconds, or is below the floor a Data Cache answer could not beat", () => {
+      for (const bad of ["", "soon", "-5", "NaN", "0", "99"]) expect(homeReadBudgetMs(true, bad), bad).toBe(HOME_READ_BUDGET_MS);
+      expect(homeReadBudgetMs(true, "100")).toBe(100);
    });
 });
 
 describe("wantsWholePage", () => {
    const BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 
-   it("gives a visitor with a browser the budgeted page", () => {
-      expect(wantsWholePage(BROWSER, false)).toBe(false);
-      expect(wantsWholePage("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1", false)).toBe(false);
+   it("gives a person with a browser the budgeted page: a user agent, a navigation header, and no bot verdict", () => {
+      expect(wantsWholePage(BROWSER, false, "navigate")).toBe(false);
+      expect(wantsWholePage("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1", false, "cors")).toBe(false);
+      // A phone whose model name happens to contain "bot" is still a browser.
+      expect(wantsWholePage("Mozilla/5.0 (Linux; Android 11; Cubot X30) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36", false, "navigate")).toBe(false);
    });
 
-   it("gives the whole page to what the framework calls a bot, and to the crawlers and monitors it misses", () => {
-      expect(wantsWholePage(BROWSER, true)).toBe(true);
-      for (const agent of ["Mozilla/5.0 (compatible; ClaudeBot/1.0)", "Mozilla/5.0 (compatible; AhrefsBot/7.0)", "Mozilla/5.0 (compatible; SemrushBot/7)", "Mozilla/5.0+(compatible; UptimeRobot/2.0)", "Pingdom.com_bot_version_1.4", "Mozilla/5.0 Chrome-Lighthouse", "Mozilla/5.0 (compatible; Googlebot/2.1)", "Mozilla/5.0 (compatible; Yahoo! Slurp)"]) {
-         expect(wantsWholePage(agent, false), agent).toBe(true);
+   it("gives the whole page to what the framework calls a bot, even one that sends the header", () => {
+      expect(wantsWholePage(BROWSER, true, "navigate")).toBe(true);
+   });
+
+   it("gives the whole page to everything that is not a browser: crawlers, link checkers and monitors send no Sec-Fetch-Mode", () => {
+      for (const agent of ["Mozilla/5.0 (compatible; ClaudeBot/1.0)", "curl/8.4.0", "python-requests/2.31", "Go-http-client/2.0", "Datadog/Synthetics", "StatusCake", BROWSER]) {
+         expect(wantsWholePage(agent, false, null), agent).toBe(true);
+         expect(wantsWholePage(agent, false, undefined), agent).toBe(true);
+         expect(wantsWholePage(agent, false, "  "), agent).toBe(true);
       }
    });
 
    it("gives the whole page to a client that says nothing about itself", () => {
-      for (const missing of [undefined, null, "", "   "]) expect(wantsWholePage(missing, false)).toBe(true);
+      for (const missing of [undefined, null, "", "   "]) expect(wantsWholePage(missing, false, "navigate")).toBe(true);
    });
 });

@@ -691,6 +691,9 @@ for (const colorScheme of ["light", "dark"] as const) {
 
 // P8 hot path, production mode: the Track list is slow on a cold Data Cache. The page stops waiting, but the read it started is not
 // wasted: it finishes after the response and fills the cache, so the page's own retry finds the answer and makes no further API read.
+// Limit: `next start` is a long-lived Node process, where a started fetch runs on after the response whether or not `after()` holds
+// the request. This test proves the cache fill and the retry's cache hit; it cannot prove the serverless keep-alive `after()` is for.
+// That is shown by the function log on the hosted deployment (a `late` line, then a `settled` line).
 test.describe("a slow Track list on a cold cache (production mode)", () => {
    test.use({ baseURL: COLD_ORIGIN });
 
