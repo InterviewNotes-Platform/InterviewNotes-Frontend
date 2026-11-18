@@ -82,6 +82,17 @@ describe("the line a render writes", () => {
       expect(Object.keys(parsed).sort()).toEqual(["cpu", "hp", "reads", "route", "wall", "waves"]);
    });
 
+   it("counts markdown parses as one number in the line, and leaves the line as it was when nothing was parsed", async () => {
+      const { countParse, reportRender } = await load();
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      countParse();
+      countParse();
+      reportRender("lesson");
+      afterCallbacks[0]();
+      expect(JSON.parse(String(log.mock.calls[0][0])).pp).toBe(2);
+      expect(Object.keys(JSON.parse(String(log.mock.calls[0][0]))).sort()).toEqual(["cpu", "hp", "pp", "reads", "route", "wall", "waves"]);
+   });
+
    it("calls an answer older than two seconds a cached one, and one without a usable Date unknown", async () => {
       const { reportRender, timeRead } = await load();
       const log = vi.spyOn(console, "log").mockImplementation(() => {});

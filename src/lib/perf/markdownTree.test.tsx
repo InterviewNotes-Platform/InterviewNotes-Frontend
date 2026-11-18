@@ -10,7 +10,7 @@ vi.mock("react", async (importOriginal) => ({
       runs.memos.push(memo);
       return (arg: A) => {
          if (!memo.has(arg)) {
-            runs.count += 1;
+            if (fn.length === 1) runs.count += 1;
             memo.set(arg, fn(arg));
          }
          return memo.get(arg)!;
@@ -52,6 +52,7 @@ beforeEach(() => {
 });
 afterEach(() => {
    delete process.env.BODY_PARSE_ONCE;
+   vi.restoreAllMocks();
 });
 
 describe("one parse of each markdown block per render", () => {
@@ -91,6 +92,15 @@ describe("parseReleasedBodies", () => {
       expect(runs.count).toBe(4);
       html();
       expect(runs.count).toBe(4);
+   });
+
+   it("never rejects: a failure is logged by error name alone and the render parses on its own", async () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const broken = { format: "markdown@1" as const, get text(): string { throw new TypeError("SECRET body text"); } };
+      await expect(parseReleasedBodies({ body: broken, sections: [] })).resolves.toBeUndefined();
+      expect(log).toHaveBeenCalledWith("catalog: early parse stopped:", "TypeError");
+      expect(JSON.stringify(log.mock.calls)).not.toContain("SECRET");
+      expect(html()).toContain("Prose with a");
    });
 
    it("does nothing without a markdown body, and nothing when switched off", async () => {
