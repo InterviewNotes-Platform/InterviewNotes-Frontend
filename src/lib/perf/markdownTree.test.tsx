@@ -94,13 +94,44 @@ describe("parseReleasedBodies", () => {
       expect(runs.count).toBe(4);
    });
 
-   it("never rejects: a failure is logged by error name alone and the render parses on its own", async () => {
+   it("never rejects: a failure logs one fixed message with no error detail, and the render parses on its own", async () => {
       const log = vi.spyOn(console, "error").mockImplementation(() => {});
       const broken = { format: "markdown@1" as const, get text(): string { throw new TypeError("SECRET body text"); } };
       await expect(parseReleasedBodies({ body: broken, sections: [] })).resolves.toBeUndefined();
-      expect(log).toHaveBeenCalledWith("catalog: early parse stopped:", "TypeError");
-      expect(JSON.stringify(log.mock.calls)).not.toContain("SECRET");
-      expect(html()).toContain("Prose with a");
+      expect(log.mock.calls).toEqual([["catalog: early parse stopped"]]);
+      expect(JSON.stringify(log.mock.calls)).not.toMatch(/SECRET|TypeError/);
+   });
+
+   it("falls back to the render with the very same payload: it fails once in the early parse, is otherwise renderable, and renders as a fresh parse would", async () => {
+      const expected = html();
+      process.env.BODY_PARSE_ONCE = "off";
+      const fresh = html();
+      delete process.env.BODY_PARSE_ONCE;
+      runs.memos.forEach((memo) => memo.clear());
+      runs.count = 0;
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      let reads = 0;
+      const flaky = { format: "markdown@1" as const, get text(): string { if (reads++ === 0) throw new RangeError("SECRET body text"); return TEXT; } };
+
+      await expect(parseReleasedBodies({ body: flaky, sections: [] })).resolves.toBeUndefined();
+      expect(log.mock.calls).toEqual([["catalog: early parse stopped"]]);
+      expect(runs.count, "the early parse stopped before parsing anything").toBe(0);
+
+      const page = render(<CatalogBody body={flaky} reading={reading as never} />).container.innerHTML;
+      expect(page).toBe(expected);
+      expect(page).toBe(fresh);
+      expect(runs.count, "the render parsed each block itself, once").toBe(1);
+      expect(JSON.stringify(log.mock.calls)).not.toMatch(/SECRET|RangeError/);
+   });
+
+   it("keeps what the early parse finished when a later section fails, and the render parses only the rest", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      let reads = 0;
+      const second = { format: "markdown@1" as const, get text(): string { if (reads++ === 0) throw new Error("x"); return "Two."; } };
+      await parseReleasedBodies({ body, sections: [section("One."), { ...section("-"), body: second }] });
+      expect(runs.count, "body and first section were parsed before the failure").toBe(2);
+      render(<CatalogBody body={second} />);
+      expect(runs.count, "the render parsed only the section the early parse had not reached").toBe(3);
    });
 
    it("does nothing without a markdown body, and nothing when switched off", async () => {

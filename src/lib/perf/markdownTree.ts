@@ -23,7 +23,7 @@ export function sharedParse(this: Processor): void {
 
 /**
  * Parses the released markdown while the item's Track reads are in flight, yielding between blocks so those reads keep moving.
- * It never rejects: a failure is logged by error name only and the render parses what is left, as it always did.
+ * It never rejects: a failure logs one fixed message, nothing from the error, and the render parses what is left as it always did.
  */
 export async function parseReleasedBodies({ body, sections }: Pick<CatalogItem, "body" | "sections">): Promise<void> {
    if (!parseOnce()) return;
@@ -35,7 +35,7 @@ export async function parseReleasedBodies({ body, sections }: Pick<CatalogItem, 
             parseMarkdown(block.text);
          }
       }
-   } catch (error) {
-      console.error("catalog: early parse stopped:", error instanceof Error ? error.name : "unknown");
+   } catch {
+      console.error("catalog: early parse stopped");
    }
 }
