@@ -1,7 +1,5 @@
-import remarkGfm from "remark-gfm";
-import remarkParse from "remark-parse";
-import { unified } from "unified";
 import { markdownBlocks, type Block, type MarkdownBlock } from "./blocks";
+import { parseMarkdown } from "@/lib/perf/markdownTree";
 
 interface MdNode {
    type: string;
@@ -9,8 +7,6 @@ interface MdNode {
    children?: MdNode[];
    position?: { start: { offset?: number } };
 }
-
-const parser = unified().use(remarkParse).use(remarkGfm);
 
 export interface KnowledgeCoverage {
    /** Per markdown block, the source offset of each link that carries a panel, and the Knowledge id it supports. */
@@ -34,7 +30,7 @@ export function knowledgeCoverage(blocks: Block[], eligible: ReadonlyMap<string,
    const at = new Map<MarkdownBlock, Map<number, string>>();
    const offered = new Set<string>();
    for (const block of markdownBlocks(blocks)) {
-      for (const link of links(parser.parse(block.text) as MdNode)) {
+      for (const link of links(parseMarkdown(block.text) as MdNode)) {
          const id = link.url?.startsWith("ref:knowledge.") ? link.url.slice(4) : null;
          const offset = link.position?.start.offset;
          if (!id || offset === undefined || !eligible.has(id) || offered.has(id)) continue;

@@ -140,7 +140,7 @@ export function canonical(id: string): string {
 export type Identity = "signed-out" | keyof typeof fixture.identities;
 
 /** A Supabase SSR session cookie the fake Auth server accepts; it never expires during a run. */
-function sessionCookie(identity: Exclude<Identity, "signed-out">, url: string) {
+export function sessionCookie(identity: Exclude<Identity, "signed-out">, url: string) {
    const { token, user } = fixture.identities[identity];
    const session = {
       access_token: token,

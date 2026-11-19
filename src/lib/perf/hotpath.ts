@@ -50,6 +50,8 @@ interface Store {
    t0: number;
    cpu0: NodeJS.CpuUsage;
    reads: ReadRecord[];
+   /** Markdown parses this render ran: a number, never text. */
+   parses: number;
 }
 
 const MAX_READS = 16;
@@ -78,7 +80,15 @@ export function readKind(path: string): ReadKind {
 }
 
 /** One store per server render, so the layout guard, the metadata and the page add to the same timeline. */
-const store = cache((): Store => ({ t0: performance.now(), cpu0: process.cpuUsage(), reads: [] }));
+const store = cache((): Store => ({ t0: performance.now(), cpu0: process.cpuUsage(), reads: [], parses: 0 }));
+
+/** Counts one markdown parse in this render's line (`pp`), so a hosted run shows how many parses a page really made. */
+export function countParse(): void {
+   if (!hotpathEnabled()) return;
+   try {
+      store().parses += 1;
+   } catch {}
+}
 
 /** An age class from the answer's `Date` header. A proxy, not a cache signal: see the note at the top of this file. */
 function ageOf(response: Response | null): ReadRecord["a"] {
@@ -163,12 +173,14 @@ export interface RenderLine {
    cpu: number;
    waves: number;
    reads: ReadRecord[];
+   /** Markdown parses in this render; absent when the page parsed none. */
+   pp?: number;
    /** Homepage only: 1 when the request was given the whole page (no budget), 0 when it got the budgeted page. */
    wp?: 0 | 1;
 }
 
 /** Build the line for a finished render. Pure, so a test can hold it to its allowlist. */
-export function renderLine(route: HotpathRoute, s: Pick<Store, "t0" | "cpu0" | "reads">, now: number, cpu: NodeJS.CpuUsage, wholePage?: boolean): RenderLine {
+export function renderLine(route: HotpathRoute, s: Pick<Store, "t0" | "cpu0" | "reads"> & Partial<Pick<Store, "parses">>, now: number, cpu: NodeJS.CpuUsage, wholePage?: boolean): RenderLine {
    return {
       hp: 1,
       route,
@@ -176,6 +188,7 @@ export function renderLine(route: HotpathRoute, s: Pick<Store, "t0" | "cpu0" | "
       cpu: round((cpu.user + cpu.system) / 1000),
       waves: waveCount(s.reads),
       reads: s.reads,
+      ...(s.parses ? { pp: s.parses } : {}),
       ...(wholePage === undefined ? {} : { wp: wholePage ? (1 as const) : (0 as const) }),
    };
 }

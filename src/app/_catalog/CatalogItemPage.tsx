@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { parseReleasedBodies } from "@/lib/perf/markdownTree";
 import { KnowledgeHeader } from "@/components/catalog/KnowledgeHeader";
 import { LessonHeader } from "@/components/catalog/LessonHeader";
 import { ProblemHeader } from "@/components/catalog/ProblemHeader";
@@ -51,7 +52,8 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
 
    if (result.status === "ok") {
       const Page = READABLE[type];
-      const navigation = await loadItemNavigation(type, slug);
+      // The authorized body is parsed while the Track reads wait; `/related` still follows the item's own answer.
+      const [navigation] = await Promise.all([loadItemNavigation(type, slug), parseReleasedBodies(result.data)]);
       const outline = navigation?.home ? outlineOf(navigation.home.track, navigation.id) : null;
       return (
          <>

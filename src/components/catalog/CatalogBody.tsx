@@ -20,6 +20,7 @@ import type { CatalogBody as CatalogBodyData, CatalogHeading } from "@/lib/catal
 import { cn } from "@/lib/utils";
 import { canonicalParts, headingIds, parseBlocks, partLabel, type Block, type CalloutKind } from "./blocks";
 import { knowledgeCoverage, type KnowledgeCoverage } from "./knowledgeRefs";
+import { sharedParse } from "@/lib/perf/markdownTree";
 
 type HastElement = NonNullable<ExtraProps["node"]>;
 
@@ -302,7 +303,7 @@ function Blocks({ blocks, stayOnDeployment, reading, ids, knowledge, headingOffs
       return block.type === "markdown" ? (
          <ReactMarkdown
             key={index}
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, sharedParse]}
             rehypePlugins={[[rehypeHighlight, HIGHLIGHT]]}
             components={{
                ...components,
