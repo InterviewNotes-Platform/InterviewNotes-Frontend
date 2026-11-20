@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { AnswerLane } from "@/components/prepare/workspace/AnswerLane";
+import { FocusSheet, type Focus } from "@/components/prepare/workspace/FocusSheet";
+import { StartOptions } from "@/components/prepare/workspace/StartOptions";
+import { whereOf, type CollectionLabels } from "@/components/prepare/workspace/labels";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { CollectionSummary } from "@/lib/prep/collections";
 import { createPrepClient } from "@/lib/prep/client";
-import { answerHref } from "@/lib/prep/links";
 import type { Answer, PrepResult } from "@/lib/prep/types";
-import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
+import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Continuity } from "./Continuity";
 import type { ItemTitles } from "./itemTitles";
@@ -17,8 +20,7 @@ import type { ItemTitles } from "./itemTitles";
 /** After this long the loading state also says the wait is longer than usual (a cold start, P7-D-010). */
 export const SLOW_NOTICE_MS = 4000;
 
-/** A company Lesson's collection title and the group of each of its questions, from the registry (P7-T58, P7-T59). */
-export type CollectionLabels = Readonly<Record<string, { collection: string; groups: Readonly<Record<string, string>> }>>;
+export type { CollectionLabels };
 
 /** The API's largest page; more answers are read with `offset`, never by asking for a bigger page. */
 const PAGE = 100;
@@ -37,6 +39,8 @@ interface Props {
     apiUrl: string | null;
     /** Keyed by a company Lesson's `content_id`; an answer of any other Lesson shows no collection or group. */
     labels?: CollectionLabels;
+    /** Each collection's title and counts for the start section, from the registry; none means the section is not shown. */
+    collections?: readonly Pick<CollectionSummary, "id" | "title" | "summary">[];
     /** Public Lesson and Problem titles for the Continue card and bookmarks; null when the catalog could not be read in full. */
     titles?: ItemTitles | null;
     /** Tests supply these; the page uses the browser's Supabase session and `fetch`. */
@@ -67,13 +71,15 @@ function settle(result: PrepResult<{ items: Answer[]; total: number }>): State {
     }
 }
 
-export function PrepareWorkspace({ apiUrl, labels = {}, titles = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+export function PrepareWorkspace({ apiUrl, labels = {}, collections = [], titles = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
     const [state, setState] = useState<State>(apiUrl ? { phase: "loading" } : { phase: "failed", message: "The preparation service is not configured for this environment." });
     const [slow, setSlow] = useState(false);
     const [attempt, setAttempt] = useState(0);
     const [typed, setTyped] = useState("");
     const [filter, setFilter] = useState<Filter>({ q: "", tags: [] });
     const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
+    // What Continue offers comes from the unfiltered list only, so searching the answers never changes it.
+    const [focus, setFocus] = useState<Focus | undefined>(undefined);
     const [paged, setPaged] = useState(false);
     const latest = useRef(filter);
     const countRef = useRef<HTMLParagraphElement>(null);
@@ -92,6 +98,10 @@ export function PrepareWorkspace({ apiUrl, labels = {}, titles = null, getAccess
             clearTimeout(timer);
             setSlow(false);
             setState(settle(result));
+            if (result.status === "ok" && filter.q === "" && filter.tags.length === 0) {
+                const { items, total } = result.data;
+                setFocus({ answer: items.find(({ status }) => status !== "ready") ?? null, empty: total === 0, partial: total > items.length });
+            }
         });
         return () => {
             current = false;
@@ -157,50 +167,11 @@ export function PrepareWorkspace({ apiUrl, labels = {}, titles = null, getAccess
     // Only the latest page is read, so an empty section proves nothing about older answers.
     const partial = state.phase === "ready" && state.total > state.answers.length;
 
-    return (
-        <div className="space-y-8">
-            <header className="flex max-w-2xl flex-col items-start gap-4">
-                <p className="m-0 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Behavioral interview prep</p>
-                <h1 className="m-0 text-title text-balance text-foreground">Prepare your answers</h1>
-                <p className="text-body text-pretty text-muted-foreground">Choose a question, write your answer, and pick up where you left off.</p>
-                <div className="flex flex-wrap items-center gap-3">
-                    <Button asChild size="lg">
-                        <Link href={PREPARE_NEW_HREF} prefetch={false}>
-                            Answer a question
-                        </Link>
-                    </Button>
-                </div>
-            </header>
-
-            {apiUrl && client && <Continuity apiUrl={apiUrl} client={client} titles={titles} />}
-
-            <form role="search" onSubmit={search} className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
-                <div className="grid min-w-64 flex-1 gap-1.5">
-                    <Label htmlFor="answer-search">Search answers</Label>
-                    <Input id="answer-search" type="search" value={typed} maxLength={SEARCH_MAX} disabled={!client} onChange={(event) => setTyped(event.target.value)} />
-                </div>
-                <Button type="submit" size="lg" disabled={!client}>
-                    Search
-                </Button>
-                {filtered && (
-                    <Button type="button" variant="outline" size="lg" onClick={clear}>
-                        Clear search and filters
-                    </Button>
-                )}
-            </form>
-
-            {filter.tags.length > 0 && (
-                <ul aria-label="Tag filters" className="flex flex-wrap gap-2">
-                    {filter.tags.map((tag) => (
-                        <li key={tag}>
-                            <Button type="button" variant="secondary" size="sm" aria-label={`Remove filter ${tag}`} onClick={() => apply({ ...filter, tags: filter.tags.filter((other) => other !== tag) })}>
-                                {tag} ✕
-                            </Button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-
+    // The first read has no answers to pick up from yet, so its loading, sign-in and failure states sit in the focus sheet;
+    // after that they belong to the list they describe. Only one of the two places is ever used.
+    const initial = focus === undefined;
+    const notice = (
+        <>
             {state.phase === "loading" && (
                 <p role="status" className="text-body text-muted-foreground">
                     Loading your workspace…
@@ -225,39 +196,105 @@ export function PrepareWorkspace({ apiUrl, labels = {}, titles = null, getAccess
                     )}
                 </div>
             )}
+        </>
+    );
+    const pickUp = focus?.answer ?? null;
 
-            {state.phase === "ready" && filtered && state.answers.length === 0 ? (
-                <div role="status" className="space-y-3">
-                    <p className="text-body text-foreground">No answers match your search or filters.</p>
-                    <Button variant="outline" onClick={clear}>
-                        Clear search and filters
-                    </Button>
+    return (
+        <div className="space-y-8">
+            <header className="flex max-w-2xl flex-col items-start gap-3">
+                <p className="m-0 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Behavioral interview prep</p>
+                <h1 className="m-0 text-title text-balance text-foreground">Prepare</h1>
+                <p className="text-body text-pretty text-muted-foreground">Choose a question, write your answer, and pick up where you left off.</p>
+            </header>
+
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_auto_1fr] lg:gap-x-10">
+                <div className="lg:col-start-1 lg:row-start-1">
+                    <FocusSheet focus={focus} where={pickUp ? whereOf(pickUp, labels) : null}>
+                        {initial && notice}
+                    </FocusSheet>
                 </div>
-            ) : (
-                (state.phase === "loading" || state.phase === "ready") && (
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <Section title="In progress" loading={state.phase === "loading"} answers={inProgress} labels={labels} onTag={addTag} empty={partial ? "No recent answers in progress." : "No answers in progress."} />
-                        <Section title="Ready" loading={state.phase === "loading"} answers={ready} labels={labels} onTag={addTag} empty={partial ? "No recent answers marked ready." : "No answers marked ready."} />
+
+                <div className="lg:col-start-1 lg:row-start-2">
+                    <StartOptions collections={collections} />
+                </div>
+
+                <section aria-labelledby="answers-heading" className="h-fit space-y-5 rounded-2xl border border-border bg-card p-5 md:p-6 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+                    <h2 id="answers-heading" className="mt-0 text-subsection text-foreground">
+                        Your answers
+                    </h2>
+
+                    <form role="search" onSubmit={search} className="grid gap-3">
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="answer-search">Search answers</Label>
+                            <Input id="answer-search" type="search" value={typed} maxLength={SEARCH_MAX} disabled={!client} onChange={(event) => setTyped(event.target.value)} />
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            <Button type="submit" size="lg" disabled={!client}>
+                                Search
+                            </Button>
+                            {filtered && (
+                                <Button type="button" variant="outline" size="lg" onClick={clear}>
+                                    Clear search and filters
+                                </Button>
+                            )}
+                        </div>
+                    </form>
+
+                    {filter.tags.length > 0 && (
+                        <ul aria-label="Tag filters" className="m-0 flex list-none flex-wrap gap-2 p-0">
+                            {filter.tags.map((tag) => (
+                                <li key={tag}>
+                                    <Button type="button" variant="secondary" size="sm" aria-label={`Remove filter ${tag}`} onClick={() => apply({ ...filter, tags: filter.tags.filter((other) => other !== tag) })}>
+                                        {tag} ✕
+                                    </Button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    {!initial && notice}
+
+                    {state.phase === "ready" && filtered && state.answers.length === 0 ? (
+                        <div role="status" className="space-y-3">
+                            <p className="text-body text-foreground">No answers match your search or filters.</p>
+                            <Button variant="outline" onClick={clear}>
+                                Clear search and filters
+                            </Button>
+                        </div>
+                    ) : (
+                        (state.phase === "loading" || state.phase === "ready") && (
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
+                                <AnswerLane title="In progress" loading={state.phase === "loading"} answers={inProgress} labels={labels} onTag={addTag} empty={partial ? "No recent answers in progress." : "No answers in progress."} />
+                                <AnswerLane title="Ready" loading={state.phase === "loading"} answers={ready} labels={labels} onTag={addTag} empty={partial ? "No recent answers marked ready." : "No answers marked ready."} />
+                            </div>
+                        )
+                    )}
+                    {state.phase === "ready" && state.answers.length > 0 && (partial || filtered || paged) && (
+                        <div className="space-y-3">
+                            <p ref={countRef} tabIndex={-1} role="status" className="text-supporting text-muted-foreground">
+                                {countText(state.answers.length, state.total, filtered)}
+                            </p>
+                            {more === "failed" && (
+                                <p role="alert" className="text-body text-foreground">
+                                    We could not load more answers. Nothing on this page was lost; try again.
+                                </p>
+                            )}
+                            {partial && (
+                                <Button type="button" variant="outline" aria-disabled={more === "loading" || undefined} onClick={() => void showMore()}>
+                                    {more === "loading" ? "Loading more…" : "Show more answers"}
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </section>
+
+                {apiUrl && client && (
+                    <div className="lg:col-start-1 lg:row-start-3">
+                        <Continuity apiUrl={apiUrl} client={client} titles={titles} />
                     </div>
-                )
-            )}
-            {state.phase === "ready" && state.answers.length > 0 && (partial || filtered || paged) && (
-                <div className="space-y-3">
-                    <p ref={countRef} tabIndex={-1} role="status" className="text-supporting text-muted-foreground">
-                        {countText(state.answers.length, state.total, filtered)}
-                    </p>
-                    {more === "failed" && (
-                        <p role="alert" className="text-body text-foreground">
-                            We could not load more answers. Nothing on this page was lost; try again.
-                        </p>
-                    )}
-                    {partial && (
-                        <Button type="button" variant="outline" aria-disabled={more === "loading" || undefined} onClick={() => void showMore()}>
-                            {more === "loading" ? "Loading more…" : "Show more answers"}
-                        </Button>
-                    )}
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
@@ -266,63 +303,4 @@ function countText(shown: number, total: number, filtered: boolean): string {
     if (shown < total) return `Showing ${shown} of ${total} answers${filtered ? " that match" : ""}.`;
     const noun = total === 1 ? "answer" : "answers";
     return filtered ? `${total} ${noun} ${total === 1 ? "matches" : "match"}.` : `${total} ${noun}.`;
-}
-
-function Section({
-    title,
-    loading,
-    answers,
-    labels,
-    empty,
-    onTag,
-}: {
-    title: string;
-    loading: boolean;
-    answers: Answer[];
-    labels: CollectionLabels;
-    empty: string;
-    onTag: (tag: string) => void;
-}) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-subsection">
-                    <h2 className="m-0">{title}</h2>
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                {loading ? (
-                    <div aria-hidden className="h-5 w-2/3 animate-pulse rounded bg-muted" />
-                ) : answers.length === 0 ? (
-                    <p className="text-supporting text-muted-foreground">{empty}</p>
-                ) : (
-                    <ul className="space-y-2 text-body text-foreground">
-                        {answers.map(({ id, content_id, question_id, question_snapshot, tags }) => (
-                            <li key={id} className="space-y-1">
-                                <Link href={answerHref(id)} prefetch={false} className="line-clamp-2 block underline-offset-4 hover:underline">
-                                    {question_snapshot}
-                                </Link>
-                                {content_id && labels[content_id] && (
-                                    <p className="text-supporting text-muted-foreground">
-                                        {[labels[content_id].collection, question_id && labels[content_id].groups[question_id]].filter(Boolean).join(" · ")}
-                                    </p>
-                                )}
-                                {tags.length > 0 && (
-                                    <ul aria-label={`Tags on ${question_snapshot}`} className="flex flex-wrap gap-2">
-                                        {tags.map((tag) => (
-                                            <li key={tag}>
-                                                <Button type="button" variant="outline" size="sm" aria-label={`Filter by tag ${tag}`} onClick={() => onTag(tag)}>
-                                                    {tag}
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </CardContent>
-        </Card>
-    );
 }

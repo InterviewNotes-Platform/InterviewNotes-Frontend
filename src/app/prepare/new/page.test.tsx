@@ -17,9 +17,9 @@ vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.re
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/prep/collections", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/prep/collections")>()), loadCollectionQuestions: mocks.load }));
 vi.mock("@/components/prepare/picker/QuestionPicker", () => ({
-    QuestionPicker: (props: { apiUrl: string | null; catalog: unknown; requested: unknown; storyId?: string | null; collectionId?: string; collections?: unknown }) => (
+    QuestionPicker: (props: { apiUrl: string | null; catalog: unknown; requested: unknown; storyId?: string | null; collectionId?: string; collections?: unknown; initialGroup?: number | null }) => (
         <pre data-testid="picker">
-            {JSON.stringify({ apiUrl: props.apiUrl, catalog: props.catalog, requested: props.requested, storyId: props.storyId, collectionId: props.collectionId, collections: props.collections })}
+            {JSON.stringify({ apiUrl: props.apiUrl, catalog: props.catalog, requested: props.requested, storyId: props.storyId, collectionId: props.collectionId, collections: props.collections, initialGroup: props.initialGroup })}
         </pre>
     ),
 }));
@@ -84,6 +84,7 @@ describe("/prepare/new access", () => {
                 storyId: null,
                 collectionId: "behavioral",
                 collections: expect.any(Array),
+                initialGroup: null,
             });
             expect(mocks.load.mock.calls[0][0]).toMatchObject({ id: "behavioral", levelFilter: true });
         });
@@ -94,10 +95,27 @@ describe("/prepare/new access", () => {
             it("offers the three registry collections, the level filter on the general one only", async () => {
                 render(await NewAnswerPage(props()));
                 expect(shown().collections).toEqual([
-                    { id: "behavioral", title: "General Behavioral", levelFilter: true, grouped: false },
-                    { id: "amazon", title: "Amazon Leadership Principles", levelFilter: false, grouped: true },
-                    { id: "google", title: "Googleyness & Leadership", levelFilter: false, grouped: true },
+                    { id: "behavioral", title: "General Behavioral", short: "General", unit: { one: "level", many: "levels" }, levelFilter: true, grouped: false },
+                    { id: "amazon", title: "Amazon Leadership Principles", short: "Amazon", unit: { one: "principle", many: "principles" }, levelFilter: false, grouped: true },
+                    { id: "google", title: "Googleyness & Leadership", short: "Google", unit: { one: "theme", many: "themes" }, levelFilter: false, grouped: true },
                 ]);
+            });
+
+            it("hands the picker the open principle only as a position counted from 1, and nothing for anything else", async () => {
+                const group = async (value: string | string[] | undefined) => {
+                    const { unmount } = render(await NewAnswerPage(props({ collection: "amazon", group: value })));
+                    const got = shown().initialGroup;
+                    unmount();
+                    return got;
+                };
+                expect(await group("3")).toBe(3);
+                expect(await group("16")).toBe(16);
+                for (const bad of [undefined, "", "0", "-1", "abc", "2.5", "1e3", "9999", ["2", "3"]]) expect(await group(bad)).toBeNull();
+            });
+
+            it("reads the same one collection whichever principle is open, so stepping and reloading never read another", async () => {
+                render(await NewAnswerPage(props({ collection: "amazon", group: "9" })));
+                expect(opened()).toEqual(["amazon"]);
             });
 
             it.each(["amazon", "google"])("reads only the %s collection when it is chosen", async (id) => {

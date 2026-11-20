@@ -37,6 +37,11 @@ function settle(result: CatalogResult<CatalogQuestion<TargetLevel | null>[]>): C
     }
 }
 
+/** The `group` parameter is a position in the open collection, counted from 1. It is read only to open that principle; anything else is none. */
+function groupParam(value: string | string[] | undefined): number | null {
+    return typeof value === "string" && /^[1-9]\d{0,2}$/.test(value) ? Number(value) : null;
+}
+
 /** An explicit `collection` wins; otherwise the collection of the question a link named; otherwise the general one. */
 function chosenCollection(param: string | string[] | undefined, contentId: string | undefined): Collection {
     return (typeof param === "string" ? findCollection(param) : undefined) ?? (contentId ? collectionOfContent(contentId) : undefined) ?? COLLECTIONS[0];
@@ -57,12 +62,12 @@ export default async function NewAnswerPage({ searchParams }: PageProps) {
 
     // One catalog read per Lesson of the chosen collection only, for this page only; the workspace home reads none.
     const catalog = settle(await loadCollectionQuestions(collection));
-    const options = COLLECTIONS.map(({ id, title, levelFilter, grouped }) => ({ id, title, levelFilter, grouped }));
+    const options = COLLECTIONS.map(({ id, title, short, unit, levelFilter, grouped }) => ({ id, title, short, unit, levelFilter, grouped }));
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
         <PrepareFrame section="answers">
-            <QuestionPicker key={collection.id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} catalog={catalog} collections={options} collectionId={collection.id} requested={requested} storyId={story} />
+            <QuestionPicker key={collection.id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} catalog={catalog} collections={options} collectionId={collection.id} requested={requested} storyId={story} initialGroup={groupParam(params.group)} />
         </PrepareFrame>
     );
 }

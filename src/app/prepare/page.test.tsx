@@ -5,6 +5,7 @@ import PreparePage from "./page";
 const mocks = vi.hoisted(() => ({
     getUser: vi.fn(),
     loadItemTitles: vi.fn(),
+    seen: vi.fn(),
     createClient: vi.fn(),
     notFound: vi.fn(() => {
         throw new Error("NEXT_NOT_FOUND");
@@ -18,15 +19,19 @@ vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.re
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("./itemTitles", () => ({ loadItemTitles: mocks.loadItemTitles }));
 vi.mock("./PrepareWorkspace", () => ({
-    PrepareWorkspace: ({ apiUrl, titles }: { apiUrl: string | null; titles?: Record<string, string> | null }) => (
-        <p>
-            workspace {String(apiUrl)} {JSON.stringify(titles)}
-        </p>
-    ),
+    PrepareWorkspace: (props: { apiUrl: string | null; titles?: Record<string, string> | null }) => {
+        mocks.seen(props);
+        return (
+            <p>
+                workspace {String(props.apiUrl)} {JSON.stringify(props.titles)}
+            </p>
+        );
+    },
 }));
 
 beforeEach(() => {
     mocks.loadItemTitles.mockReset().mockResolvedValue(null);
+    mocks.seen.mockReset();
     mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } });
     mocks.createClient.mockReset().mockResolvedValue({ auth: { getUser: mocks.getUser } });
     mocks.notFound.mockClear();
@@ -79,6 +84,18 @@ describe("/prepare access", () => {
             render(await PreparePage());
             expect(screen.getByText('workspace https://api.example.test {"lesson.a":"Lesson A"}')).toBeInTheDocument();
             expect(mocks.getUser).toHaveBeenCalledTimes(1);
+        });
+
+        it("hands the workspace each collection's title and registry counts, with no catalog read of its own", async () => {
+            render(await PreparePage());
+            const { collections } = mocks.seen.mock.calls[0][0];
+            expect(collections).toEqual([
+                { id: "behavioral", title: "General Behavioral", summary: "4 levels · 40 questions" },
+                { id: "amazon", title: "Amazon Leadership Principles", summary: "16 principles · 48 questions" },
+                { id: "google", title: "Googleyness & Leadership", summary: "6 themes · 18 questions" },
+            ]);
+            // Titles are the one read the page makes; the counts come from the registry.
+            expect(mocks.loadItemTitles).toHaveBeenCalledTimes(1);
         });
 
         it("reads no titles for a signed-out visitor", async () => {
