@@ -289,10 +289,12 @@ function content(req, res, path) {
 
 /** Every `/me/prep` request the browser made, as `METHOD path`. Its own log, so `/__catalog-log` stays catalog-only (decisions §2.2.4, A-3). */
 const itemStateLog = [];
+/** The `x-e2e-caller` each logged request carried (the test that sent it), or `untagged`; parallel to `itemStateLog`. */
+const itemStateCallers = [];
 /** `PUT /__item-state?user=<id>&continuity=off` mirrors `CONTINUITY_ENABLED` for that fixture user only, so parallel tests do not meet; `DELETE` turns it back on and, with `content=<id>`, drops that one row. */
 const continuityOff = new Set();
 const itemRows = new Map();
-const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type", "access-control-allow-methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS" };
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, content-type, x-e2e-caller", "access-control-allow-methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS" };
 const CONTENT_ID = /^(lesson|problem)\.[a-z0-9]+(-[a-z0-9]+)*$/;
 const respond = (res, status, body) => send(res, status, body, { ...CORS, "cache-control": PRIVATE });
 
@@ -300,6 +302,7 @@ const respond = (res, status, body) => send(res, status, body, { ...CORS, "cache
 function itemStateApi(req, res, path, body) {
    const [head, contentId, tail] = path.slice("/me/prep/".length).split("/");
    itemStateLog.push(`${req.method} ${path}`);
+   itemStateCallers.push(req.headers["x-e2e-caller"] ?? "untagged");
    const user = identityOf(req)?.user.id;
    if (head === "features" && req.method === "GET") return user ? respond(res, 200, { item_state_available: !continuityOff.has(user) }) : respond(res, 401, { code: "unauthenticated" });
    if (head !== "item-state" || (user && continuityOff.has(user))) return respond(res, 404, { code: "not_found" });
@@ -361,7 +364,8 @@ function billingApi(req, res, path, body) {
 const api = createServer((req, res) => {
    const { pathname: path, searchParams: query } = new URL(req.url, `http://${HOST}`);
    if (req.method === "OPTIONS") return res.writeHead(204, CORS).end();
-   if (path === "/__item-state-log") return respond(res, 200, itemStateLog);
+   // `?caller=<x-e2e-caller>` narrows the log to the requests one test sent, so a test that expects silence is not answered for by a test running beside it.
+   if (path === "/__item-state-log") return respond(res, 200, query.has("caller") ? itemStateLog.filter((_, i) => itemStateCallers[i] === query.get("caller")) : itemStateLog);
    if (path === "/__item-state" && (req.method === "PUT" || req.method === "DELETE")) {
       const target = query.get("user");
       if (req.method === "PUT") query.get("continuity") === "off" ? continuityOff.add(target) : continuityOff.delete(target);
