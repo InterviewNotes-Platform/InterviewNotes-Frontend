@@ -520,15 +520,103 @@ test.describe("a slow Track list on the homepage", () => {
       expect(await bars.first().evaluate((node) => getComputedStyle(node).animationName)).not.toBe("none");
    });
 
+   // The hero fades and moves in for about 3.5 s, and axe reads the colour on screen when it looks, so a page is judged at rest (both motion modes) and,
+   // at default motion, at fixed instants of the entrance itself: its CSS animations are held from load, then set to one time at a time. Readable text must
+   // look at each instant as it does at rest (axe cannot analyse text over the hero's gradient, so opacity and blur are compared directly) and pass axe.
+   const finiteAnimations = (page: Page, finish: boolean) =>
+      page.evaluate((end) => {
+         const finite = document.getAnimations().filter((a) => a.timeline instanceof DocumentTimeline && Number.isFinite(a.effect?.getComputedTiming().endTime));
+         if (end) finite.forEach((a) => a.finish());
+         return finite.filter((a) => a.playState !== "finished").length;
+      }, finish);
+   // A click before hydration does nothing, so it is repeated until the control reads "Play"; a headline step already under way is let finish.
+   const stopRotation = async (page: Page) => {
+      const control = page.getByRole("button", { name: /^(Pause|Play) animation$/ });
+      await expect
+         .poll(async () => {
+            if ((await control.textContent())?.includes("Pause")) await control.click();
+            return control.textContent();
+         })
+         .toContain("Play");
+      const stepping = () => page.evaluate(() => document.getAnimations().filter((a) => a instanceof CSSTransition && a.playState === "running" && (a.effect as KeyframeEffect).target?.closest("h1")).length);
+      await expect.poll(stepping).toBe(0);
+   };
+   const atRest = async (page: Page, motion: "default" | "reduced") => {
+      if (motion === "default") await stopRotation(page);
+      await expect.poll(() => finiteAnimations(page, motion === "default")).toBe(0);
+   };
+   const holdEntrance = (page: Page) =>
+      page.addInitScript(() => {
+         const hold = () => document.getAnimations().forEach((a) => a instanceof CSSAnimation && Number.isFinite(a.effect?.getComputedTiming().endTime) && a.pause());
+         const id = setInterval(hold, 8);
+         setTimeout(() => clearInterval(id), 8000);
+      });
+   const entranceAt = (page: Page, ms: number) =>
+      page.evaluate((t) => {
+         const held = document.getAnimations().filter((a) => a instanceof CSSAnimation && Number.isFinite(a.effect?.getComputedTiming().endTime));
+         held.forEach((a) => ((a.currentTime = t), a.pause()));
+         return held.filter((a) => Number(a.currentTime) < Number(a.effect?.getComputedTiming().endTime)).length;
+      }, ms);
+   /** Every text element's opacity (itself and its ancestors') and blur, in document order. */
+   const textLook = (page: Page) =>
+      page.evaluate(() => {
+         const look: string[] = [];
+         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const el = node.parentElement;
+            if (!el || !node.textContent?.trim() || el.closest("script,style,noscript")) continue;
+            let opacity = 1;
+            let blur = 0;
+            for (let e: Element | null = el; e; e = e.parentElement) {
+               const style = getComputedStyle(e);
+               opacity *= parseFloat(style.opacity);
+               blur = Math.max(blur, parseFloat(/blur\(([\d.]+)px\)/.exec(style.filter)?.[1] ?? "0"));
+            }
+            look.push(`${node.textContent.trim().slice(0, 30)} | opacity ${opacity.toFixed(2)} | blur ${blur}px`);
+         }
+         return look;
+      });
+   const axeViolations = async (page: Page) =>
+      (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+
    for (const width of [1280, 390]) {
-      test(`the pending state has no WCAG A or AA violation and no horizontal overflow at ${width}px`, async ({ page, request }) => {
+      for (const motion of ["default", "reduced"] as const) {
+         test(`the pending state has no WCAG A or AA violation and no horizontal overflow at ${width}px${motion === "reduced" ? " with reduced motion" : ""}`, async ({ page, request }) => {
+            if (motion === "reduced") await page.emulateMedia({ reducedMotion: "reduce" });
+            await page.setViewportSize({ width, height: 900 });
+            await slow(request);
+            await page.goto("/");
+            await expect(tracksRegion(page).getByRole("status")).toBeVisible();
+            await atRest(page, motion);
+            expect(await axeViolations(page)).toEqual([]);
+            expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+         });
+      }
+
+      test(`the hero's entrance keeps readable text opaque and sharp, with no WCAG A or AA violation at any instant, at ${width}px`, async ({ page, request }) => {
          await page.setViewportSize({ width, height: 900 });
          await slow(request);
+         await holdEntrance(page);
          await page.goto("/");
          await expect(tracksRegion(page).getByRole("status")).toBeVisible();
-         const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-         expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
-         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+         await stopRotation(page);
+         // Instants spread over the 3.5 s entrance; measured before the fix, text was translucent or blurred, or failed axe, at each of them.
+         const seen: { ms: number; running: number; look: string[]; violations: string[] }[] = [];
+         for (const ms of [300, 700, 1100, 1500, 2000, 2700]) {
+            const running = await entranceAt(page, ms);
+            seen.push({ ms, running, look: await textLook(page), violations: await axeViolations(page) });
+         }
+         await finiteAnimations(page, true);
+         const rest = await textLook(page);
+         expect(
+            seen.map((s) => s.running),
+            "the entrance is still running at each instant",
+         ).not.toContain(0);
+         // Matched by text, not by position: the pending notice changes its words after 6 s, which a slow runner can reach mid-test.
+         const looksAtRest = new Set(rest);
+         const textsAtRest = new Set(rest.map((line) => line.split(" | ")[0]));
+         expect(seen.flatMap(({ ms, look }) => look.filter((line) => textsAtRest.has(line.split(" | ")[0]) && !looksAtRest.has(line)).map((line) => `${ms} ms: ${line}`))).toEqual([]);
+         expect(seen.flatMap(({ ms, violations }) => violations.map((v) => `${ms} ms: ${v}`))).toEqual([]);
       });
    }
 });
