@@ -39,6 +39,7 @@ import {
     REJECTED_PORT,
     REJECTED_TOKEN,
 } from "./tests/e2e/catalog/harness";
+import { PREPARE_API_ORIGIN, PREPARE_API_PORT, PREPARE_ORIGIN, PREPARE_PORT } from "./tests/e2e/prepare/ports";
 
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
@@ -206,6 +207,28 @@ export default defineConfig({
             env: {
                 NEXT_DIST_DIR: READER_DIST,
                 API_URL: READER_CATALOG_ORIGIN,
+                NEXT_PUBLIC_API_URL: ITEM_API_ORIGIN,
+                NEXT_PUBLIC_PREP_ENABLED: "true",
+                CATALOG_PREVIEW_TOKEN: "",
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // The Prepare journey's catalog: the double above with the six behavioral Lessons added from the repository's fixtures (prepare/journey.spec.ts).
+            command: `node tests/e2e/prepare/serve-catalog.mjs ${PREPARE_API_PORT}`,
+            url: `${PREPARE_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            // The reader build (Prepare flag on) served again with its catalog at that double. The browser's Prepare API is answered inside each test.
+            command: `npx next start -p ${PREPARE_PORT}`,
+            url: `${PREPARE_ORIGIN}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                NEXT_DIST_DIR: READER_DIST,
+                API_URL: PREPARE_API_ORIGIN,
                 NEXT_PUBLIC_API_URL: ITEM_API_ORIGIN,
                 NEXT_PUBLIC_PREP_ENABLED: "true",
                 CATALOG_PREVIEW_TOKEN: "",

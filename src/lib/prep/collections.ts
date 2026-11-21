@@ -16,6 +16,10 @@ export type Collection = {
    /** Chosen here, unique in the registry. */
    id: string;
    title: string;
+   /** A short name for tight places (the picker's collection switch); the accessible name stays `title`. */
+   short: string;
+   /** What a group is called: a level, a principle or a theme. */
+   unit: { one: string; many: string };
    lessons: readonly CollectionLesson[];
    /** The seniority-level filter applies to the general Behavioral collection only. */
    levelFilter: boolean;
@@ -92,6 +96,8 @@ export const COLLECTIONS: readonly Collection[] = [
    {
       id: "behavioral",
       title: "General Behavioral",
+      short: "General",
+      unit: { one: "level", many: "levels" },
       lessons: BEHAVIORAL_LESSONS,
       levelFilter: true,
       grouped: false,
@@ -101,6 +107,8 @@ export const COLLECTIONS: readonly Collection[] = [
    {
       id: "amazon",
       title: "Amazon Leadership Principles",
+      short: "Amazon",
+      unit: { one: "principle", many: "principles" },
       lessons: [{ content_id: "lesson.amazon-leadership-principles", slug: "amazon-leadership-principles", level: null }],
       levelFilter: false,
       grouped: true,
@@ -110,6 +118,8 @@ export const COLLECTIONS: readonly Collection[] = [
    {
       id: "google",
       title: "Googleyness & Leadership",
+      short: "Google",
+      unit: { one: "theme", many: "themes" },
       lessons: [{ content_id: "lesson.googleyness-and-leadership", slug: "googleyness-and-leadership", level: null }],
       levelFilter: false,
       grouped: true,
@@ -140,6 +150,16 @@ export const workspaceLabels = () =>
          ])
       )
    ) as Record<string, { collection: string; groups: Record<string, string> }>;
+
+/** What the workspace shows for a collection entry: its title and "16 principles · 48 questions", counted from the registry alone. */
+export type CollectionSummary = { id: string; title: string; summary: string };
+
+export const collectionSummaries = (): CollectionSummary[] =>
+   COLLECTIONS.map(({ id, title, unit, grouped, lessons, groups, manifest }) => {
+      const units = grouped ? Object.values(groups).reduce((sum, list) => sum + list.length, 0) : lessons.length;
+      const questions = Object.values(manifest).reduce((sum, ids) => sum + ids.length, 0);
+      return { id, title, summary: `${units} ${units === 1 ? unit.one : unit.many} · ${questions} ${questions === 1 ? "question" : "questions"}` };
+   });
 
 /**
  * Opens one collection: one catalog read per Lesson of that collection (four, one, one) and none for any other. A result

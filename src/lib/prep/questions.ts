@@ -2,7 +2,7 @@ import "server-only";
 
 import { getCatalogItem } from "@/lib/catalog/client";
 import { plainHeading } from "@/lib/catalog/lesson";
-import type { CatalogItem, CatalogResult } from "@/lib/catalog/types";
+import type { CatalogHeading, CatalogItem, CatalogResult } from "@/lib/catalog/types";
 import type { TargetLevel } from "./types";
 
 /**
@@ -35,6 +35,8 @@ export type CatalogQuestion<L extends TargetLevel | null = TargetLevel> = {
    snapshot_fallback: boolean;
    /** Present only for a grouped (company) collection; null when no `##` heading precedes the question. */
    group?: QuestionGroup | null;
+   /** The Lesson's own heading for this question, as the picker's short name for it. Added by `loadLessonQuestions`; not part of the question's identity. */
+   title?: string;
 };
 
 const EXCLUDED_TITLE = "What fits at this level";
@@ -131,6 +133,12 @@ export function questionsOf<L extends TargetLevel | null>(
    });
 }
 
+/** Each question's own Lesson heading, by authored identifier. Read from the headings already in the Lesson; no further read. */
+function titled<L extends TargetLevel | null>(questions: CatalogQuestion<L>[], headings: readonly CatalogHeading[]): CatalogQuestion<L>[] {
+   const titles = new Map(headings.map(({ id, text }) => [id, plainHeading(text)]));
+   return questions.map((question) => ({ ...question, title: titles.get(question.question_id) }));
+}
+
 /**
  * The questions of the given Lessons, from one Lesson read each: never one read per question and no Track read. Partial
  * data would mark the missing Lessons' answers `removed`, so any failed read is returned as the result. A Lesson that reads
@@ -146,7 +154,7 @@ export async function loadLessonQuestions<L extends TargetLevel | null>(
       if (result.status !== "ok") return result;
       const lesson = lessons[index];
       if (result.data.id !== lesson.content_id) return { status: "unavailable", cause: "malformed" };
-      const found = questionsOf(lesson, result.data, grouped);
+      const found = titled(questionsOf(lesson, result.data, grouped), result.data.headings);
       if (found.length === 0 || found.some(({ group }) => group === null)) return { status: "unavailable", cause: "malformed" };
       questions.push(...found);
    }

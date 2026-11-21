@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { workspaceLabels } from "@/lib/prep/collections";
 import { createFakePrepApi } from "@/lib/prep/fakeApi";
@@ -60,8 +60,10 @@ describe("first request", () => {
         });
 
         expect(screen.queryByRole("status")).toBeNull();
-        expect(screen.getByText("Tell me about a conflict.")).toBeInTheDocument();
-        expect(screen.getByText("Tell me about a failure.")).toBeInTheDocument();
+        // The newest unfinished answer also leads the focus sheet, so the list is read inside its own region.
+        const list = within(screen.getByRole("region", { name: "Your answers" }));
+        expect(list.getByText("Tell me about a conflict.")).toBeInTheDocument();
+        expect(list.getByText("Tell me about a failure.")).toBeInTheDocument();
         // Each answer opens its own editor by id, without prefetching it.
         expect(screen.getByRole("link", { name: "Tell me about a conflict." })).toHaveAttribute("href", "/prepare/answers/a1");
         expect(screen.getByRole("link", { name: "Tell me about a failure." })).toHaveAttribute("href", "/prepare/answers/a2");
@@ -174,7 +176,8 @@ describe("answer-first skeleton", () => {
         await flush();
         const action = screen.getByRole("link", { name: "Answer a question" });
         expect(action).toHaveAttribute("href", "/prepare/new");
-        expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { level: 1, name: "Prepare" })).toBeInTheDocument();
+        // With no registry supplied and nothing read yet, the one link on the page is the action; no answer link exists.
         expect(screen.queryAllByRole("link")).toHaveLength(1);
     });
 
