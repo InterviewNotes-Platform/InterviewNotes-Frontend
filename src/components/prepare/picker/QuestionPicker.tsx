@@ -163,6 +163,8 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    const [slow, setSlow] = useState(false);
    // The saved level is only a default: once the reader has chosen a level or a question, it never moves the list.
    const interacted = useRef(Boolean(linked));
+   // Set when a question is chosen from search results: closing the search then opens that question's own principle, theme or level.
+   const pickedInSearch = useRef(false);
    const saving = useRef(false);
    // The question (or custom text) whose create ended without a confirmed result: it may already exist.
    const [unconfirmed, setUnconfirmed] = useState<string | null>(null);
@@ -232,6 +234,10 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    const searching = words.length > 0;
    const results = useMemo(() => (searching ? index.filter(({ text }) => matchesAll(text, words)).map(({ question }) => question) : []), [index, searching, words]);
    const here = Math.min(group, Math.max(0, sections.length - 1));
+   // What is on screen now: the search results, or the open principle, theme or level, or the whole list of the one level chosen.
+   const inView = searching ? results : stepper ? (sections[here]?.questions ?? []) : visible;
+   // A choice the reader cannot see is not one they can start by accident. It stays chosen and counts again once its question is back in view.
+   const choice = selected && inView.some((entry) => sameQuestion(entry, selected)) ? questions.find((entry) => sameQuestion(entry, selected)) : undefined;
    const customLength = [...customText.trim()].length;
    const customTooLong = customLength > SNAPSHOT_MAX;
    const busy = save.phase === "saving" || save.phase === "done" || save.phase === "unlinked";
@@ -264,7 +270,18 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    /** From a search result into its principle or theme, with the question still chosen. */
    function showInGroup(title: string) {
       const at = sections.findIndex((section) => section.title === title);
+      pickedInSearch.current = false;
       setQuery("");
+      if (at >= 0) openGroup(at);
+   }
+
+   /** Typing, clearing or Escape. Closing a search after choosing from its results leaves that question on screen. */
+   function changeQuery(value: string) {
+      interacted.current = true;
+      setQuery(value);
+      if (queryWords(value).length > 0 || !pickedInSearch.current) return;
+      pickedInSearch.current = false;
+      const at = selected ? sections.findIndex((section) => section.questions.some((question) => sameQuestion(question, selected))) : -1;
       if (at >= 0) openGroup(at);
    }
 
@@ -281,14 +298,14 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
 
    function choose(question: CatalogQuestion<TargetLevel | null>) {
       interacted.current = true;
+      pickedInSearch.current = searching;
       setSelected({ content_id: question.content_id, question_id: question.question_id });
    }
 
    /** What this form would create now, as one comparable value; null when nothing valid is chosen. */
    const pending = ((): { key: string; body: AnswerCreate } | null => {
       if (mode === "custom") return customLength > 0 && !customTooLong ? { key: `custom:${customText.trim()}`, body: customAnswer(customText) } : null;
-      const question = selected && questions.find((entry) => sameQuestion(entry, selected));
-      return question ? { key: `catalog:${keyOf(question)}`, body: catalogAnswer(question) } : null;
+      return choice ? { key: `catalog:${keyOf(choice)}`, body: catalogAnswer(choice) } : null;
    })();
 
    async function create(next: { key: string; body: AnswerCreate }) {
@@ -348,7 +365,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    // A warning about an earlier, different choice is no longer about what the form would create.
    const shown: Save = save.phase === "failed" && save.unconfirmed && !awaitingCheck ? { phase: "idle" } : save;
 
-   const chosenQuestion = selected ? questions.find((entry) => sameQuestion(entry, selected)) : undefined;
+   const chosenQuestion = choice;
    const chosenLabel = mode === "custom" ? (customLength > 0 ? "Your own question" : null) : chosenQuestion ? (chosenQuestion.title && chosenQuestion.title !== chosenQuestion.text ? chosenQuestion.title : chosenQuestion.text) : null;
    const unit: Unit = collection?.unit ?? { one: "group", many: "groups" };
    const scope = collection?.title ?? "the Behavioral Lessons";
@@ -412,7 +429,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
                <p className="text-body text-foreground">No question matches those words.</p>
                <p className="text-supporting text-muted-foreground">The search covers each question&apos;s heading, wording and {grouped ? unit.one : "level"} in {scope}. Try fewer or different words, or write your own question.</p>
                <div className="flex flex-wrap justify-center gap-3">
-                  <Button type="button" variant="outline" onClick={() => setQuery("")}>
+                  <Button type="button" variant="outline" onClick={() => changeQuery("")}>
                      Show all questions
                   </Button>
                   <Button type="button" variant="ghost" onClick={() => setMode("custom")}>
@@ -563,10 +580,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
             </Link>
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
                <h1 className="m-0 text-section text-foreground">Choose a question</h1>
-               {mode === "catalog" && catalog.status === "ok" && <SearchField scope={scope} value={query} disabled={busy} onChange={(value) => {
-                     interacted.current = true;
-                     setQuery(value);
-                  }} onArrowDown={intoResults} className="w-full md:w-80" />}
+               {mode === "catalog" && catalog.status === "ok" && <SearchField scope={scope} value={query} disabled={busy} onChange={changeQuery} onArrowDown={intoResults} className="w-full md:w-80" />}
             </div>
             {storyId && (
                <p className="max-w-reading rounded-xl border border-border bg-surface/60 px-4 py-3 text-supporting text-foreground">

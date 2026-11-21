@@ -185,6 +185,12 @@ describe("catalog answers", () => {
       expect(second).toBeChecked();
       fireEvent.click(screen.getByRole("button", { name: "Previous group" }));
       expect(options()[0]).not.toBeChecked();
+      // The SDE-2 question is not on screen, so it is not started from here; it is chosen again once its level is open.
+      expect(submit()).toBeDisabled();
+      fireEvent.submit(submit().closest("form")!);
+      expect(posts()).toHaveLength(0);
+      fireEvent.click(screen.getByRole("button", { name: "Next group" }));
+      expect(options()[0]).toBeChecked();
       fireEvent.click(submit());
       await waitFor(() => expect(posts()).toHaveLength(1));
       expect(posts()[0].body).toMatchObject({ content_id: S2, question_id: "disagreement" });
@@ -679,6 +685,114 @@ describe("the Desk picker", () => {
       });
    });
 
+   describe("a choice that is not on screen is never started", () => {
+      const form = () => submit().closest("form")!;
+
+      it("waits for a choice in view after stepping away, and counts again when the principle is open", async () => {
+         open();
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(heading()).toBe("Dive Deep");
+         expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
+         expect(submit()).toBeDisabled();
+         fireEvent.submit(form());
+         expect(posts()).toHaveLength(0);
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(options()[0]).toBeChecked();
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toMatchObject({ question_id: "alp-ownership-01" });
+      });
+
+      it("starts the question chosen in the open principle, not an earlier one left behind", async () => {
+         open();
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         fireEvent.click(options()[1]);
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toMatchObject({ question_id: "alp-dive-deep-02" });
+      });
+
+      it("treats a jump like a step", () => {
+         open();
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "Jump to principle" }));
+         fireEvent.click(screen.getByRole("button", { name: /Earn Trust/ }));
+         expect(heading()).toBe("Earn Trust");
+         expect(submit()).toBeDisabled();
+      });
+
+      it("closing a search does not move the view, and a choice made before it stays off until its principle is open", () => {
+         open();
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         type("outage");
+         type("");
+         // The reader left Ownership on purpose, and nothing in the results was chosen, so the view stays put.
+         expect(heading()).toBe("Dive Deep");
+         expect(submit()).toBeDisabled();
+      });
+
+      it("opens the principle of a result chosen in the search when the search is cleared, with that question startable", async () => {
+         open();
+         type("trust");
+         fireEvent.click(options()[0]);
+         expect(submit()).toBeEnabled();
+         fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+         expect(search()).toHaveValue("");
+         expect(heading()).toBe("Earn Trust");
+         expect(options()[0]).toBeChecked();
+         expect(window.location.search).toBe("?collection=amazon&group=3");
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toMatchObject({ question_id: "alp-earn-trust-01" });
+      });
+
+      it("does the same for Escape and for Show all questions", () => {
+         open();
+         type("trust");
+         fireEvent.click(options()[0]);
+         fireEvent.keyDown(search(), { key: "Escape" });
+         expect(heading()).toBe("Earn Trust");
+         expect(options()[0]).toBeChecked();
+         type("zzzzqq");
+         fireEvent.click(screen.getByRole("button", { name: "Show all questions" }));
+         expect(heading()).toBe("Earn Trust");
+         expect(options()[0]).toBeChecked();
+      });
+
+      it("offers a link's question on arrival, in view, and not once the reader has left its principle", async () => {
+         open({ requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
+         expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
+         expect(submit()).toBeEnabled();
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(submit()).toBeDisabled();
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(submit()).toBeEnabled();
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toMatchObject({ question_id: "alp-dive-deep-02" });
+      });
+
+      it("does not start a link's question that the address's own position puts out of view", () => {
+         open({ initialGroup: 1, requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
+         expect(heading()).toBe("Ownership");
+         expect(submit()).toBeDisabled();
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
+         expect(submit()).toBeEnabled();
+      });
+
+      it("keeps a signed-out reader's sign-in return to the question they started, not to one out of view", async () => {
+         open({}, (async () => new Response(null, { status: 401 })) as unknown as typeof fetch);
+         fireEvent.click(options()[0]);
+         fireEvent.click(submit());
+         const link = await screen.findByRole("link", { name: "Sign in" });
+         expect(decodeURIComponent(link.getAttribute("href") ?? "")).toContain("question=alp-ownership-01");
+      });
+   });
+
    describe("the open principle at load", () => {
       it("opens the principle the address names, counted from 1", () => {
          open({ initialGroup: 3 });
@@ -825,15 +939,22 @@ describe("the Desk picker", () => {
          expect(options()[2]).toHaveFocus();
       });
 
-      it("keeps a chosen question that the search hides, and says so in the dock", () => {
+      it("does not start a chosen question that the search hides, and offers it again once the search is closed", () => {
          open();
          fireEvent.click(options()[0]);
+         expect(screen.getByText(/Selected ·/)).toHaveTextContent("A problem nobody had assigned");
          type("trust");
          expect(options()).toHaveLength(1);
-         expect(screen.getByText(/Selected ·/)).toHaveTextContent("A problem nobody had assigned");
-         expect(submit()).toBeEnabled();
+         // Not among the results, so not something to start: the dock asks for a choice and Start answer waits.
+         expect(screen.queryByText(/Selected ·/)).toBeNull();
+         expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
+         expect(submit()).toBeDisabled();
+         fireEvent.submit(submit().closest("form")!);
+         expect(posts()).toHaveLength(0);
          fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+         expect(heading()).toBe("Ownership");
          expect(options()[0]).toBeChecked();
+         expect(submit()).toBeEnabled();
       });
 
       it("opens a result's principle with View principle, with the question still chosen and its guidance beside it", () => {
@@ -944,8 +1065,11 @@ describe("the Desk picker", () => {
          fireEvent.click(options()[0]);
          expect(submit()).toBeEnabled();
          type("");
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         // Closing the search leaves the result just chosen on screen, in its own principle; walk back to the first one.
+         expect(heading()).toBe("Earn Trust");
          fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(heading()).toBe("Ownership");
          fireEvent.click(options()[0]);
          expect(submit()).toBeDisabled();
          expect(screen.getByRole("button", { name: "It is not there: create it again" })).toBeInTheDocument();

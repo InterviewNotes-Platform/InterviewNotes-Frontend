@@ -14,6 +14,7 @@ import { createPrepClient } from "@/lib/prep/client";
 import type { Answer, PrepResult } from "@/lib/prep/types";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useSessionGeneration } from "@/hooks/use-session-owner";
 import { Continuity } from "./Continuity";
 import type { ItemTitles } from "./itemTitles";
 
@@ -71,7 +72,15 @@ function settle(result: PrepResult<{ items: Answer[]; total: number }>): State {
     }
 }
 
-export function PrepareWorkspace({ apiUrl, labels = {}, collections = [], titles = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+/**
+ * The workspace of whoever is signed in now. A change of session (signing out, signing in, another user) starts it again from
+ * nothing, so no answer, question or Continue link of the last session is read again, and the new session's data is fetched.
+ */
+export function PrepareWorkspace(props: Props) {
+    return <Workspace key={useSessionGeneration()} {...props} />;
+}
+
+function Workspace({ apiUrl, labels = {}, collections = [], titles = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
     const [state, setState] = useState<State>(apiUrl ? { phase: "loading" } : { phase: "failed", message: "The preparation service is not configured for this environment." });
     const [slow, setSlow] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -101,6 +110,9 @@ export function PrepareWorkspace({ apiUrl, labels = {}, collections = [], titles
             if (result.status === "ok" && filter.q === "" && filter.tags.length === 0) {
                 const { items, total } = result.data;
                 setFocus({ answer: items.find(({ status }) => status !== "ready") ?? null, empty: total === 0, partial: total > items.length });
+            } else if (result.status === "unauthenticated" || result.status === "notFound") {
+                // The session ended or the workspace is no longer this reader's to open: what was read before is not shown again.
+                setFocus(undefined);
             }
         });
         return () => {
@@ -155,6 +167,7 @@ export function PrepareWorkspace({ apiUrl, labels = {}, collections = [], titles
             setMore("idle");
         } else if (result.status === "unauthenticated") {
             setState({ phase: "signin" });
+            setFocus(undefined);
             setMore("idle");
         } else {
             setMore("failed");
@@ -169,9 +182,14 @@ export function PrepareWorkspace({ apiUrl, labels = {}, collections = [], titles
 
     // The first read has no answers to pick up from yet, so its loading, sign-in and failure states sit in the focus sheet;
     // after that they belong to the list they describe. Only one of the two places is ever used.
-    const initial = focus === undefined;
+    // The sheet shows what the list could show: when the session has ended there is nothing of it to offer.
+    const snapshot = state.phase === "signin" ? undefined : focus;
+    const initial = snapshot === undefined;
     const notice = (
         <>
+            {state.phase === "ready" && snapshot === undefined && (
+                <p className="text-body text-muted-foreground">Clear the search to see your most recent unfinished answer.</p>
+            )}
             {state.phase === "loading" && (
                 <p role="status" className="text-body text-muted-foreground">
                     Loading your workspace…
@@ -198,7 +216,7 @@ export function PrepareWorkspace({ apiUrl, labels = {}, collections = [], titles
             )}
         </>
     );
-    const pickUp = focus?.answer ?? null;
+    const pickUp = snapshot?.answer ?? null;
 
     return (
         <div className="space-y-8">
@@ -210,7 +228,7 @@ export function PrepareWorkspace({ apiUrl, labels = {}, collections = [], titles
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_auto_1fr] lg:gap-x-10">
                 <div className="lg:col-start-1 lg:row-start-1">
-                    <FocusSheet focus={focus} where={pickUp ? whereOf(pickUp, labels) : null}>
+                    <FocusSheet focus={snapshot} where={pickUp ? whereOf(pickUp, labels) : null}>
                         {initial && notice}
                     </FocusSheet>
                 </div>
