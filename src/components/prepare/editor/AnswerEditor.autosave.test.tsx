@@ -1209,7 +1209,8 @@ describe("version conflicts (P7-T21)", () => {
       loadServer().focus();
       fireEvent.click(loadServer());
       await waitFor(() => expect(status()).toContain("loaded the latest version"));
-      expect(document.activeElement).toBe(statusRegion());
+      // Focus moves in an effect after the status text (as in the two tests above), so on a slow runner it can land a tick later.
+      await waitFor(() => expect(document.activeElement).toBe(statusRegion()));
    });
 
    it("leaving with the choice open does not discard the text silently: the exit asks", async () => {
