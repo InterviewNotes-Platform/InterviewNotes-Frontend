@@ -4,7 +4,7 @@ import { prepApi, type PrepApi } from "./harness";
 import { PREPARE_ORIGIN } from "./ports";
 
 /*
- * Prepare on the reader build (Prepare flag on), through the real UI and the real Lesson questions (P8-PREP-UX-02). The browser's
+ * Prepare on the reader build (Prepare flag on), through the real UI and the real Lesson questions (P8-PREP-UX-03, the Shelf). The browser's
  * Prepare API is the repository's in-memory fake, answered inside each test, so a test owns its data and fails alone.
  */
 
@@ -19,7 +19,11 @@ test.use({ baseURL: PREPARE_ORIGIN });
 
 const questions = (page: Page) => page.getByRole("group", { name: "Question", exact: true });
 const first = (page: Page) => questions(page).locator("label").first();
-const stage = (page: Page, name: string) => page.getByRole("heading", { level: 2, name });
+/** The open principle's sheet: a modal dialog titled with the principle. */
+const stage = (page: Page, name: string) => page.getByRole("dialog").getByRole("heading", { level: 2, name });
+/** A contents tile is a button named by its title and question count. */
+const tile = (page: Page, name: RegExp) => page.getByRole("button", { name });
+const grid = (page: Page) => page.getByRole("heading", { level: 2, name: "Amazon Leadership Principles" });
 const start = (page: Page) => page.getByRole("button", { name: "Start answer" });
 const search = (page: Page) => page.getByRole("searchbox", { name: "Find a question in Amazon Leadership Principles" });
 const home = (page: Page) => page.getByRole("link", { name: "Your answers" }).first();
@@ -41,19 +45,23 @@ test.describe("signed in", () => {
    test("choose a collection, search it, start an answer, write, leave, resume and mark it Ready", async ({ page, prep }) => {
       await page.goto("/prepare");
       await expect(page.getByRole("heading", { level: 1, name: "Prepare" })).toBeVisible();
-      await expect(page.getByRole("heading", { level: 2, name: "Write your first answer" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "Start here" })).toBeVisible();
 
-      // Choose a collection from where to start: one Lesson read on the server, the first principle on screen.
-      await page.getByRole("region", { name: "Choose where to start" }).getByRole("link", { name: /^Amazon Leadership Principles/ }).click();
+      // Choose a volume from the Library: one Lesson read on the server, and every principle on screen as a tile.
+      await page.getByRole("region", { name: "Library" }).getByRole("link", { name: /Amazon Leadership Principles/ }).click();
       await expect(page).toHaveURL(/\/prepare\/new\?collection=amazon$/);
-      await expect(stage(page, "Customer Obsession")).toBeVisible();
-      await expect(questions(page).getByRole("radio")).toHaveCount(3);
+      await expect(grid(page)).toBeVisible();
+      await expect(tile(page, /, \d+ questions?$/)).toHaveCount(16);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
 
-      // Browse: stepping is a view position in the address and no request of any kind.
+      // Browse: opening a principle is a view position in the address and no request of any kind.
       prep.api.requests.length = 0;
-      await page.getByRole("button", { name: "Next principle" }).click();
+      await tile(page, /^Ownership,/).click();
       await expect(stage(page, "Ownership")).toBeVisible();
       await expect(page).toHaveURL(/group=2/);
+      await expect(questions(page).getByRole("radio")).toHaveCount(3);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
 
       // Search inside the collection: a filter over what is loaded, so nothing is requested, and Enter starts nothing.
       await search(page).fill("backbone");
@@ -63,7 +71,7 @@ test.describe("signed in", () => {
       await expect(page.locator("form").getByText(/^Selected ·/)).toBeVisible();
       expect(prep.requests()).toEqual([]);
 
-      // Closing the search leaves the chosen question on screen, in its own principle, ready to start.
+      // Closing the search opens the chosen question's own principle in its sheet, ready to start.
       await search(page).press("Escape");
       await expect(stage(page, "Have Backbone; Disagree and Commit")).toBeVisible();
       await expect(questions(page).getByRole("radio", { checked: true })).toHaveCount(1);
@@ -95,7 +103,7 @@ test.describe("signed in", () => {
       await page.getByLabel("Status").selectOption("ready");
       await expect(page.getByText("Saved", { exact: true })).toBeVisible();
       await home(page).click();
-      await expect(page.getByRole("heading", { level: 2, name: "Everything you started is Ready" })).toBeVisible();
+      await expect(page.getByText(/Everything you started is Ready/)).toBeVisible();
       await expect(page.getByRole("link", { name: /^Continue writing/ })).toHaveCount(0);
       await expect(page.getByRole("region", { name: "Your answers" }).getByRole("link", { name: created.question_snapshot })).toBeVisible();
       expect((await prep.answers())).toHaveLength(1);
@@ -103,30 +111,33 @@ test.describe("signed in", () => {
 
    test("never starts a question that is not on screen, and starts it again once its principle is open", async ({ page, prep }) => {
       await page.goto("/prepare/new?collection=amazon");
+      await expect(grid(page)).toBeVisible();
+      await tile(page, /^Customer Obsession,/).click();
       await expect(stage(page, "Customer Obsession")).toBeVisible();
       await first(page).click();
-      await expect(page.locator("form").getByText(/^Selected ·/)).toBeVisible();
+      await expect(page.getByRole("dialog").getByText(/^Selected ·/)).toBeVisible();
       await expect(start(page)).toBeEnabled();
 
-      // Step away: the choice is out of view, so the dock asks for another and Start answer waits.
+      // Step away: the choice is out of view, so the sheet asks for another and Start answer waits.
       await page.getByRole("button", { name: "Next principle" }).click();
       await expect(stage(page, "Ownership")).toBeVisible();
       await expect(page.getByText("Choose a question to start your answer.")).toBeVisible();
       await expect(start(page)).toBeDisabled();
-      await expect(page.locator("form").getByText(/^Selected ·/)).toHaveCount(0);
+      await expect(page.getByRole("dialog").getByText(/^Selected ·/)).toHaveCount(0);
 
-      // The same through a search that hides it, and through a jump.
+      // The same from the grid, through a search that hides it, and through another tile.
+      await page.keyboard.press("Escape");
+      await expect(start(page)).toHaveCount(0);
       await search(page).fill("backbone");
       await expect(start(page)).toBeDisabled();
       await search(page).press("Escape");
-      await page.getByRole("button", { name: "Jump to principle" }).click();
-      await page.getByRole("button", { name: /Earn Trust/ }).click();
+      await tile(page, /^Earn Trust,/).click();
       await expect(start(page)).toBeDisabled();
       expect(prep.requests().filter((line) => line.startsWith("POST"))).toEqual([]);
 
       // Back where it was chosen it counts again, checked, and is what gets started.
-      await page.getByRole("button", { name: "Jump to principle" }).click();
-      await page.getByRole("button", { name: /Customer Obsession/ }).click();
+      await page.keyboard.press("Escape");
+      await tile(page, /^Customer Obsession,/).click();
       await expect(questions(page).getByRole("radio", { checked: true })).toHaveCount(1);
       await expect(start(page)).toBeEnabled();
       await start(page).click();
@@ -149,9 +160,9 @@ test.describe("signed in", () => {
       await page.goto("/prepare");
       await expect(page.getByRole("heading", { level: 1, name: "Prepare" })).toBeVisible();
       await expect.poll(instances).toBe(1);
-      await page.getByRole("region", { name: "Choose where to start" }).getByRole("link", { name: /^Amazon Leadership Principles/ }).click();
+      await page.getByRole("region", { name: "Library" }).getByRole("link", { name: /Amazon Leadership Principles/ }).click();
       await expect(page).toHaveURL(/\/prepare\/new\?collection=amazon$/);
-      await expect(stage(page, "Customer Obsession")).toBeVisible();
+      await expect(grid(page)).toBeVisible();
       await expect.poll(instances).toBe(1);
       expect(await prep.answers(), "browsing the workspace starts no answer").toEqual([]);
    });

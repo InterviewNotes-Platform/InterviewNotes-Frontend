@@ -15,10 +15,11 @@ import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Dock } from "./Dock";
-import { GroupStage, type Unit } from "./GroupStage";
+import { GroupSheet, type Unit } from "./GroupSheet";
 import { QuestionRow } from "./QuestionRow";
 import { matchesAll, queryWords, searchable } from "./search";
 import { SearchField } from "./SearchField";
+import { ShelfGrid } from "./ShelfGrid";
 import { keyOf, levelSectionsOf, sectionsOf, type PickerQuestion } from "./sections";
 
 /** After this long a pending request also says the wait is longer than usual (a cold start, P7-D-010). */
@@ -40,7 +41,7 @@ export type CollectionOption = {
    grouped: boolean;
    /** A short name for the collection switch; the link's accessible name stays the title. */
    short?: string;
-   /** What a group is called, for the stepper and its jump menu. */
+   /** What a group is called, for the contents grid and its sheet. */
    unit?: Unit;
 };
 
@@ -180,6 +181,11 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       const at = initialGroup !== null && initialGroup >= 1 ? initialGroup - 1 : linked ? all.findIndex((section) => section.questions.some((question) => sameQuestion(question, linked))) : -1;
       return Math.max(0, Math.min(at, all.length - 1));
    });
+   // Whether the open principle, theme or level is shown in its sheet. A link that names a question, or a `group` position in the
+   // address, opens the sheet at once; otherwise the reader starts at the contents grid. Like `group`, it is a view position only.
+   const [sheet, setSheet] = useState(() => linked !== undefined || initialGroup !== null);
+   // Whether a sheet has been opened yet: the grid marks the principle last opened, so closing the sheet returns to a place on it.
+   const [visited, setVisited] = useState(sheet);
    // Find a question: a filter over the collection already loaded, never a request.
    const [query, setQuery] = useState("");
    const [announced, setAnnounced] = useState("");
@@ -234,8 +240,10 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    const searching = words.length > 0;
    const results = useMemo(() => (searching ? index.filter(({ text }) => matchesAll(text, words)).map(({ question }) => question) : []), [index, searching, words]);
    const here = Math.min(group, Math.max(0, sections.length - 1));
-   // What is on screen now: the search results, or the open principle, theme or level, or the whole list of the one level chosen.
-   const inView = searching ? results : stepper ? (sections[here]?.questions ?? []) : visible;
+   // The sheet is shown only for the catalog's grouped view: never over a search, the custom question or a failed read.
+   const sheetOpen = sheet && mode === "catalog" && catalog.status === "ok" && stepper && !searching && sections.length > 0;
+   // What is on screen now: the search results, the questions of the open sheet (the grid itself shows none), or the whole list of the one level chosen.
+   const inView = searching ? results : stepper ? (sheetOpen ? (sections[here]?.questions ?? []) : []) : visible;
    // A choice the reader cannot see is not one they can start by accident. It stays chosen and counts again once its question is back in view.
    const choice = selected && inView.some((entry) => sameQuestion(entry, selected)) ? questions.find((entry) => sameQuestion(entry, selected)) : undefined;
    const customLength = [...customText.trim()].length;
@@ -258,13 +266,15 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       window.history.replaceState(null, "", url);
    }
 
-   /** Open another principle or theme. */
+   /** Open a principle, theme or level in its sheet, or move the open sheet to another one. */
    function openGroup(next: number) {
       const at = Math.max(0, Math.min(next, sections.length - 1));
       // Moving through the list is the reader's own choice of view: a saved level arriving late must not take it away.
       interacted.current = true;
       setGroup(at);
       writeGroup(at);
+      setSheet(true);
+      setVisited(true);
    }
 
    /** From a search result into its principle or theme, with the question still chosen. */
@@ -288,6 +298,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    function chooseLevel(next: LevelFilter) {
       interacted.current = true;
       setLevel(next);
+      setSheet(false);
       if (!grouped) {
          setGroup(0);
          writeGroup(0);
@@ -541,6 +552,52 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       </section>
    );
 
+   // What a create reports (progress, sign-in, failure, the unlinked-story notice). It sits beside Start answer: in the dock, or in the
+   // sheet's footer; with the grid alone on screen it sits under the grid, so a result is never lost by closing the sheet.
+   const statusNodes = [
+      shown.phase === "saving" && (
+         <p key="saving" role="status" className="text-supporting text-muted-foreground">
+            Creating your answer…
+            {slow && " This is taking longer than usual, which can happen after a period of inactivity. Please keep this page open."}
+         </p>
+      ),
+      shown.phase === "unlinked" && client && storyId && (
+         <StartLinkNotice key="unlinked" client={client} answerId={shown.answerId} storyId={storyId} onLinked={() => router.push(answerHref(shown.answerId))} />
+      ),
+      shown.phase === "done" && (
+         <p key="done" role="status" className="text-supporting text-muted-foreground">
+            Answer created. Opening it…
+         </p>
+      ),
+      shown.phase === "signin" && (
+         <div key="signin" role="alert" className="space-y-3">
+            <p className="text-body text-foreground">Your session has ended. Sign in again to start your answer.</p>
+            <Button asChild variant="outline">
+               <Link href={signInHref}>Sign in</Link>
+            </Button>
+         </div>
+      ),
+      shown.phase === "failed" && (
+         <div key="failed" role="alert" className="space-y-2">
+            <p className="text-body text-foreground">{shown.message}</p>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+               <Link href={PREPARE_HREF} prefetch={false} className="text-supporting text-primary underline underline-offset-4">
+                  Open your workspace
+               </Link>
+               {shown.unconfirmed && (
+                  <Button type="button" variant="outline" onClick={createAgain}>
+                     It is not there: create it again
+                  </Button>
+               )}
+            </div>
+         </div>
+      ),
+   ].filter(Boolean);
+   // Start answer lives in the sheet while the contents grid is the stage; every other view keeps the docked bar.
+   const gridStage = mode === "catalog" && catalog.status === "ok" && stepper && !searching && sections.length > 0;
+   const startPrompt = mode === "custom" ? "Write your question to start your answer." : "Choose a question to start your answer.";
+   const formId = `${ids}-form`;
+
    const stage =
       catalog.status === "failed" ? (
          <CatalogProblem reason={catalog.reason} signInHref={signInHref} onRetry={() => router.refresh()} onCustom={() => setMode("custom")} />
@@ -550,23 +607,27 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
          sections.length === 0 ? (
             <p className="text-body text-muted-foreground">There are no questions in this collection.</p>
          ) : (
-            <GroupStage
-               unit={unit}
-               sections={sections}
-               index={here}
-               disabled={busy}
-               onIndex={openGroup}
-               extra={
-                  levelFilter ? (
+            <section aria-labelledby={`${ids}-stage`} className="space-y-5">
+               <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-border pb-4">
+                  <div className="min-w-0">
+                     <p className="m-0 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Collection</p>
+                     <h2 id={`${ids}-stage`} className="mt-1 mb-0 text-xl leading-tight font-semibold text-balance text-foreground md:text-section">
+                        {collection?.title ?? "Behavioral Lessons"}
+                     </h2>
+                     <p className="mt-1 text-supporting text-muted-foreground">
+                        {sections.length} {sections.length === 1 ? unit.one : unit.many} · {visible.length} {visible.length === 1 ? "question" : "questions"} · in the Lesson&apos;s order
+                     </p>
+                  </div>
+                  {levelFilter && (
                      <div className="space-y-2">
                         {levelSelect}
                         {preferenceNotice}
                      </div>
-                  ) : undefined
-               }
-            >
-               {choices(list(sections[here].questions))}
-            </GroupStage>
+                  )}
+               </div>
+               <ShelfGrid unit={unit} sections={sections} disabled={busy} current={visited ? here : null} onOpen={openGroup} />
+               {!sheetOpen && statusNodes.length > 0 && <div className="space-y-3">{statusNodes}</div>}
+            </section>
          )
       ) : (
          levelStage
@@ -634,14 +695,17 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
                      key={value}
                      className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-lg px-3 py-1 text-center text-supporting font-medium text-muted-foreground transition-micro sm:flex-none sm:px-4 sm:whitespace-nowrap has-[:checked]:bg-background has-[:checked]:font-semibold has-[:checked]:text-foreground has-[:checked]:shadow-[0_0_0_1px_var(--border)] has-[:disabled]:cursor-default has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50"
                   >
-                     <input type="radio" name={`${ids}-mode`} value={value} checked={mode === value} disabled={busy} onChange={() => setMode(value)} className="sr-only" />
+                     <input type="radio" name={`${ids}-mode`} value={value} checked={mode === value} disabled={busy} onChange={() => {
+                        setSheet(false);
+                        setMode(value);
+                     }} className="sr-only" />
                      {label}
                   </label>
                ))}
             </fieldset>
          </div>
 
-         <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
+         <form id={formId} onSubmit={submit} className="flex flex-col gap-5" noValidate>
             {mode === "catalog" && linkedMissing && (
                <p role="status" className="text-supporting text-muted-foreground">
                   The question from that link is not in the Lessons any more, so none is selected.
@@ -675,50 +739,31 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
             {/* Beside the collection switch on a wide screen, under the questions on a phone, so a question is near the top there. */}
             {mode === "catalog" && grouped && <p className="max-w-4xl text-supporting text-muted-foreground lg:order-first">{COMPANY_STATEMENT}</p>}
 
-            <Dock
-               chosen={chosenLabel}
-               prompt={mode === "custom" ? "Write your question to start your answer." : "Choose a question to start your answer."}
-               canSubmit={canSubmit}
-            >
-               {shown.phase === "saving" && (
-                  <p role="status" className="text-supporting text-muted-foreground">
-                     Creating your answer…
-                     {slow && " This is taking longer than usual, which can happen after a period of inactivity. Please keep this page open."}
-                  </p>
-               )}
-               {shown.phase === "unlinked" && client && storyId && (
-                  <StartLinkNotice client={client} answerId={shown.answerId} storyId={storyId} onLinked={() => router.push(answerHref(shown.answerId))} />
-               )}
-               {shown.phase === "done" && (
-                  <p role="status" className="text-supporting text-muted-foreground">
-                     Answer created. Opening it…
-                  </p>
-               )}
-               {shown.phase === "signin" && (
-                  <div role="alert" className="space-y-3">
-                     <p className="text-body text-foreground">Your session has ended. Sign in again to start your answer.</p>
-                     <Button asChild variant="outline">
-                        <Link href={signInHref}>Sign in</Link>
-                     </Button>
-                  </div>
-               )}
-               {shown.phase === "failed" && (
-                  <div role="alert" className="space-y-2">
-                     <p className="text-body text-foreground">{shown.message}</p>
-                     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                        <Link href={PREPARE_HREF} prefetch={false} className="text-supporting text-primary underline underline-offset-4">
-                           Open your workspace
-                        </Link>
-                        {shown.unconfirmed && (
-                           <Button type="button" variant="outline" onClick={createAgain}>
-                              It is not there: create it again
-                           </Button>
-                        )}
-                     </div>
-                  </div>
-               )}
-            </Dock>
+            {!gridStage && (
+               <Dock chosen={chosenLabel} prompt={startPrompt} canSubmit={canSubmit}>
+                  {statusNodes}
+               </Dock>
+            )}
          </form>
+
+         {sheetOpen && (
+            <GroupSheet
+               collection={scope}
+               unit={unit}
+               sections={sections}
+               index={here}
+               disabled={busy}
+               onIndex={openGroup}
+               onClose={() => setSheet(false)}
+               formId={formId}
+               chosen={chosenLabel}
+               prompt={startPrompt}
+               canSubmit={canSubmit}
+               status={statusNodes}
+            >
+               {choices(list(sections[here].questions))}
+            </GroupSheet>
+         )}
       </div>
    );
 }

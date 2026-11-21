@@ -31,7 +31,7 @@ describe("the workspace home with M2", () => {
     it("makes no item-state request, and shows neither section, when M2 is off", async () => {
         const fake = createContinuityFake({ continuity: false, items });
         open(fake, "ada");
-        await screen.findByText("No answers in progress.");
+        await screen.findByText("No answers yet.");
         await waitFor(() => expect(fake.requests.some(({ path }) => path === "/features")).toBe(true));
         expect(fake.requests.filter(({ path }) => path.startsWith("/item-state"))).toEqual([]);
         expect(screen.queryByRole("region", { name: "Continue" })).not.toBeInTheDocument();
