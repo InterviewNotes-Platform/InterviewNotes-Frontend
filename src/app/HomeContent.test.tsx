@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { useEffect, type ComponentProps } from "react";
+import type { ComponentProps } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HomeContent } from "./HomeContent";
@@ -363,45 +363,6 @@ describe("historical provenance", () => {
         expect(`${HERO.intro.before}${HERO.intro.emphasis}${HERO.intro.after}`).toBe(
             "One platform for ML System Design, LLM Platforms & GenAI interviews. Everything you need to land your dream ML/AI offer.",
         );
-    });
-});
-
-describe("smooth scrolling", () => {
-    const query = (reduce: boolean) => (q: string) => ({ matches: q.includes("no-preference") ? !reduce : reduce, addEventListener() {}, removeEventListener() {} });
-
-    it("mounts one Lenis instance on the homepage with the prototype's settings, and destroys it on unmount", async () => {
-        const instances: { destroy: ReturnType<typeof vi.fn>; options: unknown }[] = [];
-        vi.resetModules();
-        vi.doMock("lenis/react", () => ({
-            ReactLenis: ({ options }: { options: unknown }) => {
-                useEffect(() => {
-                    const instance = { destroy: vi.fn(), options };
-                    instances.push(instance);
-                    return () => instance.destroy();
-                }, [options]);
-                return null;
-            },
-        }));
-        vi.stubGlobal("matchMedia", query(false));
-        const { HomeSmoothScroll } = await import("./HomeSmoothScroll");
-        const { unmount, rerender } = render(<HomeSmoothScroll />);
-        rerender(<HomeSmoothScroll />);
-        expect(instances).toHaveLength(1);
-        expect(instances[0].options).toMatchObject({ autoRaf: true, anchors: true, lerp: 0.09 });
-        unmount();
-        expect(instances[0].destroy).toHaveBeenCalledTimes(1);
-        vi.doUnmock("lenis/react");
-    });
-
-    it("creates no instance when the reader prefers reduced motion", async () => {
-        const created = vi.fn();
-        vi.resetModules();
-        vi.doMock("lenis/react", () => ({ ReactLenis: () => (created(), null) }));
-        vi.stubGlobal("matchMedia", query(true));
-        const { HomeSmoothScroll } = await import("./HomeSmoothScroll");
-        render(<HomeSmoothScroll />);
-        expect(created).not.toHaveBeenCalled();
-        vi.doUnmock("lenis/react");
     });
 });
 

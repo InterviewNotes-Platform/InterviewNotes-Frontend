@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
+import { SmoothScroll } from "@/components/layout/SmoothScroll";
 import { VercelInsights } from "@/components/layout/VercelInsights";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -28,6 +29,7 @@ export default function RootLayout({
         >
           <AppShell>{children}</AppShell>
         </ThemeProvider>
+        <SmoothScroll />
         <VercelInsights />
       </body>
     </html>

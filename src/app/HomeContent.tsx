@@ -11,7 +11,6 @@ import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
 import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, STATS_DISCLOSURE, TRACKS } from "./home-copy";
 import { HeroMotion } from "./HeroMotion";
-import { HomeSmoothScroll } from "./HomeSmoothScroll";
 import { HeroStage } from "./HeroStage";
 import { HOME_FONT_VARIABLES } from "./home-font";
 import { RotatingTopic } from "./RotatingTopic";
@@ -451,7 +450,6 @@ export function HomeContent({
 }) {
    return (
       <>
-         <HomeSmoothScroll />
          <main data-home className={HOME_FONT_VARIABLES}>
             <Hero freeChapterHref={freeChapterHref} freeChapterPending={freeChapterPending} refreshFreeChapter={tracks.status !== "pending"} />
             <Tracks tracks={tracks} />

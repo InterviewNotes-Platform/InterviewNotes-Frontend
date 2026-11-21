@@ -143,6 +143,18 @@ test.describe("signed in", () => {
       await expect(page).toHaveURL(/\/prepare\/answers\//);
       expect((await prep.answers()).map(({ question_id }) => question_id)).toEqual(["alp-earn-trust-01"]);
    });
+
+   test("the page-wide smooth-scrolling instance covers the workspace, as one instance across its client navigations", async ({ page, prep }) => {
+      const instances = () => page.evaluate(() => document.querySelectorAll("html.lenis").length);
+      await page.goto("/prepare");
+      await expect(page.getByRole("heading", { level: 1, name: "Prepare" })).toBeVisible();
+      await expect.poll(instances).toBe(1);
+      await page.getByRole("region", { name: "Choose where to start" }).getByRole("link", { name: /^Amazon Leadership Principles/ }).click();
+      await expect(page).toHaveURL(/\/prepare\/new\?collection=amazon$/);
+      await expect(stage(page, "Customer Obsession")).toBeVisible();
+      await expect.poll(instances).toBe(1);
+      expect(await prep.answers(), "browsing the workspace starts no answer").toEqual([]);
+   });
 });
 
 /*
