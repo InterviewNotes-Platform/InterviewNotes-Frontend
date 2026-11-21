@@ -53,7 +53,7 @@ test.describe("signed in, M2 on", () => {
       const held = new Promise<void>((resolve) => (release = resolve));
       await page.route(`${ITEM_API_ORIGIN}/me/prep/item-state/*`, async (route) => {
          await held;
-         await route.continue();
+         await route.fallback();
       });
       await page.goto(`/tracks/${TRACK}`);
       const foundations = /Synthetic Foundations Lesson/;

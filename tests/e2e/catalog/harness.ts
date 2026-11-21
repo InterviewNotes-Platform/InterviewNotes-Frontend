@@ -1,4 +1,4 @@
-import { test as base, expect, type Page, type Request, type Response, type Route } from "@playwright/test";
+import { test as base, expect, type APIRequestContext, type BrowserContext, type Page, type Request, type Response, type Route } from "@playwright/test";
 import { CATALOG_CANARY } from "../../leak/canaries";
 import { inlinedRsc } from "../../leak/scanner";
 import fixture from "./fixture.json";
@@ -200,10 +200,27 @@ export interface Traffic {
    responses(): Promise<Received[]>;
 }
 
-export const test = base.extend<{ identity: Identity; traffic: Traffic }>({
+/** Header the item-state double files each request under, so a test reads back only what its own browser sent. */
+export const CALLER_HEADER = "x-e2e-caller";
+
+/** Files every call this context's browser makes to the item-state double under `caller`. Server-side catalog calls go to another origin. */
+export const tagCaller = (context: BrowserContext, caller: string) =>
+   context.route(`${ITEM_API_ORIGIN}/**`, (route) => route.continue({ headers: { ...route.request().headers(), [CALLER_HEADER]: caller } }));
+
+/** The requests that `caller` sent to the item-state double, as `METHOD path`, oldest first. */
+export const itemStateLog = async (request: APIRequestContext, caller: string) =>
+   (await (await request.get(`${ITEM_API_ORIGIN}/__item-state-log?caller=${encodeURIComponent(caller)}`)).json()) as string[];
+
+/** What "makes no item-state request" means: any request about one item's state, whichever item. */
+export const itemStateCalls = (lines: string[]) => lines.filter((line) => line.includes("/item-state/"));
+
+export const test = base.extend<{ identity: Identity; traffic: Traffic; caller: string }>({
    identity: ["signed-out", { option: true }],
-   context: async ({ context, identity, baseURL }, provide) => {
+   /** This test run's own name for the item-state double: unique per test, retry, repeat and worker, whoever is signed in. */
+   caller: async ({}, provide, { testId, retry, repeatEachIndex, workerIndex }) => provide(`${testId}.r${retry}.p${repeatEachIndex}.w${workerIndex}`),
+   context: async ({ context, identity, baseURL, caller }, provide) => {
       if (identity !== "signed-out") await context.addCookies([sessionCookie(identity, baseURL!)]);
+      await tagCaller(context, caller);
       await provide(context);
    },
    traffic: [
@@ -218,7 +235,7 @@ export const test = base.extend<{ identity: Identity; traffic: Traffic }>({
          // Next cancels RSC prefetch streams once it has what it needs, and the browser then drops the body.
          // App fetches (RSC) therefore pass through here, recording the full body the server sent.
          await page.route("**/*", async (route) => {
-            if (!isAppFetch(route.request())) return route.continue();
+            if (!isAppFetch(route.request())) return route.fallback();
             const passed = passThrough(route);
             reads.push(passed);
             await passed;
