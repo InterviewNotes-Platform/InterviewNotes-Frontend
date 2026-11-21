@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AnswerLane } from "@/components/prepare/workspace/AnswerLane";
-import { FocusSheet, type Focus } from "@/components/prepare/workspace/FocusSheet";
-import { StartOptions } from "@/components/prepare/workspace/StartOptions";
+import { ContinueRibbon, type Focus } from "@/components/prepare/workspace/ContinueRibbon";
+import { Library } from "@/components/prepare/workspace/Library";
+import { ShelvedAnswers } from "@/components/prepare/workspace/ShelvedAnswers";
 import { whereOf, type CollectionLabels } from "@/components/prepare/workspace/labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,8 +175,6 @@ function Workspace({ apiUrl, labels = {}, collections = [], titles = null, getAc
     }
 
     const answers = state.phase === "ready" ? state.answers : [];
-    const inProgress = answers.filter(({ status }) => status !== "ready");
-    const ready = answers.filter(({ status }) => status === "ready");
     // Only the latest page is read, so an empty section proves nothing about older answers.
     const partial = state.phase === "ready" && state.total > state.answers.length;
 
@@ -219,100 +217,98 @@ function Workspace({ apiUrl, labels = {}, collections = [], titles = null, getAc
     const pickUp = snapshot?.answer ?? null;
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-10">
             <header className="flex max-w-2xl flex-col items-start gap-3">
                 <p className="m-0 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Behavioral interview prep</p>
                 <h1 className="m-0 text-title text-balance text-foreground">Prepare</h1>
                 <p className="text-body text-pretty text-muted-foreground">Choose a question, write your answer, and pick up where you left off.</p>
             </header>
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_auto_1fr] lg:gap-x-10">
-                <div className="lg:col-start-1 lg:row-start-1">
-                    <FocusSheet focus={snapshot} where={pickUp ? whereOf(pickUp, labels) : null}>
-                        {initial && notice}
-                    </FocusSheet>
-                </div>
+            <ContinueRibbon focus={snapshot} where={pickUp ? whereOf(pickUp, labels) : null}>
+                {initial && notice}
+            </ContinueRibbon>
 
-                <div className="lg:col-start-1 lg:row-start-2">
-                    <StartOptions collections={collections} />
-                </div>
+            <Library collections={collections} />
 
-                <section aria-labelledby="answers-heading" className="h-fit space-y-5 rounded-2xl border border-border bg-card p-5 md:p-6 lg:col-start-2 lg:row-span-3 lg:row-start-1">
-                    <h2 id="answers-heading" className="mt-0 text-subsection text-foreground">
+            <section aria-labelledby="answers-heading" className="space-y-5">
+                <div>
+                    <h2 id="answers-heading" className="mt-0 mb-1 text-subsection text-foreground">
                         Your answers
                     </h2>
+                    <p className="text-supporting text-muted-foreground">Shelved by collection.</p>
+                </div>
 
-                    <form role="search" onSubmit={search} className="grid gap-3">
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="answer-search">Search answers</Label>
-                            <Input id="answer-search" type="search" value={typed} maxLength={SEARCH_MAX} disabled={!client} onChange={(event) => setTyped(event.target.value)} />
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                            <Button type="submit" size="lg" disabled={!client}>
-                                Search
-                            </Button>
-                            {filtered && (
-                                <Button type="button" variant="outline" size="lg" onClick={clear}>
-                                    Clear search and filters
+                <form role="search" onSubmit={search} className="flex max-w-2xl flex-wrap items-end gap-3">
+                    <div className="grid min-w-56 flex-1 gap-1.5">
+                        <Label htmlFor="answer-search">Search answers</Label>
+                        <Input id="answer-search" type="search" value={typed} maxLength={SEARCH_MAX} disabled={!client} onChange={(event) => setTyped(event.target.value)} />
+                    </div>
+                    <Button type="submit" size="lg" disabled={!client}>
+                        Search
+                    </Button>
+                    {filtered && (
+                        <Button type="button" variant="outline" size="lg" onClick={clear}>
+                            Clear search and filters
+                        </Button>
+                    )}
+                </form>
+
+                {filter.tags.length > 0 && (
+                    <ul aria-label="Tag filters" className="m-0 flex list-none flex-wrap gap-2 p-0">
+                        {filter.tags.map((tag) => (
+                            <li key={tag}>
+                                <Button type="button" variant="secondary" size="sm" aria-label={`Remove filter ${tag}`} onClick={() => apply({ ...filter, tags: filter.tags.filter((other) => other !== tag) })}>
+                                    {tag} ✕
                                 </Button>
-                            )}
-                        </div>
-                    </form>
+                            </li>
+                        ))}
+                    </ul>
+                )}
 
-                    {filter.tags.length > 0 && (
-                        <ul aria-label="Tag filters" className="m-0 flex list-none flex-wrap gap-2 p-0">
-                            {filter.tags.map((tag) => (
-                                <li key={tag}>
-                                    <Button type="button" variant="secondary" size="sm" aria-label={`Remove filter ${tag}`} onClick={() => apply({ ...filter, tags: filter.tags.filter((other) => other !== tag) })}>
-                                        {tag} ✕
-                                    </Button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                {!initial && notice}
 
-                    {!initial && notice}
-
-                    {state.phase === "ready" && filtered && state.answers.length === 0 ? (
-                        <div role="status" className="space-y-3">
-                            <p className="text-body text-foreground">No answers match your search or filters.</p>
-                            <Button variant="outline" onClick={clear}>
-                                Clear search and filters
-                            </Button>
-                        </div>
-                    ) : (
-                        (state.phase === "loading" || state.phase === "ready") && (
-                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
-                                <AnswerLane title="In progress" loading={state.phase === "loading"} answers={inProgress} labels={labels} onTag={addTag} empty={partial ? "No recent answers in progress." : "No answers in progress."} />
-                                <AnswerLane title="Ready" loading={state.phase === "loading"} answers={ready} labels={labels} onTag={addTag} empty={partial ? "No recent answers marked ready." : "No answers marked ready."} />
-                            </div>
-                        )
-                    )}
-                    {state.phase === "ready" && state.answers.length > 0 && (partial || filtered || paged) && (
-                        <div className="space-y-3">
-                            <p ref={countRef} tabIndex={-1} role="status" className="text-supporting text-muted-foreground">
-                                {countText(state.answers.length, state.total, filtered)}
+                {state.phase === "ready" && filtered && state.answers.length === 0 ? (
+                    <div role="status" className="space-y-3">
+                        <p className="text-body text-foreground">No answers match your search or filters.</p>
+                        <Button variant="outline" onClick={clear}>
+                            Clear search and filters
+                        </Button>
+                    </div>
+                ) : (
+                    (state.phase === "loading" || state.phase === "ready") && (
+                        <ShelvedAnswers
+                            // A new search or tag set starts the status tabs again, so a tab never hides the results of a new search.
+                            key={`${filter.q}|${filter.tags.join(",")}`}
+                            answers={answers}
+                            loading={state.phase === "loading"}
+                            labels={labels}
+                            order={collections.map(({ title }) => title)}
+                            general={collections.find(({ id }) => id === "behavioral")?.title ?? "General Behavioral"}
+                            partial={partial}
+                            onTag={addTag}
+                        />
+                    )
+                )}
+                {state.phase === "ready" && state.answers.length > 0 && (partial || filtered || paged) && (
+                    <div className="space-y-3">
+                        <p ref={countRef} tabIndex={-1} role="status" className="text-supporting text-muted-foreground">
+                            {countText(state.answers.length, state.total, filtered)}
+                        </p>
+                        {more === "failed" && (
+                            <p role="alert" className="text-body text-foreground">
+                                We could not load more answers. Nothing on this page was lost; try again.
                             </p>
-                            {more === "failed" && (
-                                <p role="alert" className="text-body text-foreground">
-                                    We could not load more answers. Nothing on this page was lost; try again.
-                                </p>
-                            )}
-                            {partial && (
-                                <Button type="button" variant="outline" aria-disabled={more === "loading" || undefined} onClick={() => void showMore()}>
-                                    {more === "loading" ? "Loading more…" : "Show more answers"}
-                                </Button>
-                            )}
-                        </div>
-                    )}
-                </section>
-
-                {apiUrl && client && (
-                    <div className="lg:col-start-1 lg:row-start-3">
-                        <Continuity apiUrl={apiUrl} client={client} titles={titles} />
+                        )}
+                        {partial && (
+                            <Button type="button" variant="outline" aria-disabled={more === "loading" || undefined} onClick={() => void showMore()}>
+                                {more === "loading" ? "Loading more…" : "Show more answers"}
+                            </Button>
+                        )}
                     </div>
                 )}
-            </div>
+            </section>
+
+            {apiUrl && client && <Continuity apiUrl={apiUrl} client={client} titles={titles} />}
         </div>
     );
 }

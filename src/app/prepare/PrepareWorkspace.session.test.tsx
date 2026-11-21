@@ -92,7 +92,7 @@ describe("the session the sheet belongs to", () => {
         nothingOfAda();
         expect(await screen.findByText("Your session has ended. Sign in again to open your workspace.")).toBeInTheDocument();
         expect(screen.getAllByRole("alert")).toHaveLength(1);
-        expect(within(screen.getByRole("region", { name: /Pick up where you left off/ })).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login?redirect=%2Fprepare");
+        expect(within(screen.getByRole("region", { name: /^(Continue|Start here|Your workspace)$/ })).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login?redirect=%2Fprepare");
         nothingOfAda();
         // Nothing was sent for a signed-out browser.
         expect(api.requests).toHaveLength(before);
