@@ -7,7 +7,7 @@ const getCatalogItem = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/catalog/client", () => ({ getCatalogItem }));
 
 import type { CatalogHeading, CatalogItem } from "@/lib/catalog/types";
-import { COLLECTIONS, collectionOfContent, findCollection, loadCollectionQuestions, workspaceLabels, type Collection } from "./collections";
+import { COLLECTIONS, collectionOfContent, collectionSummaries, findCollection, loadCollectionQuestions, workspaceLabels, type Collection } from "./collections";
 import { loadBehavioralQuestions, type CatalogQuestion } from "./questions";
 
 /*
@@ -305,6 +305,55 @@ describe("the general Behavioral collection is unchanged", () => {
       const direct = await loadBehavioralQuestions();
       serve();
       expect(await loadCollectionQuestions(collection("behavioral"))).toStrictEqual(direct);
+   });
+});
+
+describe("presentation fields and summaries (P8-PREP-UX-02)", () => {
+   beforeEach(() => serve());
+
+   it("names each collection briefly and says what its groups are called", () => {
+      expect(COLLECTIONS.map(({ id, short, unit }) => [id, short, unit.one, unit.many])).toEqual([
+         ["behavioral", "General", "level", "levels"],
+         ["amazon", "Amazon", "principle", "principles"],
+         ["google", "Google", "theme", "themes"],
+      ]);
+   });
+
+   it("counts each collection's groups and questions from the registry alone", () => {
+      expect(collectionSummaries()).toEqual([
+         { id: "behavioral", title: "General Behavioral", summary: "4 levels · 40 questions" },
+         { id: "amazon", title: "Amazon Leadership Principles", summary: "16 principles · 48 questions" },
+         { id: "google", title: "Googleyness & Leadership", summary: "6 themes · 18 questions" },
+      ]);
+      expect(getCatalogItem).not.toHaveBeenCalled();
+   });
+
+   it("counts the same questions the manifests list", () => {
+      for (const { id, summary } of collectionSummaries()) {
+         const total = Object.values(collection(id).manifest).flat().length;
+         expect(summary.endsWith(`${total} questions`)).toBe(true);
+      }
+   });
+});
+
+describe("question titles (P8-PREP-UX-02)", () => {
+   beforeEach(() => serve());
+
+   it("gives each question its own Lesson heading as a title, without touching its identity, wording or order", async () => {
+      for (const id of ["behavioral", "amazon", "google"]) {
+         const questions = await open(id);
+         expect(questions.every(({ title }) => typeof title === "string" && title.length > 0)).toBe(true);
+         expect(questions.map(({ question_id }) => question_id)).toEqual(Object.values(collection(id).manifest).flat());
+      }
+      const amazon = await open("amazon");
+      expect(amazon[0]).toMatchObject({ question_id: "alp-customer-obsession-01", title: "Feedback that reshaped the plan" });
+      const general = await open("behavioral");
+      expect(general[0]).toMatchObject({ question_id: "a-piece-of-work-that-was-clearly-yours", title: "A piece of work that was clearly yours" });
+   });
+
+   it("adds the titles from the Lesson already read, so a collection still costs one read per Lesson", async () => {
+      await open("amazon");
+      expect(reads()).toEqual(["lesson:amazon-leadership-principles"]);
    });
 });
 

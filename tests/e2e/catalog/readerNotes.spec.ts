@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Page } from "@playwright/test";
 import fixture from "./fixture.json";
-import { canonical, exposures, expect, ITEM_API_ORIGIN, READER_ORIGIN, test } from "./harness";
+import { canonical, exposures, expect, ITEM_API_ORIGIN, itemStateCalls, itemStateLog, READER_ORIGIN, tagCaller, test } from "./harness";
 
 // P7-T47: the private note on a Lesson and a Problem, on the build that has the Prepare flag on and the item-state double as its API.
 // It uses its own items, so it never shares a row with readerControls.spec.ts.
@@ -15,7 +15,8 @@ const ITEM_STATE_PATH = /^\/me\/prep\/(features|item-state\/(lesson|problem)\.[a
 test.use({ baseURL: READER_ORIGIN });
 test.describe.configure({ mode: "serial" });
 
-const log = async (request: APIRequestContext) => (await (await request.get(`${ITEM_API_ORIGIN}/__item-state-log`)).json()) as string[];
+// The double's log is shared by every test running at once, so a test reads back only the requests tagged with its own `caller`.
+const log = itemStateLog;
 const reset = (request: APIRequestContext, content: string) => request.delete(`${ITEM_API_ORIGIN}/__item-state?user=${ME}&content=${content}`);
 const serverCopy = async (request: APIRequestContext, content: string) =>
    (await request.get(`${ITEM_API_ORIGIN}/me/prep/item-state/${content}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json() as Promise<{ note: string | null; version: number; completed_at: string | null }>;
@@ -72,7 +73,7 @@ test.describe("signed in, M2 on", () => {
       });
    }
 
-   test("is there after sign-out and sign-in, and in a second browser context of the same learner", async ({ page, request, context, browser }) => {
+   test("is there after sign-out and sign-in, and in a second browser context of the same learner", async ({ page, request, context, browser, caller }) => {
       await reset(request, LESSON);
       await page.goto(canonical(LESSON));
       await openNote(page);
@@ -81,6 +82,7 @@ test.describe("signed in, M2 on", () => {
       const cookies = await context.cookies();
       const second = await browser.newContext({ baseURL: READER_ORIGIN });
       await second.addCookies(cookies);
+      await tagCaller(second, caller);
       const other = await second.newPage();
       await other.goto(canonical(LESSON));
       await openNote(other);
@@ -88,12 +90,12 @@ test.describe("signed in, M2 on", () => {
       await second.close();
 
       await context.clearCookies();
-      const before = (await log(request)).length;
+      const before = (await log(request, caller)).length;
       await page.reload();
       await expect(page.locator("h1").first()).toBeVisible();
       await page.waitForTimeout(500);
       await expect(box(page)).toHaveCount(0);
-      expect((await log(request)).slice(before)).toEqual([]);
+      expect((await log(request, caller)).slice(before)).toEqual([]);
 
       await context.addCookies(cookies);
       await page.reload();
@@ -119,15 +121,15 @@ test.describe("signed in, M2 on", () => {
       await expect(box(page)).toHaveValue("note after");
    });
 
-   test("asks only the allowed routes, and keeps the note out of the address, storage, cookies and every page the server sent", async ({ page, request, traffic }) => {
+   test("asks only the allowed routes, and keeps the note out of the address, storage, cookies and every page the server sent", async ({ page, request, traffic, caller }) => {
       const text = "private-note-canary-7f3a91";
       await reset(request, LESSON);
-      const before = (await log(request)).length;
+      const before = (await log(request, caller)).length;
       await page.goto(canonical(LESSON));
       await openNote(page);
       await write(page, text);
 
-      const made = (await log(request)).slice(before);
+      const made = (await log(request, caller)).slice(before);
       expect(made.every((line) => ITEM_STATE_PATH.test(line.split(" ")[1]))).toBe(true);
       expect(made.filter((line) => line.startsWith("PATCH"))).toEqual([`PATCH /me/prep/item-state/${LESSON}`]);
       expect(made.join("\n")).not.toContain(text);
@@ -148,13 +150,13 @@ test.describe("signed in, M2 on", () => {
       expect(served).toEqual([]);
    });
 
-   test("a Knowledge page has no note and makes no item-state request", async ({ page, request }) => {
-      const before = (await log(request)).length;
+   test("a Knowledge page has no note and makes no item-state request", async ({ page, request, caller }) => {
+      const before = (await log(request, caller)).length;
       await page.goto(canonical("knowledge.catalog-e2e-sections"));
       await expect(page.locator("h1").first()).toBeVisible();
       await page.waitForTimeout(500);
       await expect(toggle(page)).toHaveCount(0);
-      expect((await log(request)).slice(before).filter((line) => line.includes("/item-state/"))).toEqual([]);
+      expect(itemStateCalls((await log(request, caller)).slice(before))).toEqual([]);
    });
 });
 
@@ -162,14 +164,14 @@ test.describe("signed out", () => {
    test.use({ identity: "signed-out" });
 
    for (const id of [LESSON, PROBLEM]) {
-      test(`${id}: no note, no note text in the page, no request to the item-state API`, async ({ page, request }) => {
-         const before = (await log(request)).length;
+      test(`${id}: no note, no note text in the page, no request to the item-state API`, async ({ page, request, caller }) => {
+         const before = (await log(request, caller)).length;
          await page.goto(canonical(id));
          await expect(page.locator("h1").first()).toBeVisible();
          await page.waitForTimeout(500);
          await expect(toggle(page)).toHaveCount(0);
          await expect(page.getByRole("textbox", { name: /private note/ })).toHaveCount(0);
-         expect((await log(request)).slice(before)).toEqual([]);
+         expect((await log(request, caller)).slice(before)).toEqual([]);
       });
    }
 });

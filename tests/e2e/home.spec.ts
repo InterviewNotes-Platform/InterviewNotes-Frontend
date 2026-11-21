@@ -486,8 +486,8 @@ test("the homepage self-hosts Inter only, sets its headings in the reader's syst
    expect(requests.filter((url) => /\.woff2/.test(url))).toEqual([]);
 });
 
-test.describe("smooth scrolling (Lenis, homepage only)", () => {
-   test("exists while the homepage is mounted and is destroyed by a client navigation away", async ({ page }) => {
+test.describe("smooth scrolling (Lenis; the homepage animates in-page anchors)", () => {
+   test("is one instance across client navigations away from the homepage and back", async ({ page }) => {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       page.on("console", (message) => message.type() === "error" && errors.push(message.text()));
@@ -495,19 +495,21 @@ test.describe("smooth scrolling (Lenis, homepage only)", () => {
       await expect(html(page)).toHaveClass(/\blenis\b/);
       await header(page).getByRole("link", { name: "Knowledge", exact: true }).first().click();
       await expect(page).toHaveURL(/\/knowledge$/);
-      await expect(html(page)).not.toHaveClass(/lenis/);
+      await expect(html(page)).toHaveClass(/\blenis\b/);
+      expect(await page.evaluate(() => document.querySelectorAll("html.lenis").length)).toBe(1);
       await page.goBack();
       await expect(html(page)).toHaveClass(/\blenis\b/);
       expect(await page.evaluate(() => document.querySelectorAll("html.lenis").length)).toBe(1);
       expect(errors).toEqual([]);
    });
 
-   test("other routes keep native scrolling: no instance, and the reader's own fragment handling is untouched", async ({ page }) => {
+   test("the instance is not the homepage's alone: other routes have it too, and it is the one instance", async ({ page }) => {
       await page.goto("/knowledge");
       await expect(page.locator("main")).toBeVisible();
-      await expect(html(page)).not.toHaveClass(/lenis/);
+      await expect(html(page)).toHaveClass(/\blenis\b/);
       await page.goto("/login");
-      await expect(html(page)).not.toHaveClass(/lenis/);
+      await expect(html(page)).toHaveClass(/\blenis\b/);
+      expect(await page.evaluate(() => document.querySelectorAll("html.lenis").length)).toBe(1);
    });
 
    for (const [name, selector] of [["FAQ", "#faq"]] as const) {

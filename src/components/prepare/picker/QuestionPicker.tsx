@@ -8,13 +8,18 @@ import { StartLinkNotice } from "@/components/prepare/stories/StartLinkNotice";
 import { startFromStory } from "@/components/prepare/stories/startFromStory";
 import { createPrepClient } from "@/lib/prep/client";
 import { asTargetLevel, levelLabel, TARGET_LEVELS } from "@/lib/prep/levels";
-import { plainHeading } from "@/lib/catalog/lesson";
 import { answerHref, newAnswerHref, sameQuestion, type QuestionRef } from "@/lib/prep/links";
-import type { CatalogQuestion, QuestionGroup } from "@/lib/prep/questions";
+import type { CatalogQuestion } from "@/lib/prep/questions";
 import type { Answer, AnswerCreate, PrepResult, TargetLevel } from "@/lib/prep/types";
 import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { Dock } from "./Dock";
+import { GroupStage, type Unit } from "./GroupStage";
+import { QuestionRow } from "./QuestionRow";
+import { matchesAll, queryWords, searchable } from "./search";
+import { SearchField } from "./SearchField";
+import { keyOf, levelSectionsOf, sectionsOf, type PickerQuestion } from "./sections";
 
 /** After this long a pending request also says the wait is longer than usual (a cold start, P7-D-010). */
 export const SLOW_NOTICE_MS = 4000;
@@ -28,7 +33,16 @@ export type CatalogLoad =
    | { status: "failed"; reason: "signin" | "unentitled" | "unavailable" };
 
 /** What the picker needs to know of a registry collection; the registry itself stays on the server (P7-T58). */
-export type CollectionOption = { id: string; title: string; levelFilter: boolean; grouped: boolean };
+export type CollectionOption = {
+   id: string;
+   title: string;
+   levelFilter: boolean;
+   grouped: boolean;
+   /** A short name for the collection switch; the link's accessible name stays the title. */
+   short?: string;
+   /** What a group is called, for the stepper and its jump menu. */
+   unit?: Unit;
+};
 
 /** The statement the contract (§6) requires with the company collections, word for word. */
 export const COMPANY_STATEMENT =
@@ -64,6 +78,8 @@ interface Props {
    requested?: QuestionRef | null;
    /** Start from this story: the answer is created with a copy of its saved text, then linked. Checked by the API, not here. */
    storyId?: string | null;
+   /** Which principle or theme to open, counted from 1 (the `group` parameter). It is a view position only and is ignored when it names none. */
+   initialGroup?: number | null;
    /** Tests supply these; the page uses the browser's Supabase session and `fetch`. */
    getAccessToken?: () => Promise<string | null>;
    fetch?: typeof fetch;
@@ -90,8 +106,6 @@ export function catalogAnswer(question: CatalogQuestion<TargetLevel | null>): An
 export function customAnswer(text: string): AnswerCreate {
    return { source: "custom", question_snapshot: text.trim(), framework: "star" };
 }
-
-const keyOf = (ref: QuestionRef) => JSON.stringify([ref.content_id, ref.question_id]);
 
 function failure(result: Exclude<PrepResult<unknown>, { status: "ok" }>): Save {
    switch (result.status) {
@@ -123,23 +137,7 @@ const FIELD =
    "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] " +
    "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40";
 
-const CHOICE =
-   "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 text-body transition-micro hover:border-primary " +
-   "has-[:checked]:border-primary has-[:checked]:bg-surface has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-[3px]";
-
-/** The questions in source order, collected under the group they came with (company collections only). */
-function groupsOf(questions: readonly CatalogQuestion<TargetLevel | null>[]) {
-   const groups: { key: string; group: QuestionGroup; questions: CatalogQuestion<TargetLevel | null>[] }[] = [];
-   for (const question of questions) {
-      if (!question.group) continue;
-      const last = groups.at(-1);
-      if (last && last.group.title === question.group.title) last.questions.push(question);
-      else groups.push({ key: `group-${groups.length}`, group: question.group, questions: [question] });
-   }
-   return groups;
-}
-
-export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId, requested = null, storyId = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId, requested = null, storyId = null, initialGroup = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
    const router = useRouter();
    const ids = useId();
    const client = useMemo(
@@ -165,11 +163,26 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    const [slow, setSlow] = useState(false);
    // The saved level is only a default: once the reader has chosen a level or a question, it never moves the list.
    const interacted = useRef(Boolean(linked));
+   // Set when a question is chosen from search results: closing the search then opens that question's own principle, theme or level.
+   const pickedInSearch = useRef(false);
    const saving = useRef(false);
    // The question (or custom text) whose create ended without a confirmed result: it may already exist.
    const [unconfirmed, setUnconfirmed] = useState<string | null>(null);
    const unconfirmedRef = useRef<string | null>(null);
    const selectedRef = useRef<HTMLInputElement | null>(null);
+   const resultsRef = useRef<HTMLFieldSetElement | null>(null);
+
+   // Which principle or theme is open: the one the URL names, else the one holding a linked question, else the first. A view position only.
+   const [group, setGroup] = useState(() => {
+      // Every principle or theme is a stop; so is every level of the general collection while all levels are listed.
+      const all = grouped ? sectionsOf(questions) : levelFilter && !linked ? levelSectionsOf(questions) : [];
+      if (all.length === 0) return 0;
+      const at = initialGroup !== null && initialGroup >= 1 ? initialGroup - 1 : linked ? all.findIndex((section) => section.questions.some((question) => sameQuestion(question, linked))) : -1;
+      return Math.max(0, Math.min(at, all.length - 1));
+   });
+   // Find a question: a filter over the collection already loaded, never a request.
+   const [query, setQuery] = useState("");
+   const [announced, setAnnounced] = useState("");
 
    // One read of the saved target level, only when the catalog is shown and no link already chose a question.
    const wantsPreference = Boolean(client) && catalog.status === "ok" && !linked && levelFilter;
@@ -200,41 +213,99 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       };
    }, [save.phase]);
 
+   // The result count is spoken once typing pauses, not on every key.
+   useEffect(() => {
+      const timer = setTimeout(() => setAnnounced(query), 300);
+      return () => clearTimeout(timer);
+   }, [query]);
+
    // Bring a question named by a Lesson link into view once, without animation.
    useEffect(() => {
       selectedRef.current?.scrollIntoView?.({ block: "center" });
       // Only on first paint: later selections are the reader's own and are already in view.
    }, []);
 
-   const visible = !levelFilter || level === "all" ? questions : questions.filter((question) => question.level === level);
+   const visible = useMemo(() => (!levelFilter || level === "all" ? questions : questions.filter((question) => question.level === level)), [levelFilter, level, questions]);
+   // The stops of the stepper: principles or themes, or the levels of the general collection while every level is listed.
+   const stepper = grouped || (levelFilter && level === "all");
+   const sections = useMemo(() => (grouped ? sectionsOf(visible) : stepper ? levelSectionsOf(visible) : []), [grouped, stepper, visible]);
+   const index = useMemo(() => visible.map((question) => ({ question, text: searchable(question.title, question.text, question.group?.title) })), [visible]);
+   const words = useMemo(() => queryWords(query), [query]);
+   const searching = words.length > 0;
+   const results = useMemo(() => (searching ? index.filter(({ text }) => matchesAll(text, words)).map(({ question }) => question) : []), [index, searching, words]);
+   const here = Math.min(group, Math.max(0, sections.length - 1));
+   // What is on screen now: the search results, or the open principle, theme or level, or the whole list of the one level chosen.
+   const inView = searching ? results : stepper ? (sections[here]?.questions ?? []) : visible;
+   // A choice the reader cannot see is not one they can start by accident. It stays chosen and counts again once its question is back in view.
+   const choice = selected && inView.some((entry) => sameQuestion(entry, selected)) ? questions.find((entry) => sameQuestion(entry, selected)) : undefined;
    const customLength = [...customText.trim()].length;
    const customTooLong = customLength > SNAPSHOT_MAX;
    const busy = save.phase === "saving" || save.phase === "done" || save.phase === "unlinked";
 
-   /** Another collection is another server read of its own Lesson, so the page is asked for it. */
-   function chooseCollection(id: string) {
+   /** Another collection is another server read of its own Lesson, so the page is asked for it, by an ordinary link. */
+   function collectionHref(id: string) {
       const params = new URLSearchParams({ collection: id });
       if (storyId) params.set("story", storyId);
-      router.push(`${PREPARE_NEW_HREF}?${params}`);
+      return `${PREPARE_NEW_HREF}?${params}`;
+   }
+
+   /** The open position in the address, by `replaceState` only: the server page is not asked again, so no catalog is read. */
+   function writeGroup(at: number) {
+      const url = new URL(window.location.href);
+      if (at > 0) url.searchParams.set("group", String(at + 1));
+      else if (url.searchParams.has("group")) url.searchParams.delete("group");
+      else return;
+      window.history.replaceState(null, "", url);
+   }
+
+   /** Open another principle or theme. */
+   function openGroup(next: number) {
+      const at = Math.max(0, Math.min(next, sections.length - 1));
+      // Moving through the list is the reader's own choice of view: a saved level arriving late must not take it away.
+      interacted.current = true;
+      setGroup(at);
+      writeGroup(at);
+   }
+
+   /** From a search result into its principle or theme, with the question still chosen. */
+   function showInGroup(title: string) {
+      const at = sections.findIndex((section) => section.title === title);
+      pickedInSearch.current = false;
+      setQuery("");
+      if (at >= 0) openGroup(at);
+   }
+
+   /** Typing, clearing or Escape. Closing a search after choosing from its results leaves that question on screen. */
+   function changeQuery(value: string) {
+      interacted.current = true;
+      setQuery(value);
+      if (queryWords(value).length > 0 || !pickedInSearch.current) return;
+      pickedInSearch.current = false;
+      const at = selected ? sections.findIndex((section) => section.questions.some((question) => sameQuestion(question, selected))) : -1;
+      if (at >= 0) openGroup(at);
    }
 
    function chooseLevel(next: LevelFilter) {
       interacted.current = true;
       setLevel(next);
+      if (!grouped) {
+         setGroup(0);
+         writeGroup(0);
+      }
       // A selection the filter now hides would still be submitted: drop it instead.
       if (selected && next !== "all" && questions.find((question) => sameQuestion(question, selected))?.level !== next) setSelected(null);
    }
 
    function choose(question: CatalogQuestion<TargetLevel | null>) {
       interacted.current = true;
+      pickedInSearch.current = searching;
       setSelected({ content_id: question.content_id, question_id: question.question_id });
    }
 
    /** What this form would create now, as one comparable value; null when nothing valid is chosen. */
    const pending = ((): { key: string; body: AnswerCreate } | null => {
       if (mode === "custom") return customLength > 0 && !customTooLong ? { key: `custom:${customText.trim()}`, body: customAnswer(customText) } : null;
-      const question = selected && questions.find((entry) => sameQuestion(entry, selected));
-      return question ? { key: `catalog:${keyOf(question)}`, body: catalogAnswer(question) } : null;
+      return choice ? { key: `catalog:${keyOf(choice)}`, body: catalogAnswer(choice) } : null;
    })();
 
    async function create(next: { key: string; body: AnswerCreate }) {
@@ -294,44 +365,225 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    // A warning about an earlier, different choice is no longer about what the form would create.
    const shown: Save = save.phase === "failed" && save.unconfirmed && !awaitingCheck ? { phase: "idle" } : save;
 
-   const renderQuestion = (question: CatalogQuestion<TargetLevel | null>) => {
+   const chosenQuestion = choice;
+   const chosenLabel = mode === "custom" ? (customLength > 0 ? "Your own question" : null) : chosenQuestion ? (chosenQuestion.title && chosenQuestion.title !== chosenQuestion.text ? chosenQuestion.title : chosenQuestion.text) : null;
+   const unit: Unit = collection?.unit ?? { one: "group", many: "groups" };
+   const scope = collection?.title ?? "the Behavioral Lessons";
+   const rowName = `${ids}-question`;
+
+   const row = (question: PickerQuestion, marks: readonly string[] = []) => {
       const checked = selected !== null && sameQuestion(question, selected);
       return (
-         <li key={keyOf(question)}>
-            <label className={CHOICE}>
-               <input
-                  type="radio"
-                  name={`${ids}-question`}
-                  value={keyOf(question)}
-                  checked={checked}
-                  disabled={busy}
-                  onChange={() => choose(question)}
-                  ref={checked ? selectedRef : undefined}
-                  className="size-4 shrink-0 accent-primary"
-               />
-               <span className="min-w-0">
-                  <span className="block">{question.text}</span>
-                  {levelFilter && level === "all" && question.level && (
-                     <span className="block text-supporting text-muted-foreground">{levelLabel(question.level)}</span>
-                  )}
-               </span>
-            </label>
-         </li>
+         <QuestionRow
+            key={keyOf(question)}
+            question={question}
+            name={rowName}
+            checked={checked}
+            disabled={busy}
+            words={marks}
+            onChoose={choose}
+            inputRef={checked ? (element) => void (selectedRef.current = element) : undefined}
+         />
       );
    };
+   // The numbers beside the rows count on from `from`, so a search result list reads 01, 02, 03 across its groups.
+   const list = (items: readonly PickerQuestion[], marks: readonly string[] = [], from = 0) => (
+      <ul className="m-0 list-none divide-y divide-border p-0" style={{ counterReset: `q ${from}` }}>
+         {items.map((question) => row(question, marks))}
+      </ul>
+   );
+   const choices = (inner: React.ReactNode) => (
+      <fieldset ref={resultsRef} className="m-0 min-w-0 border-0 p-0">
+         <legend className="sr-only">Question</legend>
+         {inner}
+      </fieldset>
+   );
+
+   function intoResults() {
+      const target = resultsRef.current;
+      (target?.querySelector<HTMLInputElement>("input[type=radio]:checked") ?? target?.querySelector<HTMLInputElement>("input[type=radio]"))?.focus();
+   }
+
+   const settledWords = queryWords(announced);
+   const settledCount = settledWords.length === 0 ? 0 : index.filter(({ text }) => matchesAll(text, settledWords)).length;
+   const levelNote = levelFilter && level !== "all" ? ` (${levelLabel(level)} only)` : "";
+
+   const searchPanel = (
+      <section aria-label="Search results" className="rounded-2xl border border-border bg-card">
+         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 md:px-8">
+            <p role="status" className="text-supporting text-muted-foreground">
+               {settledWords.length === 0
+                  ? ""
+                  : settledCount === 0
+                    ? `No questions match “${announced.trim()}”${levelNote}.`
+                    : `${settledCount} ${settledCount === 1 ? "question matches" : "questions match"} “${announced.trim()}” in ${scope}${levelNote}.`}
+            </p>
+            {levelFilter && level !== "all" && (
+               <button type="button" onClick={() => chooseLevel("all")} className="min-h-11 text-supporting font-medium text-[var(--primary-text)] underline underline-offset-4">
+                  Search all levels
+               </button>
+            )}
+         </div>
+         {results.length === 0 ? (
+            <div className="space-y-3 border-t border-border px-4 py-8 text-center md:px-8">
+               <p className="text-body text-foreground">No question matches those words.</p>
+               <p className="text-supporting text-muted-foreground">The search covers each question&apos;s heading, wording and {grouped ? unit.one : "level"} in {scope}. Try fewer or different words, or write your own question.</p>
+               <div className="flex flex-wrap justify-center gap-3">
+                  <Button type="button" variant="outline" onClick={() => changeQuery("")}>
+                     Show all questions
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setMode("custom")}>
+                     Write your own question
+                  </Button>
+               </div>
+            </div>
+         ) : (
+            <div className="border-t border-border">
+               {choices(
+                  stepper
+                     ? (() => {
+                          let seen = 0;
+                          return (grouped ? sectionsOf(results) : levelSectionsOf(results)).map(({ key, title, questions: inGroup }) => {
+                             const from = seen;
+                             seen += inGroup.length;
+                             return (
+                                <section key={key} aria-labelledby={`${ids}-r-${key}`}>
+                                   <div className="flex items-center justify-between gap-3 bg-surface/60 px-4 py-1.5 md:px-8">
+                                      <h3 id={`${ids}-r-${key}`} className="m-0 text-supporting font-semibold text-foreground">
+                                         {title}
+                                      </h3>
+                                      <button
+                                         type="button"
+                                         onClick={() => showInGroup(title)}
+                                         aria-label={`View ${unit.one}: ${title}`}
+                                         className="min-h-11 text-supporting font-medium text-[var(--primary-text)] underline underline-offset-4"
+                                      >
+                                         View {unit.one}
+                                      </button>
+                                   </div>
+                                   {list(inGroup, words, from)}
+                                </section>
+                             );
+                          });
+                       })()
+                     : list(results, words)
+               )}
+            </div>
+         )}
+      </section>
+   );
+
+   const levelSelect = levelFilter && (
+      <div className="grid gap-1.5">
+         <label htmlFor={`${ids}-level`} className="block text-supporting font-semibold text-foreground">
+            Level
+         </label>
+         <select
+            id={`${ids}-level`}
+            value={level}
+            disabled={busy}
+            onChange={(event) => chooseLevel(event.target.value === "all" ? "all" : (asTargetLevel(event.target.value) ?? "all"))}
+            className="border-input h-11 w-full rounded-md border bg-transparent px-3 text-base shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:w-52 md:text-sm dark:bg-input/30"
+         >
+            <option value="all">All levels</option>
+            {TARGET_LEVELS.map(({ value, label }) => (
+               <option key={value} value={value}>
+                  {label}
+               </option>
+            ))}
+         </select>
+      </div>
+   );
+
+   const preferenceNotice = (
+      <>
+         {preference.phase === "loading" && (
+            <p role="status" className="text-supporting text-muted-foreground">
+               Checking your target level…
+            </p>
+         )}
+         {preference.phase === "failed" && (
+            <p role="status" className="text-supporting text-muted-foreground">
+               We could not load your target level, so the level shown is your choice.{" "}
+               <button
+                  type="button"
+                  className="text-primary underline underline-offset-4"
+                  onClick={() => {
+                     setPreference({ phase: "loading" });
+                     setPreferenceAttempt((n) => n + 1);
+                  }}
+               >
+                  Try again
+               </button>
+            </p>
+         )}
+      </>
+   );
+
+   const levelStage = (
+      <section aria-labelledby={`${ids}-stage`} className="rounded-2xl border border-border bg-card">
+         <div className="flex flex-wrap items-end justify-between gap-4 px-4 py-4 md:px-8 md:py-6">
+            <div className="min-w-0">
+               <p className="m-0 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">{collection?.title ?? "Behavioral Lessons"}</p>
+               <h2 id={`${ids}-stage`} className="mt-1 mb-0 text-xl leading-tight font-semibold text-foreground md:text-section">
+                  {level === "all" ? "All levels" : levelLabel(level)}
+               </h2>
+               <p className="mt-1 text-supporting text-muted-foreground">
+                  {visible.length} {visible.length === 1 ? "question" : "questions"}
+               </p>
+            </div>
+            {levelSelect}
+         </div>
+         <div className="space-y-1 px-4 pb-4 empty:hidden md:px-8">{preferenceNotice}</div>
+         <div className="border-t border-border py-1">
+            {visible.length === 0 ? <p className="px-4 py-6 text-body text-muted-foreground md:px-8">There are no questions for this level.</p> : choices(list(visible))}
+         </div>
+      </section>
+   );
+
+   const stage =
+      catalog.status === "failed" ? (
+         <CatalogProblem reason={catalog.reason} signInHref={signInHref} onRetry={() => router.refresh()} onCustom={() => setMode("custom")} />
+      ) : searching ? (
+         searchPanel
+      ) : stepper ? (
+         sections.length === 0 ? (
+            <p className="text-body text-muted-foreground">There are no questions in this collection.</p>
+         ) : (
+            <GroupStage
+               unit={unit}
+               sections={sections}
+               index={here}
+               disabled={busy}
+               onIndex={openGroup}
+               extra={
+                  levelFilter ? (
+                     <div className="space-y-2">
+                        {levelSelect}
+                        {preferenceNotice}
+                     </div>
+                  ) : undefined
+               }
+            >
+               {choices(list(sections[here].questions))}
+            </GroupStage>
+         )
+      ) : (
+         levelStage
+      );
 
    return (
-      <div className="space-y-8">
-         <header className="space-y-3">
-            <Link href={PREPARE_HREF} prefetch={false} className="text-supporting text-muted-foreground underline underline-offset-4 hover:text-foreground">
+      <div className="space-y-4 pb-28 md:space-y-6 md:pb-4">
+         <header className="space-y-2">
+            <Link href={PREPARE_HREF} prefetch={false} className="inline-flex min-h-9 items-center text-supporting text-muted-foreground underline underline-offset-4 hover:text-foreground">
                Back to your workspace
             </Link>
-            <h1 className="text-section text-foreground">Choose a question</h1>
-            <p className="max-w-reading text-body text-muted-foreground">
-               {grouped && collection ? `Start from a question in ${collection.title}, or write your own.` : "Start from a question in the Behavioral Lessons, or write your own."}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+               <h1 className="m-0 text-section text-foreground">Choose a question</h1>
+               {mode === "catalog" && catalog.status === "ok" && <SearchField scope={scope} value={query} disabled={busy} onChange={changeQuery} onArrowDown={intoResults} className="w-full md:w-80" />}
+            </div>
             {storyId && (
-               <p className="max-w-reading text-body text-foreground">
+               <p className="max-w-reading rounded-xl border border-border bg-surface/60 px-4 py-3 text-supporting text-foreground">
                   Your answer will start with a copy of your story&apos;s saved text and be linked to the story. After that the two are separate: editing one does not change the other.
                </p>
             )}
@@ -343,8 +595,34 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
             </p>
          )}
 
-         <form onSubmit={submit} className="space-y-6" noValidate>
-            <fieldset className="flex flex-wrap gap-3">
+         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            {mode === "catalog" && collections.length > 1 ? (
+               <nav aria-label="Collections" className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-surface p-1">
+                  {collections.map(({ id, title, short }) => {
+                     const current = id === collectionId;
+                     return (
+                        <Link
+                           key={id}
+                           href={collectionHref(id)}
+                           prefetch={false}
+                           aria-current={current ? "page" : undefined}
+                           aria-label={title}
+                           aria-disabled={busy || undefined}
+                           onClick={(event) => busy && event.preventDefault()}
+                           className={cn(
+                              "inline-flex min-h-11 shrink-0 items-center rounded-lg px-4 text-supporting whitespace-nowrap transition-micro focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                              current ? "bg-background font-semibold text-foreground shadow-[0_0_0_1px_var(--border)]" : "text-muted-foreground hover:text-foreground"
+                           )}
+                        >
+                           {short ?? title}
+                        </Link>
+                     );
+                  })}
+               </nav>
+            ) : (
+               <span />
+            )}
+            <fieldset className="m-0 flex w-full min-w-0 gap-1 rounded-xl border-0 bg-surface p-1 sm:inline-flex sm:w-auto">
                <legend className="sr-only">Where the question comes from</legend>
                {(
                   [
@@ -352,128 +630,27 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
                      ["custom", "Write your own"],
                   ] as const
                ).map(([value, label]) => (
-                  <label key={value} className={cn(CHOICE, "px-5 has-[:checked]:bg-primary has-[:checked]:text-primary-foreground")}>
-                     <input
-                        type="radio"
-                        name={`${ids}-mode`}
-                        value={value}
-                        checked={mode === value}
-                        disabled={busy}
-                        onChange={() => setMode(value)}
-                        className="sr-only"
-                     />
+                  <label
+                     key={value}
+                     className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-lg px-3 py-1 text-center text-supporting font-medium text-muted-foreground transition-micro sm:flex-none sm:px-4 sm:whitespace-nowrap has-[:checked]:bg-background has-[:checked]:font-semibold has-[:checked]:text-foreground has-[:checked]:shadow-[0_0_0_1px_var(--border)] has-[:disabled]:cursor-default has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50"
+                  >
+                     <input type="radio" name={`${ids}-mode`} value={value} checked={mode === value} disabled={busy} onChange={() => setMode(value)} className="sr-only" />
                      {label}
                   </label>
                ))}
             </fieldset>
+         </div>
 
+         <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
+            {mode === "catalog" && linkedMissing && (
+               <p role="status" className="text-supporting text-muted-foreground">
+                  The question from that link is not in the Lessons any more, so none is selected.
+               </p>
+            )}
             {mode === "catalog" ? (
-               <section aria-labelledby={`${ids}-catalog`} className="space-y-5">
-                  <h2 id={`${ids}-catalog`} className="sr-only">
-                     Questions from the Lessons
-                  </h2>
-                  {collections.length > 1 && (
-                     <div className="space-y-2">
-                        <label htmlFor={`${ids}-collection`} className="block text-supporting font-semibold text-foreground">
-                           Collection
-                        </label>
-                        <select
-                           id={`${ids}-collection`}
-                           value={collectionId}
-                           disabled={busy}
-                           onChange={(event) => chooseCollection(event.target.value)}
-                           className="border-input h-11 w-full max-w-xs rounded-md border bg-transparent px-3 text-base shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm dark:bg-input/30"
-                        >
-                           {collections.map(({ id, title }) => (
-                              <option key={id} value={id}>
-                                 {title}
-                              </option>
-                           ))}
-                        </select>
-                     </div>
-                  )}
-                  {grouped && <p className="max-w-reading text-supporting text-muted-foreground">{COMPANY_STATEMENT}</p>}
-                  {catalog.status === "failed" ? (
-                     <CatalogProblem reason={catalog.reason} signInHref={signInHref} onRetry={() => router.refresh()} onCustom={() => setMode("custom")} />
-                  ) : (
-                     <>
-                        {levelFilter && (
-                           <div className="space-y-2">
-                              <label htmlFor={`${ids}-level`} className="block text-supporting font-semibold text-foreground">
-                                 Level
-                              </label>
-                              <select
-                                 id={`${ids}-level`}
-                                 value={level}
-                                 disabled={busy}
-                                 onChange={(event) => chooseLevel(event.target.value === "all" ? "all" : (asTargetLevel(event.target.value) ?? "all"))}
-                                 className="border-input h-11 w-full max-w-xs rounded-md border bg-transparent px-3 text-base shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm dark:bg-input/30"
-                              >
-                                 <option value="all">All levels</option>
-                                 {TARGET_LEVELS.map(({ value, label }) => (
-                                    <option key={value} value={value}>
-                                       {label}
-                                    </option>
-                                 ))}
-                              </select>
-                              {preference.phase === "loading" && (
-                                 <p role="status" className="text-supporting text-muted-foreground">
-                                    Checking your target level…
-                                 </p>
-                              )}
-                              {preference.phase === "failed" && (
-                                 <p role="status" className="text-supporting text-muted-foreground">
-                                    We could not load your target level, so the level shown is your choice.{" "}
-                                    <button
-                                       type="button"
-                                       className="text-primary underline underline-offset-4"
-                                       onClick={() => {
-                                          setPreference({ phase: "loading" });
-                                          setPreferenceAttempt((n) => n + 1);
-                                       }}
-                                    >
-                                       Try again
-                                    </button>
-                                 </p>
-                              )}
-                           </div>
-                        )}
-
-                        {linkedMissing && (
-                           <p role="status" className="text-supporting text-muted-foreground">
-                              The question from that link is not in the Lessons any more, so none is selected.
-                           </p>
-                        )}
-
-                        <fieldset className="space-y-3">
-                           <legend className="mb-3 text-supporting font-semibold text-foreground">Question</legend>
-                           {visible.length === 0 ? (
-                              <p className="text-body text-muted-foreground">There are no questions for this level.</p>
-                           ) : grouped ? (
-                              <div className="space-y-8">
-                                 {groupsOf(visible).map(({ key, group, questions: inGroup }) => (
-                                    <section key={key} aria-labelledby={`${ids}-${key}`} className="space-y-3">
-                                       <h3 id={`${ids}-${key}`} className="text-subsection text-foreground">
-                                          {group.title}
-                                       </h3>
-                                       {group.explanation.split(/\n{2,}/).map((paragraph) => (
-                                          <p key={paragraph} className="max-w-reading text-supporting text-muted-foreground">
-                                             {plainHeading(paragraph)}
-                                          </p>
-                                       ))}
-                                       <ul className="space-y-3">{inGroup.map(renderQuestion)}</ul>
-                                    </section>
-                                 ))}
-                              </div>
-                           ) : (
-                              <ul className="space-y-3">{visible.map(renderQuestion)}</ul>
-                           )}
-                        </fieldset>
-                     </>
-                  )}
-               </section>
+               stage
             ) : (
-               <section className="space-y-2">
+               <section className="space-y-2 rounded-2xl border border-border bg-card p-4 md:p-8">
                   <label htmlFor={`${ids}-custom`} className="block text-supporting font-semibold text-foreground">
                      Your question
                   </label>
@@ -495,10 +672,14 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
                </section>
             )}
 
-            <div className="space-y-3">
-               <Button type="submit" size="lg" disabled={!canSubmit}>
-                  Start answer
-               </Button>
+            {/* Beside the collection switch on a wide screen, under the questions on a phone, so a question is near the top there. */}
+            {mode === "catalog" && grouped && <p className="max-w-4xl text-supporting text-muted-foreground lg:order-first">{COMPANY_STATEMENT}</p>}
+
+            <Dock
+               chosen={chosenLabel}
+               prompt={mode === "custom" ? "Write your question to start your answer." : "Choose a question to start your answer."}
+               canSubmit={canSubmit}
+            >
                {shown.phase === "saving" && (
                   <p role="status" className="text-supporting text-muted-foreground">
                      Creating your answer…
@@ -536,7 +717,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
                      </div>
                   </div>
                )}
-            </div>
+            </Dock>
          </form>
       </div>
    );

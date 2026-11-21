@@ -25,7 +25,7 @@ describe("the workspace home with M2", () => {
         expect(await screen.findByRole("region", { name: "Bookmarks" })).toBeInTheDocument();
         expect(screen.getAllByRole("link", { name: "Dynamic batching" })).toHaveLength(2);
         const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
-        expect(headings.indexOf("Continue")).toBeGreaterThan(headings.indexOf("Prepare your answers"));
+        expect(headings.indexOf("Continue")).toBeGreaterThan(headings.indexOf("Prepare"));
     });
 
     it("makes no item-state request, and shows neither section, when M2 is off", async () => {

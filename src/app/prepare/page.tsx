@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { PrepareFrame } from "@/components/prepare/PrepareFrame";
-import { workspaceLabels } from "@/lib/prep/collections";
+import { collectionSummaries, workspaceLabels } from "@/lib/prep/collections";
 import { prepEnabled } from "@/lib/prep-flag";
 import { PREPARE_HREF } from "@/lib/primary-navigation";
 import { hasSession } from "./hasSession";
@@ -23,13 +23,15 @@ export default async function PreparePage() {
 
     // Each company answer's collection and group, from the registry alone: no catalog read happens here.
     const labels = workspaceLabels();
+    // Each collection's title and counts for the start section: the same registry, so no catalog read either.
+    const collections = collectionSummaries();
     // Public Lesson and Problem titles for the Continue card and bookmarks: list metadata, nothing about this learner.
     const titles = await loadItemTitles();
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
         <PrepareFrame section="answers">
-            <PrepareWorkspace apiUrl={process.env.NEXT_PUBLIC_API_URL || null} labels={labels} titles={titles} />
+            <PrepareWorkspace apiUrl={process.env.NEXT_PUBLIC_API_URL || null} labels={labels} collections={collections} titles={titles} />
         </PrepareFrame>
     );
 }

@@ -75,6 +75,12 @@ const titlePattern = (channel: "HTML" | "inlined RSC" | "fetched RSC", title: st
 };
 const BROWSER_CHUNK = 16;
 const BROWSER_CHUNKS = Array.from({ length: Math.ceil(ROUTES.length / BROWSER_CHUNK) }, (_, index) => ROUTES.slice(index * BROWSER_CHUNK, (index + 1) * BROWSER_CHUNK));
+test("the chunks of the signed-out and unentitled route tests hold every catalog route exactly once", () => {
+   const chunked = BROWSER_CHUNKS.flat().map(({ route }) => route);
+   expect(chunked).toEqual(ROUTES.map(({ route }) => route));
+   expect(new Set(chunked).size, "a route is in two chunks").toBe(chunked.length);
+   expect(chunked.length).toBe(fixture.items.length + fixture.tracks.length);
+});
 const PROBLEM = canonical("problem.t24-premium-solution");
 const NEIGHBOURS = ["lesson.t24-premium-body", "knowledge.t24-premium-deep-dive"].map((id) => ({
    route: canonical(id),
@@ -153,25 +159,28 @@ for (const { name, baseURL } of [
          test.describe(identity, () => {
             test.use({ baseURL, identity });
 
-            test("raw HTML and fetched RSC of every catalog route hold no canary", async ({ page }) => {
-               for (const { route, premium } of ROUTES) {
-                  const where = `${route} as ${identity} on ${name}`;
-                  const document = await page.request.get(route);
-                  expect(document.status(), where).toBe(200);
-                  const html = await document.text();
-                  expect(inlinedRsc(html), `${where}: no inlined RSC payload decoded`).not.toBe("");
-                  expect(format(scanResponse("html", route, html)), where).toEqual([]);
-                  if (premium) expect(html, `${where}: not served as this identity`).toContain(NOTICE[identity]);
+            // A chunk per test, as for the browser below: three requests a route, so the whole loop outgrew one test's 30 s under load.
+            BROWSER_CHUNKS.forEach((routes, index) => {
+               test(`raw HTML and fetched RSC of every catalog route hold no canary (routes ${index * BROWSER_CHUNK + 1}-${index * BROWSER_CHUNK + routes.length} of ${ROUTES.length})`, async ({ page }) => {
+                  for (const { route, premium } of routes) {
+                     const where = `${route} as ${identity} on ${name}`;
+                     const document = await page.request.get(route);
+                     expect(document.status(), where).toBe(200);
+                     const html = await document.text();
+                     expect(inlinedRsc(html), `${where}: no inlined RSC payload decoded`).not.toBe("");
+                     expect(format(scanResponse("html", route, html)), where).toEqual([]);
+                     if (premium) expect(html, `${where}: not served as this identity`).toContain(NOTICE[identity]);
 
-                  const flights: Record<string, string>[] = [{ RSC: "1" }, { RSC: "1", "Next-Router-Prefetch": "1" }];
-                  for (const headers of flights) {
-                     const flight = await page.request.get(route, { headers });
-                     expect(flight.headers()["content-type"], where).toContain("text/x-component");
-                     const text = await flight.text();
-                     expect(text, `${where}: empty RSC payload`).not.toBe("");
-                     expect(format(scanResponse("rsc", route, text)), `${where} ${Object.keys(headers)}`).toEqual([]);
+                     const flights: Record<string, string>[] = [{ RSC: "1" }, { RSC: "1", "Next-Router-Prefetch": "1" }];
+                     for (const headers of flights) {
+                        const flight = await page.request.get(route, { headers });
+                        expect(flight.headers()["content-type"], where).toContain("text/x-component");
+                        const text = await flight.text();
+                        expect(text, `${where}: empty RSC payload`).not.toBe("");
+                        expect(format(scanResponse("rsc", route, text)), `${where} ${Object.keys(headers)}`).toEqual([]);
+                     }
                   }
-               }
+               });
             });
 
             test("every catalog route is rendered on demand, never shared-cacheable or served from a prerender cache", async ({

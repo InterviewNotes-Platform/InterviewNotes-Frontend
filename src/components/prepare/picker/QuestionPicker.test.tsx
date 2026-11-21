@@ -42,6 +42,12 @@ const options = () => within(screen.getByRole("group", { name: "Question" })).ge
 const posts = () => api.requests.filter(({ method, path }) => method === "POST" && path.endsWith("/answers"));
 const submit = () => screen.getByRole("button", { name: "Start answer" });
 
+/** While every level is listed the picker shows one level at a time; step with Next until the stage is headed `name`. */
+function stepTo(name: string) {
+   for (let guard = 0; guard < 10 && !screen.queryByRole("heading", { level: 2, name }); guard++) fireEvent.click(screen.getByRole("button", { name: /^Next / }));
+   expect(screen.getByRole("heading", { level: 2, name })).toBeInTheDocument();
+}
+
 /** The saved level is read first; a failure queued before that would land on it instead of the write under test. */
 const preferenceRead = () => waitFor(() => expect(api.requests.some(({ path }) => path.endsWith("/preferences"))).toBe(true));
 
@@ -52,11 +58,18 @@ async function saveLevel(level: string) {
 }
 
 describe("target-level filtering", () => {
-   it("lists every question when there is no saved level", async () => {
+   it("opens the first level, with every level a stop, when there is no saved level", async () => {
       show();
       await waitFor(() => expect(api.requests.filter(({ path }) => path.endsWith("/preferences"))).toHaveLength(1));
-      expect(options()).toHaveLength(5);
       expect(screen.getByLabelText("Level")).toHaveValue("all");
+      expect(screen.getByRole("heading", { level: 2, name: "SDE-1" })).toBeInTheDocument();
+      // Every question is still reachable, in the Lessons' order, one level at a time.
+      const seen: string[] = [];
+      for (const level of ["SDE-1", "SDE-2", "Engineering manager"]) {
+         stepTo(level);
+         seen.push(...options().map((option) => option.closest("label")?.textContent ?? ""));
+      }
+      expect(seen).toEqual(questions.map(({ text }) => text));
    });
 
    it("filters by the saved target level, reading it once and nothing else", async () => {
@@ -86,6 +99,31 @@ describe("target-level filtering", () => {
       expect(options()).toHaveLength(1);
    });
 
+   it("never moves the view afterwards when the reader has stepped through the levels or searched before the saved level arrives", async () => {
+      await saveLevel("sde-2");
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const slow: typeof fetch = async (input, init) => {
+         if (String(input).includes("/preferences")) await gate;
+         return api.fetch(input, init);
+      };
+      show({}, slow);
+      fireEvent.click(screen.getByRole("button", { name: "Next group" }));
+      expect(screen.getByRole("heading", { level: 2, name: "SDE-2" })).toBeInTheDocument();
+      await act(async () => release());
+      await waitFor(() => expect(api.requests).toHaveLength(1));
+      // The saved level is SDE-2, and the reader chose to look at levels: the Level choice stays on all.
+      expect(screen.getByLabelText("Level")).toHaveValue("all");
+      expect(screen.getByRole("heading", { level: 2, name: "SDE-2" })).toBeInTheDocument();
+   });
+
+   it("removes the open position from the address when a level is chosen, because one level is a plain list", () => {
+      window.history.replaceState(null, "", "/prepare/new?group=2");
+      show();
+      fireEvent.change(screen.getByLabelText("Level"), { target: { value: "sde-1" } });
+      expect(window.location.search).toBe("");
+   });
+
    it("drops a selection the filter hides, so it cannot be submitted unseen", () => {
       show();
       fireEvent.click(options()[0]);
@@ -105,7 +143,8 @@ describe("target-level filtering", () => {
       api.failNext(500);
       show();
       expect(await screen.findByText(/could not load your target level/)).toBeInTheDocument();
-      expect(options()).toHaveLength(5);
+      expect(screen.getByRole("heading", { level: 2, name: "SDE-1" })).toBeInTheDocument();
+      expect(options()).toHaveLength(2);
       fireEvent.click(screen.getByRole("button", { name: "Try again" }));
       await waitFor(() => expect(screen.getByLabelText("Level")).toHaveValue("sde-2"));
       expect(options()).toHaveLength(2);
@@ -115,7 +154,8 @@ describe("target-level filtering", () => {
 describe("catalog answers", () => {
    it("creates the answer with the exact pair and the snapshot, and opens that answer's editor", async () => {
       show();
-      fireEvent.click(options()[3]);
+      stepTo("SDE-2");
+      fireEvent.click(options()[1]);
       fireEvent.click(submit());
       await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
       const listed = await client().listAnswers();
@@ -137,10 +177,20 @@ describe("catalog answers", () => {
 
    it("keys a question by its pair: the same id and words in another Lesson is a different question", async () => {
       show();
-      const [first, , second] = options();
+      // The same id and words sit in SDE-1 and SDE-2; choosing the second must not check the first.
+      fireEvent.click(options()[0]);
+      stepTo("SDE-2");
+      const second = options()[0];
       fireEvent.click(second);
       expect(second).toBeChecked();
-      expect(first).not.toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: "Previous group" }));
+      expect(options()[0]).not.toBeChecked();
+      // The SDE-2 question is not on screen, so it is not started from here; it is chosen again once its level is open.
+      expect(submit()).toBeDisabled();
+      fireEvent.submit(submit().closest("form")!);
+      expect(posts()).toHaveLength(0);
+      fireEvent.click(screen.getByRole("button", { name: "Next group" }));
+      expect(options()[0]).toBeChecked();
       fireEvent.click(submit());
       await waitFor(() => expect(posts()).toHaveLength(1));
       expect(posts()[0].body).toMatchObject({ content_id: S2, question_id: "disagreement" });
@@ -148,7 +198,8 @@ describe("catalog answers", () => {
 
    it("sends the flagged fallback for a question whose text is its heading", async () => {
       show();
-      fireEvent.click(options()[4]);
+      stepTo("Engineering manager");
+      fireEvent.click(options()[0]);
       fireEvent.click(submit());
       await waitFor(() => expect(posts()).toHaveLength(1));
       expect(posts()[0].body).toMatchObject({ content_id: EM, question_id: "underperformance", question_snapshot: "Underperformance on your team", snapshot_fallback: true });
@@ -429,25 +480,34 @@ describe("collections", () => {
    const showCollection = (id: string, catalog: CatalogLoad, extra: Partial<React.ComponentProps<typeof QuestionPicker>> = {}) =>
       show({ collections: COLLECTIONS, collectionId: id, catalog, ...extra });
 
-   it("lists the three collections with the current one selected, and asks the page for another instead of filtering", () => {
+   it("lists the three collections with the current one marked, and asks the page for another by an ordinary link instead of filtering", () => {
       showCollection("amazon", grouped, { storyId: "11111111-1111-4111-8111-111111111111" });
-      const select = screen.getByLabelText("Collection");
-      expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual(COLLECTIONS.map(({ title }) => title));
-      expect(select).toHaveValue("amazon");
-      fireEvent.change(select, { target: { value: "google" } });
-      expect(nav.push).toHaveBeenCalledWith("/prepare/new?collection=google&story=11111111-1111-4111-8111-111111111111");
+      const switcher = screen.getByRole("navigation", { name: "Collections" });
+      const links = within(switcher).getAllByRole("link");
+      expect(links.map((link) => link.getAttribute("aria-label"))).toEqual(COLLECTIONS.map(({ title }) => title));
+      expect(links.map((link) => link.getAttribute("aria-current"))).toEqual([null, "page", null]);
+      expect(within(switcher).getByRole("link", { name: "Googleyness & Leadership" })).toHaveAttribute("href", "/prepare/new?collection=google&story=11111111-1111-4111-8111-111111111111");
+      // Another collection is another server read: the picker never loads it itself, so it does not navigate on its own.
+      expect(nav.push).not.toHaveBeenCalled();
+      expect(nav.refresh).not.toHaveBeenCalled();
    });
 
-   it("groups a company collection under its titles with each group's explanation, and offers only the questions", () => {
+   it("opens one principle at a time, in source order, with its own guidance beside only its own questions", () => {
       showCollection("amazon", grouped);
-      expect(screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(["Ownership", "Dive Deep"]);
-      expect(options()).toHaveLength(3);
+      expect(screen.getByRole("heading", { level: 2, name: "Ownership" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Dive Deep" })).toBeNull();
+      expect(options()).toHaveLength(2);
       const ownership = screen.getByRole("region", { name: "Ownership" });
-      expect(within(ownership).getAllByRole("radio")).toHaveLength(2);
-      expect(within(ownership).getByText("Owning the outcome.")).toBeInTheDocument();
-      expect(within(ownership).getByText("Editorial note. Strong evidence is specific.")).toBeInTheDocument();
-      expect(within(screen.getByRole("region", { name: "Dive Deep" })).getByText("Knowing the details.")).toBeInTheDocument();
+      // The guidance is drawn for a wide screen and for a phone; only one is shown by the stylesheet.
+      expect(within(ownership).getAllByText("Owning the outcome.").length).toBeGreaterThan(0);
+      expect(within(ownership).getAllByText("Editorial note. Strong evidence is specific.").length).toBeGreaterThan(0);
+      expect(screen.queryByText("Knowing the details.")).toBeNull();
       expect(screen.queryByRole("radio", { name: /^Ownership$/ })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Next group" }));
+      expect(screen.getByRole("heading", { level: 2, name: "Dive Deep" })).toBeInTheDocument();
+      expect(options()).toHaveLength(1);
+      expect(within(screen.getByRole("region", { name: "Dive Deep" })).getAllByText("Knowing the details.").length).toBeGreaterThan(0);
    });
 
    it("has no level filter for a company collection, shows no level under a question and never reads the saved level", async () => {
@@ -469,18 +529,20 @@ describe("collections", () => {
       expect(screen.queryByText(COMPANY_STATEMENT)).toBeNull();
    });
 
-   it("keeps the general picker as it was: level filter, level labels, no groups", async () => {
+   it("keeps the general picker's level filter and has no principle guidance; every level is a stop instead of a label on each question", async () => {
       showCollection("behavioral", ok);
       expect(screen.getByLabelText("Level")).toBeInTheDocument();
-      expect(options()).toHaveLength(5);
+      expect(options()).toHaveLength(2);
       expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
-      expect(screen.getAllByText("SDE-1")).not.toHaveLength(0);
+      expect(screen.getByRole("heading", { level: 2, name: "SDE-1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Jump to group" })).toBeInTheDocument();
       await preferenceRead();
    });
 
    it("creates the answer with the authored pair and the Lesson's question line as the snapshot", async () => {
       showCollection("amazon", grouped);
-      fireEvent.click(options()[2]);
+      fireEvent.click(screen.getByRole("button", { name: "Next group" }));
+      fireEvent.click(options()[0]);
       fireEvent.click(submit());
       await waitFor(() => expect(posts()).toHaveLength(1));
       expect(posts()[0].body).toEqual({
@@ -503,7 +565,8 @@ describe("collections", () => {
       showCollection("google", { status: "failed", reason: "unavailable" });
       expect(screen.getByRole("alert")).toHaveTextContent("We could not load the questions");
       expect(screen.queryAllByRole("radio", { name: /Tell me/ })).toHaveLength(0);
-      expect(screen.getByLabelText("Collection")).toHaveValue("google");
+      expect(screen.getByRole("link", { name: "Googleyness & Leadership" })).toHaveAttribute("aria-current", "page");
+      expect(screen.getByRole("link", { name: "Amazon Leadership Principles" })).toHaveAttribute("href", "/prepare/new?collection=amazon");
       expect(screen.getByText(COMPANY_STATEMENT)).toBeInTheDocument();
    });
 
@@ -516,6 +579,514 @@ describe("collections", () => {
 
    it("shows no selector without a registry, as before", () => {
       show();
-      expect(screen.queryByLabelText("Collection")).toBeNull();
+      expect(screen.queryByRole("navigation", { name: "Collections" })).toBeNull();
+   });
+});
+
+/*
+ * The Desk picker (P8-PREP-UX-02): one principle at a time, a jump menu, search inside the loaded collection, and Start answer kept
+ * in reach. Everything here is presentation over the same create path, so the guarantees are about what it must NOT do: no request
+ * from stepping or searching, no navigation by the router, no second create.
+ */
+describe("the Desk picker", () => {
+   const AMAZON = "lesson.amazon-leadership-principles";
+   const COLLECTIONS: CollectionOption[] = [
+      { id: "behavioral", title: "General Behavioral", short: "General", unit: { one: "level", many: "levels" }, levelFilter: true, grouped: false },
+      { id: "amazon", title: "Amazon Leadership Principles", short: "Amazon", unit: { one: "principle", many: "principles" }, levelFilter: false, grouped: true },
+   ];
+   const group = (title: string, explanation: string) => ({ title, explanation });
+   const own = group("Ownership", "Owning the outcome.\n\n**Editorial note.** Strong evidence is specific.");
+   const dive = group("Dive Deep", "Knowing the details.");
+   const trust = group("Earn Trust", "Being straight with people.");
+   const q = (id: string, title: string, text: string, g: ReturnType<typeof group>): CatalogQuestion<null> => ({
+      content_id: AMAZON, question_id: id, level: null, text, title, snapshot_fallback: false, group: g,
+   });
+   const catalog: CatalogLoad = {
+      status: "ok",
+      questions: [
+         q("alp-ownership-01", "A problem nobody had assigned", "Tell me about a production problem that was not formally yours.", own),
+         q("alp-ownership-02", "Inheriting something fragile", "Describe taking over a brittle system.", own),
+         q("alp-dive-deep-01", "A metric that looked wrong", "Tell me about digging into a metric that did not add up.", dive),
+         q("alp-dive-deep-02", "Résumé of an outage", "Walk me through how you traced an outage to its cause.", dive),
+         q("alp-earn-trust-01", "Saying the hard thing", "Tell me about delivering bad news to your team.", trust),
+      ],
+   };
+   const open = (extra: Partial<React.ComponentProps<typeof QuestionPicker>> = {}, fetch?: typeof globalThis.fetch) => show({ collections: COLLECTIONS, collectionId: "amazon", catalog, ...extra }, fetch);
+   const heading = () => screen.getByRole("heading", { level: 2 }).textContent;
+   const search = () => screen.getByRole("searchbox", { name: "Find a question in Amazon Leadership Principles" });
+   const type = (value: string) => fireEvent.change(search(), { target: { value } });
+
+   beforeEach(() => window.history.replaceState(null, "", "/prepare/new?collection=amazon"));
+
+   describe("the stepper", () => {
+      it("starts on the first principle, says where it is, and has no Previous there", () => {
+         open();
+         expect(heading()).toBe("Ownership");
+         expect(screen.getByText("Principle 1 of 3")).toBeInTheDocument();
+         expect(screen.getByRole("button", { name: "Previous principle" })).toBeDisabled();
+         expect(screen.getByRole("button", { name: "Next principle" })).toBeEnabled();
+      });
+
+      it("steps in source order to the last principle, where Next ends", () => {
+         open();
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(heading()).toBe("Dive Deep");
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(heading()).toBe("Earn Trust");
+         expect(screen.getByRole("button", { name: "Next principle" })).toBeDisabled();
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(heading()).toBe("Dive Deep");
+      });
+
+      it("keeps the chosen question when stepping away and back", () => {
+         open();
+         fireEvent.click(options()[1]);
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(options().some((option) => (option as HTMLInputElement).checked)).toBe(false);
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(options()[1]).toBeChecked();
+      });
+
+      it("makes no request and does not navigate, however many steps are taken", () => {
+         open();
+         for (let i = 0; i < 2; i++) fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(api.requests).toEqual([]);
+         expect(nav.push).not.toHaveBeenCalled();
+         expect(nav.refresh).not.toHaveBeenCalled();
+      });
+
+      it("says the principle it moved to in a polite live region, without moving focus", () => {
+         open();
+         const next = screen.getByRole("button", { name: "Next principle" });
+         next.focus();
+         fireEvent.click(next);
+         expect(screen.getByText("Principle 2 of 3: Dive Deep, 2 questions")).toHaveAttribute("aria-live", "polite");
+         expect(next).toHaveFocus();
+      });
+
+      it("writes the position to the address with replaceState only, and removes it on the first principle", () => {
+         const replace = vi.spyOn(window.history, "replaceState");
+         open();
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(window.location.search).toBe("?collection=amazon&group=2");
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(window.location.search).toBe("?collection=amazon");
+         expect(replace).toHaveBeenCalledTimes(2);
+         replace.mockRestore();
+      });
+
+      it("keeps every other parameter when the position is written", () => {
+         window.history.replaceState(null, "", "/prepare/new?collection=amazon&story=11111111-1111-4111-8111-111111111111");
+         open({ storyId: "11111111-1111-4111-8111-111111111111" });
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(new URLSearchParams(window.location.search).get("story")).toBe("11111111-1111-4111-8111-111111111111");
+         expect(new URLSearchParams(window.location.search).get("collection")).toBe("amazon");
+      });
+   });
+
+   describe("a choice that is not on screen is never started", () => {
+      const form = () => submit().closest("form")!;
+
+      it("waits for a choice in view after stepping away, and counts again when the principle is open", async () => {
+         open();
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(heading()).toBe("Dive Deep");
+         expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
+         expect(submit()).toBeDisabled();
+         fireEvent.submit(form());
+         expect(posts()).toHaveLength(0);
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(options()[0]).toBeChecked();
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toMatchObject({ question_id: "alp-ownership-01" });
+      });
+
+      it("starts the question chosen in the open principle, not an earlier one left behind", async () => {
+         open();
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         fireEvent.click(options()[1]);
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toMatchObject({ question_id: "alp-dive-deep-02" });
+      });
+
+      it("treats a jump like a step", () => {
+         open();
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "Jump to principle" }));
+         fireEvent.click(screen.getByRole("button", { name: /Earn Trust/ }));
+         expect(heading()).toBe("Earn Trust");
+         expect(submit()).toBeDisabled();
+      });
+
+      it("closing a search does not move the view, and a choice made before it stays off until its principle is open", () => {
+         open();
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         type("outage");
+         type("");
+         // The reader left Ownership on purpose, and nothing in the results was chosen, so the view stays put.
+         expect(heading()).toBe("Dive Deep");
+         expect(submit()).toBeDisabled();
+      });
+
+      it("opens the principle of a result chosen in the search when the search is cleared, with that question startable", async () => {
+         open();
+         type("trust");
+         fireEvent.click(options()[0]);
+         expect(submit()).toBeEnabled();
+         fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+         expect(search()).toHaveValue("");
+         expect(heading()).toBe("Earn Trust");
+         expect(options()[0]).toBeChecked();
+         expect(window.location.search).toBe("?collection=amazon&group=3");
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toMatchObject({ question_id: "alp-earn-trust-01" });
+      });
+
+      it("does the same for Escape and for Show all questions", () => {
+         open();
+         type("trust");
+         fireEvent.click(options()[0]);
+         fireEvent.keyDown(search(), { key: "Escape" });
+         expect(heading()).toBe("Earn Trust");
+         expect(options()[0]).toBeChecked();
+         type("zzzzqq");
+         fireEvent.click(screen.getByRole("button", { name: "Show all questions" }));
+         expect(heading()).toBe("Earn Trust");
+         expect(options()[0]).toBeChecked();
+      });
+
+      it("offers a link's question on arrival, in view, and not once the reader has left its principle", async () => {
+         open({ requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
+         expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
+         expect(submit()).toBeEnabled();
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(submit()).toBeDisabled();
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(submit()).toBeEnabled();
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toMatchObject({ question_id: "alp-dive-deep-02" });
+      });
+
+      it("does not start a link's question that the address's own position puts out of view", () => {
+         open({ initialGroup: 1, requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
+         expect(heading()).toBe("Ownership");
+         expect(submit()).toBeDisabled();
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
+         expect(submit()).toBeEnabled();
+      });
+
+      it("keeps a signed-out reader's sign-in return to the question they started, not to one out of view", async () => {
+         open({}, (async () => new Response(null, { status: 401 })) as unknown as typeof fetch);
+         fireEvent.click(options()[0]);
+         fireEvent.click(submit());
+         const link = await screen.findByRole("link", { name: "Sign in" });
+         expect(decodeURIComponent(link.getAttribute("href") ?? "")).toContain("question=alp-ownership-01");
+      });
+   });
+
+   describe("the open principle at load", () => {
+      it("opens the principle the address names, counted from 1", () => {
+         open({ initialGroup: 3 });
+         expect(heading()).toBe("Earn Trust");
+      });
+
+      it("opens the last principle for a position past the end, and the first for none", () => {
+         open({ initialGroup: 99 });
+         expect(heading()).toBe("Earn Trust");
+      });
+
+      it("opens the principle that holds a question a Lesson link named, with it selected", () => {
+         open({ requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
+         expect(heading()).toBe("Dive Deep");
+         expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
+      });
+
+      it("lets an explicit position win over the link's principle, keeping the link's question chosen", () => {
+         open({ initialGroup: 1, requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
+         expect(heading()).toBe("Ownership");
+         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
+      });
+   });
+
+   describe("the jump menu", () => {
+      const trigger = () => screen.getByRole("button", { name: "Jump to principle" });
+
+      it("is a disclosure that lists every principle in order, with the open one marked", () => {
+         open();
+         expect(trigger()).toHaveAttribute("aria-expanded", "false");
+         fireEvent.click(trigger());
+         expect(trigger()).toHaveAttribute("aria-expanded", "true");
+         const panel = document.getElementById(trigger().getAttribute("aria-controls")!)!;
+         const items = within(panel).getAllByRole("button");
+         expect(items.map((item) => item.textContent?.replace(/\d+ questions?$/, "").replace(/^\d+/, ""))).toEqual(["Ownership", "Dive Deep", "Earn Trust"]);
+         expect(items.map((item) => item.getAttribute("aria-current"))).toEqual(["true", null, null]);
+      });
+
+      it("opens the chosen principle, closes, and gives focus back to its button", () => {
+         open();
+         fireEvent.click(trigger());
+         fireEvent.click(screen.getByRole("button", { name: /Earn Trust/ }));
+         expect(heading()).toBe("Earn Trust");
+         expect(trigger()).toHaveAttribute("aria-expanded", "false");
+         expect(trigger()).toHaveFocus();
+         expect(window.location.search).toBe("?collection=amazon&group=3");
+      });
+
+      it("closes on Escape without changing the principle", () => {
+         open();
+         fireEvent.click(trigger());
+         fireEvent.keyDown(screen.getByRole("button", { name: /Ownership/ }), { key: "Escape" });
+         expect(trigger()).toHaveAttribute("aria-expanded", "false");
+         expect(heading()).toBe("Ownership");
+      });
+
+      it("moves between the principles with the arrow keys", () => {
+         open();
+         fireEvent.click(trigger());
+         const first = screen.getByRole("button", { name: /Ownership/ });
+         first.focus();
+         fireEvent.keyDown(first, { key: "ArrowDown" });
+         expect(screen.getByRole("button", { name: /Dive Deep/ })).toHaveFocus();
+         fireEvent.keyDown(document.activeElement!, { key: "End" });
+         expect(screen.getByRole("button", { name: /Earn Trust/ })).toHaveFocus();
+      });
+   });
+
+   describe("search inside the collection", () => {
+      it("is not offered when the catalog could not be read, or in Write your own", () => {
+         show({ collections: COLLECTIONS, collectionId: "amazon", catalog: { status: "failed", reason: "unavailable" } });
+         expect(screen.queryByRole("searchbox")).toBeNull();
+      });
+
+      it("shows matches grouped under their principles, in source order, and hides the stepper", async () => {
+         open();
+         type("metric outage");
+         expect(screen.queryByRole("button", { name: "Next principle" })).toBeNull();
+         type("tell");
+         const results = screen.getByRole("region", { name: "Search results" });
+         expect(within(results).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Ownership", "Dive Deep", "Earn Trust"]);
+         expect(within(results).getAllByRole("radio")).toHaveLength(3);
+      });
+
+      it("needs every word, ignores case and accents, and searches the heading, the wording and the group", () => {
+         open();
+         type("RESUME outage");
+         expect(options()).toHaveLength(1);
+         expect(options()[0]).toHaveAccessibleName(/Walk me through how you traced an outage/);
+         type("dive deep");
+         expect(options()).toHaveLength(2);
+         type("brittle");
+         expect(options()).toHaveLength(1);
+         type("brittle outage");
+         expect(screen.queryAllByRole("radio", { name: /./ }).filter((radio) => radio.closest("fieldset")?.querySelector("legend")?.textContent === "Question")).toHaveLength(0);
+      });
+
+      it("marks the matched words and leaves the question's text as written", () => {
+         open();
+         type("metric");
+         const marked = [...document.querySelectorAll("mark")].map((mark) => mark.textContent);
+         expect(marked).toContain("metric");
+         expect(options()[0].closest("label")?.textContent).toBe("A metric that looked wrong Tell me about digging into a metric that did not add up.");
+      });
+
+      it("says how many match once typing pauses, and says when none do", async () => {
+         open();
+         type("tell");
+         expect(await screen.findByText("3 questions match “tell” in Amazon Leadership Principles.")).toBeInTheDocument();
+         type("zzzz");
+         expect(await screen.findByText("No questions match “zzzz”.")).toBeInTheDocument();
+         expect(screen.getByText("No question matches those words.")).toBeInTheDocument();
+      });
+
+      it("makes no request and does not navigate", () => {
+         open();
+         type("tell");
+         type("");
+         expect(api.requests).toEqual([]);
+         expect(nav.push).not.toHaveBeenCalled();
+         expect(nav.refresh).not.toHaveBeenCalled();
+      });
+
+      it("never starts an answer on Enter, and Escape clears it", () => {
+         open();
+         type("tell");
+         const enter = fireEvent.keyDown(search(), { key: "Enter" });
+         expect(enter).toBe(false);
+         expect(posts()).toHaveLength(0);
+         fireEvent.keyDown(search(), { key: "Escape" });
+         expect(search()).toHaveValue("");
+         expect(heading()).toBe("Ownership");
+      });
+
+      it("moves into the results with the down arrow, to the chosen one when there is one", () => {
+         open();
+         type("tell");
+         fireEvent.keyDown(search(), { key: "ArrowDown" });
+         expect(options()[0]).toHaveFocus();
+         fireEvent.click(options()[2]);
+         search().focus();
+         fireEvent.keyDown(search(), { key: "ArrowDown" });
+         expect(options()[2]).toHaveFocus();
+      });
+
+      it("does not start a chosen question that the search hides, and offers it again once the search is closed", () => {
+         open();
+         fireEvent.click(options()[0]);
+         expect(screen.getByText(/Selected ·/)).toHaveTextContent("A problem nobody had assigned");
+         type("trust");
+         expect(options()).toHaveLength(1);
+         // Not among the results, so not something to start: the dock asks for a choice and Start answer waits.
+         expect(screen.queryByText(/Selected ·/)).toBeNull();
+         expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
+         expect(submit()).toBeDisabled();
+         fireEvent.submit(submit().closest("form")!);
+         expect(posts()).toHaveLength(0);
+         fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+         expect(heading()).toBe("Ownership");
+         expect(options()[0]).toBeChecked();
+         expect(submit()).toBeEnabled();
+      });
+
+      it("opens a result's principle with View principle, with the question still chosen and its guidance beside it", () => {
+         open();
+         type("trust");
+         fireEvent.click(options()[0]);
+         fireEvent.click(screen.getByRole("button", { name: "View principle: Earn Trust" }));
+         expect(search()).toHaveValue("");
+         expect(heading()).toBe("Earn Trust");
+         expect(options()[0]).toBeChecked();
+         expect(screen.getAllByText("Being straight with people.").length).toBeGreaterThan(0);
+         expect(window.location.search).toBe("?collection=amazon&group=3");
+      });
+
+      it("creates the answer with the exact pair when started from a search result", async () => {
+         open();
+         type("outage");
+         fireEvent.click(options()[0]);
+         fireEvent.click(submit());
+         await waitFor(() => expect(posts()).toHaveLength(1));
+         expect(posts()[0].body).toEqual({
+            source: "catalog", content_id: AMAZON, question_id: "alp-dive-deep-02",
+            question_snapshot: "Walk me through how you traced an outage to its cause.", snapshot_fallback: false, framework: "star",
+         });
+      });
+
+      it("searches only the open level of the general collection, and offers every level", () => {
+         show({ collections: COLLECTIONS, collectionId: "behavioral", catalog: ok });
+         fireEvent.change(screen.getByLabelText("Level"), { target: { value: "sde-2" } });
+         fireEvent.change(screen.getByRole("searchbox", { name: "Find a question in General Behavioral" }), { target: { value: "stuck" } });
+         expect(screen.getByText("No question matches those words.")).toBeInTheDocument();
+         fireEvent.click(screen.getByRole("button", { name: "Search all levels" }));
+         expect(options()).toHaveLength(1);
+         expect(screen.getByRole("region", { name: "Search results" })).toHaveTextContent("SDE-1");
+         // Every level is now searched; clearing the search shows the Level choice again, set to all.
+         fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+         expect(screen.getByLabelText("Level")).toHaveValue("all");
+      });
+   });
+
+   describe("question rows", () => {
+      it("shows the Lesson's heading and the question as written, and names the radio by both", () => {
+         open();
+         expect(options()[0]).toHaveAccessibleName("A problem nobody had assigned Tell me about a production problem that was not formally yours.");
+      });
+
+      it("shows the wording once when a question has no title of its own", () => {
+         show({ catalog: ok });
+         expect(options()[0]).toHaveAccessibleName("Tell me about a time you disagreed with a teammate.");
+      });
+   });
+
+   describe("Start answer in the dock", () => {
+      it("says what to do until a question is chosen, then which one is chosen", () => {
+         open();
+         expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
+         expect(submit()).toBeDisabled();
+         fireEvent.click(options()[1]);
+         expect(screen.getByText(/Selected ·/)).toHaveTextContent("Inheriting something fragile");
+         expect(submit()).toBeEnabled();
+      });
+
+      it("is part of the same form, so one create path serves every way of choosing", () => {
+         open();
+         expect(submit()).toHaveAttribute("type", "submit");
+         expect(submit().closest("form")).toContainElement(options()[0]);
+      });
+
+      it("shows a custom question as such, and asks for one until it is written", () => {
+         open();
+         fireEvent.click(screen.getByRole("radio", { name: "Write your own" }));
+         expect(screen.getByText("Write your question to start your answer.")).toBeInTheDocument();
+         expect(screen.queryByRole("searchbox")).toBeNull();
+         expect(screen.queryByRole("navigation", { name: "Collections" })).toBeNull();
+         fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "My own?" } });
+         expect(screen.getByText(/Selected ·/)).toHaveTextContent("Your own question");
+      });
+
+      it("holds the create's own states beside the button, and creates exactly once for a double click", async () => {
+         let release!: () => void;
+         const gate = new Promise<void>((resolve) => (release = resolve));
+         const held: typeof fetch = async (input, init) => {
+            if (init?.method === "POST") await gate;
+            return api.fetch(input, init);
+         };
+         open({}, held);
+         fireEvent.click(options()[0]);
+         fireEvent.click(submit());
+         fireEvent.click(submit());
+         const creating = await screen.findByText(/Creating your answer/);
+         expect(submit().closest("form")).toContainElement(creating);
+         await act(async () => release());
+         await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
+         expect(posts()).toHaveLength(1);
+      });
+
+      it("keeps an unconfirmed create's guard through a search and a step: the same question stays off until the reader says it is not there", async () => {
+         const lost: typeof fetch = async (input, init) => {
+            if (init?.method === "POST") throw new TypeError("fetch failed");
+            return api.fetch(input, init);
+         };
+         open({}, lost);
+         fireEvent.click(options()[0]);
+         fireEvent.click(submit());
+         await screen.findByText(/could not confirm/);
+         expect(submit()).toBeDisabled();
+         type("trust");
+         fireEvent.click(options()[0]);
+         expect(submit()).toBeEnabled();
+         type("");
+         // Closing the search leaves the result just chosen on screen, in its own principle; walk back to the first one.
+         expect(heading()).toBe("Earn Trust");
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(heading()).toBe("Ownership");
+         fireEvent.click(options()[0]);
+         expect(submit()).toBeDisabled();
+         expect(screen.getByRole("button", { name: "It is not there: create it again" })).toBeInTheDocument();
+      });
+   });
+
+   describe("the collection switch", () => {
+      it("keeps the company statement once, whatever the collection", () => {
+         open();
+         expect(screen.getAllByText(COMPANY_STATEMENT)).toHaveLength(1);
+      });
+
+      it("links the other collections and does not follow a link while an answer is being made", async () => {
+         open();
+         const general = screen.getByRole("link", { name: "General Behavioral" });
+         expect(general).toHaveAttribute("href", "/prepare/new?collection=behavioral");
+         expect(screen.getByRole("link", { name: "Amazon Leadership Principles" })).toHaveAttribute("aria-current", "page");
+      });
    });
 });

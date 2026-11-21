@@ -110,6 +110,8 @@ async function run() {
          // T48: the workspace also makes one capability read; nothing else may be asked.
          const answerReads = asked("/me/prep/answers?limit=100");
          check(`${label}: only the answers list and the single capability read were requested`, answerReads >= 1 && answerReads <= 2 && asked("/me/prep/features") === 1 && answerReads + 1 === paths.length, JSON.stringify(paths));
+         // P8-PREP-UX-02: where to start (three collections and the Story Bank) is there at once and is plain registry data, so it adds no request.
+         check(`${label}: the start section is present while loading`, (await page.getByRole("region", { name: "Choose where to start" }).getByRole("link").count()) === 4);
          const action = page.getByRole("link", { name: "Answer a question" });
          const box = await action.boundingBox();
          check(`${label}: Answer a question is the first action, inside the viewport`, box !== null && box.y + box.height <= viewport.height && box.x >= 0 && box.x + box.width <= viewport.width);
@@ -127,7 +129,8 @@ async function run() {
 
          if (process.env.SMOKE_SHOTS) await page.screenshot({ path: `${process.env.SMOKE_SHOTS}/prepare-${label}-loading.png` });
          release();
-         await page.getByText("Tell me about a conflict.").waitFor({ timeout: 15000 });
+         // The newest unfinished answer leads the focus sheet and is also in the list, so the text is on the page twice (P8-PREP-UX-02).
+         await page.getByText("Tell me about a conflict.").first().waitFor({ timeout: 15000 });
          if (process.env.SMOKE_SHOTS) await page.screenshot({ path: `${process.env.SMOKE_SHOTS}/prepare-${label}-loaded.png` });
          check(`${label}: the result replaces Loading`, (await page.getByRole("status").count()) === 0);
          check(`${label}: with M2 off no item-state request is made and no Continue or Bookmarks section shows`, !paths.some((path) => path.startsWith("/me/prep/item-state")) && (await page.getByRole("region", { name: /Continue|Bookmarks/ }).count()) === 0, JSON.stringify(paths));
