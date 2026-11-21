@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Page } from "@playwright/test";
 import fixture from "./fixture.json";
-import { canonical, expect, ITEM_API_ORIGIN, itemStateLog, READER_ORIGIN, test } from "./harness";
+import { canonical, expect, ITEM_API_ORIGIN, itemStateCalls, itemStateLog, READER_ORIGIN, test } from "./harness";
 
 // P7-T45: the signed-in reader controls, on the build that has the Prepare flag on and the item-state double as its API.
 const LESSON = "lesson.p3-seq-one";
@@ -94,7 +94,7 @@ test.describe("signed in, M2 on", () => {
       await expect(page.locator("h1").first()).toBeVisible();
       await page.waitForTimeout(500);
       await expect(controls(page)).toHaveCount(0);
-      expect(about((await log(request, caller)).slice(before), KNOWLEDGE)).toEqual([]);
+      expect(itemStateCalls((await log(request, caller)).slice(before))).toEqual([]);
    });
 });
 

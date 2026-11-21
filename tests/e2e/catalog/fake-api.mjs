@@ -303,6 +303,8 @@ function itemStateApi(req, res, path, body) {
    const [head, contentId, tail] = path.slice("/me/prep/".length).split("/");
    itemStateLog.push(`${req.method} ${path}`);
    itemStateCallers.push(req.headers["x-e2e-caller"] ?? "untagged");
+   // A browser call that skipped the tag (a page route that used `continue()`, say) would be missing from its test's log, so it is refused and the page fails loudly.
+   if (req.headers.origin && !req.headers["x-e2e-caller"]) return respond(res, 400, { code: "untagged_browser_request" });
    const user = identityOf(req)?.user.id;
    if (head === "features" && req.method === "GET") return user ? respond(res, 200, { item_state_available: !continuityOff.has(user) }) : respond(res, 401, { code: "unauthenticated" });
    if (head !== "item-state" || (user && continuityOff.has(user))) return respond(res, 404, { code: "not_found" });

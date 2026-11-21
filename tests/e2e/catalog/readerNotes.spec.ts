@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Page } from "@playwright/test";
 import fixture from "./fixture.json";
-import { canonical, exposures, expect, ITEM_API_ORIGIN, itemStateCalls, itemStateLog, READER_ORIGIN, test } from "./harness";
+import { canonical, exposures, expect, ITEM_API_ORIGIN, itemStateCalls, itemStateLog, READER_ORIGIN, tagCaller, test } from "./harness";
 
 // P7-T47: the private note on a Lesson and a Problem, on the build that has the Prepare flag on and the item-state double as its API.
 // It uses its own items, so it never shares a row with readerControls.spec.ts.
@@ -82,6 +82,7 @@ test.describe("signed in, M2 on", () => {
       const cookies = await context.cookies();
       const second = await browser.newContext({ baseURL: READER_ORIGIN });
       await second.addCookies(cookies);
+      await tagCaller(second, caller);
       const other = await second.newPage();
       await other.goto(canonical(LESSON));
       await openNote(other);

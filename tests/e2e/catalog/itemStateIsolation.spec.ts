@@ -50,3 +50,23 @@ test("two browsers asking at the same moment, neither signed in, each read back 
    }
    await Promise.all(pages.map((page) => page.context().close()));
 });
+
+test("a browser request that skips the tag is refused and filed as untagged, so a no-request check cannot pass on it", async ({ browser, request, caller }) => {
+   const context = await browser.newContext({ baseURL: READER_ORIGIN });
+   await tagCaller(context, caller);
+   const page = await context.newPage();
+   // The bypass: a page route that calls continue() ends the chain before the context's tag is added.
+   await page.route(`${ITEM_API_ORIGIN}/**`, (route) => route.continue());
+   await page.goto(canonical(KNOWLEDGE));
+   const path = `/me/prep/item-state/lesson.isolation-bypass-${Date.now()}`;
+
+   expect(await ask(page, path, fixture.identities.unentitled.token)).toBe(400);
+   expect(itemStateCalls(await itemStateLog(request, caller))).toEqual([]);
+   expect(await itemStateLog(request, "untagged")).toContain(`GET ${path}`);
+
+   await page.unroute(`${ITEM_API_ORIGIN}/**`);
+   await page.route(`${ITEM_API_ORIGIN}/**`, (route) => route.fallback());
+   expect(await ask(page, `${path}-tagged`, fixture.identities.unentitled.token)).toBe(200);
+   expect(await itemStateLog(request, caller)).toEqual([`GET ${path}-tagged`]);
+   await context.close();
+});
