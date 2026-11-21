@@ -89,8 +89,7 @@ describe("first request", () => {
         const accessToken = api.signIn("ada");
         render(<PrepareWorkspace apiUrl={API} getAccessToken={async () => accessToken} fetch={api.fetch} />);
         await flush();
-        expect(screen.getByText("No answers in progress.")).toBeInTheDocument();
-        expect(screen.getByText("No answers marked ready.")).toBeInTheDocument();
+        expect(screen.getByText("No answers yet.")).toBeInTheDocument();
         expect(api.requests.map(({ method, token }) => [method, token])).toEqual([["GET", accessToken]]);
     });
 
@@ -132,7 +131,7 @@ describe("first request", () => {
             calls[1].release(jsonResponse(200, { items: [], total: 0, limit: 100, offset: 0 }));
             await vi.advanceTimersByTimeAsync(0);
         });
-        expect(screen.getByText("No answers in progress.")).toBeInTheDocument();
+        expect(screen.getByText("No answers yet.")).toBeInTheDocument();
     });
 
     it("reports a malformed answer as a failure, not an empty list", async () => {
@@ -202,8 +201,10 @@ describe("answer-first skeleton", () => {
             calls[0].release(jsonResponse(200, { items, total: 130, limit: 100, offset: 0 }));
             await vi.advanceTimersByTimeAsync(0);
         });
-        expect(screen.getByText("No recent answers in progress.")).toBeInTheDocument();
-        expect(screen.queryByText("No answers in progress.")).toBeNull();
+        // Only the newest page is read, so a status with none of them is not said to have none at all.
+        fireEvent.click(screen.getByRole("button", { name: "Draft" }));
+        expect(screen.getByText("None of your newest answers are draft.")).toBeInTheDocument();
+        expect(screen.queryByText("No answers are draft.")).toBeNull();
     });
 });
 
@@ -268,7 +269,7 @@ describe("search and filter", () => {
         await flush();
         await release(calls[1], page([], 0));
         expect(screen.getByRole("status")).toHaveTextContent("No answers match your search or filters.");
-        expect(screen.queryByText("No answers in progress.")).toBeNull();
+        expect(screen.queryByText("No answers yet.")).toBeNull();
         fireEvent.click(screen.getAllByRole("button", { name: "Clear search and filters" })[0]);
         await flush();
         expect(params(calls[2].url).has("q")).toBe(false);
@@ -350,34 +351,40 @@ describe("collection and group of an answer", () => {
     }
     const item = (text: string) => screen.getByRole("link", { name: text }).closest("li") as HTMLElement;
 
-    it("names the collection and the principle or theme of Amazon and Google answers, each from its own question id", async () => {
+    const shelf = (name: string) => (screen.getByRole("heading", { level: 3, name: new RegExp(`^${name}`) }).closest("section") as HTMLElement);
+
+    it("shelves Amazon and Google answers under their collections, naming the principle or theme from each question id", async () => {
         const calls = await open([
             catalogAnswer("a1", AMAZON, "alp-ownership-02", "Tell me about ownership."),
             catalogAnswer("a2", AMAZON, "alp-frugality-01", "Tell me about frugality."),
             catalogAnswer("a3", GOOGLE, "googleyness-learning-intellectual-humility-02", "Tell me about learning."),
             catalogAnswer("a4", GOOGLE, "googleyness-adaptability-resilience-03", "Tell me about adapting."),
         ]);
-        expect(item("Tell me about ownership.").querySelector("p")).toHaveTextContent(/^Amazon Leadership Principles · Ownership$/);
-        expect(item("Tell me about frugality.").querySelector("p")).toHaveTextContent(/^Amazon Leadership Principles · Frugality$/);
-        expect(item("Tell me about learning.").querySelector("p")).toHaveTextContent(/^Googleyness & Leadership · Learning and intellectual humility$/);
-        expect(item("Tell me about adapting.").querySelector("p")).toHaveTextContent(/^Googleyness & Leadership · Adaptability and resilience$/);
+        expect(shelf("Amazon Leadership Principles")).toContainElement(item("Tell me about ownership."));
+        expect(shelf("Amazon Leadership Principles")).toContainElement(item("Tell me about frugality."));
+        expect(shelf("Googleyness & Leadership")).toContainElement(item("Tell me about learning."));
+        expect(item("Tell me about ownership.").querySelector("p")).toHaveTextContent(/^Ownership · Updated /);
+        expect(item("Tell me about frugality.").querySelector("p")).toHaveTextContent(/^Frugality · Updated /);
+        expect(item("Tell me about learning.").querySelector("p")).toHaveTextContent(/^Learning and intellectual humility · Updated /);
+        expect(item("Tell me about adapting.").querySelector("p")).toHaveTextContent(/^Adaptability and resilience · Updated /);
         // The registry is plain data: the workspace makes exactly one request, the answers list.
         expect(calls).toHaveLength(1);
     });
 
-    it("shows only the collection for a company question the registry no longer lists, and nothing for other answers", async () => {
+    it("keeps a company question the registry no longer lists on its collection's shelf with no group, and puts other answers on their own shelves", async () => {
         await open([
             catalogAnswer("a1", AMAZON, "alp-retired-01", "Tell me about a retired question."),
             catalogAnswer("a2", "lesson.behavioral-prep-sde-1", "being-stuck", "Tell me about being stuck."),
             answer("a3", "ready", "My own question."),
         ]);
-        expect(item("Tell me about a retired question.").querySelector("p")).toHaveTextContent(/^Amazon Leadership Principles$/);
-        expect(item("Tell me about being stuck.").querySelector("p")).toBeNull();
-        expect(item("My own question.").querySelector("p")).toBeNull();
+        expect(shelf("Amazon Leadership Principles")).toContainElement(item("Tell me about a retired question."));
+        expect(item("Tell me about a retired question.").querySelector("p")).toHaveTextContent(/^Updated /);
+        expect(shelf("General Behavioral")).toContainElement(item("Tell me about being stuck."));
+        expect(shelf("Your own questions")).toContainElement(item("My own question."));
     });
 
-    it("shows nothing extra when no labels are supplied", async () => {
+    it("shows no group when no labels are supplied", async () => {
         await open([catalogAnswer("a1", AMAZON, "alp-ownership-02", "Tell me about ownership.")], {});
-        expect(item("Tell me about ownership.").querySelector("p")).toBeNull();
+        expect(item("Tell me about ownership.").querySelector("p")).toHaveTextContent(/^Updated /);
     });
 });

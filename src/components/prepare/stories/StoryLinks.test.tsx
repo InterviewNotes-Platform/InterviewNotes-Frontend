@@ -259,8 +259,12 @@ describe("linking and unlinking", () => {
 });
 
 describe("starting an answer from a story", () => {
-   const picker = (storyId: string, fetch: typeof globalThis.fetch = api.fetch) =>
-      render(<QuestionPicker apiUrl={API} catalog={catalog} storyId={storyId} getAccessToken={async () => token} fetch={fetch} />);
+   // The picker starts at its contents grid; a reader chooses the first level's tile to reach its questions and Start answer.
+   const picker = (storyId: string, fetch: typeof globalThis.fetch = api.fetch) => {
+      const view = render(<QuestionPicker apiUrl={API} catalog={catalog} storyId={storyId} getAccessToken={async () => token} fetch={fetch} />);
+      fireEvent.click(screen.getAllByRole("button", { name: /, \d+ questions?$/ })[0]);
+      return view;
+   };
    const choose = (question: RegExp) => fireEvent.click(screen.getByRole("radio", { name: question }));
    const start = () => fireEvent.click(screen.getByRole("button", { name: "Start answer" }));
 
@@ -419,6 +423,7 @@ describe("ownership", () => {
       const theirs = await makeStory({ title: "Their secret story", notes: "Private notes" }, api.signIn("user-2"));
       api.requests.length = 0;
       render(<QuestionPicker apiUrl={API} catalog={catalog} storyId={theirs.id} getAccessToken={async () => token} fetch={api.fetch} />);
+      fireEvent.click(screen.getAllByRole("button", { name: /, \d+ questions?$/ })[0]);
       fireEvent.click(screen.getByRole("radio", { name: /you were stuck/ }));
       fireEvent.click(screen.getByRole("button", { name: "Start answer" }));
       expect(await screen.findByRole("alert")).toHaveTextContent("We could not find that story in your Story Bank, so no answer was created.");

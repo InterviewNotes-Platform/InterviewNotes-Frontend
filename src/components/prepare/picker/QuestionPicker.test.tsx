@@ -33,14 +33,27 @@ beforeEach(() => {
    token = api.signIn("user-1");
 });
 
-function show(props: Partial<React.ComponentProps<typeof QuestionPicker>> = {}, fetch: typeof globalThis.fetch = api.fetch) {
-   return render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={fetch} {...props} />);
+/** The contents grid's tiles: one per principle, theme or level, each named by its title and its question count. */
+const tiles = () => screen.queryAllByRole("button", { name: /, \d+ questions?$/ });
+const openTile = (name: string | RegExp) => fireEvent.click(screen.getByRole("button", { name }));
+const sheet = () => screen.queryByRole("dialog");
+
+/**
+ * The picker starts at the contents grid. Most tests are about a question, so they start with the first sheet open, as a reader
+ * who chose the first tile would; pass `grid: true` to stay on the grid, and a link that names a question opens its own sheet.
+ */
+function show(props: Partial<React.ComponentProps<typeof QuestionPicker>> = {}, fetch: typeof globalThis.fetch = api.fetch, grid = false) {
+   const view = render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={fetch} {...props} />);
+   if (!grid && tiles().length > 0) fireEvent.click(tiles()[0]);
+   return view;
 }
 
 const client = () => createPrepClient({ baseUrl: API, getAccessToken: async () => token, fetch: api.fetch });
 const options = () => within(screen.getByRole("group", { name: "Question" })).getAllByRole("radio");
 const posts = () => api.requests.filter(({ method, path }) => method === "POST" && path.endsWith("/answers"));
 const submit = () => screen.getByRole("button", { name: "Start answer" });
+/** Start answer is the form's submit button, but it sits in the sheet's footer, outside the form in the page: it names the form by id. */
+const form = () => document.querySelector("form")!;
 
 /** While every level is listed the picker shows one level at a time; step with Next until the stage is headed `name`. */
 function stepTo(name: string) {
@@ -74,7 +87,7 @@ describe("target-level filtering", () => {
 
    it("filters by the saved target level, reading it once and nothing else", async () => {
       await saveLevel("sde-2");
-      show();
+      show({}, api.fetch, true);
       await waitFor(() => expect(screen.getByLabelText("Level")).toHaveValue("sde-2"));
       expect(options().map((option) => option.closest("label")?.textContent)).toEqual([
          "Tell me about a time you disagreed with a teammate.",
@@ -141,10 +154,10 @@ describe("target-level filtering", () => {
    it("keeps the list usable and says so when the saved level cannot be read, then recovers on retry", async () => {
       await saveLevel("sde-2");
       api.failNext(500);
-      show();
+      show({}, api.fetch, true);
       expect(await screen.findByText(/could not load your target level/)).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: "SDE-1" })).toBeInTheDocument();
-      expect(options()).toHaveLength(2);
+      // The levels are still listed, each a way in, though the saved one could not be read.
+      expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(["SDE-1, 2 questions", "SDE-2, 2 questions", "Engineering manager, 1 question"]);
       fireEvent.click(screen.getByRole("button", { name: "Try again" }));
       await waitFor(() => expect(screen.getByLabelText("Level")).toHaveValue("sde-2"));
       expect(options()).toHaveLength(2);
@@ -187,7 +200,7 @@ describe("catalog answers", () => {
       expect(options()[0]).not.toBeChecked();
       // The SDE-2 question is not on screen, so it is not started from here; it is chosen again once its level is open.
       expect(submit()).toBeDisabled();
-      fireEvent.submit(submit().closest("form")!);
+      fireEvent.submit(form());
       expect(posts()).toHaveLength(0);
       fireEvent.click(screen.getByRole("button", { name: "Next group" }));
       expect(options()[0]).toBeChecked();
@@ -208,7 +221,7 @@ describe("catalog answers", () => {
    it("does not create anything until a question is chosen", () => {
       show();
       expect(submit()).toBeDisabled();
-      fireEvent.submit(submit().closest("form")!);
+      fireEvent.submit(form());
       expect(posts()).toHaveLength(0);
    });
 
@@ -223,7 +236,7 @@ describe("catalog answers", () => {
       fireEvent.click(options()[0]);
       fireEvent.click(submit());
       fireEvent.click(submit());
-      fireEvent.submit(submit().closest("form")!);
+      fireEvent.submit(form());
       expect(await screen.findByText(/Creating your answer/)).toBeInTheDocument();
       await act(async () => release());
       await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
@@ -262,7 +275,7 @@ describe("custom questions", () => {
    }
 
    it("creates a custom answer with no identifier, trimmed", async () => {
-      show();
+      show({}, api.fetch, true);
       write("  How do you decide what to cut?  ");
       fireEvent.click(submit());
       await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
@@ -273,7 +286,7 @@ describe("custom questions", () => {
    });
 
    it("is not offered empty, blank, or over the limit", () => {
-      show();
+      show({}, api.fetch, true);
       write("   ");
       expect(submit()).toBeDisabled();
       write("x".repeat(SNAPSHOT_MAX));
@@ -285,7 +298,7 @@ describe("custom questions", () => {
    });
 
    it("counts characters, not UTF-16 units, as the server does", () => {
-      show();
+      show({}, api.fetch, true);
       write("😀".repeat(SNAPSHOT_MAX));
       expect(submit()).toBeEnabled();
    });
@@ -305,7 +318,7 @@ describe("failures", () => {
    });
 
    it("keeps what was typed for a custom question after a network failure", async () => {
-      show();
+      show({}, api.fetch, true);
       await preferenceRead();
       fireEvent.click(screen.getByRole("radio", { name: "Write your own" }));
       fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "My own question" } });
@@ -325,8 +338,9 @@ describe("failures", () => {
    });
 
    it("reports a missing API origin and offers no way to submit", () => {
-      show({ apiUrl: null });
+      show({ apiUrl: null }, api.fetch, true);
       expect(screen.getByRole("alert")).toHaveTextContent("not configured");
+      fireEvent.click(tiles()[0]);
       fireEvent.click(options()[0]);
       expect(submit()).toBeDisabled();
    });
@@ -360,7 +374,7 @@ describe("an ambiguous create", () => {
       // The action state says a write may exist: Start answer is off, and neither a click nor Enter can send another.
       expect(submit()).toBeDisabled();
       fireEvent.click(submit());
-      fireEvent.submit(submit().closest("form")!);
+      fireEvent.submit(form());
       await act(async () => {});
       expect(posts()).toHaveLength(1);
       expect(await storedCount()).toBe(1);
@@ -387,7 +401,7 @@ describe("an ambiguous create", () => {
    });
 
    it("keeps a custom question's text, locks only that text, and frees the form when the text changes", async () => {
-      show({}, commitThenLose("lost"));
+      show({}, commitThenLose("lost"), true);
       await preferenceRead();
       fireEvent.click(screen.getByRole("radio", { name: "Write your own" }));
       fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "My own question" } });
@@ -447,13 +461,14 @@ describe("a catalog that could not be read", () => {
 
 describe("keyboard and names", () => {
    it("uses native radios, named by their question, in labelled groups", () => {
-      show();
+      show({}, api.fetch, true);
       expect(screen.getByRole("group", { name: "Where the question comes from" })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Choose from the Lessons" })).toBeChecked();
+      fireEvent.click(tiles()[0]);
       for (const option of options()) {
          expect(option).toHaveProperty("type", "radio");
          expect(option).toHaveAccessibleName(/^(Tell me|Underperformance)/);
       }
-      expect(screen.getByRole("radio", { name: "Choose from the Lessons" })).toBeChecked();
    });
 });
 
@@ -477,11 +492,11 @@ describe("collections", () => {
          company("alp-dive-deep-01", "Tell me about digging into a metric.", dive),
       ],
    };
-   const showCollection = (id: string, catalog: CatalogLoad, extra: Partial<React.ComponentProps<typeof QuestionPicker>> = {}) =>
-      show({ collections: COLLECTIONS, collectionId: id, catalog, ...extra });
+   const showCollection = (id: string, catalog: CatalogLoad, extra: Partial<React.ComponentProps<typeof QuestionPicker>> = {}, grid = false) =>
+      show({ collections: COLLECTIONS, collectionId: id, catalog, ...extra }, api.fetch, grid);
 
    it("lists the three collections with the current one marked, and asks the page for another by an ordinary link instead of filtering", () => {
-      showCollection("amazon", grouped, { storyId: "11111111-1111-4111-8111-111111111111" });
+      showCollection("amazon", grouped, { storyId: "11111111-1111-4111-8111-111111111111" }, true);
       const switcher = screen.getByRole("navigation", { name: "Collections" });
       const links = within(switcher).getAllByRole("link");
       expect(links.map((link) => link.getAttribute("aria-label"))).toEqual(COLLECTIONS.map(({ title }) => title));
@@ -497,7 +512,7 @@ describe("collections", () => {
       expect(screen.getByRole("heading", { level: 2, name: "Ownership" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Dive Deep" })).toBeNull();
       expect(options()).toHaveLength(2);
-      const ownership = screen.getByRole("region", { name: "Ownership" });
+      const ownership = screen.getByRole("dialog", { name: "Ownership" });
       // The guidance is drawn for a wide screen and for a phone; only one is shown by the stylesheet.
       expect(within(ownership).getAllByText("Owning the outcome.").length).toBeGreaterThan(0);
       expect(within(ownership).getAllByText("Editorial note. Strong evidence is specific.").length).toBeGreaterThan(0);
@@ -507,7 +522,7 @@ describe("collections", () => {
       fireEvent.click(screen.getByRole("button", { name: "Next group" }));
       expect(screen.getByRole("heading", { level: 2, name: "Dive Deep" })).toBeInTheDocument();
       expect(options()).toHaveLength(1);
-      expect(within(screen.getByRole("region", { name: "Dive Deep" })).getAllByText("Knowing the details.").length).toBeGreaterThan(0);
+      expect(within(screen.getByRole("dialog", { name: "Dive Deep" })).getAllByText("Knowing the details.").length).toBeGreaterThan(0);
    });
 
    it("has no level filter for a company collection, shows no level under a question and never reads the saved level", async () => {
@@ -530,12 +545,13 @@ describe("collections", () => {
    });
 
    it("keeps the general picker's level filter and has no principle guidance; every level is a stop instead of a label on each question", async () => {
-      showCollection("behavioral", ok);
+      showCollection("behavioral", ok, {}, true);
       expect(screen.getByLabelText("Level")).toBeInTheDocument();
+      expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(["SDE-1, 2 questions", "SDE-2, 2 questions", "Engineering manager, 1 question"]);
+      fireEvent.click(tiles()[0]);
       expect(options()).toHaveLength(2);
       expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
       expect(screen.getByRole("heading", { level: 2, name: "SDE-1" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Jump to group" })).toBeInTheDocument();
       await preferenceRead();
    });
 
@@ -578,17 +594,17 @@ describe("collections", () => {
    });
 
    it("shows no selector without a registry, as before", () => {
-      show();
+      show({}, api.fetch, true);
       expect(screen.queryByRole("navigation", { name: "Collections" })).toBeNull();
    });
 });
 
 /*
- * The Desk picker (P8-PREP-UX-02): one principle at a time, a jump menu, search inside the loaded collection, and Start answer kept
- * in reach. Everything here is presentation over the same create path, so the guarantees are about what it must NOT do: no request
- * from stepping or searching, no navigation by the router, no second create.
+ * The Shelf picker (P8-PREP-UX-03): a contents grid of every principle, a layered sheet for the one chosen, search inside the loaded
+ * collection, and Start answer in the sheet's footer. Everything here is presentation over the same create path, so the guarantees
+ * are about what it must NOT do: no request from opening, stepping or searching, no navigation by the router, no second create.
  */
-describe("the Desk picker", () => {
+describe("the Shelf picker", () => {
    const AMAZON = "lesson.amazon-leadership-principles";
    const COLLECTIONS: CollectionOption[] = [
       { id: "behavioral", title: "General Behavioral", short: "General", unit: { one: "level", many: "levels" }, levelFilter: true, grouped: false },
@@ -611,66 +627,50 @@ describe("the Desk picker", () => {
          q("alp-earn-trust-01", "Saying the hard thing", "Tell me about delivering bad news to your team.", trust),
       ],
    };
+   /** The Amazon collection with the first principle's sheet open, as a reader who chose the first tile would see it. */
    const open = (extra: Partial<React.ComponentProps<typeof QuestionPicker>> = {}, fetch?: typeof globalThis.fetch) => show({ collections: COLLECTIONS, collectionId: "amazon", catalog, ...extra }, fetch);
-   const heading = () => screen.getByRole("heading", { level: 2 }).textContent;
+   /** The same collection at its contents grid, with no sheet. */
+   const grid = (extra: Partial<React.ComponentProps<typeof QuestionPicker>> = {}, fetch?: typeof globalThis.fetch) => show({ collections: COLLECTIONS, collectionId: "amazon", catalog, ...extra }, fetch, true);
+   const heading = () => within(screen.getByRole("dialog")).getByRole("heading", { level: 2 }).textContent;
+   const closeSheet = () => fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+   const next = () => fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+   const previous = () => fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
    const search = () => screen.getByRole("searchbox", { name: "Find a question in Amazon Leadership Principles" });
    const type = (value: string) => fireEvent.change(search(), { target: { value } });
 
    beforeEach(() => window.history.replaceState(null, "", "/prepare/new?collection=amazon"));
 
-   describe("the stepper", () => {
-      it("starts on the first principle, says where it is, and has no Previous there", () => {
-         open();
-         expect(heading()).toBe("Ownership");
-         expect(screen.getByText("Principle 1 of 3")).toBeInTheDocument();
-         expect(screen.getByRole("button", { name: "Previous principle" })).toBeDisabled();
-         expect(screen.getByRole("button", { name: "Next principle" })).toBeEnabled();
+   describe("the contents grid", () => {
+      it("is the first view: every principle in source order, each with its first question headings and its count, and no sheet", () => {
+         grid();
+         expect(sheet()).toBeNull();
+         expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(["Ownership, 2 questions", "Dive Deep, 2 questions", "Earn Trust, 1 question"]);
+         expect(tiles()[0]).toHaveTextContent("A problem nobody had assigned · Inheriting something fragile");
+         expect(tiles()[0]).toHaveTextContent("01");
+         expect(screen.getByRole("heading", { level: 2, name: "Amazon Leadership Principles" })).toBeInTheDocument();
+         expect(screen.getByText("3 principles · 5 questions · in the Lesson's order")).toBeInTheDocument();
+         // No Start answer until a principle is open: the action belongs to the sheet.
+         expect(screen.queryByRole("button", { name: "Start answer" })).toBeNull();
       });
 
-      it("steps in source order to the last principle, where Next ends", () => {
-         open();
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+      it("opens the chosen principle's sheet, and makes no request and no navigation however many are opened", () => {
+         grid();
+         openTile(/^Dive Deep/);
          expect(heading()).toBe("Dive Deep");
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
-         expect(heading()).toBe("Earn Trust");
-         expect(screen.getByRole("button", { name: "Next principle" })).toBeDisabled();
-         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
-         expect(heading()).toBe("Dive Deep");
-      });
-
-      it("keeps the chosen question when stepping away and back", () => {
-         open();
-         fireEvent.click(options()[1]);
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
-         expect(options().some((option) => (option as HTMLInputElement).checked)).toBe(false);
-         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
-         expect(options()[1]).toBeChecked();
-      });
-
-      it("makes no request and does not navigate, however many steps are taken", () => {
-         open();
-         for (let i = 0; i < 2; i++) fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
-         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         expect(options()).toHaveLength(2);
+         next();
+         previous();
          expect(api.requests).toEqual([]);
          expect(nav.push).not.toHaveBeenCalled();
          expect(nav.refresh).not.toHaveBeenCalled();
       });
 
-      it("says the principle it moved to in a polite live region, without moving focus", () => {
-         open();
-         const next = screen.getByRole("button", { name: "Next principle" });
-         next.focus();
-         fireEvent.click(next);
-         expect(screen.getByText("Principle 2 of 3: Dive Deep, 2 questions")).toHaveAttribute("aria-live", "polite");
-         expect(next).toHaveFocus();
-      });
-
-      it("writes the position to the address with replaceState only, and removes it on the first principle", () => {
+      it("writes the open position to the address with replaceState only, and removes it on the first principle", () => {
          const replace = vi.spyOn(window.history, "replaceState");
-         open();
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         grid();
+         openTile(/^Dive Deep/);
          expect(window.location.search).toBe("?collection=amazon&group=2");
-         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         previous();
          expect(window.location.search).toBe("?collection=amazon");
          expect(replace).toHaveBeenCalledTimes(2);
          replace.mockRestore();
@@ -678,26 +678,106 @@ describe("the Desk picker", () => {
 
       it("keeps every other parameter when the position is written", () => {
          window.history.replaceState(null, "", "/prepare/new?collection=amazon&story=11111111-1111-4111-8111-111111111111");
-         open({ storyId: "11111111-1111-4111-8111-111111111111" });
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         grid({ storyId: "11111111-1111-4111-8111-111111111111" });
+         openTile(/^Earn Trust/);
          expect(new URLSearchParams(window.location.search).get("story")).toBe("11111111-1111-4111-8111-111111111111");
          expect(new URLSearchParams(window.location.search).get("collection")).toBe("amazon");
+      });
+
+      it("marks the principle last opened when the sheet closes, and gives focus back to its tile", () => {
+         grid();
+         tiles()[1].focus();
+         fireEvent.click(tiles()[1]);
+         closeSheet();
+         expect(sheet()).toBeNull();
+         expect(tiles()[1]).toHaveAttribute("aria-current", "true");
+      });
+
+      it("lists the levels of the general collection as tiles, with no principle guidance", () => {
+         show({ collections: COLLECTIONS, collectionId: "behavioral", catalog: ok }, undefined, true);
+         expect(tiles().map((tile) => tile.getAttribute("aria-label"))).toEqual(["SDE-1, 2 questions", "SDE-2, 2 questions", "Engineering manager, 1 question"]);
+         expect(screen.getByLabelText("Level")).toBeInTheDocument();
+      });
+
+      it("shows no grid when there are no questions, rather than an empty one", () => {
+         grid({ catalog: { status: "ok", questions: [] } });
+         expect(screen.getByText("There are no questions in this collection.")).toBeInTheDocument();
+         expect(tiles()).toHaveLength(0);
+      });
+   });
+
+   describe("the sheet", () => {
+      it("starts on the chosen principle, says where it is, and has no Previous at the first", () => {
+         open();
+         expect(heading()).toBe("Ownership");
+         expect(screen.getByText("Principle 1 of 3")).toBeInTheDocument();
+         expect(screen.getByRole("button", { name: "Previous principle" })).toBeDisabled();
+         expect(screen.getByRole("button", { name: "Next principle" })).toBeEnabled();
+         expect(screen.getByRole("dialog", { name: "Ownership" })).toHaveAccessibleDescription(/Principle 1 of 3: 2 questions/);
+      });
+
+      it("steps in source order to the last principle, where Next ends", () => {
+         open();
+         next();
+         expect(heading()).toBe("Dive Deep");
+         next();
+         expect(heading()).toBe("Earn Trust");
+         expect(screen.getByRole("button", { name: "Next principle" })).toBeDisabled();
+         previous();
+         expect(heading()).toBe("Dive Deep");
+      });
+
+      it("keeps the chosen question when stepping away and back", () => {
+         open();
+         fireEvent.click(options()[1]);
+         next();
+         expect(options().some((option) => (option as HTMLInputElement).checked)).toBe(false);
+         previous();
+         expect(options()[1]).toBeChecked();
+      });
+
+      it("holds only its own principle's explanation and questions, with the editorial note beside them", () => {
+         open();
+         expect(within(screen.getByRole("dialog")).getAllByText("Owning the outcome.").length).toBeGreaterThan(0);
+         expect(within(screen.getByRole("dialog")).getAllByText("Editorial note. Strong evidence is specific.").length).toBeGreaterThan(0);
+         expect(screen.queryByText("Knowing the details.")).toBeNull();
+         expect(screen.queryByText("A metric that looked wrong")).toBeNull();
+      });
+
+      it("closes with Escape and returns to the grid, keeping the chosen question for when it is opened again", () => {
+         open();
+         fireEvent.click(options()[1]);
+         closeSheet();
+         expect(sheet()).toBeNull();
+         expect(tiles()).toHaveLength(3);
+         // Nothing is on screen to start: Start answer is in the sheet, and the question stays chosen for its principle.
+         expect(screen.queryByRole("button", { name: "Start answer" })).toBeNull();
+         openTile(/^Ownership/);
+         expect(options()[1]).toBeChecked();
+         expect(submit()).toBeEnabled();
+      });
+
+      it("places Start answer in its footer, as the submit button of the page's one form", () => {
+         open();
+         expect(submit()).toHaveAttribute("type", "submit");
+         expect(submit()).toHaveAttribute("form", form().id);
+         expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
+         fireEvent.click(options()[0]);
+         expect(screen.getByText(/Selected ·/)).toHaveTextContent("A problem nobody had assigned");
       });
    });
 
    describe("a choice that is not on screen is never started", () => {
-      const form = () => submit().closest("form")!;
-
       it("waits for a choice in view after stepping away, and counts again when the principle is open", async () => {
          open();
          fireEvent.click(options()[0]);
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         next();
          expect(heading()).toBe("Dive Deep");
          expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
          expect(submit()).toBeDisabled();
          fireEvent.submit(form());
          expect(posts()).toHaveLength(0);
-         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         previous();
          expect(options()[0]).toBeChecked();
          fireEvent.click(submit());
          await waitFor(() => expect(posts()).toHaveLength(1));
@@ -707,40 +787,40 @@ describe("the Desk picker", () => {
       it("starts the question chosen in the open principle, not an earlier one left behind", async () => {
          open();
          fireEvent.click(options()[0]);
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         next();
          fireEvent.click(options()[1]);
          fireEvent.click(submit());
          await waitFor(() => expect(posts()).toHaveLength(1));
          expect(posts()[0].body).toMatchObject({ question_id: "alp-dive-deep-02" });
       });
 
-      it("treats a jump like a step", () => {
+      it("does not start from the grid, or from another principle than the one chosen in", () => {
          open();
          fireEvent.click(options()[0]);
-         fireEvent.click(screen.getByRole("button", { name: "Jump to principle" }));
-         fireEvent.click(screen.getByRole("button", { name: /Earn Trust/ }));
-         expect(heading()).toBe("Earn Trust");
+         closeSheet();
+         fireEvent.submit(form());
+         expect(posts()).toHaveLength(0);
+         openTile(/^Earn Trust/);
          expect(submit()).toBeDisabled();
       });
 
-      it("closing a search does not move the view, and a choice made before it stays off until its principle is open", () => {
+      it("closing a search does not open a sheet, and a choice made before it stays off until its principle is open", () => {
          open();
          fireEvent.click(options()[0]);
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         closeSheet();
          type("outage");
          type("");
-         // The reader left Ownership on purpose, and nothing in the results was chosen, so the view stays put.
-         expect(heading()).toBe("Dive Deep");
-         expect(submit()).toBeDisabled();
+         // Nothing in the results was chosen, so the reader is back on the grid.
+         expect(sheet()).toBeNull();
+         expect(screen.queryByRole("button", { name: "Start answer" })).toBeNull();
       });
 
       it("opens the principle of a result chosen in the search when the search is cleared, with that question startable", async () => {
-         open();
+         grid();
          type("trust");
          fireEvent.click(options()[0]);
          expect(submit()).toBeEnabled();
          fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
-         expect(search()).toHaveValue("");
          expect(heading()).toBe("Earn Trust");
          expect(options()[0]).toBeChecked();
          expect(window.location.search).toBe("?collection=amazon&group=3");
@@ -750,25 +830,27 @@ describe("the Desk picker", () => {
       });
 
       it("does the same for Escape and for Show all questions", () => {
-         open();
+         grid();
          type("trust");
          fireEvent.click(options()[0]);
          fireEvent.keyDown(search(), { key: "Escape" });
          expect(heading()).toBe("Earn Trust");
          expect(options()[0]).toBeChecked();
+         closeSheet();
+         // A search that chose nothing leaves the reader on the grid, with Earn Trust still marked as the last one opened.
          type("zzzzqq");
          fireEvent.click(screen.getByRole("button", { name: "Show all questions" }));
-         expect(heading()).toBe("Earn Trust");
-         expect(options()[0]).toBeChecked();
+         expect(sheet()).toBeNull();
+         expect(tiles()[2]).toHaveAttribute("aria-current", "true");
       });
 
       it("offers a link's question on arrival, in view, and not once the reader has left its principle", async () => {
          open({ requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
          expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
          expect(submit()).toBeEnabled();
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         next();
          expect(submit()).toBeDisabled();
-         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         previous();
          expect(submit()).toBeEnabled();
          fireEvent.click(submit());
          await waitFor(() => expect(posts()).toHaveLength(1));
@@ -779,7 +861,7 @@ describe("the Desk picker", () => {
          open({ initialGroup: 1, requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
          expect(heading()).toBe("Ownership");
          expect(submit()).toBeDisabled();
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         next();
          expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
          expect(submit()).toBeEnabled();
       });
@@ -793,13 +875,18 @@ describe("the Desk picker", () => {
       });
    });
 
-   describe("the open principle at load", () => {
+   describe("the view at load", () => {
+      it("starts on the grid when nothing names a principle", () => {
+         grid();
+         expect(sheet()).toBeNull();
+      });
+
       it("opens the principle the address names, counted from 1", () => {
          open({ initialGroup: 3 });
          expect(heading()).toBe("Earn Trust");
       });
 
-      it("opens the last principle for a position past the end, and the first for none", () => {
+      it("opens the last principle for a position past the end", () => {
          open({ initialGroup: 99 });
          expect(heading()).toBe("Earn Trust");
       });
@@ -813,52 +900,8 @@ describe("the Desk picker", () => {
       it("lets an explicit position win over the link's principle, keeping the link's question chosen", () => {
          open({ initialGroup: 1, requested: { content_id: AMAZON, question_id: "alp-dive-deep-02" } });
          expect(heading()).toBe("Ownership");
-         fireEvent.click(screen.getByRole("button", { name: "Next principle" }));
+         next();
          expect(screen.getByRole("radio", { name: /Walk me through/ })).toBeChecked();
-      });
-   });
-
-   describe("the jump menu", () => {
-      const trigger = () => screen.getByRole("button", { name: "Jump to principle" });
-
-      it("is a disclosure that lists every principle in order, with the open one marked", () => {
-         open();
-         expect(trigger()).toHaveAttribute("aria-expanded", "false");
-         fireEvent.click(trigger());
-         expect(trigger()).toHaveAttribute("aria-expanded", "true");
-         const panel = document.getElementById(trigger().getAttribute("aria-controls")!)!;
-         const items = within(panel).getAllByRole("button");
-         expect(items.map((item) => item.textContent?.replace(/\d+ questions?$/, "").replace(/^\d+/, ""))).toEqual(["Ownership", "Dive Deep", "Earn Trust"]);
-         expect(items.map((item) => item.getAttribute("aria-current"))).toEqual(["true", null, null]);
-      });
-
-      it("opens the chosen principle, closes, and gives focus back to its button", () => {
-         open();
-         fireEvent.click(trigger());
-         fireEvent.click(screen.getByRole("button", { name: /Earn Trust/ }));
-         expect(heading()).toBe("Earn Trust");
-         expect(trigger()).toHaveAttribute("aria-expanded", "false");
-         expect(trigger()).toHaveFocus();
-         expect(window.location.search).toBe("?collection=amazon&group=3");
-      });
-
-      it("closes on Escape without changing the principle", () => {
-         open();
-         fireEvent.click(trigger());
-         fireEvent.keyDown(screen.getByRole("button", { name: /Ownership/ }), { key: "Escape" });
-         expect(trigger()).toHaveAttribute("aria-expanded", "false");
-         expect(heading()).toBe("Ownership");
-      });
-
-      it("moves between the principles with the arrow keys", () => {
-         open();
-         fireEvent.click(trigger());
-         const first = screen.getByRole("button", { name: /Ownership/ });
-         first.focus();
-         fireEvent.keyDown(first, { key: "ArrowDown" });
-         expect(screen.getByRole("button", { name: /Dive Deep/ })).toHaveFocus();
-         fireEvent.keyDown(document.activeElement!, { key: "End" });
-         expect(screen.getByRole("button", { name: /Earn Trust/ })).toHaveFocus();
       });
    });
 
@@ -868,10 +911,10 @@ describe("the Desk picker", () => {
          expect(screen.queryByRole("searchbox")).toBeNull();
       });
 
-      it("shows matches grouped under their principles, in source order, and hides the stepper", async () => {
-         open();
+      it("shows matches grouped under their principles, in source order, and hides the grid", async () => {
+         grid();
          type("metric outage");
-         expect(screen.queryByRole("button", { name: "Next principle" })).toBeNull();
+         expect(tiles()).toHaveLength(0);
          type("tell");
          const results = screen.getByRole("region", { name: "Search results" });
          expect(within(results).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Ownership", "Dive Deep", "Earn Trust"]);
@@ -879,7 +922,7 @@ describe("the Desk picker", () => {
       });
 
       it("needs every word, ignores case and accents, and searches the heading, the wording and the group", () => {
-         open();
+         grid();
          type("RESUME outage");
          expect(options()).toHaveLength(1);
          expect(options()[0]).toHaveAccessibleName(/Walk me through how you traced an outage/);
@@ -892,7 +935,7 @@ describe("the Desk picker", () => {
       });
 
       it("marks the matched words and leaves the question's text as written", () => {
-         open();
+         grid();
          type("metric");
          const marked = [...document.querySelectorAll("mark")].map((mark) => mark.textContent);
          expect(marked).toContain("metric");
@@ -900,7 +943,7 @@ describe("the Desk picker", () => {
       });
 
       it("says how many match once typing pauses, and says when none do", async () => {
-         open();
+         grid();
          type("tell");
          expect(await screen.findByText("3 questions match “tell” in Amazon Leadership Principles.")).toBeInTheDocument();
          type("zzzz");
@@ -909,7 +952,7 @@ describe("the Desk picker", () => {
       });
 
       it("makes no request and does not navigate", () => {
-         open();
+         grid();
          type("tell");
          type("");
          expect(api.requests).toEqual([]);
@@ -917,19 +960,20 @@ describe("the Desk picker", () => {
          expect(nav.refresh).not.toHaveBeenCalled();
       });
 
-      it("never starts an answer on Enter, and Escape clears it", () => {
-         open();
+      it("never starts an answer on Enter, and Escape clears it, back to the grid", () => {
+         grid();
          type("tell");
          const enter = fireEvent.keyDown(search(), { key: "Enter" });
          expect(enter).toBe(false);
          expect(posts()).toHaveLength(0);
          fireEvent.keyDown(search(), { key: "Escape" });
          expect(search()).toHaveValue("");
-         expect(heading()).toBe("Ownership");
+         expect(sheet()).toBeNull();
+         expect(tiles()).toHaveLength(3);
       });
 
       it("moves into the results with the down arrow, to the chosen one when there is one", () => {
-         open();
+         grid();
          type("tell");
          fireEvent.keyDown(search(), { key: "ArrowDown" });
          expect(options()[0]).toHaveFocus();
@@ -939,30 +983,30 @@ describe("the Desk picker", () => {
          expect(options()[2]).toHaveFocus();
       });
 
-      it("does not start a chosen question that the search hides, and offers it again once the search is closed", () => {
+      it("does not start a chosen question that the search hides, and offers it again once its principle is open", () => {
          open();
          fireEvent.click(options()[0]);
-         expect(screen.getByText(/Selected ·/)).toHaveTextContent("A problem nobody had assigned");
+         closeSheet();
          type("trust");
          expect(options()).toHaveLength(1);
          // Not among the results, so not something to start: the dock asks for a choice and Start answer waits.
          expect(screen.queryByText(/Selected ·/)).toBeNull();
          expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
          expect(submit()).toBeDisabled();
-         fireEvent.submit(submit().closest("form")!);
+         fireEvent.submit(form());
          expect(posts()).toHaveLength(0);
          fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
-         expect(heading()).toBe("Ownership");
+         expect(sheet()).toBeNull();
+         openTile(/^Ownership/);
          expect(options()[0]).toBeChecked();
          expect(submit()).toBeEnabled();
       });
 
       it("opens a result's principle with View principle, with the question still chosen and its guidance beside it", () => {
-         open();
+         grid();
          type("trust");
          fireEvent.click(options()[0]);
          fireEvent.click(screen.getByRole("button", { name: "View principle: Earn Trust" }));
-         expect(search()).toHaveValue("");
          expect(heading()).toBe("Earn Trust");
          expect(options()[0]).toBeChecked();
          expect(screen.getAllByText("Being straight with people.").length).toBeGreaterThan(0);
@@ -970,7 +1014,7 @@ describe("the Desk picker", () => {
       });
 
       it("creates the answer with the exact pair when started from a search result", async () => {
-         open();
+         grid();
          type("outage");
          fireEvent.click(options()[0]);
          fireEvent.click(submit());
@@ -982,7 +1026,7 @@ describe("the Desk picker", () => {
       });
 
       it("searches only the open level of the general collection, and offers every level", () => {
-         show({ collections: COLLECTIONS, collectionId: "behavioral", catalog: ok });
+         show({ collections: COLLECTIONS, collectionId: "behavioral", catalog: ok }, undefined, true);
          fireEvent.change(screen.getByLabelText("Level"), { target: { value: "sde-2" } });
          fireEvent.change(screen.getByRole("searchbox", { name: "Find a question in General Behavioral" }), { target: { value: "stuck" } });
          expect(screen.getByText("No question matches those words.")).toBeInTheDocument();
@@ -1007,7 +1051,7 @@ describe("the Desk picker", () => {
       });
    });
 
-   describe("Start answer in the dock", () => {
+   describe("Start answer", () => {
       it("says what to do until a question is chosen, then which one is chosen", () => {
          open();
          expect(screen.getByText("Choose a question to start your answer.")).toBeInTheDocument();
@@ -1017,18 +1061,13 @@ describe("the Desk picker", () => {
          expect(submit()).toBeEnabled();
       });
 
-      it("is part of the same form, so one create path serves every way of choosing", () => {
-         open();
-         expect(submit()).toHaveAttribute("type", "submit");
-         expect(submit().closest("form")).toContainElement(options()[0]);
-      });
-
-      it("shows a custom question as such, and asks for one until it is written", () => {
-         open();
+      it("shows a custom question as such, with the docked bar, and asks for one until it is written", () => {
+         grid();
          fireEvent.click(screen.getByRole("radio", { name: "Write your own" }));
          expect(screen.getByText("Write your question to start your answer.")).toBeInTheDocument();
          expect(screen.queryByRole("searchbox")).toBeNull();
          expect(screen.queryByRole("navigation", { name: "Collections" })).toBeNull();
+         expect(submit().closest("form")).toBe(form());
          fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "My own?" } });
          expect(screen.getByText(/Selected ·/)).toHaveTextContent("Your own question");
       });
@@ -1045,10 +1084,26 @@ describe("the Desk picker", () => {
          fireEvent.click(submit());
          fireEvent.click(submit());
          const creating = await screen.findByText(/Creating your answer/);
-         expect(submit().closest("form")).toContainElement(creating);
+         expect(screen.getByRole("dialog")).toContainElement(creating);
+         // While the answer is being made the sheet cannot be closed or moved, so what it reports stays in view.
+         closeSheet();
+         expect(sheet()).not.toBeNull();
+         expect(screen.getByRole("button", { name: "Next principle" })).toBeDisabled();
          await act(async () => release());
          await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
          expect(posts()).toHaveLength(1);
+      });
+
+      it("keeps what a failed create says under the grid when the sheet is closed afterwards", async () => {
+         const refuse: typeof fetch = async (input, init) =>
+            init?.method === "POST" ? new Response(JSON.stringify({ detail: "validation_error", code: "validation_error", fields: [{ field: "question_snapshot", reason: "too_long" }] }), { status: 422, headers: { "Content-Type": "application/json" } }) : api.fetch(input, init);
+         open({}, refuse);
+         fireEvent.click(options()[0]);
+         fireEvent.click(submit());
+         expect(await screen.findByRole("alert")).toHaveTextContent("did not accept");
+         closeSheet();
+         expect(sheet()).toBeNull();
+         expect(screen.getByRole("alert")).toHaveTextContent("did not accept");
       });
 
       it("keeps an unconfirmed create's guard through a search and a step: the same question stays off until the reader says it is not there", async () => {
@@ -1061,14 +1116,15 @@ describe("the Desk picker", () => {
          fireEvent.click(submit());
          await screen.findByText(/could not confirm/);
          expect(submit()).toBeDisabled();
+         closeSheet();
          type("trust");
          fireEvent.click(options()[0]);
          expect(submit()).toBeEnabled();
          type("");
          // Closing the search leaves the result just chosen on screen, in its own principle; walk back to the first one.
          expect(heading()).toBe("Earn Trust");
-         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
-         fireEvent.click(screen.getByRole("button", { name: "Previous principle" }));
+         previous();
+         previous();
          expect(heading()).toBe("Ownership");
          fireEvent.click(options()[0]);
          expect(submit()).toBeDisabled();
@@ -1082,10 +1138,9 @@ describe("the Desk picker", () => {
          expect(screen.getAllByText(COMPANY_STATEMENT)).toHaveLength(1);
       });
 
-      it("links the other collections and does not follow a link while an answer is being made", async () => {
-         open();
-         const general = screen.getByRole("link", { name: "General Behavioral" });
-         expect(general).toHaveAttribute("href", "/prepare/new?collection=behavioral");
+      it("links the other collections, with the current one marked", () => {
+         grid();
+         expect(screen.getByRole("link", { name: "General Behavioral" })).toHaveAttribute("href", "/prepare/new?collection=behavioral");
          expect(screen.getByRole("link", { name: "Amazon Leadership Principles" })).toHaveAttribute("aria-current", "page");
       });
    });
