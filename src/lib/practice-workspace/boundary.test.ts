@@ -22,6 +22,7 @@ const production = [
    ...walk(join(SRC, "lib/practice-workspace")),
    ...walk(join(SRC, "components/practice-workspace")),
    ...walk(join(SRC, "app/practice/attempts")),
+   ...walk(join(SRC, "app/practice/history")),
    join(SRC, "lib/practice-flag.ts"),
 ].filter((path) => /\.(ts|tsx)$/.test(path) && !/\.test\.(ts|tsx)$/.test(path));
 
@@ -34,13 +35,35 @@ describe("practice foundations", () => {
          [
             "app/practice/attempts/[id]/page.tsx",
             "app/practice/attempts/layout.tsx",
+            "app/practice/history/layout.tsx",
+            "app/practice/history/page.tsx",
+            "components/practice-workspace/AttemptRoute.tsx",
+            "components/practice-workspace/AttemptWorkspace.tsx",
+            "components/practice-workspace/BriefDialog.tsx",
+            "components/practice-workspace/HistoryRoute.tsx",
+            "components/practice-workspace/PracticeEntry.tsx",
             "components/practice-workspace/PracticeGate.tsx",
             "components/practice-workspace/PracticeUnavailable.tsx",
+            "components/practice-workspace/PromptBlocks.tsx",
+            "components/practice-workspace/SaveTrouble.tsx",
+            "components/practice-workspace/StageEditor.tsx",
+            "components/practice-workspace/StageGuide.tsx",
+            "components/practice-workspace/StageNav.tsx",
+            "components/practice-workspace/StartPracticeDialog.tsx",
+            "components/practice-workspace/practiceSession.ts",
+            "components/practice-workspace/saveSummary.ts",
+            "components/practice-workspace/useAttemptWorkspace.ts",
+            "components/practice-workspace/useStageGuide.ts",
             "lib/practice-flag.ts",
+            "lib/practice-workspace/autosave.ts",
             "lib/practice-workspace/availability.ts",
             "lib/practice-workspace/client.ts",
             "lib/practice-workspace/contract.ts",
             "lib/practice-workspace/fakeApi.ts",
+            "lib/practice-workspace/fakeAttempts.ts",
+            "lib/practice-workspace/guards.ts",
+            "lib/practice-workspace/stageSave.ts",
+            "lib/practice-workspace/stages.ts",
             "lib/practice-workspace/types.ts",
          ].sort()
       );
@@ -54,8 +77,10 @@ describe("practice foundations", () => {
       expect(source, `${name(path)} reads page searchParams`).not.toMatch(/[{,]\s*searchParams\b|searchParams\s*:\s*Promise/);
    });
 
+   // T13 reuses the one leave guard of the prepare editor, as its task requires; nothing else of the reader, catalog or P7 is imported.
+   const REUSED = new Set(["@/components/prepare/editor/useLeaveGuard"]);
    it.each(production)("%s imports no reader, catalog or P7 module", (path) => {
-      const imports = [...text(path).matchAll(/from "([^"]+)"/g)].map((match) => match[1]);
+      const imports = [...text(path).matchAll(/from "([^"]+)"/g)].map((match) => match[1]).filter((from) => !REUSED.has(from));
       for (const from of imports) {
          expect(from, `${name(path)} imports ${from}`).not.toMatch(/^@\/(app\/_catalog|components\/(catalog|lesson|problem|reader|knowledge|prepare|practice)\/|lib\/(catalog|prep)\/)/);
       }
@@ -66,10 +91,17 @@ describe("practice foundations", () => {
       for (const link of links) expect(link).toContain("prefetch={false}");
    });
 
-   it("keeps the fake API out of production code", () => {
-      for (const path of production.filter((candidate) => !candidate.endsWith("fakeApi.ts"))) {
-         expect(text(path), name(path)).not.toMatch(/fakeApi|createFakePracticeApi/);
+   it("keeps the fake API and the fake attempt service out of production code", () => {
+      for (const path of production.filter((candidate) => !/fake(Api|Attempts)\.ts$/.test(candidate))) {
+         expect(text(path), name(path)).not.toMatch(/fakeApi|fakeAttempts|createFakePracticeApi|installFakeAttempts/);
       }
+   });
+
+   it("reaches the fakes from tests only: no non-test file under src imports them", () => {
+      const offenders = walk(SRC)
+         .filter((path) => /\.(ts|tsx)$/.test(path) && !/\.test\.(ts|tsx)$/.test(path) && !/fake(Api|Attempts)\.ts$/.test(path))
+         .filter((path) => /from "[^"]*fake(Api|Attempts)"/.test(text(path)));
+      expect(offenders.map(name)).toEqual([]);
    });
 
    it("adds no editor library: React Flow is not installed", () => {
@@ -80,7 +112,7 @@ describe("practice foundations", () => {
    });
 
    it("reads no environment inside the client (the caller supplies the origin)", () => {
-      for (const file of ["client.ts", "contract.ts", "availability.ts", "fakeApi.ts"]) {
+      for (const file of ["client.ts", "contract.ts", "availability.ts", "fakeApi.ts", "fakeAttempts.ts", "guards.ts", "autosave.ts", "stageSave.ts", "stages.ts"]) {
          expect(text(join(SRC, "lib/practice-workspace", file))).not.toContain("process.env");
       }
    });

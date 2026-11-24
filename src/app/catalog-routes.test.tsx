@@ -160,7 +160,12 @@ const files = (dir: string): string[] =>
       return statSync(path).isDirectory() ? files(path) : /\.(ts|tsx)$/.test(name) && !/\.test\./.test(name) ? [path] : [];
    });
 const ROUTE_DIRS = ["lessons", "problems", "knowledge", "practice", "tracks", "_catalog"];
-const routeFiles = ROUTE_DIRS.flatMap((dir) => files(join(APP, dir)));
+// The private practice workspace routes (P9: attempts, history) are not catalog routes: they read the learner's own attempts in the browser with the
+// user's token, so they necessarily name the public API origin and an `[id]` segment. They have their own boundary tests (`src/lib/practice-workspace/boundary.test.ts`,
+// `src/app/practice/attempts`, `src/app/practice/history`); this guard keeps covering every other file under `practice`, the Problem index.
+const PRIVATE_PRACTICE = ["practice/attempts/", "practice/history/"];
+const guarded = (dir: string) => files(join(APP, dir)).filter((file) => !PRIVATE_PRACTICE.some((prefix) => relative(APP, file).startsWith(prefix)));
+const routeFiles = ROUTE_DIRS.flatMap(guarded);
 const read = (path: string) => readFileSync(path, "utf8");
 
 describe("catalog route security boundary", () => {
@@ -228,7 +233,7 @@ describe("catalog route security boundary", () => {
    });
 
    it("keeps Track and module context out of the canonical route tree", () => {
-      const routes = ROUTE_DIRS.flatMap((dir) => files(join(APP, dir))).map((f) => relative(APP, f));
+      const routes = ROUTE_DIRS.flatMap(guarded).map((f) => relative(APP, f));
       expect(routes.filter((route) => /\/\[(?!slug\])[^/]+\]/.test(route))).toEqual([]);
    });
 });

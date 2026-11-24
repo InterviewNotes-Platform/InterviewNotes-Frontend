@@ -14,6 +14,7 @@ import {
    type RouteDef,
    type RouteId,
 } from "./contract";
+import { isAssumption, isAttempt, isAttemptDetail, isAttemptListPage, isClarificationReveal, isConsentOut, isConsentStatus, isHint, isStageWork } from "./guards";
 import type {
    AssumptionIn,
    AssumptionOut,
@@ -83,7 +84,10 @@ export type PracticeResult<T> =
    | { status: "disabled" }
    | { status: "notFound" }
    | PracticeFailure
-   | { status: "unavailable"; cause: "transport" | "timeout" | "upstream" | "malformed" };
+   | { status: "unavailable"; cause: "transport" | "timeout" | "upstream" | "malformed" | "aborted" };
+
+/** What a call may be given besides its body: a signal that ends it when the screen that asked has been replaced (session change, unmount). */
+export type RequestOptions = { signal?: AbortSignal };
 
 type Reader<T> = (response: Response) => Promise<{ value: T } | null>;
 
@@ -97,6 +101,18 @@ function pending<T>(): Reader<T> {
       try {
          const body: unknown = await response.json();
          return isObjectOrArray(body) ? { value: body as T } : null;
+      } catch {
+         return null;
+      }
+   };
+}
+
+/** A JSON body that `guard` accepts; anything else is malformed and never becomes state (P9-T13). */
+function guarded<T>(guard: (body: unknown) => body is T): Reader<T> {
+   return async (response) => {
+      try {
+         const body: unknown = await response.json();
+         return guard(body) ? { value: body } : null;
       } catch {
          return null;
       }
@@ -174,6 +190,7 @@ type Call<T> = {
    body?: unknown;
    key?: string;
    read: Reader<T>;
+   signal?: AbortSignal;
 };
 
 /** A typed client for `/me/practice`; every method is one frozen M1 route. */
@@ -182,9 +199,11 @@ export function createPracticeClient(config: PracticeClientConfig) {
    const doFetch = config.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
    const timeoutMs = config.timeoutMs ?? PRACTICE_TIMEOUT_MS;
 
-   async function call<T>({ route: id, params, query, body, key, read }: Call<T>): Promise<PracticeResult<T>> {
+   async function call<T>({ route: id, params, query, body, key, read, signal }: Call<T>): Promise<PracticeResult<T>> {
       const route = ROUTE[id];
+      if (signal?.aborted) return { status: "unavailable", cause: "aborted" };
       const token = await config.getAccessToken().catch(() => null);
+      if (signal?.aborted) return { status: "unavailable", cause: "aborted" };
       if (!token) return { status: "unauthenticated" };
 
       const controller = new AbortController();
@@ -193,6 +212,8 @@ export function createPracticeClient(config: PracticeClientConfig) {
          timedOut = true;
          controller.abort();
       }, timeoutMs);
+      const onAbort = () => controller.abort();
+      signal?.addEventListener("abort", onAbort, { once: true });
       try {
          const response = await doFetch(`${base}${pathOf(route, params)}${search(query ?? {})}`, {
             method: route.method,
@@ -207,11 +228,14 @@ export function createPracticeClient(config: PracticeClientConfig) {
             credentials: "omit",
             signal: controller.signal,
          });
+         // A caller that was replaced while the request was in the air gets no answer to act on, whatever came back.
+         if (signal?.aborted) return { status: "unavailable", cause: "aborted" };
          return await interpret(response, read);
       } catch {
-         return { status: "unavailable", cause: timedOut ? "timeout" : "transport" };
+         return { status: "unavailable", cause: signal?.aborted ? "aborted" : timedOut ? "timeout" : "transport" };
       } finally {
          clearTimeout(timer);
+         signal?.removeEventListener("abort", onAbort);
       }
    }
 
@@ -231,22 +255,22 @@ export function createPracticeClient(config: PracticeClientConfig) {
    const attempt = (attemptId: string, extra: Record<string, string> = {}) => ({ attempt_id: attemptId, ...extra });
 
    return {
-      capability: (contentId?: string) => call({ route: "capability", query: { content_id: contentId }, read: capabilityReader }),
+      capability: (contentId?: string, options: RequestOptions = {}) => call<CapabilityOut>({ route: "capability", query: { content_id: contentId }, read: capabilityReader, ...options }),
 
-      createAttempt: (body: CreateAttemptIn, key: string) => call<AttemptOut>({ route: "create_attempt", body, key, read: pending() }),
-      listAttempts: (params: { contentId?: string; status?: AttemptStatus; limit?: number; cursor?: string } = {}) =>
-         call<AttemptListPage>({ route: "list_attempts", query: { content_id: params.contentId, status: params.status, limit: params.limit, cursor: params.cursor }, read: pending() }),
-      getAttempt: (id: string) => call<AttemptDetailOut>({ route: "get_attempt", params: attempt(id), read: pending() }),
-      patchStage: (id: string, position: string, body: StagePatchIn) =>
-         call<StageWorkOut>({ route: "patch_stage", params: attempt(id, { position }), body, read: pending() }),
+      createAttempt: (body: CreateAttemptIn, key: string, options: RequestOptions = {}) => call<AttemptOut>({ route: "create_attempt", body, key, read: guarded(isAttempt), ...options }),
+      listAttempts: (params: { contentId?: string; status?: AttemptStatus; limit?: number; cursor?: string } = {}, options: RequestOptions = {}) =>
+         call<AttemptListPage>({ route: "list_attempts", query: { content_id: params.contentId, status: params.status, limit: params.limit, cursor: params.cursor }, read: guarded(isAttemptListPage), ...options }),
+      getAttempt: (id: string, options: RequestOptions = {}) => call<AttemptDetailOut>({ route: "get_attempt", params: attempt(id), read: guarded(isAttemptDetail), ...options }),
+      patchStage: (id: string, position: string, body: StagePatchIn, options: RequestOptions = {}) =>
+         call<StageWorkOut>({ route: "patch_stage", params: attempt(id, { position }), body, read: guarded(isStageWork), ...options }),
 
       getDiagram: (id: string) => call<DiagramOut>({ route: "get_diagram", params: attempt(id), read: pending() }),
       putDiagram: (id: string, body: DiagramPutIn) => call<DiagramOut>({ route: "put_diagram", params: attempt(id), body, read: pending() }),
 
-      stageHint: (id: string, position: string) => call<HintOut>({ route: "stage_hint", params: attempt(id, { position }), read: pending() }),
-      revealClarification: (id: string, clarificationId: string) =>
-         call<ClarificationRevealOut>({ route: "reveal_clarification", params: attempt(id, { clarification_id: clarificationId }), read: pending() }),
-      addAssumption: (id: string, body: AssumptionIn) => call<AssumptionOut>({ route: "add_assumption", params: attempt(id), body, read: pending() }),
+      stageHint: (id: string, position: string, options: RequestOptions = {}) => call<HintOut>({ route: "stage_hint", params: attempt(id, { position }), read: guarded(isHint), ...options }),
+      revealClarification: (id: string, clarificationId: string, options: RequestOptions = {}) =>
+         call<ClarificationRevealOut>({ route: "reveal_clarification", params: attempt(id, { clarification_id: clarificationId }), read: guarded(isClarificationReveal), ...options }),
+      addAssumption: (id: string, body: AssumptionIn, options: RequestOptions = {}) => call<AssumptionOut>({ route: "add_assumption", params: attempt(id), body, read: guarded(isAssumption), ...options }),
       stageTurn: (id: string, position: string, body: TurnIn, key: string) =>
          call<TurnOut>({ route: "stage_turn", params: attempt(id, { position }), body, key, read: pending() }),
 
@@ -269,8 +293,8 @@ export function createPracticeClient(config: PracticeClientConfig) {
       exportAll: () => call<string>({ route: "export_all", read: textReader }),
       deleteAll: () => call<void>({ route: "delete_all", read: noBody }),
 
-      getConsent: () => call<ConsentStatusOut>({ route: "get_consent", read: pending() }),
-      postConsent: (body: ConsentIn) => call<ConsentOut>({ route: "post_consent", body, read: pending() }),
+      getConsent: (options: RequestOptions = {}) => call<ConsentStatusOut>({ route: "get_consent", read: guarded(isConsentStatus), ...options }),
+      postConsent: (body: ConsentIn, options: RequestOptions = {}) => call<ConsentOut>({ route: "post_consent", body, read: guarded(isConsentOut), ...options }),
       withdrawConsent: (body: ConsentWithdrawIn) => call<ConsentWithdrawOut>({ route: "withdraw_consent", body, read: pending() }),
    };
 }
