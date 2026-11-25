@@ -1,0 +1,142 @@
+/* P9-T14 diagram editor. Loaded only with the editor chunk. Colours come from the site tokens, so light and dark follow the theme. */
+.pg-editor {
+   --pg-desk: var(--surface);
+   --pg-shape-fill: var(--card);
+   --pg-shape-stroke: color-mix(in srgb, var(--foreground) 58%, var(--background));
+   --pg-glyph: var(--primary);
+   --pg-edge: color-mix(in srgb, var(--foreground) 62%, var(--background));
+   --pg-dot: var(--accent-foreground);
+   display: flex;
+   flex-direction: column;
+   min-height: 0;
+   border: 1px solid var(--border);
+   border-radius: 12px;
+   background: var(--background);
+   overflow: hidden;
+}
+.pg-editor.pg-design { height: clamp(560px, calc(100dvh - 15rem), 1100px); }
+.pg-editor.pg-split { height: clamp(520px, calc(100dvh - 15rem), 1000px); }
+
+.pg-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--card); }
+.pg-palette, .pg-toolbar-end { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.pg-tool { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--foreground); font-size: 13px; cursor: pointer; }
+.pg-tool svg.pg-mini { width: 30px; height: 22px; overflow: visible; }
+.pg-tool svg.pg-mini * { vector-effect: non-scaling-stroke; stroke-width: 1.4px; }
+.pg-settings { position: relative; }
+.pg-settings > summary { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; border-radius: 8px; font-size: 13px; cursor: pointer; list-style: none; }
+.pg-settings > summary::-webkit-details-marker { display: none; }
+.pg-settings > summary:hover { background: var(--background); }
+.pg-settings-panel { position: absolute; right: 0; z-index: 20; display: grid; gap: 2px; min-width: 260px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); }
+.pg-tool .pg-key { position: absolute; right: 1px; bottom: 1px; min-width: 0; height: auto; padding: 0 2px; border: 0; font-size: 10px; line-height: 1; }
+.pg-tool:hover:not(:disabled) { border-color: var(--border); background: var(--background); }
+.pg-palette { padding: 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+.pg-tool:disabled { opacity: 0.55; cursor: default; }
+.pg-key { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--muted-foreground); }
+.pg-icon-button { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--foreground); cursor: pointer; }
+.pg-icon-button:hover:not(:disabled) { border-color: var(--border); }
+.pg-icon-button:disabled { opacity: 0.4; cursor: default; }
+.pg-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 6px; font-size: 13px; }
+.pg-toggle input, .pg-check input { width: 18px; height: 18px; accent-color: var(--primary); }
+.pg-tabs, .pg-switch { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+.pg-tabs button, .pg-switch button { min-height: 44px; min-width: 88px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); font-size: 14px; cursor: pointer; }
+.pg-tabs button[aria-pressed="true"], .pg-switch button[aria-pressed="true"] { background: var(--primary); color: var(--primary-foreground); }
+.pg-editor :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+.pg-trouble { display: grid; gap: 10px; margin: 8px 10px 0; padding: 12px 14px; border: 1px solid var(--destructive); border-radius: 10px; background: var(--card); }
+.pg-review-item { display: grid; gap: 4px; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+
+.pg-body { display: grid; flex: 1 1 auto; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
+.pg-canvas { position: relative; min-height: 0; height: 100%; background: var(--pg-desk); }
+.pg-canvas:focus-visible { outline: 2px solid var(--ring); outline-offset: -3px; }
+.pg-side { min-height: 0; overflow: auto; padding: 12px 16px 24px; border-left: 1px solid var(--border); background: var(--card); }
+.pg-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.pg-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pg-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground); }
+.pg-kind { margin-top: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--primary); }
+.pg-title { margin-top: 2px; font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif; font-size: 1.35rem; line-height: 1.25; overflow-wrap: anywhere; }
+.pg-subhead { margin: 18px 0 8px; font-size: 14px; font-weight: 600; }
+.pg-form { display: grid; gap: 8px; margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; }
+.pg-prompts { margin: 0; padding: 8px 10px 8px 26px; border-radius: 8px; background: var(--surface); color: var(--muted-foreground); font-size: 13px; }
+.pg-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.pg-list > li.is-open { border: 1px solid var(--primary); border-radius: 10px; }
+.pg-row { display: grid; width: 100%; min-height: 44px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.pg-list > li.is-open > .pg-row { border-color: transparent; }
+.pg-inline { padding: 4px 10px 12px; }
+.pg-check { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.pg-link { min-height: 44px; padding: 0; border: 0; background: none; color: var(--primary); text-decoration: underline; cursor: pointer; overflow-wrap: anywhere; text-align: left; }
+.pg-deleted { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
+
+.pg-picker { position: absolute; top: 16px; left: 50%; z-index: 10; width: min(340px, calc(100% - 24px)); transform: translateX(-50%); padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); box-shadow: 0 8px 24px rgb(0 0 0 / 0.16); }
+.pg-picker-input { width: 100%; min-height: 44px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); }
+.pg-picker ul { max-height: 240px; margin: 8px 0; padding: 0; overflow: auto; list-style: none; }
+.pg-picker li { min-height: 44px; padding: 10px; border-radius: 8px; cursor: pointer; }
+.pg-picker li.is-active { background: var(--accent); color: var(--accent-foreground); }
+
+/* Shapes */
+.pg-editor .react-flow { --xy-background-color: var(--pg-desk); background: var(--pg-desk); }
+.pg-editor .react-flow__node-shape { border-radius: 8px; cursor: grab; }
+.pg-editor .react-flow__node-shape:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.pg-editor .react-flow__node-boundary { pointer-events: none; }
+.pg-shape { position: relative; display: grid; place-items: center; }
+.pg-shape-svg { position: absolute; inset: 0; overflow: visible; }
+.pg-shape.is-selected .pg-shape-svg :is(rect, path, ellipse) { stroke: var(--primary); stroke-width: 2.5; }
+.pg-shape-label { position: relative; max-width: calc(100% - 24px); color: var(--foreground); font: 600 13px/1.2 var(--font-sans, system-ui, sans-serif); text-align: center; overflow-wrap: anywhere; pointer-events: none; }
+.pg-shape-label.is-unnamed { font-weight: 500; font-style: italic; color: var(--muted-foreground); }
+.pg-shape.has-glyph .pg-shape-label { margin-left: 18px; }
+.pg-dot { display: inline-block; width: 8px; height: 8px; border: 1.5px solid var(--pg-dot); border-radius: 50%; background: color-mix(in srgb, var(--pg-dot) 35%, transparent); }
+.pg-shape-dot { position: absolute; top: -4px; right: -4px; }
+.pg-boundary { position: relative; border: 1.5px dashed color-mix(in srgb, var(--primary) 70%, var(--background)); border-radius: 14px; background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.pg-boundary.is-selected { border-style: solid; border-color: var(--primary); }
+.pg-boundary-label { position: absolute; top: 4px; left: 10px; color: var(--primary); font-size: 12px; font-weight: 600; pointer-events: auto; overflow-wrap: anywhere; }
+.pg-boundary-kind { font-weight: 400; color: var(--muted-foreground); }
+.pg-editor .react-flow__handle { width: 11px; height: 11px; border: 1.5px solid var(--primary); background: var(--card); opacity: 0; transition: opacity 0.12s; }
+.pg-shape.is-static .react-flow__handle { visibility: hidden; pointer-events: none; }
+.pg-editor .react-flow__node:hover .react-flow__handle, .pg-editor .react-flow__node.selected .react-flow__handle, .pg-editor .react-flow.connecting .react-flow__handle { opacity: 1; }
+
+/* Connections */
+.pg-editor .react-flow__edge-path.pg-edge { stroke: var(--pg-edge); stroke-width: 1.6; }
+.pg-editor .react-flow__edge-path.pg-edge.is-selected { stroke: var(--primary); stroke-width: 2.6; }
+.pg-editor .react-flow__edge:focus-visible .react-flow__edge-path { stroke: var(--ring); stroke-width: 3; }
+.pg-editor .react-flow__edge:focus { outline: none; }
+.pg-arrowhead { fill: var(--pg-edge); }
+.pg-arrowhead.is-selected { fill: var(--primary); }
+.pg-connection-line { stroke: var(--primary); stroke-width: 1.6; stroke-dasharray: 5 4; }
+.pg-edge-label { position: absolute; display: inline-flex; align-items: center; gap: 4px; pointer-events: none; }
+.pg-edge-tag { padding: 1px 7px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--muted-foreground); font: 12px/1.4 var(--font-sans, system-ui, sans-serif); white-space: nowrap; }
+.pg-edge-label.is-selected .pg-edge-tag { border-color: var(--primary); color: var(--foreground); }
+.pg-bend { width: 16px; height: 16px; border: 2px solid var(--primary); border-radius: 50%; background: var(--card); cursor: move; pointer-events: auto; touch-action: none; }
+
+.pg-editor .react-flow__background { background: var(--pg-desk); }
+.pg-editor .react-flow__background circle, .pg-editor .pg-grid circle { fill: color-mix(in srgb, var(--foreground) 22%, transparent); }
+.pg-editor .react-flow__controls { box-shadow: none; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.pg-editor .react-flow__controls-button { width: 32px; height: 32px; border-bottom: 1px solid var(--border); background: var(--card); color: var(--foreground); fill: var(--foreground); }
+.pg-editor .react-flow__controls-button svg { fill: currentColor; }
+.pg-editor .react-flow__controls-button:hover { background: var(--surface); }
+/* Attribution stays visible (P9-OD-06), styled to fit. */
+.pg-editor .react-flow__attribution { padding: 2px 6px; background: color-mix(in srgb, var(--card) 90%, transparent); }
+.pg-editor .react-flow__attribution a { color: var(--muted-foreground); font-size: 11px; }
+
+/* 768 to 1279 px: the side panel becomes a sheet under the canvas. */
+@media (max-width: 1279px) {
+   .pg-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(320px, 1fr) minmax(0, auto); }
+   .pg-side { max-height: 46%; border-left: 0; border-top: 1px solid var(--border); }
+}
+
+/* Phones: the canvas is for viewing and selecting; the Outline builds; the Inspector is a bottom sheet. */
+@media (max-width: 767px) {
+   .pg-editor.pg-design, .pg-editor.pg-split { height: auto; min-height: 0; }
+   .pg-editor { border-radius: 10px; }
+   .pg-body { grid-template-rows: auto; }
+   .pg-canvas { height: 62dvh; min-height: 360px; }
+   .pg-side { max-height: none; border-top: 0; }
+   .pg-side.is-sheet { position: fixed; inset: auto 0 64px 0; z-index: 40; max-height: 62dvh; border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -8px 24px rgb(0 0 0 / 0.18); }
+   .pg-switch { position: fixed; inset: auto 0 0 0; z-index: 41; display: flex; justify-content: stretch; margin: 0; padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); border-radius: 0; border-width: 1px 0 0; background: var(--card); }
+   .pg-switch button { flex: 1; }
+   .pg-toggle { font-size: 12px; }
+   .pg-editor .react-flow__controls-button { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+   .pg-editor *, .pg-editor *::before, .pg-editor *::after { transition: none !important; animation: none !important; }
+}

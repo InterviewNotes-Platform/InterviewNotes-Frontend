@@ -43,6 +43,8 @@ export interface Resource<D, S, P> {
    combine(mine: D, theirs: S, base: S): { draft: D; note?: string };
    /** Mine over theirs where both changed; theirs where only the server changed. The draft to keep when the learner chooses Keep mine. */
    keepMine(mine: D, theirs: S, base: S): D;
+   /** Optional: why this draft must not be sent (a rule the client knows the server would refuse), or null. Nothing is sent while it fails. */
+   check?(draft: D): string | null;
 }
 
 export type Phase = "idle" | "saving" | "saved" | "offline" | "conflict" | "terminal" | "signin" | "gone" | "invalid";
@@ -198,6 +200,11 @@ export class AutosaveEngine<D, S, P> {
             return;
          }
          if (BLOCKED.has(this.phase) || this.rejected === this.draft) return;
+         const problem = this.resource.check?.(this.draft) ?? null;
+         if (problem !== null) {
+            this.rejected = this.draft;
+            return this.set("invalid", problem);
+         }
          const sent = this.draft;
          this.set("saving");
          const outcome = await this.resource.send(this.saved, patch, this.controller.signal);
@@ -352,6 +359,8 @@ export class AutosaveEngine<D, S, P> {
          if (after === "save") {
             await this.drain();
             // A second conflict is shown again, never overwritten (`enterConflict` ran inside the loop).
+            // A choice that equals the server's copy needs no write: it is already saved.
+            if (!this.disposed && !this.halted && this.phase === "idle" && !this.isDirty()) this.set("saved", chosen.note);
          }
       })().finally(() => {
          this.flight = null;
@@ -371,6 +380,12 @@ export class AutosaveEngine<D, S, P> {
    combine(): Promise<void> {
       const base = this.saved;
       return this.resolve((theirs) => this.resource.combine(this.draft, theirs, base), "save");
+   }
+
+   /** A choice the learner built element by element (a review of the two versions): saved at the server's current version. */
+   resolveWith(build: (mine: D, theirs: S, base: S) => D): Promise<void> {
+      const base = this.saved;
+      return this.resolve((theirs) => ({ draft: build(this.draft, theirs, base) }), "save");
    }
 
    // --- leaving ---

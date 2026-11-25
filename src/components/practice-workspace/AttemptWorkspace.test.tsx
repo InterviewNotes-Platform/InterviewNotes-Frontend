@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPracticeClient } from "@/lib/practice-workspace/client";
 import { createFakePracticeApi, failure } from "@/lib/practice-workspace/fakeApi";
 import { installFakeAttempts, type FakeAttempts } from "@/lib/practice-workspace/fakeAttempts";
+import type { DiagramEngine } from "@/lib/practice-graph/diagramSave";
+import { installFakeDiagram } from "@/lib/practice-graph/fakeDiagram";
+import { addNode } from "@/lib/practice-graph/model";
 import type { Position } from "@/lib/practice-workspace/types";
 
 vi.mock("next/link", async () => {
@@ -11,6 +14,17 @@ vi.mock("next/link", async () => {
    return { default: ({ prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean }) => createElement("a", { "data-prefetch": String(prefetch), ...props }) };
 });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+// The real editor (React Flow) is covered by its own tests and the browser smoke; here only the workspace's wiring of the one diagram is.
+const shown: { engine: unknown; variant: string; readOnly: boolean }[] = [];
+vi.mock("@/components/practice-graph/DiagramEditorLoader", async () => {
+   const { createElement } = await import("react");
+   return {
+      DiagramEditorLoader: (props: { engine: unknown; variant: string; readOnly: boolean }) => {
+         shown.push(props);
+         return createElement("div", { "data-diagram-stub": props.variant });
+      },
+   };
+});
 
 import { AttemptRoute } from "./AttemptRoute";
 import { PracticeGate } from "./PracticeGate";
@@ -156,6 +170,30 @@ describe("stage text and its character counts", () => {
       goTo("ML Reasoning");
       expect(field("Your ML reasoning")).toBeInTheDocument();
       expect(screen.queryByRole("textbox", { name: /features|training/i })).not.toBeInTheDocument();
+   });
+});
+
+describe("successor contract fields (A-02, A-03)", () => {
+   it("names the ML sub-prompts from the attempt detail when the Problem authors them", async () => {
+      const seeded = await seed(ML);
+      const record = seeded.store.records.get(seeded.id)!;
+      record.problem = { ...record.problem, mlSubsections: [{ key: "data", title: "Data" }, { key: "training", title: "Training" }] };
+      render(tree(seeded, seeded.token, "ada"));
+      await screen.findByRole("heading", { level: 1 });
+      goTo("ML Reasoning");
+      expect(field("Data")).toBeInTheDocument();
+      expect(field("Training")).toBeInTheDocument();
+      expect(screen.queryByRole("textbox", { name: "Your ML reasoning" })).not.toBeInTheDocument();
+   });
+
+   it("counts hints already used from the server, so a bounded history never offers one again", async () => {
+      const seeded = await seed(SD);
+      const record = seeded.store.records.get(seeded.id)!;
+      record.hintsGiven.set("frame", 2);
+      render(tree(seeded, seeded.token, "ada"));
+      await screen.findByRole("heading", { level: 1 });
+      expect(screen.getByText("2 of 2 shown")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "No more hints" })).toBeDisabled();
    });
 });
 
@@ -561,14 +599,177 @@ describe("responses the workspace does not trust", () => {
    });
 });
 
-describe("the diagram boundary", () => {
-   it("renders no graph editor and no Outline, and reserves one slot per stage for T14", async () => {
-      await open(SD);
+describe("the attempt's one diagram (T14)", () => {
+   async function openWithDiagram(contentId = SD) {
+      const seeded = await seed(contentId);
+      const diagrams = installFakeDiagram(seeded.api, seeded.store);
+      const view = render(tree(seeded, seeded.token, "ada"));
+      await screen.findByRole("heading", { level: 1 });
+      return { ...seeded, diagrams, view };
+   }
+   const lastEngine = () => shown.at(-1)!.engine as DiagramEngine;
+
+   it("opens the Design stage canvas-first, with the written notes under the diagram", async () => {
+      shown.length = 0;
+      await openWithDiagram();
       goTo("Design");
-      expect(document.querySelector("[data-design-editor-slot=design]")).not.toBeNull();
-      expect(screen.queryByRole("application")).not.toBeInTheDocument();
-      expect(screen.queryByRole("region", { name: /diagram|outline/i })).not.toBeInTheDocument();
+      expect(heading()).toHaveTextContent("Design");
+      expect(await screen.findByText("", { selector: "[data-diagram-stub=design]" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Written notes" })).toBeInTheDocument();
+      expect(field("Core entities")).toBeInTheDocument();
+   });
+
+   it("offers the same graph beside every stage after Design, and none before it", async () => {
+      shown.length = 0;
+      await openWithDiagram();
+      expect(screen.queryByRole("button", { name: "Your design" })).not.toBeInTheDocument();
+      goTo("Design");
+      await screen.findByText("", { selector: "[data-diagram-stub=design]" });
+      const designEngine = lastEngine();
+      goTo("Follow-ups");
+      fireEvent.click(screen.getByRole("button", { name: "Your design" }));
+      await screen.findByText("", { selector: "[data-diagram-stub=split]" });
+      expect(lastEngine()).toBe(designEngine);
+      expect(screen.getByRole("button", { name: "Done with the diagram" })).toHaveAttribute("aria-expanded", "true");
+   });
+
+   it("counts the diagram in the attempt's one save status and leave guard, and stops it when the attempt ends", async () => {
+      shown.length = 0;
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const rig = await openWithDiagram();
+      goTo("Design");
+      await screen.findByText("", { selector: "[data-diagram-stub=design]" });
+      const engine = lastEngine();
+      act(() => engine.edit((draft) => (addNode(draft, "service", { label: "API" }) as { draft: typeof draft }).draft));
+      expect(saveStatus()).toHaveTextContent("Unsaved changes");
+      await advance(DEBOUNCE);
+      expect(saveStatus()).toHaveTextContent("Saved");
+      expect(rig.diagrams.diagram(rig.id).graph.nodes).toHaveLength(1);
+      rig.store.endAttempt(rig.id, "abandoned");
+      type("Core entities", "late text");
+      await advance(DEBOUNCE);
+      expect(engine.getSnapshot().phase).toBe("terminal");
+   });
+
+   it("sends nothing of one account's unsaved graph after the account changes, under any token", async () => {
+      shown.length = 0;
+      const seeded = await seed(SD);
+      const diagrams = installFakeDiagram(seeded.api, seeded.store);
+      const bob = seeded.api.signIn("bob");
+      const view = render(tree(seeded, seeded.token, "ada"));
+      await screen.findByRole("heading", { level: 1 });
+      goTo("Design");
+      await screen.findByText("", { selector: "[data-diagram-stub=design]" });
+      const engine = lastEngine();
+      vi.useFakeTimers();
+      act(() => engine.edit((draft) => (addNode(draft, "service", { label: "ada's private component" }) as { draft: typeof draft }).draft));
+      view.rerender(tree(seeded, bob, "bob"));
+      await advance(DEBOUNCE * 3);
+      expect(seeded.api.requests.filter((r) => r.route === "put_diagram")).toHaveLength(0);
+      expect(diagrams.diagram(seeded.id).graph.nodes).toHaveLength(0);
+      expect(document.body.textContent).not.toContain("ada's private component");
+      expect(engine.getSnapshot().draft.graph.nodes).toHaveLength(1);
+      await act(async () => {
+         await engine.persist();
+      });
+      expect(seeded.api.requests.filter((r) => r.route === "put_diagram")).toHaveLength(0);
+   });
+
+   it("says when the diagram cannot be read, keeps the written work, and tries again", async () => {
+      const seeded = await seed(SD);
+      seeded.api.script("get_diagram", () => failure("internal_error", 500));
+      render(tree(seeded, seeded.token, "ada"));
+      await screen.findByRole("heading", { level: 1 });
+      goTo("Design");
+      expect(await screen.findByText("We could not load your diagram. Your written work is not affected.")).toBeInTheDocument();
+      installFakeDiagram(seeded.api, seeded.store);
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(await screen.findByText("", { selector: "[data-diagram-stub=design]" })).toBeInTheDocument();
       const _unused: Position = "design";
       void _unused;
+   });
+
+   describe("a diagram read that lands after the attempt ended", () => {
+      // Holds the first diagram read's reply (the server answered while the attempt was active) until the test releases it.
+      function holdFirstDiagramRead(api: Rig["api"]) {
+         let release!: () => void;
+         const held = new Promise<void>((resolve) => (release = resolve));
+         const gated: typeof fetch = async (input, init) => {
+            const reply = api.fetch(input, init);
+            if (api.requests.at(-1)?.route === "get_diagram") await held;
+            return reply;
+         };
+         return { gated, release };
+      }
+      const puts = (api: Rig["api"]) => api.requests.filter((r) => r.route === "put_diagram");
+
+      it("starts the late engine halted, keeps the saved graph and unsaved text, and writes nothing, even when the status read fails", async () => {
+         shown.length = 0;
+         const seeded = await seed(SD);
+         installFakeDiagram(seeded.api, seeded.store);
+         const { gated, release } = holdFirstDiagramRead(seeded.api);
+         render(
+            <PracticeGate apiUrl={API} owner="ada" getAccessToken={async () => seeded.token} fetch={gated}>
+               <AttemptRoute attemptId={seeded.id} />
+            </PracticeGate>
+         );
+         await screen.findByRole("heading", { level: 1 });
+         goTo("Design");
+         expect(screen.queryByText("", { selector: "[data-diagram-stub]" })).not.toBeInTheDocument();
+         vi.useFakeTimers();
+         seeded.store.endAttempt(seeded.id, "abandoned");
+         seeded.api.script("get_attempt", () => failure("internal_error", 500));
+         const reads = seeded.api.requests.filter((r) => r.route === "get_attempt").length;
+         type("Core entities", "after the end");
+         await advance(DEBOUNCE);
+         await advance(10);
+         expect(saveStatus()).toHaveTextContent(/Not saved.*ended/);
+         expect(seeded.api.requests.filter((r) => r.route === "get_attempt")).toHaveLength(reads + 1);
+         await act(async () => release());
+         await advance(10);
+         const engine = shown.at(-1)!.engine as DiagramEngine;
+         expect(engine.getSnapshot().phase).toBe("terminal");
+         expect(engine.getSnapshot().saved.graph.nodes).toHaveLength(0);
+         // The status read failed, so no terminal status is invented: the halt alone keeps the editor and its writes shut.
+         expect(screen.queryByText(/This attempt was abandoned/)).not.toBeInTheDocument();
+         act(() => engine.edit((draft) => (addNode(draft, "service", { label: "late" }) as { draft: typeof draft }).draft));
+         await advance(DEBOUNCE * 3);
+         await act(async () => {
+            await engine.persist();
+            await engine.retry();
+         });
+         expect(engine.getSnapshot().phase).toBe("terminal");
+         expect(engine.getSnapshot().draft.graph.nodes).toHaveLength(1);
+         expect(puts(seeded.api)).toHaveLength(0);
+         expect(within(screen.getByRole("group", { name: "Not saved" })).getByText("after the end")).toBeInTheDocument();
+         expect(patches(seeded.store)).toHaveLength(1);
+      });
+
+      it("does not reopen a terminal attempt when the learner retries an unreadable diagram", async () => {
+         shown.length = 0;
+         const seeded = await seed(SD);
+         seeded.api.script("get_diagram", () => failure("internal_error", 500));
+         render(tree(seeded, seeded.token, "ada"));
+         await screen.findByRole("heading", { level: 1 });
+         goTo("Design");
+         await screen.findByText("We could not load your diagram. Your written work is not affected.");
+         vi.useFakeTimers();
+         seeded.store.endAttempt(seeded.id, "abandoned");
+         seeded.api.script("get_attempt", () => failure("internal_error", 500));
+         type("Core entities", "after the end");
+         await advance(DEBOUNCE);
+         await advance(10);
+         expect(saveStatus()).toHaveTextContent(/Not saved.*ended/);
+         installFakeDiagram(seeded.api, seeded.store);
+         fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+         await advance(10);
+         expect(screen.getByText("", { selector: "[data-diagram-stub=design]" })).toBeInTheDocument();
+         const engine = shown.at(-1)!.engine as DiagramEngine;
+         expect(engine.getSnapshot().phase).toBe("terminal");
+         await act(async () => {
+            await engine.persist();
+         });
+         expect(puts(seeded.api)).toHaveLength(0);
+      });
    });
 });

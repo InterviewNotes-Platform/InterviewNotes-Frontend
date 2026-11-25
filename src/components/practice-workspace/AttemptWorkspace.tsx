@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Network, X } from "lucide-react";
+import { DiagramEditorLoader } from "@/components/practice-graph/DiagramEditorLoader";
+import { Button } from "@/components/ui/button";
 import { useLeaveGuard } from "@/components/prepare/editor/useLeaveGuard";
 import { SaveStatus } from "@/components/ui/save-status";
 import type { MlSubsection } from "@/lib/practice-workspace/stages";
@@ -12,7 +14,7 @@ import { BriefDialog } from "./BriefDialog";
 import { StageEditor } from "./StageEditor";
 import { StageGuide } from "./StageGuide";
 import { StageNav } from "./StageNav";
-import { useAttemptWorkspace } from "./useAttemptWorkspace";
+import { useAttemptWorkspace, type DiagramState } from "./useAttemptWorkspace";
 import { useStageGuide } from "./useStageGuide";
 
 interface Props {
@@ -41,14 +43,40 @@ function resumeStage(positions: readonly Position[], statuses: ReadonlyMap<Posit
    }) ?? positions[positions.length - 1];
 }
 
+/** The one diagram of the attempt, wherever it is shown: loading, a retry when it could not be read, or the editor. */
+function DiagramArea({ diagram, readOnly, variant }: { diagram: DiagramState; readOnly: boolean; variant: "design" | "split" }) {
+   if (diagram.kind === "loading") {
+      return (
+         <p role="status" className="py-12 text-center text-body text-muted-foreground">
+            Loading your diagram…
+         </p>
+      );
+   }
+   if (diagram.kind === "failed") {
+      return (
+         <div role="alert" className="grid justify-items-center gap-3 rounded-lg bg-surface px-6 py-10 text-center">
+            <p className="m-0 text-body text-muted-foreground">We could not load your diagram. Your written work is not affected.</p>
+            <Button type="button" className="min-h-11" onClick={diagram.retry}>
+               Try again
+            </Button>
+         </div>
+      );
+   }
+   return <DiagramEditorLoader engine={diagram.engine} refusal={diagram.refusal} readOnly={readOnly} variant={variant} />;
+}
+
 /**
  * The self-guided writing workspace (Design D, written stages): stage navigation, one stage's fields at a time, a quiet guide, the Problem
  * brief and one honest save status. State is in memory only; the server holds the attempt. The diagram editor is T14's and arrives through
  * the slot in `StageEditor`.
  */
-export function AttemptWorkspace({ detail, mlSubsections }: Props) {
+export function AttemptWorkspace({ detail, mlSubsections: given }: Props) {
+   // A-02: the attempt detail names the authored ML sub-sections; a caller's list (tests) still wins.
+   const mlSubsections = given ?? detail.challenge?.stages.find((stage) => stage.position === "ml_reasoning")?.subsections;
    const workspace = useAttemptWorkspace(detail);
-   const { engines, snapshots, positions, status, summary, pending, settle, end } = workspace;
+   const { engines, snapshots, positions, status, summary, pending, settle, end, diagram } = workspace;
+   // Later stages may open the same diagram beside their written work (Design D); the choice lasts for this visit only.
+   const [split, setSplit] = useState(false);
    const guide = useStageGuide(detail, end);
    // Where the learner resumes is decided once, from the saved state they returned to; marking a stage done must not move them off it.
    const [current, setCurrent] = useState<Position | null>(() => {
@@ -91,6 +119,9 @@ export function AttemptWorkspace({ detail, mlSubsections }: Props) {
    }
 
    const index = positions.indexOf(active);
+   // The same graph is reachable from every stage after Design, never from the stages before it.
+   const designAt = positions.indexOf("design");
+   const afterDesign = designAt >= 0 && index > designAt;
    const engine = engines.get(active)!;
    const ended = ENDED[status] ?? null;
    const frame = snapshots.get("frame");
@@ -132,28 +163,79 @@ export function AttemptWorkspace({ detail, mlSubsections }: Props) {
             </p>
          ) : null}
 
-         <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,44rem)_minmax(16rem,20rem)] lg:justify-center lg:gap-14">
-            <main className="min-w-0">
-               <StageEditor
-                  key={active}
-                  ref={heading}
-                  attemptId={detail.id}
-                  position={active}
-                  index={index}
-                  total={positions.length}
-                  engine={engine}
-                  readOnly={status !== "active"}
-                  mlSubsections={mlSubsections}
-                  previous={index > 0 ? positions[index - 1] : null}
-                  next={index < positions.length - 1 ? positions[index + 1] : null}
-                  onGo={go}
-               />
+         {active === "design" ? (
+            <main className="mt-6 grid min-w-0 gap-8">
+               <div>
+                  <p className="m-0 text-supporting font-semibold tracking-wide text-primary uppercase">
+                     Stage {index + 1} of {positions.length}
+                  </p>
+                  <h1 ref={heading} tabIndex={-1} className="m-0 mt-1 font-[family-name:Iowan_Old_Style,Palatino_Linotype,Palatino,Book_Antiqua,Georgia,serif] text-title outline-none">
+                     {STAGE_COPY.design.label}
+                  </h1>
+                  <p className="m-0 mt-2 text-body text-pretty text-muted-foreground">
+                     {STAGE_COPY.design.intent} Draw it on the canvas, or build it in the Outline; <a href="#practice-design-notes" className="underline">written notes</a> are below.
+                  </p>
+               </div>
+               <DiagramArea diagram={diagram} readOnly={status !== "active"} variant="design" />
+               <div id="practice-design-notes" className="grid gap-10 lg:grid-cols-[minmax(0,44rem)_minmax(16rem,20rem)] lg:justify-center lg:gap-14">
+                  <StageEditor
+                     key={active}
+                     asNotes
+                     attemptId={detail.id}
+                     position={active}
+                     index={index}
+                     total={positions.length}
+                     engine={engine}
+                     readOnly={status !== "active"}
+                     mlSubsections={mlSubsections}
+                     previous={index > 0 ? positions[index - 1] : null}
+                     next={index < positions.length - 1 ? positions[index + 1] : null}
+                     onGo={go}
+                  />
+                  <div className="min-w-0 lg:border-l lg:border-border lg:pl-8">
+                     <p className="m-0 mb-4 text-supporting font-semibold tracking-wide text-muted-foreground uppercase">{STAGE_COPY[active].label}</p>
+                     <StageGuide position={active} challenge={detail.challenge} guide={guide} readOnly={status !== "active"} ownQuestionsSaved={ownQuestions} />
+                  </div>
+               </div>
             </main>
-            <div className="min-w-0 lg:border-l lg:border-border lg:pl-8">
-               <p className="m-0 mb-4 text-supporting font-semibold tracking-wide text-muted-foreground uppercase">{STAGE_COPY[active].label}</p>
-               <StageGuide position={active} challenge={detail.challenge} guide={guide} readOnly={status !== "active"} ownQuestionsSaved={ownQuestions} />
+         ) : (
+            <div className={split && afterDesign ? "mt-8 grid gap-8 xl:grid-cols-[minmax(0,34rem)_minmax(0,1fr)]" : "mt-8 grid gap-10 lg:grid-cols-[minmax(0,44rem)_minmax(16rem,20rem)] lg:justify-center lg:gap-14"}>
+               <main className="min-w-0">
+                  {afterDesign ? (
+                     <div className="mb-6">
+                        <Button type="button" variant="outline" className="min-h-11" aria-expanded={split} onClick={() => setSplit((open) => !open)}>
+                           {split ? <X aria-hidden="true" /> : <Network aria-hidden="true" />}
+                           {split ? "Done with the diagram" : "Your design"}
+                        </Button>
+                     </div>
+                  ) : null}
+                  <StageEditor
+                     key={active}
+                     ref={heading}
+                     attemptId={detail.id}
+                     position={active}
+                     index={index}
+                     total={positions.length}
+                     engine={engine}
+                     readOnly={status !== "active"}
+                     mlSubsections={mlSubsections}
+                     previous={index > 0 ? positions[index - 1] : null}
+                     next={index < positions.length - 1 ? positions[index + 1] : null}
+                     onGo={go}
+                  />
+               </main>
+               {split && afterDesign ? (
+                  <section aria-label="Your design" className="min-w-0">
+                     <DiagramArea diagram={diagram} readOnly={status !== "active"} variant="split" />
+                  </section>
+               ) : (
+                  <div className="min-w-0 lg:border-l lg:border-border lg:pl-8">
+                     <p className="m-0 mb-4 text-supporting font-semibold tracking-wide text-muted-foreground uppercase">{STAGE_COPY[active].label}</p>
+                     <StageGuide position={active} challenge={detail.challenge} guide={guide} readOnly={status !== "active"} ownQuestionsSaved={ownQuestions} />
+                  </div>
+               )}
             </div>
-         </div>
+         )}
       </div>
    );
 }

@@ -10,7 +10,7 @@
 import type { EdgeKind, BoundaryType, NodeType } from "./types";
 
 /** The SHA-256 the T13 and T14 records cite. Changing any shape needs an owner-recorded amendment and a new hash. */
-export const M1_MANIFEST_SHA256 = "add2205307ba7672f4708616a0f828a3a38abaf911c666ac640e05823bdecc55";
+export const M1_MANIFEST_SHA256 = "43bc851e24e1fceebf98df0550ce5263ce5b4d5167aa10a6ee3c14b26d600d5c";
 
 export const PRACTICE_PREFIX = "/me/practice";
 export const CONTENT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,119}$/;

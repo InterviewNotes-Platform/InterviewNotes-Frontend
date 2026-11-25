@@ -1,0 +1,548 @@
+{
+  "format": "p9-t10-graph-hash-vectors/1",
+  "method": "UTF-8 JSON, compact separators, ensure_ascii=false, keys in the fixed canonical order, arrays sorted by ID, strings NFC and trimmed (ECMAScript trim set), no layout, no version; SHA-256 hex over those bytes",
+  "id_examples": {
+    "node": "n_00000000000000000000000001",
+    "edge": "e_00000000000000000000000001",
+    "boundary": "b_00000000000000000000000001"
+  },
+  "vectors": [
+    {
+      "case": "empty",
+      "note": "no elements",
+      "submitted": {
+        "schema": "in.arch-graph/1",
+        "nodes": [],
+        "edges": [],
+        "boundaries": []
+      },
+      "canonical_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[],\"edges\":[],\"boundaries\":[]}",
+      "topology_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[],\"edges\":[],\"boundaries\":[]}",
+      "graph_hash": "cdfbf2a50fc11fa3f215a7fdf7ff946d9686906f8b4f5253ebea4baadc4582bf",
+      "topology_hash": "cdfbf2a50fc11fa3f215a7fdf7ff946d9686906f8b4f5253ebea4baadc4582bf",
+      "alias_map": {}
+    },
+    {
+      "case": "sample",
+      "note": "four nodes, three edges, one boundary",
+      "submitted": {
+        "schema": "in.arch-graph/1",
+        "nodes": [
+          {
+            "id": "n_00000000000000000000000001",
+            "type": "client",
+            "subtype": "web",
+            "label": "Web app",
+            "explanation": "The user's browser."
+          },
+          {
+            "id": "n_00000000000000000000000002",
+            "type": "gateway",
+            "subtype": "api_gateway",
+            "label": "Gateway",
+            "explanation": "Terminates TLS."
+          },
+          {
+            "id": "n_00000000000000000000000003",
+            "type": "service",
+            "subtype": "api",
+            "label": "Search API",
+            "boundary": "b_00000000000000000000000001"
+          },
+          {
+            "id": "n_00000000000000000000000004",
+            "type": "database",
+            "subtype": "vector",
+            "label": "Vector DB",
+            "boundary": "b_00000000000000000000000001"
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_00000000000000000000000001",
+            "from": "n_00000000000000000000000001",
+            "to": "n_00000000000000000000000002",
+            "tag": "https",
+            "explanation": "Browser calls the gateway."
+          },
+          {
+            "id": "e_00000000000000000000000002",
+            "from": "n_00000000000000000000000002",
+            "to": "n_00000000000000000000000003",
+            "explanation": "Gateway forwards the query."
+          },
+          {
+            "id": "e_00000000000000000000000003",
+            "from": "n_00000000000000000000000003",
+            "to": "n_00000000000000000000000004",
+            "kind": "read",
+            "tag": "top-k",
+            "explanation": "API asks the database for neighbours."
+          }
+        ],
+        "boundaries": [
+          {
+            "id": "b_00000000000000000000000001",
+            "type": "tenant",
+            "label": "Tenant A"
+          }
+        ]
+      },
+      "canonical_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"label\":\"Web app\",\"explanation\":\"The user's browser.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"label\":\"Gateway\",\"explanation\":\"Terminates TLS.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"label\":\"Search API\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"label\":\"Vector DB\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\",\"tag\":\"https\",\"explanation\":\"Browser calls the gateway.\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\",\"tag\":\"\",\"explanation\":\"Gateway forwards the query.\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\",\"tag\":\"top-k\",\"explanation\":\"API asks the database for neighbours.\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\",\"label\":\"Tenant A\"}]}",
+      "topology_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\"}]}",
+      "graph_hash": "2e4b54b5df6ab6b9ffd2d6ac1f790d068dcffbebfbc55d81e6376be9000279da",
+      "topology_hash": "c150c0d8476ff94f7bbc0147016a2860daba61b7e8d686ab7ab37a483d6ae96d",
+      "alias_map": {
+        "N1": "n_00000000000000000000000001",
+        "N2": "n_00000000000000000000000002",
+        "N3": "n_00000000000000000000000003",
+        "N4": "n_00000000000000000000000004",
+        "E1": "e_00000000000000000000000001",
+        "E2": "e_00000000000000000000000002",
+        "E3": "e_00000000000000000000000003",
+        "B1": "b_00000000000000000000000001"
+      }
+    },
+    {
+      "case": "text-only-edit",
+      "note": "one label changed: graph_hash changes, topology_hash does not",
+      "submitted": {
+        "schema": "in.arch-graph/1",
+        "nodes": [
+          {
+            "id": "n_00000000000000000000000001",
+            "type": "client",
+            "subtype": "web",
+            "label": "Web app",
+            "explanation": "The user's browser."
+          },
+          {
+            "id": "n_00000000000000000000000002",
+            "type": "gateway",
+            "subtype": "api_gateway",
+            "label": "Gateway",
+            "explanation": "Terminates TLS."
+          },
+          {
+            "id": "n_00000000000000000000000003",
+            "type": "service",
+            "subtype": "api",
+            "label": "Search API",
+            "boundary": "b_00000000000000000000000001"
+          },
+          {
+            "id": "n_00000000000000000000000004",
+            "type": "database",
+            "subtype": "vector",
+            "label": "Embedding index",
+            "boundary": "b_00000000000000000000000001"
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_00000000000000000000000001",
+            "from": "n_00000000000000000000000001",
+            "to": "n_00000000000000000000000002",
+            "tag": "https",
+            "explanation": "Browser calls the gateway."
+          },
+          {
+            "id": "e_00000000000000000000000002",
+            "from": "n_00000000000000000000000002",
+            "to": "n_00000000000000000000000003",
+            "explanation": "Gateway forwards the query."
+          },
+          {
+            "id": "e_00000000000000000000000003",
+            "from": "n_00000000000000000000000003",
+            "to": "n_00000000000000000000000004",
+            "kind": "read",
+            "tag": "top-k",
+            "explanation": "API asks the database for neighbours."
+          }
+        ],
+        "boundaries": [
+          {
+            "id": "b_00000000000000000000000001",
+            "type": "tenant",
+            "label": "Tenant A"
+          }
+        ]
+      },
+      "canonical_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"label\":\"Web app\",\"explanation\":\"The user's browser.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"label\":\"Gateway\",\"explanation\":\"Terminates TLS.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"label\":\"Search API\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"label\":\"Embedding index\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\",\"tag\":\"https\",\"explanation\":\"Browser calls the gateway.\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\",\"tag\":\"\",\"explanation\":\"Gateway forwards the query.\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\",\"tag\":\"top-k\",\"explanation\":\"API asks the database for neighbours.\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\",\"label\":\"Tenant A\"}]}",
+      "topology_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\"}]}",
+      "graph_hash": "d7f2a86996607b3752701a3c3a34523d46b3b8b50e0a8a32d571c076860748bd",
+      "topology_hash": "c150c0d8476ff94f7bbc0147016a2860daba61b7e8d686ab7ab37a483d6ae96d",
+      "alias_map": {
+        "N1": "n_00000000000000000000000001",
+        "N2": "n_00000000000000000000000002",
+        "N3": "n_00000000000000000000000003",
+        "N4": "n_00000000000000000000000004",
+        "E1": "e_00000000000000000000000001",
+        "E2": "e_00000000000000000000000002",
+        "E3": "e_00000000000000000000000003",
+        "B1": "b_00000000000000000000000001"
+      }
+    },
+    {
+      "case": "structural-edit",
+      "note": "one edge added: both hashes change",
+      "submitted": {
+        "schema": "in.arch-graph/1",
+        "nodes": [
+          {
+            "id": "n_00000000000000000000000001",
+            "type": "client",
+            "subtype": "web",
+            "label": "Web app",
+            "explanation": "The user's browser."
+          },
+          {
+            "id": "n_00000000000000000000000002",
+            "type": "gateway",
+            "subtype": "api_gateway",
+            "label": "Gateway",
+            "explanation": "Terminates TLS."
+          },
+          {
+            "id": "n_00000000000000000000000003",
+            "type": "service",
+            "subtype": "api",
+            "label": "Search API",
+            "boundary": "b_00000000000000000000000001"
+          },
+          {
+            "id": "n_00000000000000000000000004",
+            "type": "database",
+            "subtype": "vector",
+            "label": "Vector DB",
+            "boundary": "b_00000000000000000000000001"
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_00000000000000000000000001",
+            "from": "n_00000000000000000000000001",
+            "to": "n_00000000000000000000000002",
+            "tag": "https",
+            "explanation": "Browser calls the gateway."
+          },
+          {
+            "id": "e_00000000000000000000000002",
+            "from": "n_00000000000000000000000002",
+            "to": "n_00000000000000000000000003",
+            "explanation": "Gateway forwards the query."
+          },
+          {
+            "id": "e_00000000000000000000000003",
+            "from": "n_00000000000000000000000003",
+            "to": "n_00000000000000000000000004",
+            "kind": "read",
+            "tag": "top-k",
+            "explanation": "API asks the database for neighbours."
+          },
+          {
+            "id": "e_00000000000000000000000004",
+            "from": "n_00000000000000000000000003",
+            "to": "n_00000000000000000000000002",
+            "kind": "write",
+            "explanation": "Result written back."
+          }
+        ],
+        "boundaries": [
+          {
+            "id": "b_00000000000000000000000001",
+            "type": "tenant",
+            "label": "Tenant A"
+          }
+        ]
+      },
+      "canonical_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"label\":\"Web app\",\"explanation\":\"The user's browser.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"label\":\"Gateway\",\"explanation\":\"Terminates TLS.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"label\":\"Search API\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"label\":\"Vector DB\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\",\"tag\":\"https\",\"explanation\":\"Browser calls the gateway.\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\",\"tag\":\"\",\"explanation\":\"Gateway forwards the query.\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\",\"tag\":\"top-k\",\"explanation\":\"API asks the database for neighbours.\"},{\"id\":\"e_00000000000000000000000004\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"write\",\"tag\":\"\",\"explanation\":\"Result written back.\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\",\"label\":\"Tenant A\"}]}",
+      "topology_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\"},{\"id\":\"e_00000000000000000000000004\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"write\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\"}]}",
+      "graph_hash": "bb2f69a7614b8177e0bc525a6e7f05deda86ee24b41cf02c48b626f08c3062fa",
+      "topology_hash": "9dceb5ded5427a6bf54bdee3f34e0840dad3d96a6d5cffe0bbf5a21795c8773f",
+      "alias_map": {
+        "N1": "n_00000000000000000000000001",
+        "N2": "n_00000000000000000000000002",
+        "N3": "n_00000000000000000000000003",
+        "N4": "n_00000000000000000000000004",
+        "E1": "e_00000000000000000000000001",
+        "E2": "e_00000000000000000000000002",
+        "E3": "e_00000000000000000000000003",
+        "E4": "e_00000000000000000000000004",
+        "B1": "b_00000000000000000000000001"
+      }
+    },
+    {
+      "case": "equivalent-order-and-defaults",
+      "note": "same graph as `sample`: arrays reversed, key order changed, empty optional keys omitted",
+      "submitted": {
+        "boundaries": [
+          {
+            "id": "b_00000000000000000000000001",
+            "type": "tenant",
+            "label": "Tenant A"
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_00000000000000000000000003",
+            "from": "n_00000000000000000000000003",
+            "to": "n_00000000000000000000000004",
+            "kind": "read",
+            "tag": "top-k",
+            "explanation": "API asks the database for neighbours."
+          },
+          {
+            "id": "e_00000000000000000000000002",
+            "from": "n_00000000000000000000000002",
+            "to": "n_00000000000000000000000003",
+            "explanation": "Gateway forwards the query."
+          },
+          {
+            "id": "e_00000000000000000000000001",
+            "from": "n_00000000000000000000000001",
+            "to": "n_00000000000000000000000002",
+            "tag": "https",
+            "explanation": "Browser calls the gateway."
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n_00000000000000000000000004",
+            "type": "database",
+            "subtype": "vector",
+            "label": "Vector DB",
+            "boundary": "b_00000000000000000000000001"
+          },
+          {
+            "id": "n_00000000000000000000000003",
+            "type": "service",
+            "subtype": "api",
+            "label": "Search API",
+            "boundary": "b_00000000000000000000000001"
+          },
+          {
+            "id": "n_00000000000000000000000002",
+            "type": "gateway",
+            "subtype": "api_gateway",
+            "label": "Gateway",
+            "explanation": "Terminates TLS."
+          },
+          {
+            "id": "n_00000000000000000000000001",
+            "type": "client",
+            "subtype": "web",
+            "label": "Web app",
+            "explanation": "The user's browser."
+          }
+        ],
+        "schema": "in.arch-graph/1"
+      },
+      "canonical_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"label\":\"Web app\",\"explanation\":\"The user's browser.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"label\":\"Gateway\",\"explanation\":\"Terminates TLS.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"label\":\"Search API\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"label\":\"Vector DB\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\",\"tag\":\"https\",\"explanation\":\"Browser calls the gateway.\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\",\"tag\":\"\",\"explanation\":\"Gateway forwards the query.\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\",\"tag\":\"top-k\",\"explanation\":\"API asks the database for neighbours.\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\",\"label\":\"Tenant A\"}]}",
+      "topology_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\"}]}",
+      "graph_hash": "2e4b54b5df6ab6b9ffd2d6ac1f790d068dcffbebfbc55d81e6376be9000279da",
+      "topology_hash": "c150c0d8476ff94f7bbc0147016a2860daba61b7e8d686ab7ab37a483d6ae96d",
+      "alias_map": {
+        "N1": "n_00000000000000000000000001",
+        "N2": "n_00000000000000000000000002",
+        "N3": "n_00000000000000000000000003",
+        "N4": "n_00000000000000000000000004",
+        "E1": "e_00000000000000000000000001",
+        "E2": "e_00000000000000000000000002",
+        "E3": "e_00000000000000000000000003",
+        "B1": "b_00000000000000000000000001"
+      }
+    },
+    {
+      "case": "equivalent-trim",
+      "note": "same graph as `sample`: label has NBSP, BOM and ideographic space around it",
+      "submitted": {
+        "schema": "in.arch-graph/1",
+        "nodes": [
+          {
+            "id": "n_00000000000000000000000001",
+            "type": "client",
+            "subtype": "web",
+            "label": "\u00a0\ufeffWeb app \u3000",
+            "explanation": "The user's browser."
+          },
+          {
+            "id": "n_00000000000000000000000002",
+            "type": "gateway",
+            "subtype": "api_gateway",
+            "label": "Gateway",
+            "explanation": "Terminates TLS."
+          },
+          {
+            "id": "n_00000000000000000000000003",
+            "type": "service",
+            "subtype": "api",
+            "label": "Search API",
+            "boundary": "b_00000000000000000000000001"
+          },
+          {
+            "id": "n_00000000000000000000000004",
+            "type": "database",
+            "subtype": "vector",
+            "label": "Vector DB",
+            "boundary": "b_00000000000000000000000001"
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_00000000000000000000000001",
+            "from": "n_00000000000000000000000001",
+            "to": "n_00000000000000000000000002",
+            "tag": "https",
+            "explanation": "Browser calls the gateway."
+          },
+          {
+            "id": "e_00000000000000000000000002",
+            "from": "n_00000000000000000000000002",
+            "to": "n_00000000000000000000000003",
+            "explanation": "Gateway forwards the query."
+          },
+          {
+            "id": "e_00000000000000000000000003",
+            "from": "n_00000000000000000000000003",
+            "to": "n_00000000000000000000000004",
+            "kind": "read",
+            "tag": "top-k",
+            "explanation": "API asks the database for neighbours."
+          }
+        ],
+        "boundaries": [
+          {
+            "id": "b_00000000000000000000000001",
+            "type": "tenant",
+            "label": "Tenant A"
+          }
+        ]
+      },
+      "canonical_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"label\":\"Web app\",\"explanation\":\"The user's browser.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"label\":\"Gateway\",\"explanation\":\"Terminates TLS.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"label\":\"Search API\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"label\":\"Vector DB\",\"explanation\":\"\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\",\"tag\":\"https\",\"explanation\":\"Browser calls the gateway.\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\",\"tag\":\"\",\"explanation\":\"Gateway forwards the query.\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\",\"tag\":\"top-k\",\"explanation\":\"API asks the database for neighbours.\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\",\"label\":\"Tenant A\"}]}",
+      "topology_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":\"web\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"gateway\",\"subtype\":\"api_gateway\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":\"api\",\"boundary\":\"b_00000000000000000000000001\"},{\"id\":\"n_00000000000000000000000004\",\"type\":\"database\",\"subtype\":\"vector\",\"boundary\":\"b_00000000000000000000000001\"}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000002\",\"from\":\"n_00000000000000000000000002\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\"},{\"id\":\"e_00000000000000000000000003\",\"from\":\"n_00000000000000000000000003\",\"to\":\"n_00000000000000000000000004\",\"kind\":\"read\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\"}]}",
+      "graph_hash": "2e4b54b5df6ab6b9ffd2d6ac1f790d068dcffbebfbc55d81e6376be9000279da",
+      "topology_hash": "c150c0d8476ff94f7bbc0147016a2860daba61b7e8d686ab7ab37a483d6ae96d",
+      "alias_map": {
+        "N1": "n_00000000000000000000000001",
+        "N2": "n_00000000000000000000000002",
+        "N3": "n_00000000000000000000000003",
+        "N4": "n_00000000000000000000000004",
+        "E1": "e_00000000000000000000000001",
+        "E2": "e_00000000000000000000000002",
+        "E3": "e_00000000000000000000000003",
+        "B1": "b_00000000000000000000000001"
+      }
+    },
+    {
+      "case": "nfc-and-escapes",
+      "note": "NFD input becomes NFC; quote, backslash, newline, non-ASCII and an astral character are written as the JSON specification requires",
+      "submitted": {
+        "schema": "in.arch-graph/1",
+        "nodes": [
+          {
+            "id": "n_00000000000000000000000001",
+            "type": "service",
+            "label": "Cafe\u0301 \"A\\B\"",
+            "explanation": "line one\nline \"two\" \\ \u65e5\u672c\u8a9e \ud83d\ude00"
+          },
+          {
+            "id": "n_00000000000000000000000002",
+            "type": "queue",
+            "subtype": "stream",
+            "label": "</script>"
+          }
+        ],
+        "edges": [
+          {
+            "id": "e_00000000000000000000000001",
+            "from": "n_00000000000000000000000001",
+            "to": "n_00000000000000000000000002",
+            "kind": "async_message",
+            "tag": "a/b",
+            "explanation": "<b>x</b> & y"
+          }
+        ],
+        "boundaries": [
+          {
+            "id": "b_00000000000000000000000001",
+            "type": "trust",
+            "label": "Zone"
+          }
+        ]
+      },
+      "canonical_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"service\",\"subtype\":null,\"label\":\"Caf\u00e9 \\\"A\\\\B\\\"\",\"explanation\":\"line one\\nline \\\"two\\\" \\\\ \u65e5\u672c\u8a9e \ud83d\ude00\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"queue\",\"subtype\":\"stream\",\"label\":\"</script>\",\"explanation\":\"\",\"boundary\":null}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"async_message\",\"tag\":\"a/b\",\"explanation\":\"<b>x</b> & y\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"trust\",\"label\":\"Zone\"}]}",
+      "topology_json": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"service\",\"subtype\":null,\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"queue\",\"subtype\":\"stream\",\"boundary\":null}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000002\",\"kind\":\"async_message\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"trust\"}]}",
+      "graph_hash": "d67b4e99b397ea81c42188705db5eac593e24dcfb7e86f77887d407566c6e07b",
+      "topology_hash": "23504ce9cdd3ce926d86e1e682a351370f72108c10ade72d146ecd9151fecf6e",
+      "alias_map": {
+        "N1": "n_00000000000000000000000001",
+        "N2": "n_00000000000000000000000002",
+        "E1": "e_00000000000000000000000001",
+        "B1": "b_00000000000000000000000001"
+      }
+    }
+  ],
+  "finding_vectors": [
+    {
+      "graph": "{\"schema\":\"in.arch-graph/1\",\"nodes\":[{\"id\":\"n_00000000000000000000000001\",\"type\":\"client\",\"subtype\":null,\"label\":\"Web\",\"explanation\":\"\",\"boundary\":null},{\"id\":\"n_00000000000000000000000002\",\"type\":\"service\",\"subtype\":null,\"label\":\"\",\"explanation\":\"Lonely.\",\"boundary\":null},{\"id\":\"n_00000000000000000000000003\",\"type\":\"service\",\"subtype\":null,\"label\":\"\",\"explanation\":\"\",\"boundary\":null}],\"edges\":[{\"id\":\"e_00000000000000000000000001\",\"from\":\"n_00000000000000000000000001\",\"to\":\"n_00000000000000000000000003\",\"kind\":\"request\",\"tag\":\"\",\"explanation\":\"\"}],\"boundaries\":[{\"id\":\"b_00000000000000000000000001\",\"type\":\"tenant\",\"label\":\"\"}]}",
+      "findings": [
+        {
+          "rule": "boundary_empty",
+          "severity": "info",
+          "element_ids": [
+            "b_00000000000000000000000001"
+          ],
+          "basis_hash": "4d33b2dd7d834f34497acf1322001861091dd7e4921dbca4d5f9402f7b40e157",
+          "state": "fresh"
+        },
+        {
+          "rule": "edge_unexplained",
+          "severity": "info",
+          "element_ids": [
+            "e_00000000000000000000000001"
+          ],
+          "basis_hash": "42560dac6b08ed681603cbbb767be6089c85039ee1f1af1f93efda3d162ea77e",
+          "state": "fresh"
+        },
+        {
+          "rule": "node_explained_unconnected",
+          "severity": "info",
+          "element_ids": [
+            "n_00000000000000000000000002"
+          ],
+          "basis_hash": "fd50cfba5045f261104f684f9851abcf6dbb81523fd3e7f66393e7d776487832",
+          "state": "fresh"
+        },
+        {
+          "rule": "node_isolated",
+          "severity": "warn",
+          "element_ids": [
+            "n_00000000000000000000000002"
+          ],
+          "basis_hash": "f66ac2d7ef30ffe5adf2ae559e7c1343bfdd9e95922746d064037fb8c94ae46e",
+          "state": "fresh"
+        },
+        {
+          "rule": "node_unnamed",
+          "severity": "warn",
+          "element_ids": [
+            "n_00000000000000000000000002"
+          ],
+          "basis_hash": "fd50cfba5045f261104f684f9851abcf6dbb81523fd3e7f66393e7d776487832",
+          "state": "fresh"
+        },
+        {
+          "rule": "node_unnamed",
+          "severity": "warn",
+          "element_ids": [
+            "n_00000000000000000000000003"
+          ],
+          "basis_hash": "7fe1aafd3429b6b378177c6e1c1bff48b7a5814fe65a2bcda3656c5e683143db",
+          "state": "fresh"
+        }
+      ]
+    }
+  ]
+}

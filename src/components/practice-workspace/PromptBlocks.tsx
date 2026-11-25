@@ -63,6 +63,7 @@ function render(blocks: Block[], keyBase: string): ReactNode[] {
  * The prompt of the Problem (`ChallengeOut.prompt`, "the reader's block shape, the givens only"), as plain text with paragraphs, lists and inline
  * emphasis. A block of a shape this does not know is skipped, never rendered as HTML.
  */
-export function PromptBlocks({ blocks }: { blocks: Block[] }) {
-   return <div className="text-body text-foreground">{render(blocks, "p")}</div>;
+export function PromptBlocks({ blocks }: { blocks: readonly object[] }) {
+   // Read defensively whatever the typed contract says: an unknown block shape renders nothing rather than markup.
+   return <div className="text-body text-foreground">{render(blocks as Block[], "p")}</div>;
 }

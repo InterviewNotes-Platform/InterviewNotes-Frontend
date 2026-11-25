@@ -135,6 +135,14 @@ describe("choosing a seniority", () => {
       expect(store.calls("create_attempt")).toHaveLength(0);
    });
 
+   it("offers the server's own list when the capability gives one (A-01), over the reader-derived one", async () => {
+      const { ui, api } = rig();
+      api.script("capability", { status: 200, body: { practice_available: true, practice_ready: true, ai_available: false, voice_available: false, plan: "free", consent: { practice_data: "required", practice_ai: "required" }, limits: null, seniorities: ["staff", "principal"] } });
+      render(ui());
+      fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
+      expect(within(dialog()).getAllByRole("radio").map((radio) => (radio as HTMLInputElement).value)).toEqual(["staff", "principal"]);
+   });
+
    it("preselects the only targeted seniority", async () => {
       const { ui } = rig();
       render(ui({ seniorities: ["staff"] }));

@@ -111,6 +111,8 @@ export interface CapabilityOut {
    plan: Plan;
    consent: ConsentStates;
    limits: Limits | null;
+   /** A-01: the seniorities the Problem targets and offers, server-derived; empty unless `practice_ready`. */
+   seniorities: Seniority[];
 }
 
 // --- Stage work ---
@@ -149,11 +151,35 @@ export interface ClarificationRevealOut {
 
 // --- Attempt detail (G-02): saved work and the allowlisted challenge ---
 
+export type MlSubsectionKey = "ml_objective" | "data" | "features" | "labels" | "model" | "training" | "inference";
+
+/** A-02: one ML sub-section the pinned Problem authors; `key` is its stage field identifier, `title` a fixed label. */
+export interface ChallengeSubsectionOut {
+   key: MlSubsectionKey;
+   title: string;
+}
+
 export interface ChallengeStageOut {
    position: Position;
    title: string;
-   /** A count of authored hints the learner may request, never their text. */
+   /** A-03: the total of the stage's authored hints released to the caller, never their text. */
    hints_available: number;
+   /** A-03: how many of them the learner has been shown, from the event record (not the bounded history). */
+   hints_used: number;
+   /** A-02: for `ml_reasoning` only; empty elsewhere. */
+   subsections: ChallengeSubsectionOut[];
+}
+
+/** A-04: the canonical prompt blocks. */
+export interface PromptMarkdownBlock {
+   type: "markdown";
+   text: string;
+}
+
+export interface PromptCalloutBlock {
+   type: "callout";
+   kind: "note" | "tip" | "warning";
+   children: PromptMarkdownBlock[];
 }
 
 /** The topic only; the authored answer arrives only through the reveal route. */
@@ -165,8 +191,8 @@ export interface ChallengeClarificationOut {
 /** The challenge-facing content of the pinned Problem version, from a server-side allowlist. Never a reference or an unrevealed answer. */
 export interface ChallengeOut {
    title: string;
-   /** The reader's block shape, the givens only. */
-   prompt: Record<string, unknown>[];
+   /** The givens only, as canonical blocks (A-04). */
+   prompt: (PromptMarkdownBlock | PromptCalloutBlock)[];
    stages: ChallengeStageOut[];
    clarifications: ChallengeClarificationOut[];
 }
@@ -198,7 +224,10 @@ export interface AttemptDetailOut extends AttemptOut {
    /** Null while the authored material is withdrawn; the learner's own work stays. */
    challenge: ChallengeOut | null;
    revealed_clarifications: RevealedClarificationOut[];
+   /** At most the 200 most recent learner-visible events, ascending (A-05). */
    history: HistoryEventOut[];
+   /** Every learner-visible event, so truncation is never silent (A-05). */
+   history_total: number;
 }
 
 /** Explicit confirmation (G-04): `confirm` must be `true`. */

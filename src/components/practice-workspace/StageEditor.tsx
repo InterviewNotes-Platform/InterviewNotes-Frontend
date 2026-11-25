@@ -24,6 +24,8 @@ interface Props {
    previous: Position | null;
    next: Position | null;
    onGo: (position: Position) => void;
+   /** The Design stage (T14): the canvas is the stage's main work and these fields are its written notes, under a second-level heading. */
+   asNotes?: boolean;
 }
 
 const nextStatus = (draft: StageDraft, value: string): StageStatus => (draft.status === "not_started" && value.trim() !== "" ? "in_progress" : draft.status);
@@ -33,7 +35,7 @@ const nextStatus = (draft: StageDraft, value: string): StageStatus => (draft.sta
  * character count, the learner's own status control, and Previous and Next. Typing is local and immediate; saving is the
  * engine's. Any field may stay empty and any stage may be left or opened at any time.
  */
-export const StageEditor = forwardRef<HTMLHeadingElement, Props>(function StageEditor({ attemptId, position, index, total, engine, readOnly, mlSubsections, previous, next, onGo }, headingRef) {
+export const StageEditor = forwardRef<HTMLHeadingElement, Props>(function StageEditor({ attemptId, position, index, total, engine, readOnly, mlSubsections, previous, next, onGo, asNotes = false }, headingRef) {
    const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot);
    const { draft } = snapshot;
    const fields = stageFields(position, mlSubsections);
@@ -46,13 +48,21 @@ export const StageEditor = forwardRef<HTMLHeadingElement, Props>(function StageE
    return (
       <div className="grid gap-6">
          <div>
-            <p className="m-0 text-supporting font-semibold tracking-wide text-primary uppercase">
-               Stage {index + 1} of {total}
-            </p>
-            <h1 ref={headingRef} tabIndex={-1} className="m-0 mt-1 font-[family-name:Iowan_Old_Style,Palatino_Linotype,Palatino,Book_Antiqua,Georgia,serif] text-title text-balance outline-none">
-               {copy.label}
-            </h1>
-            <p className="m-0 mt-2 text-body text-pretty text-muted-foreground">{copy.intent}</p>
+            {asNotes ? (
+               <h2 ref={headingRef} tabIndex={-1} className="m-0 font-[family-name:Iowan_Old_Style,Palatino_Linotype,Palatino,Book_Antiqua,Georgia,serif] text-subsection outline-none">
+                  Written notes
+               </h2>
+            ) : (
+               <>
+                  <p className="m-0 text-supporting font-semibold tracking-wide text-primary uppercase">
+                     Stage {index + 1} of {total}
+                  </p>
+                  <h1 ref={headingRef} tabIndex={-1} className="m-0 mt-1 font-[family-name:Iowan_Old_Style,Palatino_Linotype,Palatino,Book_Antiqua,Georgia,serif] text-title text-balance outline-none">
+                     {copy.label}
+                  </h1>
+                  <p className="m-0 mt-2 text-body text-pretty text-muted-foreground">{copy.intent}</p>
+               </>
+            )}
             <p className="m-0 mt-3 text-supporting">
                <span className="text-muted-foreground">Status: </span>
                <span data-testid="stage-status" className="font-semibold">
@@ -63,9 +73,6 @@ export const StageEditor = forwardRef<HTMLHeadingElement, Props>(function StageE
 
          {/* What the learner must do about unsaved text comes first, where it cannot be missed. */}
          <SaveTrouble engine={engine} snapshot={snapshot} fields={fields} attemptId={attemptId} />
-
-         {/* T14's editor opens here for stages that use the one diagram per attempt; T13 reserves the boundary and renders nothing for it. */}
-         <div data-design-editor-slot={position} hidden />
 
          <div className="grid gap-5">
             {fields.map((field) => {

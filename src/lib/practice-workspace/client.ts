@@ -14,7 +14,7 @@ import {
    type RouteDef,
    type RouteId,
 } from "./contract";
-import { isAssumption, isAttempt, isAttemptDetail, isAttemptListPage, isClarificationReveal, isConsentOut, isConsentStatus, isHint, isStageWork } from "./guards";
+import { isAssumption, isAttempt, isAttemptDetail, isAttemptListPage, isClarificationReveal, isConsentOut, isConsentStatus, isDiagram, isHint, isStageWork } from "./guards";
 import type {
    AssumptionIn,
    AssumptionOut,
@@ -71,6 +71,8 @@ export type PracticeFailure = {
    requiredVersion?: string;
    retryAfterSeconds?: number;
    fields?: { field: string; reason: string }[];
+   /** 422 `graph_invalid`: machine rules and element IDs only, never learner text. */
+   reasons?: { rule: string; elementId?: string }[];
 };
 
 /**
@@ -264,8 +266,8 @@ export function createPracticeClient(config: PracticeClientConfig) {
       patchStage: (id: string, position: string, body: StagePatchIn, options: RequestOptions = {}) =>
          call<StageWorkOut>({ route: "patch_stage", params: attempt(id, { position }), body, read: guarded(isStageWork), ...options }),
 
-      getDiagram: (id: string) => call<DiagramOut>({ route: "get_diagram", params: attempt(id), read: pending() }),
-      putDiagram: (id: string, body: DiagramPutIn) => call<DiagramOut>({ route: "put_diagram", params: attempt(id), body, read: pending() }),
+      getDiagram: (id: string, options: RequestOptions = {}) => call<DiagramOut>({ route: "get_diagram", params: attempt(id), read: guarded(isDiagram), ...options }),
+      putDiagram: (id: string, body: DiagramPutIn, options: RequestOptions = {}) => call<DiagramOut>({ route: "put_diagram", params: attempt(id), body, read: guarded(isDiagram), ...options }),
 
       stageHint: (id: string, position: string, options: RequestOptions = {}) => call<HintOut>({ route: "stage_hint", params: attempt(id, { position }), read: guarded(isHint), ...options }),
       revealClarification: (id: string, clarificationId: string, options: RequestOptions = {}) =>
@@ -323,6 +325,12 @@ async function readEnvelope(response: Response): Promise<{ code: string; failure
       failure.fields = value.fields
          .filter((item): item is { field: string; reason: string } => typeof item === "object" && item !== null && typeof (item as { field?: unknown }).field === "string" && typeof (item as { reason?: unknown }).reason === "string")
          .map(({ field, reason }) => ({ field, reason }));
+   }
+   if (Array.isArray(value.reasons)) {
+      failure.reasons = value.reasons
+         .filter((item): item is { rule: string; element_id?: unknown } => typeof item === "object" && item !== null && typeof (item as { rule?: unknown }).rule === "string")
+         .slice(0, 50)
+         .map(({ rule, element_id }) => (typeof element_id === "string" ? { rule, elementId: element_id } : { rule }));
    }
    return { code: value.code, failure };
 }

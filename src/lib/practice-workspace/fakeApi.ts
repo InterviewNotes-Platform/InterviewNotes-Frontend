@@ -67,6 +67,7 @@ export function createFakePracticeApi(options: FakePracticeOptions = {}) {
             plan,
             consent: { practice_data: "required", practice_ai: "required" },
             limits: null,
+            seniorities: [],
             ...capability,
          };
          return { status: 200, body };

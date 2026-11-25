@@ -38,6 +38,8 @@ function EntrySession({ contentId, apiUrl, seniorities, getAccessToken, fetch: f
    const session = useBoundPractice({ apiUrl, getAccessToken, fetch: fetchImpl, owner });
    const [ready, setReady] = useState(false);
    const [resume, setResume] = useState<string | null>(null);
+   // A-01: the server's own list of the seniorities the Problem offers wins over the reader-derived one when it is given.
+   const [offered, setOffered] = useState<Seniority[] | null>(null);
    const targeted = seniorities.filter((value): value is Seniority => (KNOWN as readonly string[]).includes(value));
 
    useEffect(() => {
@@ -46,6 +48,8 @@ function EntrySession({ contentId, apiUrl, seniorities, getAccessToken, fetch: f
       (async () => {
          const capability = await session.client.capability(contentId, { signal: session.signal });
          if (!current || capability.status !== "ok" || !capability.data.practice_available || !capability.data.practice_ready) return;
+         const fromServer = (Array.isArray(capability.data.seniorities) ? capability.data.seniorities : []).filter((value): value is Seniority => (KNOWN as readonly string[]).includes(value));
+         setOffered(fromServer.length > 0 ? fromServer : null);
          setReady(true);
          // An active attempt on this Problem is offered for resuming; failing to find one changes nothing.
          const active = await session.client.listAttempts({ contentId, status: "active", limit: 1 }, { signal: session.signal });
@@ -61,7 +65,7 @@ function EntrySession({ contentId, apiUrl, seniorities, getAccessToken, fetch: f
       <div role="group" aria-label="Practice" data-practice-entry="" className="mt-6 flex flex-wrap items-center gap-3">
          <StartPracticeDialog
             contentId={contentId}
-            seniorities={targeted}
+            seniorities={offered ?? targeted}
             client={session.client}
             signal={session.signal}
             trigger={<Button type="button" className="min-h-11">Practise this Problem</Button>}

@@ -115,12 +115,15 @@ const EXPORT_LINES = ["Header", "Attempt", "StageWork", "Diagram", "DiagramSnaps
 const SAMPLES: Record<string, string[]> = {
    CreateAttemptIn: all<T.CreateAttemptIn>({ content_id: "", mode: "self", target_seniority: "mid" }),
    StageWorkOut: all<T.StageWorkOut>(STAGE_WORK),
-   ChallengeStageOut: all<T.ChallengeStageOut>({ position: "frame", title: "", hints_available: 0 }),
+   ChallengeStageOut: all<T.ChallengeStageOut>({ position: "frame", title: "", hints_available: 0, hints_used: 0, subsections: [] }),
+   ChallengeSubsectionOut: all<T.ChallengeSubsectionOut>({ key: "data", title: "" }),
+   PromptMarkdownBlock: all<T.PromptMarkdownBlock>({ type: "markdown", text: "" }),
+   PromptCalloutBlock: all<T.PromptCalloutBlock>({ type: "callout", kind: "note", children: [] }),
    ChallengeClarificationOut: all<T.ChallengeClarificationOut>({ clarification_id: "", title: "" }),
    ChallengeOut: all<T.ChallengeOut>({ title: "", prompt: [], stages: [], clarifications: [] }),
    RevealedClarificationOut: all<T.RevealedClarificationOut>({ event_id: "", clarification_id: "", title: "", answer: "", revealed_at: "" }),
    HistoryEventOut: all<T.HistoryEventOut>({ event_id: "", seq: 1, position: null, kind: "self_question", text: "", created_at: "" }),
-   AttemptDetailOut: all<T.AttemptDetailOut>({ ...ATTEMPT, stage_work: [], challenge: null, revealed_clarifications: [], history: [] }),
+   AttemptDetailOut: all<T.AttemptDetailOut>({ ...ATTEMPT, stage_work: [], challenge: null, revealed_clarifications: [], history: [], history_total: 0 }),
    RevealIn: all<T.RevealIn>({ confirm: true }),
    ConsentDocumentStatus: all<T.ConsentDocumentStatus>(CONSENT_DOC),
    ConsentStatusOut: all<T.ConsentStatusOut>({ practice_data: CONSENT_DOC, practice_ai: CONSENT_DOC }),
@@ -149,7 +152,7 @@ const SAMPLES: Record<string, string[]> = {
    AttemptListItem: all<T.AttemptListItem>({ id: "", content_id: "", mode: "self", target_seniority: "mid", status: "active", stages_done: 0, stages_total: 0, updated_at: "", submitted_at: null }),
    AttemptListPage: all<T.AttemptListPage>({ items: [], next_cursor: null }),
    ConsentStates: all<T.ConsentStates>({ practice_data: "required", practice_ai: "required" }),
-   CapabilityOut: all<T.CapabilityOut>({ practice_available: false, practice_ready: false, ai_available: false, voice_available: false, plan: "free", consent: { practice_data: "required", practice_ai: "required" }, limits: null }),
+   CapabilityOut: all<T.CapabilityOut>({ practice_available: false, practice_ready: false, ai_available: false, voice_available: false, plan: "free", consent: { practice_data: "required", practice_ai: "required" }, limits: null, seniorities: [] }),
    HintOut: all<T.HintOut>({ position: "frame", event_id: "", text: "", hints_used: 0, hints_available: 0 }),
    ClarificationRevealOut: all<T.ClarificationRevealOut>({ event_id: "", clarification_id: "", title: "", answer: "", already_revealed: false }),
    AssumptionIn: all<T.AssumptionIn>({ position: "frame", text: "" }),
@@ -253,7 +256,8 @@ describe("the owner's final closure decisions (G-01 to G-09)", () => {
 
    it("lists what is still unspecified instead of calling it settled", () => {
       const open = (manifest as unknown as { open_items: Record<string, string>; gaps?: unknown }).open_items;
-      expect(Object.keys(open).sort()).toEqual(["OI-01", "OI-02", "OI-03", "OI-04"]);
+      // OI-02 and OI-03 were settled by the accepted amendments A-05 and A-06 (successor manifest 43bc851e…).
+      expect(Object.keys(open).sort()).toEqual(["OI-01", "OI-04"]);
       expect((manifest as unknown as { gaps?: unknown }).gaps).toBeUndefined();
    });
 });

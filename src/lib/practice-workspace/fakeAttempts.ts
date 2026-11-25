@@ -10,6 +10,7 @@
 
 import { failure, type FakePracticeApi, type FakeReply, type FakeRequest } from "./fakeApi";
 import type {
+   ChallengeSubsectionOut,
    AttemptDetailOut,
    AttemptListItem,
    AttemptOut,
@@ -36,6 +37,8 @@ export interface FakeProblem {
    seniorities: Seniority[];
    clarifications: { id: string; title: string; answer: string }[];
    hints: Partial<Record<Position, string[]>>;
+   /** A-02: the ML sub-sections this synthetic Problem authors (none unless a test sets them). */
+   mlSubsections?: ChallengeSubsectionOut[];
 }
 
 export const FAKE_PROBLEMS: Record<string, FakeProblem> = {
@@ -116,10 +119,16 @@ export function installFakeAttempts(api: FakePracticeApi, options: FakeAttemptsO
          prompt: [
             { type: "markdown", text: `A synthetic prompt for **${record.problem.title}**. Design it, and say how you would know it works.\n\n- A synthetic given.\n- Another synthetic given.` },
          ],
-         stages: record.attempt.spine.map((position) => ({ position, title: position, hints_available: record.problem.hints[position]?.length ?? 0 })),
+         stages: record.attempt.spine.map((position) => ({
+            position,
+            title: position,
+            hints_available: record.problem.hints[position]?.length ?? 0,
+            hints_used: record.hintsGiven.get(position) ?? 0,
+            subsections: position === "ml_reasoning" ? (record.problem.mlSubsections ?? []) : [],
+         })),
          clarifications: record.problem.clarifications.map(({ id, title }) => ({ clarification_id: id, title })),
       };
-      return { ...attemptOf(record), stage_work: [...record.stage.values()], challenge, revealed_clarifications: [...record.revealed], history: [...record.history] };
+      return { ...attemptOf(record), stage_work: [...record.stage.values()], challenge, revealed_clarifications: [...record.revealed], history: [...record.history], history_total: record.history.length };
    }
 
    const consentStatus = (): ConsentStatusOut => {

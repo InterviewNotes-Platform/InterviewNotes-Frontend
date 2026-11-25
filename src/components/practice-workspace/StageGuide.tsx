@@ -39,7 +39,9 @@ export function StageGuide({ position, challenge, guide, readOnly, ownQuestionsS
    const stage = challenge?.stages.find((entry) => entry.position === position);
    const shown = guide.hints.filter((hint) => hint.position === position);
    const available = stage?.hints_available ?? 0;
-   const canAsk = !readOnly && shown.length < available;
+   // A-03: the server's count is authoritative (the history is bounded); hints shown in this visit can only add to it.
+   const used = Math.max(stage?.hints_used ?? 0, shown.length);
+   const canAsk = !readOnly && used < available;
    const hintBusy = guide.busy.has(`hint:${position}`);
 
    const clarifications = position === "frame" ? (challenge?.clarifications ?? []) : [];
@@ -65,11 +67,11 @@ export function StageGuide({ position, challenge, guide, readOnly, ownQuestionsS
                   <p className="m-0 mt-2 text-muted-foreground">Try the stage first. A hint nudges; it does not give the answer.</p>
                )}
                <p className="m-0 mt-2 text-supporting text-muted-foreground">
-                  {shown.length} of {available} shown
+                  {used} of {available} shown
                </p>
                <div className="mt-2">
                   <Button type="button" variant="outline" className="min-h-11" disabled={!canAsk} aria-busy={hintBusy || undefined} onClick={() => void guide.hint(position)}>
-                     {canAsk ? (shown.length === 0 ? "Show a hint" : "Show the next hint") : "No more hints"}
+                     {canAsk ? (used === 0 ? "Show a hint" : "Show the next hint") : "No more hints"}
                   </Button>
                </div>
                <Notice guide={guide} scope={`hint:${position}`} />

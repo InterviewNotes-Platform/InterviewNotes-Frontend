@@ -16,11 +16,13 @@ import type {
    ConsentOut,
    ConsentDocumentStatus,
    ConsentStatusOut,
+   DiagramOut,
    HintOut,
    HistoryEventOut,
    RevealedClarificationOut,
    StageStatusOut,
    StageWorkOut,
+   TombstoneOut,
 } from "./types";
 
 type Rec = Record<string, unknown>;
@@ -139,4 +141,25 @@ export function isConsentStatus(body: unknown): body is ConsentStatusOut {
 
 export function isConsentOut(body: unknown): body is ConsentOut {
    return isRec(body) && isStr(body.document_id) && isStr(body.document_version) && isStr(body.accepted_at) && isNullable(isStr)(body.withdrawn_at);
+}
+
+const isGraphShape = (value: unknown): boolean =>
+   isRec(value) && value.schema === "in.arch-graph/1" && Array.isArray(value.nodes) && Array.isArray(value.edges) && Array.isArray(value.boundaries) && [value.nodes, value.edges, value.boundaries].every((list) => (list as unknown[]).every(isRec));
+
+const isTombstone = (value: unknown): value is TombstoneOut =>
+   isRec(value) && isStr(value.id) && oneOf(["node", "edge", "boundary"] as const)(value.kind) && isStr(value.group) && isNum(value.deleted_at_version) && isRec(value.element);
+
+/** `GET` and `PUT .../diagram` (T14): the version, the graph and the tombstones are read; elements are checked one by one when drafted. */
+export function isDiagram(body: unknown): body is DiagramOut {
+   if (!isRec(body)) return false;
+   return (
+      isNum(body.version) &&
+      body.version >= 1 &&
+      isGraphShape(body.graph) &&
+      (body.layout === null || isRec(body.layout)) &&
+      isStr(body.graph_hash) &&
+      isStr(body.topology_hash) &&
+      Array.isArray(body.structure_findings) &&
+      arrayOf(isTombstone)(body.tombstones)
+   );
 }

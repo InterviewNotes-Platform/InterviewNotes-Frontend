@@ -21,6 +21,8 @@ function walk(dir: string): string[] {
 const production = [
    ...walk(join(SRC, "lib/practice-workspace")),
    ...walk(join(SRC, "components/practice-workspace")),
+   ...walk(join(SRC, "lib/practice-graph")),
+   ...walk(join(SRC, "components/practice-graph")),
    ...walk(join(SRC, "app/practice/attempts")),
    ...walk(join(SRC, "app/practice/history")),
    join(SRC, "lib/practice-flag.ts"),
@@ -65,6 +67,29 @@ describe("practice foundations", () => {
             "lib/practice-workspace/stageSave.ts",
             "lib/practice-workspace/stages.ts",
             "lib/practice-workspace/types.ts",
+            "components/practice-graph/CanvasView.tsx",
+            "components/practice-graph/ConnectPicker.tsx",
+            "components/practice-graph/CurvedEdge.tsx",
+            "components/practice-graph/DiagramEditor.tsx",
+            "components/practice-graph/DiagramEditorLoader.tsx",
+            "components/practice-graph/DiagramTrouble.tsx",
+            "components/practice-graph/ElementFields.tsx",
+            "components/practice-graph/Inspector.tsx",
+            "components/practice-graph/Outline.tsx",
+            "components/practice-graph/shapes.tsx",
+            "components/practice-graph/useGraphEditor.ts",
+            "lib/practice-graph/canonical.ts",
+            "lib/practice-graph/diagramSave.ts",
+            "lib/practice-graph/fakeDiagram.ts",
+            "lib/practice-graph/history.ts",
+            "lib/practice-graph/ids.ts",
+            "lib/practice-graph/layout.ts",
+            "lib/practice-graph/model.ts",
+            "lib/practice-graph/review.ts",
+            "lib/practice-graph/routing.ts",
+            "lib/practice-graph/text.ts",
+            "lib/practice-graph/validate.ts",
+            "lib/practice-graph/vocabulary.ts",
          ].sort()
       );
    });
@@ -91,24 +116,43 @@ describe("practice foundations", () => {
       for (const link of links) expect(link).toContain("prefetch={false}");
    });
 
-   it("keeps the fake API and the fake attempt service out of production code", () => {
-      for (const path of production.filter((candidate) => !/fake(Api|Attempts)\.ts$/.test(candidate))) {
-         expect(text(path), name(path)).not.toMatch(/fakeApi|fakeAttempts|createFakePracticeApi|installFakeAttempts/);
+   const FAKES = /fake(Api|Attempts|Diagram)\.ts$/;
+   it("keeps the fake API and the fake attempt and diagram services out of production code", () => {
+      for (const path of production.filter((candidate) => !FAKES.test(candidate))) {
+         expect(text(path), name(path)).not.toMatch(/fakeApi|fakeAttempts|fakeDiagram|createFakePracticeApi|installFakeAttempts|installFakeDiagram/);
       }
    });
 
    it("reaches the fakes from tests only: no non-test file under src imports them", () => {
       const offenders = walk(SRC)
-         .filter((path) => /\.(ts|tsx)$/.test(path) && !/\.test\.(ts|tsx)$/.test(path) && !/fake(Api|Attempts)\.ts$/.test(path))
-         .filter((path) => /from "[^"]*fake(Api|Attempts)"/.test(text(path)));
+         .filter((path) => /\.(ts|tsx)$/.test(path) && !/\.test\.(ts|tsx)$/.test(path) && !FAKES.test(path))
+         .filter((path) => /from "[^"]*fake(Api|Attempts|Diagram)"/.test(text(path)));
       expect(offenders.map(name)).toEqual([]);
    });
 
-   it("adds no editor library: React Flow is not installed", () => {
+   // T14 (P9-AC-10.2, the owner's T03 decision): one exact React Flow version, imported only by the editor, reached only by a dynamic import.
+   it("pins React Flow exactly and imports it only inside the editor, which is reached only by a dynamic import", () => {
       const manifest = JSON.parse(text(join(ROOT, "package.json"))) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-      const names = Object.keys({ ...manifest.dependencies, ...manifest.devDependencies });
-      expect(names.filter((dependency) => /reactflow|xyflow/i.test(dependency))).toEqual([]);
-      expect(production.map((path) => text(path)).join("\n")).not.toMatch(/xyflow|reactflow/i);
+      const deps = { ...manifest.dependencies, ...manifest.devDependencies };
+      expect(Object.keys(deps).filter((dependency) => /reactflow|xyflow/i.test(dependency))).toEqual(["@xyflow/react"]);
+      expect(deps["@xyflow/react"]).toBe("13.0.3");
+      const importers = walk(SRC)
+         .filter((path) => /\.(ts|tsx)$/.test(path))
+         .filter((path) => /from "@xyflow\/|import\("@xyflow\/|@xyflow\/react\/dist/.test(text(path)))
+         .map(name)
+         .sort();
+      expect(importers).toEqual(["components/practice-graph/CanvasView.tsx", "components/practice-graph/CurvedEdge.tsx", "components/practice-graph/DiagramEditor.tsx", "components/practice-graph/shapes.tsx"]);
+      const editorModules = /from "@\/components\/practice-graph\/(DiagramEditor|CanvasView|CurvedEdge|shapes|Inspector|Outline|ElementFields|ConnectPicker|DiagramTrouble|useGraphEditor)"/;
+      const outside = walk(SRC).filter((path) => /\.(ts|tsx)$/.test(path) && !path.includes("/practice-graph/") && !/\.test\.(ts|tsx)$/.test(path) && editorModules.test(text(path)));
+      expect(outside.map(name)).toEqual([]);
+      const loader = text(join(SRC, "components/practice-graph/DiagramEditorLoader.tsx"));
+      expect(loader).toContain('dynamic(() => import("./DiagramEditor")');
+      expect(loader).not.toMatch(/^import (?!type)[^;]*"\.\/DiagramEditor"/m);
+   });
+
+   it("adds no Mermaid editing, freehand, image, upload or URL input to the editor", () => {
+      const editor = production.filter((path) => path.includes("practice-graph")).map((path) => text(path)).join("\n");
+      expect(editor).not.toMatch(/mermaid|type="file"|type="url"|<img\b|<canvas\b|freehand|FileReader|createObjectURL/i);
    });
 
    it("reads no environment inside the client (the caller supplies the origin)", () => {
