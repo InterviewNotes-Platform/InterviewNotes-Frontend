@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { WithdrawConsent } from "@/components/prepare/ai/consent/WithdrawConsent";
 import { Footer } from "@/components/layout/Footer";
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { aiEnabled } from "@/lib/ai-flag";
+import { practiceTermsAvailable } from "@/lib/practice-flag";
+import { PRACTICE_TERMS_HREF } from "@/lib/practice-terms";
 import { AI_PROVIDER_BY_PLAN, PRIVACY_VERSION, SUPPORT_EMAIL } from "@/lib/privacy";
 
 export const metadata: Metadata = {
@@ -81,6 +84,18 @@ export default function PrivacyPage() {
                      </li>
                   </ul>
                </section>
+
+               {/* P9-T17, P9-OD-15: practice has its own versioned terms, linked from here; this link is not part of this page's
+                   versioned text and does not change PRIVACY_VERSION. Shown only where that page is available. */}
+               {practiceTermsAvailable() ? (
+                  <p className="mt-6">
+                     Problem practice has its own document, with its own version:{" "}
+                     <Link href={PRACTICE_TERMS_HREF} prefetch={false} className="font-medium text-foreground underline underline-offset-4">
+                        Practice data terms
+                     </Link>
+                     .
+                  </p>
+               ) : null}
 
                <Section title="Who runs InterviewNotes">
                   <p>

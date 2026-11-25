@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PRACTICE_TERMS_HREF } from "@/lib/practice-terms";
 import { PRIVACY_HREF, PRIVACY_VERSION, SUPPORT_EMAIL } from "@/lib/privacy";
 import PrivacyPage from "./page";
 
@@ -113,5 +114,17 @@ describe("Privacy & AI Use page", () => {
       renderPage();
       expect(screen.getAllByRole("link", { name: SUPPORT_EMAIL })[0]).toHaveAttribute("href", `mailto:${SUPPORT_EMAIL}`);
       expect(screen.getByRole("link", { name: "Privacy & AI Use" })).toHaveAttribute("href", PRIVACY_HREF);
+   });
+
+   it("keeps its version and links the separate practice data terms only where practice is switched on (P9-T17, P9-OD-15)", () => {
+      expect(PRIVACY_VERSION).toBe("2026-11-16");
+      const off = renderPage();
+      expect(screen.queryByRole("link", { name: "Practice data terms" })).not.toBeInTheDocument();
+      off.unmount();
+      vi.stubEnv("NEXT_PUBLIC_PRACTICE_ENABLED", "true");
+      render(<PrivacyPage />);
+      expect(screen.getByRole("link", { name: "Practice data terms" })).toHaveAttribute("href", PRACTICE_TERMS_HREF);
+      expect(screen.getByText(`Version ${PRIVACY_VERSION}`)).toBeInTheDocument();
+      expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(7);
    });
 });
