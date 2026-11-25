@@ -183,7 +183,7 @@ export function AttemptReview({ detail }: { detail: AttemptDetailOut }) {
             </p>
          </header>
 
-         <nav aria-label="Review steps" className="mt-4 overflow-x-auto">
+         <nav aria-label="Review steps" className="relative mt-4 overflow-x-auto">
             <ol className="m-0 flex list-none gap-2 p-0">
                {steps.map((id, index) => {
                   const d = rubric.find((r) => r.dimension_id === id);

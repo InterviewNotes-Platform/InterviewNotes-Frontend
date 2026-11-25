@@ -41,6 +41,10 @@ const FAILURE: Partial<Record<NonNullable<PracticeFailure["code"]>, string>> = {
  *
  * One create operation has one idempotency key, kept across retries of the same choice, so a lost reply followed by a retry cannot make a second
  * attempt; a second click while one request is in the air does nothing.
+ *
+ * The learner's default seniority (`P9-AC-01.8`, the owner-scoped `/preference` of the M1 contract) preselects a choice when this Problem targets
+ * it, and a started attempt records its seniority as the new default. Both are best effort: a failed read preselects nothing, a failed write is
+ * ignored, and nothing is written unless the current version was read first (no blind overwrite). No Track-label mapping is assumed.
  */
 export function StartPracticeDialog({ contentId, seniorities, client, signal, trigger }: Props) {
    const router = useRouter();
@@ -49,6 +53,26 @@ export function StartPracticeDialog({ contentId, seniorities, client, signal, tr
    const [chosen, setChosen] = useState<Seniority | null>(seniorities.length === 1 ? seniorities[0] : null);
    const inflight = useRef(false);
    const operation = useRef<{ seniority: Seniority; key: string } | null>(null);
+   // The saved default as last read from the server, or null when it was not read; written only from a read version.
+   const preference = useRef<{ seniority: Seniority | null; version: number } | null>(null);
+
+   async function readPreference() {
+      const result = await client.getPreference();
+      if (signal.aborted || result.status !== "ok") return;
+      // The preference reader does not validate the body (the client's `pending()` reader), so check its shape here.
+      const { default_seniority: saved, version }: { default_seniority?: unknown; version?: unknown } = result.data ?? {};
+      if (typeof version !== "number" || !Number.isInteger(version) || version < 0) return;
+      const known = typeof saved === "string" && (seniorities as readonly string[]).includes(saved) ? (saved as Seniority) : null;
+      preference.current = { seniority: typeof saved === "string" ? (saved as Seniority) : null, version };
+      if (known !== null) setChosen((current) => current ?? known);
+   }
+
+   function rememberPreference(seniority: Seniority) {
+      const read = preference.current;
+      if (read === null || read.seniority === seniority) return;
+      preference.current = null;
+      void client.putPreference({ default_seniority: seniority, version: read.version === 0 ? null : read.version });
+   }
 
    function reset() {
       setStep({ kind: "choose" });
@@ -68,6 +92,7 @@ export function StartPracticeDialog({ contentId, seniorities, client, signal, tr
          if (signal.aborted) return;
          if (result.status === "ok") {
             operation.current = null;
+            rememberPreference(seniority);
             setStep({ kind: "closed" });
             router.push(`/practice/attempts/${encodeURIComponent(result.data.id)}`);
             return;
@@ -129,6 +154,7 @@ export function StartPracticeDialog({ contentId, seniorities, client, signal, tr
    const onOpenChange = (next: boolean) => {
       if (next) {
          setOpen(true);
+         void readPreference();
          return;
       }
       if (busy) return; // a request is being made: the dialog stays until it is answered

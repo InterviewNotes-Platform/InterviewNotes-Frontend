@@ -146,6 +146,54 @@ describe("choosing a seniority", () => {
       expect(within(dialog()).getAllByRole("radio").map((radio) => (radio as HTMLInputElement).value)).toEqual(["staff", "principal"]);
    });
 
+   it("preselects the learner's saved default seniority when this Problem targets it (P9-AC-01.8)", async () => {
+      const { ui, api } = rig();
+      api.script("get_preference", { status: 200, body: { default_seniority: "staff", version: 3 } });
+      render(ui());
+      fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
+      expect(await within(dialog()).findByRole("radio", { name: "Staff" })).toBeChecked();
+   });
+
+   it("preselects nothing when the saved default is not a seniority this Problem targets (no mapping is assumed)", async () => {
+      const { ui, api } = rig();
+      api.script("get_preference", { status: 200, body: { default_seniority: "principal", version: 1 } });
+      render(ui());
+      fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
+      await settle();
+      expect(within(dialog()).getAllByRole("radio").every((radio) => !(radio as HTMLInputElement).checked)).toBe(true);
+   });
+
+   it("records the started seniority as the default from the version it read, once, and never without a read", async () => {
+      const { ui, api, store } = rig({ consent: { requiredVersion: TERMS, accepted: true } });
+      api.script("get_preference", { status: 200, body: { default_seniority: null, version: 0 } });
+      api.script("put_preference", { status: 200, body: { default_seniority: "senior", version: 1 } });
+      render(ui());
+      fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
+      await settle();
+      fireEvent.click(within(dialog()).getByRole("radio", { name: "Senior" }));
+      fireEvent.click(within(dialog()).getByRole("button", { name: "Start practice" }));
+      await settle();
+      await settle();
+      expect(store.calls("create_attempt")).toHaveLength(1);
+      const writes = api.requests.filter((request) => request.route === "put_preference");
+      expect(writes).toHaveLength(1);
+      expect(writes[0].body).toEqual({ default_seniority: "senior", version: null });
+   });
+
+   it("writes no default when the preference could not be read", async () => {
+      const { ui, api, store } = rig({ consent: { requiredVersion: TERMS, accepted: true } });
+      api.script("get_preference", { status: 503, body: { code: "unavailable" } });
+      render(ui());
+      fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
+      await settle();
+      fireEvent.click(within(dialog()).getByRole("radio", { name: "Senior" }));
+      fireEvent.click(within(dialog()).getByRole("button", { name: "Start practice" }));
+      await settle();
+      await settle();
+      expect(store.calls("create_attempt")).toHaveLength(1);
+      expect(api.requests.filter((request) => request.route === "put_preference")).toHaveLength(0);
+   });
+
    it("preselects the only targeted seniority", async () => {
       const { ui } = rig();
       render(ui({ seniorities: ["staff"] }));
