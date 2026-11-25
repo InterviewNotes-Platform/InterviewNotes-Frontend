@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { PRIVACY_HREF } from "@/lib/privacy";
+import { PRACTICE_DATA_NOTICE, PRACTICE_TERMS_HREF, PRACTICE_TERMS_VERSION } from "@/lib/practice-terms";
 import { newIdempotencyKey, type PracticeClient, type PracticeFailure } from "@/lib/practice-workspace/client";
 import type { ConsentDocumentStatus, Seniority } from "@/lib/practice-workspace/types";
 import { SENIORITY_NAME } from "./HistoryRoute";
@@ -36,7 +36,8 @@ const FAILURE: Partial<Record<NonNullable<PracticeFailure["code"]>, string>> = {
 /**
  * Start a self-guided attempt: choose a seniority the Problem targets, read the practice-data acknowledgement when the server says one is needed,
  * create the attempt, open the workspace. Declining the acknowledgement closes the dialog and leaves the reader as it was. It fails closed:
- * without a required notice version nothing is accepted and nothing is created. The notice wording is a LOCAL draft (T17 owns the final text).
+ * without a required notice version, or with one other than the practice data terms this build shows (`PRACTICE_TERMS_VERSION`), nothing
+ * is accepted and nothing is created. The notice wording is T17's (`src/lib/practice-terms.ts`).
  *
  * One create operation has one idempotency key, kept across retries of the same choice, so a lost reply followed by a retry cannot make a second
  * attempt; a second click while one request is in the air does nothing.
@@ -103,11 +104,12 @@ export function StartPracticeDialog({ contentId, seniorities, client, signal, tr
          }
          const document: ConsentDocumentStatus = result.data.practice_data;
          if (document.state === "accepted" && document.accepted_version !== null && document.accepted_version === document.required_version) return void create(seniority);
-         if (document.required_version === null) {
-            // Fail closed: no notice version is required yet, so there is nothing a learner could accept.
+         if (document.required_version === null || document.required_version !== PRACTICE_TERMS_VERSION) {
+            // Fail closed: no terms version is required yet, or the server requires a version whose text this build does not show,
+            // so there is nothing a learner could knowingly accept.
             return setStep({ kind: "failed", retry: "choose", message: "Practice is not available right now." });
          }
-         setStep({ kind: "acknowledge", version: document.required_version, note: document.state === "outdated" ? "The practice notice has changed. Please read it again." : undefined });
+         setStep({ kind: "acknowledge", version: document.required_version, note: document.state === "outdated" ? PRACTICE_DATA_NOTICE.changedNote : undefined });
       }
    }
 
@@ -145,18 +147,18 @@ export function StartPracticeDialog({ contentId, seniorities, client, signal, tr
             >
                {step.kind === "acknowledge" ? (
                   <>
-                     <Dialog.Title className="m-0 text-subsection text-foreground">Before you practise</Dialog.Title>
-                     <Dialog.Description className="m-0 text-body text-muted-foreground">Please read this, then choose whether to go on.</Dialog.Description>
-                     <p role="note" className="m-0 rounded-md border border-border bg-surface px-3 py-2 text-supporting text-muted-foreground">
-                        Draft notice for local development. The final privacy and terms wording is not written yet.
-                     </p>
+                     <Dialog.Title className="m-0 text-subsection text-foreground">{PRACTICE_DATA_NOTICE.title}</Dialog.Title>
+                     <Dialog.Description className="m-0 text-body text-muted-foreground">{PRACTICE_DATA_NOTICE.intro}</Dialog.Description>
                      <ul className="m-0 list-disc space-y-2 pl-5 text-body text-foreground">
-                        <li>Practice saves what you write for this Problem, such as your stage answers and the hints and clarifications you open, so you can come back to it.</li>
-                        <li>Self-guided practice does not send your writing to an AI provider.</li>
-                        <li>You start when you choose to. If you decline, nothing is saved and the Problem stays as it is.</li>
+                        {PRACTICE_DATA_NOTICE.points.map((point) => (
+                           <li key={point}>{point}</li>
+                        ))}
                      </ul>
-                     <a href={PRIVACY_HREF} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-body text-foreground underline underline-offset-4">
-                        Read the Privacy page (notice version {step.version}), opens in a new tab
+                     <p className="m-0 text-supporting text-muted-foreground">
+                        {PRACTICE_DATA_NOTICE.readingNote} {PRACTICE_DATA_NOTICE.declineNote}
+                     </p>
+                     <a href={PRACTICE_TERMS_HREF} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-body text-foreground underline underline-offset-4">
+                        {PRACTICE_DATA_NOTICE.termsLinkLabel} (version {step.version}), opens in a new tab
                      </a>
                      {step.busy ? (
                         <p role="status" className="m-0 text-supporting text-muted-foreground">

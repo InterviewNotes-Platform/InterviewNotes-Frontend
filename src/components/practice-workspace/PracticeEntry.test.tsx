@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakePracticeApi, failure } from "@/lib/practice-workspace/fakeApi";
 import { installFakeAttempts } from "@/lib/practice-workspace/fakeAttempts";
+import { PRACTICE_DATA_NOTICE, PRACTICE_TERMS_HREF, PRACTICE_TERMS_VERSION } from "@/lib/practice-terms";
 
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -16,10 +17,12 @@ import { PracticeEntry } from "./PracticeEntry";
 const API = "https://api.example.test";
 const CONTENT = "problem.llm-attribute-extraction-pipeline";
 const SENIORITIES = ["senior", "staff"];
+// The version the server requires must be the one whose text this build shows (P9-T17).
+const TERMS = PRACTICE_TERMS_VERSION;
 
 function rig(options: { consent?: { requiredVersion: string | null; accepted?: boolean } } = {}) {
    const api = createFakePracticeApi();
-   const store = installFakeAttempts(api, { consent: options.consent ?? { requiredVersion: "draft-1", accepted: false } });
+   const store = installFakeAttempts(api, { consent: options.consent ?? { requiredVersion: TERMS, accepted: false } });
    const token = api.signIn("ada");
    const ui = (props: Partial<ComponentProps<typeof PracticeEntry>> = {}) => (
       <PracticeEntry contentId={CONTENT} apiUrl={API} seniorities={SENIORITIES} owner="ada" getAccessToken={async () => token} fetch={api.fetch} {...props} />
@@ -109,7 +112,7 @@ describe("when the entry appears", () => {
    });
 
    it("offers to resume an active attempt on the Problem, without prefetching it", async () => {
-      const { ui, api, token, store } = rig({ consent: { requiredVersion: "draft-1", accepted: true } });
+      const { ui, api, token, store } = rig({ consent: { requiredVersion: TERMS, accepted: true } });
       const { createPracticeClient } = await import("@/lib/practice-workspace/client");
       const client = createPracticeClient({ baseUrl: API, getAccessToken: async () => token, fetch: api.fetch });
       const created = await client.createAttempt({ content_id: CONTENT, mode: "self", target_seniority: "senior" }, "resume-key-aaaaaaaaaa");
@@ -163,17 +166,23 @@ describe("the practice-data acknowledgement", () => {
    it("is shown before anything is created and records nothing until the learner accepts", async () => {
       const r = rig();
       await toNotice(r);
-      expect(within(dialog()).getByText(/Draft notice for local development/)).toBeInTheDocument();
-      expect(within(dialog()).getByRole("link", { name: /notice version draft-1/ })).toHaveAttribute("href", "/privacy");
+      const items = within(dialog()).getAllByRole("listitem").map((item) => item.textContent);
+      expect(items).toEqual([...PRACTICE_DATA_NOTICE.points]);
+      expect(dialog()).toHaveTextContent("You don't need to accept this to read Problems.");
+      expect(within(dialog()).getByRole("link", { name: `Read the practice data terms (version ${TERMS}), opens in a new tab` })).toHaveAttribute("href", PRACTICE_TERMS_HREF);
+      expect(dialog()).not.toHaveTextContent(/Draft notice/);
       expect(r.store.calls("post_consent")).toHaveLength(0);
       expect(r.store.calls("create_attempt")).toHaveLength(0);
    });
 
-   it("says nothing about hosting region, retention or provider retention, and has no AI or voice consent", async () => {
+   it("states the retention rule and backup behaviour without an unverified period, region or provider claim, and has no AI or voice consent", async () => {
       const r = rig();
       await toNotice(r);
       const text = dialog().textContent ?? "";
-      expect(text).not.toMatch(/region|retention|retain|backup|days|voice|microphone|Groq|OpenAI/i);
+      expect(text).toContain("We keep it until you delete it or your account is removed. Nothing deletes it on a timer.");
+      expect(text).toContain("We keep no automatic backups, so export anything you want to keep.");
+      expect(text).toContain("Withdrawing stops new attempts and deletes nothing.");
+      expect(text).not.toMatch(/region|retention period|days|hours|voice|microphone|Groq|OpenAI|immediately removed from (all )?backups|zero (data )?retention/i);
       expect(r.store.calls("get_consent")).toHaveLength(1);
       expect(r.api.requests.some((request) => (request.body as { document_id?: string } | undefined)?.document_id === "practice-ai")).toBe(false);
    });
@@ -183,7 +192,7 @@ describe("the practice-data acknowledgement", () => {
       await toNotice(r);
       fireEvent.click(within(dialog()).getByRole("button", { name: "Accept and start" }));
       await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1));
-      expect(r.store.calls("post_consent")[0].body).toEqual({ document_id: "practice-data", document_version: "draft-1" });
+      expect(r.store.calls("post_consent")[0].body).toEqual({ document_id: "practice-data", document_version: TERMS });
       const create = r.store.calls("create_attempt");
       expect(create).toHaveLength(1);
       expect(create[0].body).toEqual({ content_id: CONTENT, mode: "self", target_seniority: "senior" });
@@ -225,20 +234,43 @@ describe("the practice-data acknowledgement", () => {
       expect(r.store.calls("create_attempt")).toHaveLength(0);
    });
 
-   it("asks again with the new version when the notice changed while the dialog was open", async () => {
+   it("fails closed when the server changes to a version whose text this build does not show", async () => {
       const r = rig();
       await toNotice(r);
-      r.store.setConsent({ requiredVersion: "draft-2" });
+      r.store.setConsent({ requiredVersion: "2099-01-01" });
       fireEvent.click(within(dialog()).getByRole("button", { name: "Accept and start" }));
-      await within(dialog()).findByRole("link", { name: /notice version draft-2/ });
+      await within(dialog()).findByText("Practice is not available right now.");
+      expect(r.store.calls("post_consent").map((call) => call.body)).toEqual([{ document_id: "practice-data", document_version: TERMS }]);
       expect(r.store.calls("create_attempt")).toHaveLength(0);
-      fireEvent.click(within(dialog()).getByRole("button", { name: "Accept and start" }));
-      await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(1));
-      expect(r.store.calls("post_consent").at(-1)!.body).toEqual({ document_id: "practice-data", document_version: "draft-2" });
+   });
+
+   it("fails closed when the server requires a version other than this build's terms: nothing is accepted and nothing is created", async () => {
+      const r = rig({ consent: { requiredVersion: "draft-1" } });
+      render(r.ui());
+      fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
+      fireEvent.click(within(dialog()).getByRole("radio", { name: "Senior" }));
+      fireEvent.click(within(dialog()).getByRole("button", { name: "Start practice" }));
+      await within(dialog()).findByText("Practice is not available right now.");
+      expect(r.store.calls("post_consent")).toHaveLength(0);
+      expect(r.store.calls("create_attempt")).toHaveLength(0);
+   });
+
+   it("asks again, with the changed-terms note, when the learner's accepted version is outdated", async () => {
+      const r = rig({ consent: { requiredVersion: TERMS } });
+      r.api.script("get_consent", {
+         status: 200,
+         body: {
+            practice_data: { state: "outdated", required_version: TERMS, accepted_version: "2026-01-01", accepted_at: "2026-01-01T00:00:00Z", withdrawn_at: null },
+            practice_ai: { state: "required", required_version: null, accepted_version: null, accepted_at: null, withdrawn_at: null },
+         },
+      });
+      await toNotice(r);
+      expect(within(dialog()).getByRole("alert")).toHaveTextContent(PRACTICE_DATA_NOTICE.changedNote);
+      expect(r.store.calls("create_attempt")).toHaveLength(0);
    });
 
    it("skips the notice when the applicable version was already accepted", async () => {
-      const r = rig({ consent: { requiredVersion: "draft-1", accepted: true } });
+      const r = rig({ consent: { requiredVersion: TERMS, accepted: true } });
       render(r.ui());
       fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
       fireEvent.click(within(dialog()).getByRole("radio", { name: "Staff" }));
@@ -251,7 +283,7 @@ describe("the practice-data acknowledgement", () => {
 
 describe("creating the attempt", () => {
    it("never creates a second attempt from rapid clicks", async () => {
-      const r = rig({ consent: { requiredVersion: "draft-1", accepted: true } });
+      const r = rig({ consent: { requiredVersion: TERMS, accepted: true } });
       render(r.ui());
       fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
       fireEvent.click(within(dialog()).getByRole("radio", { name: "Senior" }));
@@ -265,7 +297,7 @@ describe("creating the attempt", () => {
    });
 
    it("retries a lost reply with the same idempotency key, so only one attempt exists", async () => {
-      const r = rig({ consent: { requiredVersion: "draft-1", accepted: true } });
+      const r = rig({ consent: { requiredVersion: TERMS, accepted: true } });
       render(r.ui());
       fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
       fireEvent.click(within(dialog()).getByRole("radio", { name: "Senior" }));
@@ -296,7 +328,7 @@ describe("creating the attempt", () => {
    });
 
    it("says when the server refuses the seniority, and keeps the reader as it was", async () => {
-      const r = rig({ consent: { requiredVersion: "draft-1", accepted: true } });
+      const r = rig({ consent: { requiredVersion: TERMS, accepted: true } });
       r.api.script("create_attempt", () => failure("validation_error", 422));
       render(r.ui());
       fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
@@ -307,7 +339,7 @@ describe("creating the attempt", () => {
    });
 
    it("points to the learner's attempts when the server's active-attempt limit is reached", async () => {
-      const r = rig({ consent: { requiredVersion: "draft-1", accepted: true } });
+      const r = rig({ consent: { requiredVersion: TERMS, accepted: true } });
       r.api.script("create_attempt", () => failure("attempt_limit_reached", 409));
       render(r.ui());
       fireEvent.click(await screen.findByRole("button", { name: "Practise this Problem" }));
