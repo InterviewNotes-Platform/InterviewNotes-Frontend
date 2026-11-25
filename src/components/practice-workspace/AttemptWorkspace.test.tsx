@@ -356,13 +356,14 @@ describe("an attempt that is no longer active", () => {
       expect(patches(store)).toHaveLength(1);
    });
 
-   it("opens an ended attempt read-only from the start", async () => {
+   it("opens an ended attempt as the read-only review, never the workspace (T15)", async () => {
       const seeded = await seed(SD);
       seeded.store.endAttempt(seeded.id, "ended_by_reveal");
       render(tree(seeded, seeded.token, "ada"));
-      await screen.findByRole("heading", { level: 1 });
-      expect(screen.getByText(/You revealed the reference, so this attempt has ended/)).toBeInTheDocument();
-      expect(field("Restate the task")).toHaveAttribute("readonly");
+      await screen.findByRole("heading", { level: 1, name: "Your work and the reference" });
+      expect(screen.getByText("Ended by revealing the reference")).toBeInTheDocument();
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Finish" })).not.toBeInTheDocument();
    });
 });
 

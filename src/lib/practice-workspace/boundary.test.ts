@@ -39,9 +39,17 @@ describe("practice foundations", () => {
             "app/practice/attempts/layout.tsx",
             "app/practice/history/layout.tsx",
             "app/practice/history/page.tsx",
+            "components/practice-workspace/AttemptReview.tsx",
             "components/practice-workspace/AttemptRoute.tsx",
             "components/practice-workspace/AttemptWorkspace.tsx",
             "components/practice-workspace/BriefDialog.tsx",
+            "components/practice-workspace/ConfirmDialog.tsx",
+            "components/practice-workspace/FinishDialog.tsx",
+            "components/practice-workspace/PracticeDataControls.tsx",
+            "components/practice-workspace/PracticeDataPrivacyControls.tsx",
+            "components/practice-workspace/SelfReviewStep.tsx",
+            "components/practice-workspace/reviewState.ts",
+            "components/practice-workspace/useFinish.ts",
             "components/practice-workspace/HistoryRoute.tsx",
             "components/practice-workspace/PracticeEntry.tsx",
             "components/practice-workspace/PracticeGate.tsx",
@@ -61,6 +69,8 @@ describe("practice foundations", () => {
             "lib/practice-workspace/availability.ts",
             "lib/practice-workspace/client.ts",
             "lib/practice-workspace/contract.ts",
+            "lib/practice-workspace/exportFile.ts",
+            "lib/practice-workspace/exportStream.ts",
             "lib/practice-workspace/fakeApi.ts",
             "lib/practice-workspace/fakeAttempts.ts",
             "lib/practice-workspace/guards.ts",
@@ -103,9 +113,11 @@ describe("practice foundations", () => {
    });
 
    // T13 reuses the one leave guard of the prepare editor, as its task requires; nothing else of the reader, catalog or P7 is imported.
+   // T15 (GAP-5): the history PAGE (server only) reads public Problem titles through the catalog's server-only list loader.
    const REUSED = new Set(["@/components/prepare/editor/useLeaveGuard"]);
+   const PAGE_REUSE: Readonly<Record<string, string>> = { "app/practice/history/page.tsx": "@/lib/catalog/problems" };
    it.each(production)("%s imports no reader, catalog or P7 module", (path) => {
-      const imports = [...text(path).matchAll(/from "([^"]+)"/g)].map((match) => match[1]).filter((from) => !REUSED.has(from));
+      const imports = [...text(path).matchAll(/from "([^"]+)"/g)].map((match) => match[1]).filter((from) => !REUSED.has(from) && PAGE_REUSE[name(path)] !== from);
       for (const from of imports) {
          expect(from, `${name(path)} imports ${from}`).not.toMatch(/^@\/(app\/_catalog|components\/(catalog|lesson|problem|reader|knowledge|prepare|practice)\/|lib\/(catalog|prep)\/)/);
       }

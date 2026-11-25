@@ -14,6 +14,8 @@ import { HistoryRoute } from "./HistoryRoute";
 import { PracticeGate } from "./PracticeGate";
 
 const API = "https://api.example.test";
+// The public catalog titles the history page passes in (GAP-5); a Problem missing here is no longer listed.
+const TITLES = { "problem.llm-attribute-extraction-pipeline": "LLM attribute extraction pipeline", "problem.incident-handoff-summary": "Incident handoff summary" };
 
 async function rig() {
    const api = createFakePracticeApi();
@@ -28,7 +30,7 @@ async function rig() {
    };
    const ui = (token: string, owner: string) => (
       <PracticeGate apiUrl={API} owner={owner} getAccessToken={async () => token} fetch={api.fetch}>
-         <HistoryRoute />
+         <HistoryRoute titles={TITLES} />
       </PracticeGate>
    );
    return { api, store, ada, bob, make, ui };
@@ -63,6 +65,37 @@ describe("the attempt history", () => {
       expect(back.map((link) => link.getAttribute("href"))).toEqual(["/problems/llm-attribute-extraction-pipeline", "/problems/incident-handoff-summary"]);
    });
 
+   it("names an unlisted Problem neutrally and links no reader page for it (GAP-5)", async () => {
+      const r = await rig();
+      await r.make(r.ada, "problem.incident-handoff-summary", "mid", "history-key-aaaaaa10");
+      render(
+         <PracticeGate apiUrl={API} owner="ada" getAccessToken={async () => r.ada} fetch={r.api.fetch}>
+            <HistoryRoute titles={{}} />
+         </PracticeGate>
+      );
+      await screen.findByRole("link", { name: /Resume/ });
+      expect(screen.getAllByText("A Problem that is no longer listed").length).toBeGreaterThan(0);
+      expect(document.body.textContent).not.toMatch(/incident handoff/i);
+      expect(screen.queryByRole("link", { name: /The Problem/ })).not.toBeInTheDocument();
+   });
+
+   it("deletes one attempt only after the server confirms, and removes it from the list", async () => {
+      const r = await rig();
+      const id = await r.make(r.ada, "problem.incident-handoff-summary", "mid", "history-key-aaaaaa11");
+      let answer: () => { status: number; body?: unknown } = () => ({ status: 503, body: { detail: "x", code: "internal_error" } });
+      r.api.script("delete_attempt", () => answer());
+      render(r.ui(r.ada, "ada"));
+      await screen.findByRole("link", { name: /Resume/ });
+      fireEvent.click(screen.getByRole("button", { name: "Delete this attempt" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Delete attempt" }));
+      await screen.findByText("Nothing was deleted. Try again.");
+      expect(screen.getByRole("link", { name: /Resume/ })).toBeInTheDocument();
+      answer = () => ({ status: 204 });
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await screen.findByText(/You have not started a practice attempt yet/);
+      expect(r.api.requests.filter((q) => q.route === "delete_attempt").map((q) => q.path)).toEqual([`/me/practice/attempts/${id}`, `/me/practice/attempts/${id}`]);
+   });
+
    it("holds no stage text and puts nothing private in a link", async () => {
       const r = await rig();
       const id = await r.make(r.ada, "problem.llm-attribute-extraction-pipeline", "senior", "history-key-aaaaaaa3");
@@ -79,7 +112,7 @@ describe("the attempt history", () => {
       await r.make(r.bob, "problem.incident-handoff-summary", "mid", "history-key-aaaaaaa5");
       render(r.ui(r.bob, "bob"));
       await screen.findAllByText(/Incident handoff summary/);
-      expect(screen.queryByText(/Llm attribute extraction pipeline/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/LLM attribute extraction pipeline/)).not.toBeInTheDocument();
    });
 
    it("offers a retry after a failure and recovers", async () => {
@@ -96,7 +129,7 @@ describe("the attempt history", () => {
       };
       render(
          <PracticeGate apiUrl={API} owner="ada" getAccessToken={async () => r.ada} fetch={flaky}>
-            <HistoryRoute />
+            <HistoryRoute titles={TITLES} />
          </PracticeGate>
       );
       await screen.findByText("We could not load your attempts. Nothing was changed.");

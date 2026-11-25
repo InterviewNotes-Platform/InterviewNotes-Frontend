@@ -50,3 +50,12 @@ export async function loadProblemTopics(): Promise<CatalogResult<string[]>> {
    const index = await loadProblemIndex(NO_FILTERS);
    return index.status === "ok" ? { status: "ok", data: problemTopics(index.data.items) } : index;
 }
+
+/**
+ * Public Problem titles by content ID, from the same list metadata the Problems page shows (P9-T15, GAP-5). A Problem that is
+ * not listed (withdrawn, or past the scan cap) has no entry; nothing here reads a practice or entitlement record.
+ */
+export async function loadProblemTitles(): Promise<Readonly<Record<string, string>>> {
+   const index = await loadProblemIndex(NO_FILTERS);
+   return index.status === "ok" ? Object.fromEntries(index.data.items.map((item) => [item.id, item.title])) : {};
+}

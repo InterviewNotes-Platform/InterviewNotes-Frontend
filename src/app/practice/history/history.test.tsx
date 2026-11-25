@@ -54,6 +54,7 @@ describe("the history route boundary", () => {
       expect(element.type).toBe(PracticeGate);
       expect(element.props.apiUrl).toBe("https://api.example.test");
       expect(element.props.children.type).toBe(HistoryRoute);
-      expect(element.props.children.props).toEqual({});
+      // Only public catalog titles (GAP-5), never attempt data.
+      expect(Object.keys(element.props.children.props)).toEqual(["titles"]);
    });
 });

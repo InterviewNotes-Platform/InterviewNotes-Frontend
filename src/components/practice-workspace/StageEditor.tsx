@@ -7,7 +7,7 @@ import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
-import { MAX_FIELD_CHARS, STAGE_COPY, STATUS_LABEL, stageFields, type MlSubsection } from "@/lib/practice-workspace/stages";
+import { MAX_FIELD_CHARS, STAGE_COPY, STATUS_LABEL, stageFields, withSavedFields, type MlSubsection } from "@/lib/practice-workspace/stages";
 import type { StageDraft, StageEngine } from "@/lib/practice-workspace/stageSave";
 import type { Position, StageStatus } from "@/lib/practice-workspace/types";
 import { SaveTrouble } from "./SaveTrouble";
@@ -38,7 +38,8 @@ const nextStatus = (draft: StageDraft, value: string): StageStatus => (draft.sta
 export const StageEditor = forwardRef<HTMLHeadingElement, Props>(function StageEditor({ attemptId, position, index, total, engine, readOnly, mlSubsections, previous, next, onGo, asNotes = false }, headingRef) {
    const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot);
    const { draft } = snapshot;
-   const fields = stageFields(position, mlSubsections);
+   // Saved text under a sub-prompt that is no longer listed (now withheld) stays visible under a neutral label.
+   const fields = withSavedFields(stageFields(position, mlSubsections), snapshot.saved.fields);
    const copy = STAGE_COPY[position];
    const locked = readOnly || snapshot.phase === "terminal";
 

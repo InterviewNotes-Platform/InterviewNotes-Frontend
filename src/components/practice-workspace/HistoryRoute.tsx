@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { AttemptDataControls, PracticeDataControls } from "./PracticeDataControls";
 import type { AttemptListItem, AttemptStatus, Seniority } from "@/lib/practice-workspace/types";
 import { usePracticeSession } from "./practiceSession";
 
@@ -18,24 +19,23 @@ const STATUS_NAME: Readonly<Record<AttemptStatus, string>> = {
    abandoned: "Abandoned",
 };
 
-/** The list carries no title (the contract keeps it light), so the row names the Problem by its slug, read as words. */
-function problemName(contentId: string): string {
-   const slug = contentId.replace(/^problem\./, "");
-   const words = slug.replace(/[-_]+/g, " ").trim();
-   return words ? words.charAt(0).toUpperCase() + words.slice(1) : contentId;
-}
+/** The list carries no title (the contract keeps it light): the public catalog's title, or a neutral name when the Problem is no longer listed. */
+export const UNLISTED_PROBLEM = "A Problem that is no longer listed";
+const problemName = (contentId: string, titles: Readonly<Record<string, string>>) => titles[contentId] ?? UNLISTED_PROBLEM;
 
 const readerHref = (contentId: string) => (/^problem\.[a-z0-9][a-z0-9._-]*$/.test(contentId) ? `/problems/${contentId.slice("problem.".length)}` : null);
 
 type Load = { kind: "loading" } | { kind: "ready"; items: AttemptListItem[]; next: string | null; more: "idle" | "loading" | "failed" } | { kind: "failed"; signedOut: boolean };
 
-function Row({ item }: { item: AttemptListItem }) {
-   const href = readerHref(item.content_id);
+function Row({ item, titles, onDeleted }: { item: AttemptListItem; titles: Readonly<Record<string, string>>; onDeleted: (id: string) => void }) {
+   const session = usePracticeSession();
+   const href = titles[item.content_id] ? readerHref(item.content_id) : null;
+   const name = problemName(item.content_id, titles);
    const active = item.status === "active";
    return (
       <li className="m-0 grid gap-3 rounded-lg border border-border p-4 md:grid-cols-[1fr_auto] md:items-center">
          <div className="min-w-0">
-            <p className="m-0 text-body font-semibold text-balance">{problemName(item.content_id)}</p>
+            <p className="m-0 text-body font-semibold text-balance">{name}</p>
             <p className="m-0 mt-1 text-supporting text-muted-foreground">
                {STATUS_NAME[item.status]} · {SENIORITY_NAME[item.target_seniority]} bar · {item.stages_done} of {item.stages_total} stages done · Last changed{" "}
                <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</time>
@@ -45,18 +45,26 @@ function Row({ item }: { item: AttemptListItem }) {
             <Button asChild className="min-h-11" variant={active ? "default" : "outline"}>
                <Link href={`/practice/attempts/${encodeURIComponent(item.id)}`} prefetch={false}>
                   {active ? "Resume" : "Open"}
-                  <span className="sr-only"> {problemName(item.content_id)}</span>
+                  <span className="sr-only"> {name}</span>
                </Link>
             </Button>
             {href ? (
                <Button asChild variant="ghost" className="min-h-11">
                   <Link href={href} prefetch={false}>
                      The Problem
-                     <span className="sr-only">: {problemName(item.content_id)}</span>
+                     <span className="sr-only">: {name}</span>
                   </Link>
                </Button>
             ) : null}
          </div>
+         <details className="md:col-span-2">
+            <summary className="min-h-11 cursor-pointer content-center text-supporting text-muted-foreground">
+               Export or delete<span className="sr-only">: {name}</span>
+            </summary>
+            <div className="pt-2">
+               <AttemptDataControls session={session} attemptId={item.id} onDeleted={() => onDeleted(item.id)} />
+            </div>
+         </details>
       </li>
    );
 }
@@ -65,8 +73,9 @@ function Row({ item }: { item: AttemptListItem }) {
  * The learner's attempts, under the gate: a light list from the server (the contract keeps it light, so it holds no stage text), resume for an
  * active attempt, open for an ended one, and a way back to the reader. The full read-only review of an ended attempt is T15's.
  */
-export function HistoryRoute() {
-   const { client, signal } = usePracticeSession();
+export function HistoryRoute({ titles = {} }: { titles?: Readonly<Record<string, string>> }) {
+   const session = usePracticeSession();
+   const { client, signal } = session;
    const [load, setLoad] = useState<Load>({ kind: "loading" });
    const [tries, setTries] = useState(0);
 
@@ -100,6 +109,9 @@ export function HistoryRoute() {
          return { kind: "ready", items: [...now.items, ...result.data.items.filter((item) => !known.has(item.id))], next: result.data.next_cursor, more: "idle" };
       });
    }, [client, load, signal]);
+
+   const removed = useCallback((id: string) => setLoad((now) => (now.kind === "ready" ? { ...now, items: now.items.filter((item) => item.id !== id) } : now)), []);
+   const removedAll = useCallback(() => setLoad((now) => (now.kind === "ready" ? { ...now, items: [], next: null } : now)), []);
 
    const heading = (
       <h1 className="m-0 font-[family-name:Iowan_Old_Style,Palatino_Linotype,Palatino,Book_Antiqua,Georgia,serif] text-title text-balance">Your practice attempts</h1>
@@ -153,7 +165,7 @@ export function HistoryRoute() {
                      </h2>
                      <ul className="m-0 grid list-none gap-3 p-0">
                         {active.map((item) => (
-                           <Row key={item.id} item={item} />
+                           <Row key={item.id} item={item} titles={titles} onDeleted={removed} />
                         ))}
                      </ul>
                   </section>
@@ -165,7 +177,7 @@ export function HistoryRoute() {
                      </h2>
                      <ul className="m-0 grid list-none gap-3 p-0">
                         {earlier.map((item) => (
-                           <Row key={item.id} item={item} />
+                           <Row key={item.id} item={item} titles={titles} onDeleted={removed} />
                         ))}
                      </ul>
                   </section>
@@ -184,6 +196,9 @@ export function HistoryRoute() {
                ) : null}
             </div>
          )}
+         <div className="mt-12 border-t border-border pt-8">
+            <PracticeDataControls session={session} onDeletedAll={removedAll} />
+         </div>
       </div>
    );
 }

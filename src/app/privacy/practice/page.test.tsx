@@ -114,7 +114,7 @@ describe("Practice data terms page (P9-T17)", () => {
       expect(notes).toHaveLength(3);
       expect(notes.every((note) => note.startsWith("Pending verification."))).toBe(true);
       const backups = squash(sectionOf("Backups and restoring them").textContent);
-      expect(backups).toContain("We don't keep automatic backups of practice data, and our database host keeps none for us. If our database were lost, practice work stored in it could not be recovered, so export anything you want to keep.");
+      expect(backups).toContain("We don't keep automatic backups of practice data, and our database host keeps none for us. If our database were lost, practice work stored in it could not be recovered unless we have a usable manual backup, so export anything you want to keep.");
       expect(backups).toContain("If we ever restored a copy made before you deleted something, that data could come back until it is deleted again.");
       expect(within(sectionOf("Backups and restoring them")).getByRole("note")).toHaveTextContent("Until then we make no promise about re-deleting data after a restore.");
       expect(within(sectionOf("Removing your account")).getByRole("note")).toBeInTheDocument();

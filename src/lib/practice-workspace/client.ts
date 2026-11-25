@@ -14,7 +14,7 @@ import {
    type RouteDef,
    type RouteId,
 } from "./contract";
-import { isAssumption, isAttempt, isAttemptDetail, isAttemptListPage, isClarificationReveal, isConsentOut, isConsentStatus, isDiagram, isHint, isStageWork } from "./guards";
+import { isAssumption, isAttempt, isAttemptDetail, isAttemptListPage, isClarificationReveal, isConsentOut, isConsentStatus, isDiagram, isHint, isReference, isSelfReview, isStageWork, isSubmit } from "./guards";
 import type {
    AssumptionIn,
    AssumptionOut,
@@ -157,6 +157,8 @@ const textReader: Reader<string> = async (response) => {
 
 const noBody: Reader<void> = async () => ({ value: undefined });
 
+const streamReader: Reader<ReadableStream<Uint8Array>> = async (response) => (response.body ? { value: response.body } : null);
+
 function search(params: Record<string, string | number | undefined>): string {
    const query = new URLSearchParams();
    for (const [name, value] of Object.entries(params)) {
@@ -276,24 +278,28 @@ export function createPracticeClient(config: PracticeClientConfig) {
       stageTurn: (id: string, position: string, body: TurnIn, key: string) =>
          call<TurnOut>({ route: "stage_turn", params: attempt(id, { position }), body, key, read: pending() }),
 
-      submitAttempt: (id: string, body: SubmitIn, key: string) => call<SubmitOut>({ route: "submit_attempt", params: attempt(id), body, key, read: pending() }),
+      submitAttempt: (id: string, body: SubmitIn, key: string, options: RequestOptions = {}) => call<SubmitOut>({ route: "submit_attempt", params: attempt(id), body, key, read: guarded(isSubmit), ...options }),
       /** Ends the attempt; `body` must be `{ confirm: true }` (explicit confirmation). Returns the attempt, never the reference (that is `getReference`). */
-      revealAttempt: (id: string, body: RevealIn) => call<AttemptOut>({ route: "reveal_attempt", params: attempt(id), body, read: pending() }),
+      revealAttempt: (id: string, body: RevealIn, options: RequestOptions = {}) => call<AttemptOut>({ route: "reveal_attempt", params: attempt(id), body, read: guarded(isAttempt), ...options }),
       /** Active to abandoned; saved work stays. A repeat answers the same state. */
-      abandonAttempt: (id: string) => call<AttemptOut>({ route: "abandon_attempt", params: attempt(id), read: pending() }),
-      getReference: (id: string) => call<ReferenceOut>({ route: "get_reference", params: attempt(id), read: pending() }),
-      putSelfReview: (id: string, dimensionId: string, body: SelfReviewIn) =>
-         call<SelfReviewOut>({ route: "put_self_review", params: attempt(id, { dimension_id: dimensionId }), body, read: pending() }),
+      abandonAttempt: (id: string, options: RequestOptions = {}) => call<AttemptOut>({ route: "abandon_attempt", params: attempt(id), read: guarded(isAttempt), ...options }),
+      /** Entitled reference sections and the self-review rubric (A-10). Never cached or stored: the request is `no-store` and the answer lives in memory. */
+      getReference: (id: string, options: RequestOptions = {}) => call<ReferenceOut>({ route: "get_reference", params: attempt(id), read: guarded(isReference), ...options }),
+      putSelfReview: (id: string, dimensionId: string, body: SelfReviewIn, options: RequestOptions = {}) =>
+         call<SelfReviewOut>({ route: "put_self_review", params: attempt(id, { dimension_id: dimensionId }), body, read: guarded(isSelfReview), ...options }),
 
-      deleteAttempt: (id: string) => call<void>({ route: "delete_attempt", params: attempt(id), read: noBody }),
-      /** One attempt as NDJSON text (`application/x-ndjson`); streaming is the export task's. */
+      deleteAttempt: (id: string, options: RequestOptions = {}) => call<void>({ route: "delete_attempt", params: attempt(id), read: noBody, ...options }),
+      /** One attempt as NDJSON text (`application/x-ndjson`). The export screens use `openExport`, which streams. */
       exportAttempt: (id: string) => call<string>({ route: "export_attempt", params: attempt(id), read: textReader }),
+      /** The export's body as a stream, for incremental validation; one attempt, or all practice data when `id` is omitted. */
+      openExport: (id?: string, options: RequestOptions = {}) =>
+         call<ReadableStream<Uint8Array>>(id === undefined ? { route: "export_all", read: streamReader, ...options } : { route: "export_attempt", params: attempt(id), read: streamReader, ...options }),
 
       getPreference: () => call<PreferenceOut>({ route: "get_preference", read: pending() }),
       putPreference: (body: PreferenceIn) => call<PreferenceOut>({ route: "put_preference", body, read: pending() }),
 
       exportAll: () => call<string>({ route: "export_all", read: textReader }),
-      deleteAll: () => call<void>({ route: "delete_all", read: noBody }),
+      deleteAll: (options: RequestOptions = {}) => call<void>({ route: "delete_all", read: noBody, ...options }),
 
       getConsent: (options: RequestOptions = {}) => call<ConsentStatusOut>({ route: "get_consent", read: guarded(isConsentStatus), ...options }),
       postConsent: (body: ConsentIn, options: RequestOptions = {}) => call<ConsentOut>({ route: "post_consent", body, read: guarded(isConsentOut), ...options }),

@@ -84,6 +84,19 @@ export function stageFields(position: Position, mlSubsections: readonly MlSubsec
    return usable.length > 0 ? usable.slice(0, MAX_FIELDS_PER_STAGE).map(({ key, title }) => ({ key, label: title })) : ML_GENERIC;
 }
 
+/** The neutral label for saved text whose sub-prompt is no longer shown (it may be withheld now): the learner's work stays visible, the section is not named. */
+export const OTHER_NOTES_LABEL = "Other saved notes";
+
+/** `fields`, plus one field for each saved key with text that `fields` does not present, under the neutral label (no sub-prompt is named). */
+export function withSavedFields(fields: readonly StageField[], saved: Readonly<Record<string, string>>): readonly StageField[] {
+   const shown = new Set(fields.map((field) => field.key));
+   const extra = Object.keys(saved)
+      .filter((key) => !shown.has(key) && saved[key].trim() !== "")
+      .sort()
+      .map((key, index, all) => ({ key, label: all.length > 1 ? `${OTHER_NOTES_LABEL} ${index + 1}` : OTHER_NOTES_LABEL }));
+   return extra.length > 0 ? [...fields, ...extra] : fields;
+}
+
 export const STATUS_LABEL: Readonly<Record<StageStatus, string>> = {
    not_started: "Not started",
    in_progress: "In progress",

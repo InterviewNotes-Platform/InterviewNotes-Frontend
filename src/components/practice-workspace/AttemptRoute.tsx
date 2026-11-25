@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { AttemptDetailOut } from "@/lib/practice-workspace/types";
+import { AttemptReview } from "./AttemptReview";
 import { AttemptWorkspace } from "./AttemptWorkspace";
 import { usePracticeSession } from "./practiceSession";
 
@@ -37,7 +38,10 @@ export function AttemptRoute({ attemptId }: { attemptId: string }) {
       setTries((count) => count + 1);
    }, []);
 
-   if (load.kind === "ready") return <AttemptWorkspace detail={load.detail} />;
+   // An active attempt opens the workspace; any other status is the read-only review, which never creates a writable engine.
+   // A new read (after an ending or a conflict) remounts either one, so nothing from the previous state carries over.
+   if (load.kind === "ready" && load.detail.status === "active") return <AttemptWorkspace key={tries} detail={load.detail} onEnded={retry} onReload={retry} />;
+   if (load.kind === "ready") return <AttemptReview key={tries} detail={load.detail} />;
    if (load.kind === "loading") {
       return (
          <p role="status" className="py-12 text-center text-body text-muted-foreground">

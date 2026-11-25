@@ -11,16 +11,22 @@ import type { MlSubsection } from "@/lib/practice-workspace/stages";
 import { STAGE_COPY, isKnownPosition } from "@/lib/practice-workspace/stages";
 import type { AttemptDetailOut, AttemptStatus, Position, StageStatus } from "@/lib/practice-workspace/types";
 import { BriefDialog } from "./BriefDialog";
+import { FinishDialog } from "./FinishDialog";
 import { StageEditor } from "./StageEditor";
 import { StageGuide } from "./StageGuide";
 import { StageNav } from "./StageNav";
 import { useAttemptWorkspace, type DiagramState } from "./useAttemptWorkspace";
+import { useFinish } from "./useFinish";
 import { useStageGuide } from "./useStageGuide";
 
 interface Props {
    detail: AttemptDetailOut;
    /** The Problem's authored ML sub-sections, when the caller knows them; see `stageFields`. The frozen attempt detail does not carry them. */
    mlSubsections?: readonly MlSubsection[];
+   /** The attempt ended here (submit, reveal, abandon): read it again and show its canonical state. */
+   onEnded?: () => void;
+   /** Read the attempt again from the server (after a submit conflict, the learner's choice). */
+   onReload?: () => void;
 }
 
 const ENDED: Partial<Record<AttemptStatus, string>> = {
@@ -70,11 +76,16 @@ function DiagramArea({ diagram, readOnly, variant }: { diagram: DiagramState; re
  * brief and one honest save status. State is in memory only; the server holds the attempt. The diagram editor is T14's and arrives through
  * the slot in `StageEditor`.
  */
-export function AttemptWorkspace({ detail, mlSubsections: given }: Props) {
+const NOOP = () => undefined;
+
+export function AttemptWorkspace({ detail, mlSubsections: given, onEnded = NOOP, onReload = NOOP }: Props) {
    // A-02: the attempt detail names the authored ML sub-sections; a caller's list (tests) still wins.
    const mlSubsections = given ?? detail.challenge?.stages.find((stage) => stage.position === "ml_reasoning")?.subsections;
    const workspace = useAttemptWorkspace(detail);
    const { engines, snapshots, positions, status, summary, pending, settle, end, diagram } = workspace;
+   const finish = useFinish(detail.id, workspace, onEnded);
+   // While an ending is in flight or its outcome is unknown, nothing may change what a retry would mean.
+   const readOnly = status !== "active" || finish.locked;
    // Later stages may open the same diagram beside their written work (Design D); the choice lasts for this visit only.
    const [split, setSplit] = useState(false);
    const guide = useStageGuide(detail, end);
@@ -146,6 +157,7 @@ export function AttemptWorkspace({ detail, mlSubsections: given }: Props) {
                <div className="flex items-center gap-3">
                   <SaveStatus status={summary.state} message={summary.message} />
                   <BriefDialog challenge={detail.challenge} />
+                  {status === "active" ? <FinishDialog positions={positions} statuses={statuses} diagram={diagram} finish={finish} onReload={onReload} /> : null}
                </div>
             </div>
             <StageNav positions={positions} current={active} statuses={statuses} troubled={summary.troubled} onSelect={go} />
@@ -176,7 +188,7 @@ export function AttemptWorkspace({ detail, mlSubsections: given }: Props) {
                      {STAGE_COPY.design.intent} Draw it on the canvas, or build it in the Outline; <a href="#practice-design-notes" className="underline">written notes</a> are below.
                   </p>
                </div>
-               <DiagramArea diagram={diagram} readOnly={status !== "active"} variant="design" />
+               <DiagramArea diagram={diagram} readOnly={readOnly} variant="design" />
                <div id="practice-design-notes" className="grid gap-10 lg:grid-cols-[minmax(0,44rem)_minmax(16rem,20rem)] lg:justify-center lg:gap-14">
                   <StageEditor
                      key={active}
@@ -186,7 +198,7 @@ export function AttemptWorkspace({ detail, mlSubsections: given }: Props) {
                      index={index}
                      total={positions.length}
                      engine={engine}
-                     readOnly={status !== "active"}
+                     readOnly={readOnly}
                      mlSubsections={mlSubsections}
                      previous={index > 0 ? positions[index - 1] : null}
                      next={index < positions.length - 1 ? positions[index + 1] : null}
@@ -194,7 +206,7 @@ export function AttemptWorkspace({ detail, mlSubsections: given }: Props) {
                   />
                   <div className="min-w-0 lg:border-l lg:border-border lg:pl-8">
                      <p className="m-0 mb-4 text-supporting font-semibold tracking-wide text-muted-foreground uppercase">{STAGE_COPY[active].label}</p>
-                     <StageGuide position={active} challenge={detail.challenge} guide={guide} readOnly={status !== "active"} ownQuestionsSaved={ownQuestions} />
+                     <StageGuide position={active} challenge={detail.challenge} guide={guide} readOnly={readOnly} ownQuestionsSaved={ownQuestions} />
                   </div>
                </div>
             </main>
@@ -217,7 +229,7 @@ export function AttemptWorkspace({ detail, mlSubsections: given }: Props) {
                      index={index}
                      total={positions.length}
                      engine={engine}
-                     readOnly={status !== "active"}
+                     readOnly={readOnly}
                      mlSubsections={mlSubsections}
                      previous={index > 0 ? positions[index - 1] : null}
                      next={index < positions.length - 1 ? positions[index + 1] : null}
@@ -226,12 +238,12 @@ export function AttemptWorkspace({ detail, mlSubsections: given }: Props) {
                </main>
                {split && afterDesign ? (
                   <section aria-label="Your design" className="min-w-0">
-                     <DiagramArea diagram={diagram} readOnly={status !== "active"} variant="split" />
+                     <DiagramArea diagram={diagram} readOnly={readOnly} variant="split" />
                   </section>
                ) : (
                   <div className="min-w-0 lg:border-l lg:border-border lg:pl-8">
                      <p className="m-0 mb-4 text-supporting font-semibold tracking-wide text-muted-foreground uppercase">{STAGE_COPY[active].label}</p>
-                     <StageGuide position={active} challenge={detail.challenge} guide={guide} readOnly={status !== "active"} ownQuestionsSaved={ownQuestions} />
+                     <StageGuide position={active} challenge={detail.challenge} guide={guide} readOnly={readOnly} ownQuestionsSaved={ownQuestions} />
                   </div>
                )}
             </div>

@@ -38,3 +38,16 @@ describe("the stage vocabulary", () => {
       expect(stageFields("requirements", authored)).toEqual(stageFields("requirements"));
    });
 });
+
+describe("saved text whose sub-prompt is no longer listed", () => {
+   it("stays visible under a neutral label that names no section", async () => {
+      const { stageFields, withSavedFields, OTHER_NOTES_LABEL } = await import("./stages");
+      const listed = stageFields("ml_reasoning", [{ key: "data", title: "Data" }]);
+      expect(withSavedFields(listed, { data: "x", model: "my model notes", labels: "" }).map((f) => [f.key, f.label])).toEqual([
+         ["data", "Data"],
+         ["model", OTHER_NOTES_LABEL],
+      ]);
+      expect(withSavedFields(listed, { data: "x" })).toBe(listed);
+      expect(withSavedFields(listed, { model: "a", training: "b" }).map((f) => f.label)).toEqual(["Data", `${OTHER_NOTES_LABEL} 1`, `${OTHER_NOTES_LABEL} 2`]);
+   });
+});

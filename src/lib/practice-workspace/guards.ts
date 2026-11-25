@@ -19,7 +19,13 @@ import type {
    DiagramOut,
    HintOut,
    HistoryEventOut,
+   PromptCalloutBlock,
+   PromptMarkdownBlock,
+   ReferenceOut,
+   ReferenceRubricOut,
    RevealedClarificationOut,
+   SelfReviewOut,
+   SubmitOut,
    StageStatusOut,
    StageWorkOut,
    TombstoneOut,
@@ -162,4 +168,39 @@ export function isDiagram(body: unknown): body is DiagramOut {
       Array.isArray(body.structure_findings) &&
       arrayOf(isTombstone)(body.tombstones)
    );
+}
+
+// --- T15: submit, reference comparison and self-review ---------------------------------------------------------------
+
+const MARKS = ["met", "partly", "not_yet"] as const;
+const isMarkdownBlock = (value: unknown): value is PromptMarkdownBlock => isRec(value) && value.type === "markdown" && isStr(value.text);
+/** The canonical blocks only (A-04): markdown, or a callout of markdown. Any other shape is malformed, never rendered. */
+export const isBlock = (value: unknown): value is PromptMarkdownBlock | PromptCalloutBlock =>
+   isMarkdownBlock(value) || (isRec(value) && value.type === "callout" && oneOf(["note", "tip", "warning"] as const)(value.kind) && arrayOf(isMarkdownBlock)(value.children));
+
+export function isSelfReview(body: unknown): body is SelfReviewOut {
+   return isRec(body) && isStr(body.dimension_id) && oneOf(MARKS)(body.mark) && isNullable(isStr)(body.note) && isNum(body.version);
+}
+
+const isRubric = (value: unknown): value is ReferenceRubricOut =>
+   isRec(value) &&
+   isStr(value.dimension_id) &&
+   isStr(value.title) &&
+   isNullable(isPosition)(value.stage) &&
+   isNullable(arrayOf(isBlock))(value.bar) &&
+   arrayOf(isBlock)(value.strong_evidence) &&
+   arrayOf(isBlock)(value.weak_evidence) &&
+   isNullable(isSelfReview)(value.self_review);
+
+export function isReference(body: unknown): body is ReferenceOut {
+   return (
+      isRec(body) &&
+      (body.plan === "free" || body.plan === "premium") &&
+      arrayOf((section: unknown): section is ReferenceOut["sections"][number] => isRec(section) && isStr(section.kind) && isStr(section.title) && arrayOf(isBlock)(section.body))(body.sections) &&
+      arrayOf(isRubric)(body.rubric)
+   );
+}
+
+export function isSubmit(body: unknown): body is SubmitOut {
+   return isRec(body) && (body.status === "submitted" || body.status === "evaluating") && isStr(body.submission_snapshot_id);
 }

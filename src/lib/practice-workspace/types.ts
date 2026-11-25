@@ -293,9 +293,23 @@ export interface ReferenceSectionOut {
    body: Record<string, unknown>[];
 }
 
+/** A-10: one rubric dimension the caller may self-review now; only the attempt's own seniority bar, never another's. */
+export interface ReferenceRubricOut {
+   dimension_id: string;
+   title: string;
+   /** The interview stage the dimension's evidence sits in, or null. */
+   stage: Position | null;
+   bar: (PromptMarkdownBlock | PromptCalloutBlock)[] | null;
+   strong_evidence: (PromptMarkdownBlock | PromptCalloutBlock)[];
+   weak_evidence: (PromptMarkdownBlock | PromptCalloutBlock)[];
+   self_review: SelfReviewOut | null;
+}
+
 export interface ReferenceOut {
    sections: ReferenceSectionOut[];
    plan: "free" | "premium";
+   /** A-10: empty whenever the caller may not address the rubric now. */
+   rubric: ReferenceRubricOut[];
 }
 
 // --- Preference and consent ---

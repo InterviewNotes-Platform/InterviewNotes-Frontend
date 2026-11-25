@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { Footer } from "@/components/layout/Footer";
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { PracticeDataAccess } from "@/components/practice-privacy/PracticeDataAccess";
-import { practiceEnabled } from "@/lib/practice-flag";
+import { PracticeDataPrivacyControls } from "@/components/practice-workspace/PracticeDataPrivacyControls";
+import { practiceTermsAvailable } from "@/lib/practice-flag";
 import { PRACTICE_TERMS_VERSION } from "@/lib/practice-terms";
 import { PRIVACY_HREF, SUPPORT_EMAIL } from "@/lib/privacy";
 
@@ -44,8 +45,8 @@ const Email = () => (
 const LINK = "font-medium text-foreground underline underline-offset-4";
 
 export default function PracticeTermsPage() {
-   // The frontend practice flag hides this page with the rest of practice; it enables nothing (src/lib/practice-flag.ts).
-   if (!practiceEnabled()) notFound();
+   // Hidden unless the practice flag or the privacy access flag is on; neither enables anything (src/lib/practice-flag.ts).
+   if (!practiceTermsAvailable()) notFound();
    return (
       <>
          <PageContainer as="main" className="py-12 md:py-16">
@@ -80,7 +81,8 @@ export default function PracticeTermsPage() {
                      </li>
                      <li>
                         You can export it, delete one attempt or delete all of it. Deleting removes it from the live database at once. We keep
-                        no automatic backups of it, so if our database were lost it could not be recovered; export anything you want to keep.
+                        no automatic backups of it, so if our database were lost it could not be recovered unless we have a usable manual
+                        backup; export anything you want to keep.
                      </li>
                      <li>You accept these terms before your first attempt. Reading Problems never needs them.</li>
                      <li>Practice stores no uploaded files and no audio.</li>
@@ -172,8 +174,8 @@ export default function PracticeTermsPage() {
                <Section title="Backups and restoring them">
                   <p>
                      We don&apos;t keep automatic backups of practice data, and our database host keeps none for us. If our database were lost,
-                     practice work stored in it could not be recovered, so export anything you want to keep. We don&apos;t claim anything about
-                     copies our database host may keep itself.
+                     practice work stored in it could not be recovered unless we have a usable manual backup, so export anything you want
+                     to keep. We don&apos;t claim anything about copies our database host may keep itself.
                   </p>
                   <p>
                      We may sometimes make our own copy of the database. If we ever restored a copy made before you deleted something, that data
@@ -234,6 +236,7 @@ export default function PracticeTermsPage() {
 
                <Section title="Your practice data">
                   <PracticeDataAccess apiUrl={process.env.NEXT_PUBLIC_API_URL || null} />
+                  <PracticeDataPrivacyControls apiUrl={process.env.NEXT_PUBLIC_API_URL || null} />
                </Section>
 
                <Section title="Changes to these terms">
