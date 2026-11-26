@@ -9,7 +9,7 @@ import { practiceTermsAvailable } from "@/lib/practice-flag";
 import { PRACTICE_TERMS_VERSION } from "@/lib/practice-terms";
 import { PRIVACY_HREF, SUPPORT_EMAIL } from "@/lib/privacy";
 
-// LOCAL draft (P9-T17): not indexed until the owner approves the final wording and the pending facts are verified.
+// Pre-release (P9-T17/T21): not indexed before the owner approves the wording and practice is released.
 export const metadata: Metadata = {
    title: "Practice data terms | InterviewNotes",
    description: "What Problem practice stores in your account, how long it is kept, and how to export, delete or withdraw.",
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 };
 
 // Every statement traces to the P9-T17 record (specs technical-practice/evidence/P9-T17-practice-terms-record.md): the T12
-// behaviour, the owner's P9-OD-01, -15, -17 and -20 decisions, and the P8-D-081 analytics code. A fact that is not verified
-// is a "Pending" note, never a claim.
+// behaviour, the owner's P9-OD-01, -15, -17 and -20 decisions, and the P8 backup and analytics facts. A limitation is stated
+// as a limitation, never as a verified guarantee.
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
    return (
       <section className="mt-12 space-y-4">
@@ -28,10 +28,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
    );
 }
 
-function Pending({ children }: { children: React.ReactNode }) {
+function Limitation({ children }: { children: React.ReactNode }) {
    return (
       <p role="note" className="rounded-lg border border-dashed border-border px-5 py-4 text-foreground">
-         <strong>Pending verification.</strong> {children}
+         <strong>Current limitation.</strong> {children}
       </p>
    );
 }
@@ -60,10 +60,6 @@ export default function PracticeTermsPage() {
                   </Link>{" "}
                   page, which covers the rest of InterviewNotes. Accepting these terms does not change your consent on that page.
                </p>
-               <p className="mt-3 rounded-lg border border-border px-5 py-4 text-foreground">
-                  Draft for review. Some facts below are still being verified and are marked as pending. Practice is not open to learners
-                  until they are.
-               </p>
 
                <section aria-labelledby="summary" className="mt-8 rounded-lg bg-surface p-6 space-y-3">
                   <h2 id="summary" className="text-subsection text-foreground">
@@ -81,8 +77,8 @@ export default function PracticeTermsPage() {
                      </li>
                      <li>
                         You can export it, delete one attempt or delete all of it. Deleting removes it from the live database at once. We keep
-                        no automatic backups of it, so if our database were lost it could not be recovered unless we have a usable manual
-                        backup; export anything you want to keep.
+                        no automatic backups of it. A manual copy made before deletion can still hold it, and the process for restoring a copy
+                        and re-applying deletions has not passed rehearsal; export anything you want to keep.
                      </li>
                      <li>You accept these terms before your first attempt. Reading Problems never needs them.</li>
                      <li>Practice stores no uploaded files and no audio.</li>
@@ -160,8 +156,8 @@ export default function PracticeTermsPage() {
                   </ul>
                   <p>
                      Each deletion is permanent and can&apos;t be undone. It removes the data from the live database at once. We keep no
-                     automatic backups of practice data. If we made our own copy of the database before you deleted, that copy still holds your
-                     data until it is removed, and we can&apos;t say when that will be.
+                     automatic backups of practice data. If we made our own manual copy of the database before you deleted, that copy still
+                     holds your data until the copy is removed. We do not promise a fixed retention period for manual copies; because copies are manual, there is no fixed calendar expiry.
                   </p>
                   <p>
                      When you delete, we record that a deletion happened: when, whether it was one attempt or all of them, and a coded
@@ -178,15 +174,21 @@ export default function PracticeTermsPage() {
                      to keep. We don&apos;t claim anything about copies our database host may keep itself.
                   </p>
                   <p>
-                     We may sometimes make our own copy of the database. If we ever restored a copy made before you deleted something, that data
-                     could come back until it is deleted again.
+                     We may sometimes make our own encrypted manual copy of the database. We do not promise a fixed retention period for manual copies. Because copies are made manually, there is no fixed calendar expiry. If we ever restored a copy made before
+                     you deleted something, that data could come back until it is deleted again.
                   </p>
-                  <Pending>
-                     We plan to keep practice closed after a restore until deleted data has been found and deleted again using the deletion
-                     log, but that process is not yet in place. How long we keep our own copies, the copy of the deletion log kept outside the
-                     database and how far behind it can be, and what happens if that copy or its key is lost, are being verified. This section
-                     will state them before practice opens to learners. Until then we make no promise about re-deleting data after a restore.
-                  </Pending>
+                  <p>
+                     A scheduled operator synchronization copies the content-free deletion record to an encrypted owner-controlled mirror
+                     outside the database. During the restricted beta synchronization is scheduled at least daily, with an alert if the
+                     oldest record not yet copied is more than 26 hours old. The mirror can still lag or miss a deletion during an
+                     outage, so it cannot ensure that every deletion will be known after a restore.
+                  </p>
+                  <Limitation>
+                     The restore rehearsal for a current practice database, including re-applying deletions after a restore, is deferred and
+                     has not passed. Until it is verified, we do not promise that deleted data can never reappear after a restore. The planned
+                     procedure is to keep practice closed after a restore until the available deletion records have been checked and the deletion
+                     plan has been applied.
+                  </Limitation>
                </Section>
 
                <Section title="Withdrawing your acceptance">
@@ -203,13 +205,15 @@ export default function PracticeTermsPage() {
 
                <Section title="Removing your account">
                   <p>
-                     There is no account deletion button. To ask for your account to be removed, email <Email />. We delete all of your
-                     practice data, including your acceptance records, before removing your sign-in identity.
+                     There is no account deletion button. To ask for your account to be removed, email <Email />. After we verify the request,
+                     we remove practice admission, delete all of your practice data including your acceptance records, wait at least one hour
+                     for already-issued access tokens to expire, check that nothing new was written in that window, and only then remove your
+                     sign-in identity.
                   </p>
-                  <Pending>
-                     The steps we follow for an account removal request are being set up and checked. This section will describe them before
-                     practice opens to learners.
-                  </Pending>
+                  <Limitation>
+                     The sign-in provider&apos;s exact refresh-token revocation behavior is still being verified. Until that check is complete,
+                     we do not claim the account-removal procedure is final.
+                  </Limitation>
                </Section>
 
                <Section title="Logs and analytics">
@@ -218,11 +222,11 @@ export default function PracticeTermsPage() {
                      analytics events of its own.
                   </p>
                   <p>
-                     Where our site is served by Vercel, Vercel Web Analytics and Speed Insights record page views and how fast pages load. A
-                     page view includes the page&apos;s address, which for an attempt contains the attempt&apos;s random ID but none of its
-                     content.
+                     This deployment is served by Netlify. The application includes Vercel Web Analytics and Speed Insights components, but
+                     they render only in a Vercel build, so they do not load or record page views on this Netlify deployment. If a future
+                     deployment is served by Vercel, those tools may record page views and how fast pages load. A page view includes the
+                     page&apos;s address, which for an attempt contains the attempt&apos;s random ID but none of its content.
                   </p>
-                  <Pending>Which of our sites are served by Vercel, and what Vercel keeps, are being verified.</Pending>
                </Section>
 
                <Section title="What practice does not do yet">

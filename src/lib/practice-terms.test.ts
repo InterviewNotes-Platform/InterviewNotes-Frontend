@@ -25,7 +25,7 @@ describe("practice data copy", () => {
       for (const copy of [PRACTICE_DELETE_COPY.attempt, PRACTICE_DELETE_COPY.all]) {
          expect(copy.body).toMatch(/permanently deletes/);
          expect(copy.body).toContain("It can't be undone.");
-         expect(copy.body).toContain("We keep no automatic backups of practice data, but a copy of the database we made before you delete it can still hold it until that copy is removed.");
+         expect(copy.body).toContain("We keep no automatic backups of practice data, but a manual copy of the database made before you delete it can still hold it until that copy is removed.");
          expect(copy.body).not.toMatch(/expire/);
       }
       expect(PRACTICE_DELETE_COPY.all.body).toContain("Your record of accepting the practice data terms is kept, because deleting your data does not withdraw it.");

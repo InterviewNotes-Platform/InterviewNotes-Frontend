@@ -17,7 +17,7 @@
 .pg-editor.pg-design { height: clamp(560px, calc(100dvh - 15rem), 1100px); }
 .pg-editor.pg-split { height: clamp(520px, calc(100dvh - 15rem), 1000px); }
 
-.pg-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--card); }
+.pg-toolbar { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--card); }
 .pg-palette, .pg-toolbar-end { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .pg-tool { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--foreground); font-size: 13px; cursor: pointer; }
 .pg-tool svg.pg-mini { width: 30px; height: 22px; overflow: visible; }
@@ -133,6 +133,9 @@
    .pg-side.is-sheet { position: fixed; inset: auto 0 64px 0; z-index: 40; max-height: 62dvh; border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -8px 24px rgb(0 0 0 / 0.18); }
    .pg-switch { position: fixed; inset: auto 0 0 0; z-index: 41; display: flex; justify-content: stretch; margin: 0; padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); border-radius: 0; border-width: 1px 0 0; background: var(--card); }
    .pg-switch button { flex: 1; }
+   .pg-settings { position: static; }
+   .pg-settings-panel { top: calc(100% + 4px); right: 8px; left: 8px; min-width: 0; }
+   .pg-mobile-help { margin: 0; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--card); color: var(--muted-foreground); font-size: 12px; line-height: 1.35; }
    .pg-toggle { font-size: 12px; }
    .pg-editor .react-flow__controls-button { width: 44px; height: 44px; }
 }

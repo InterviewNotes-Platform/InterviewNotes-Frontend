@@ -251,6 +251,10 @@ function Editor({ engine, readOnly, refusal, variant }: DiagramEditorProps) {
             </div>
          </div>
 
+         {narrow && phoneView === "canvas" ? (
+            <p className="pg-mobile-help">On a phone, use the Outline below to add, connect and explain. The Canvas is for viewing and selecting.</p>
+         ) : null}
+
          <DiagramTrouble editor={editor} refusal={refusal} />
 
          <div className="pg-body">

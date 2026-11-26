@@ -12,7 +12,7 @@
 
 export const PRACTICE_TERMS_HREF = "/privacy/practice";
 export const PRACTICE_TERMS_DOCUMENT_ID = "practice-data";
-export const PRACTICE_TERMS_VERSION = "2026-11-25";
+export const PRACTICE_TERMS_VERSION = "2026-11-26";
 
 /** The acknowledgement shown before a learner's first attempt (and again after a material change or a withdrawal). */
 export const PRACTICE_DATA_NOTICE = {
@@ -38,7 +38,7 @@ export const PRACTICE_DELETE_COPY = {
       title: "Delete this attempt?",
       body:
          "This permanently deletes this attempt: its stage answers, diagram, snapshots, the hints and clarifications you opened, and your self-review. " +
-         "It can't be undone. Your other attempts stay. We keep no automatic backups of practice data, but a copy of the database we made before you delete it can still hold it until that copy is removed.",
+         "It can't be undone. Your other attempts stay. We keep no automatic backups of practice data, but a manual copy of the database made before you delete it can still hold it until that copy is removed.",
       confirm: "Delete attempt",
       cancel: "Keep it",
       done: "Attempt deleted.",
@@ -49,7 +49,7 @@ export const PRACTICE_DELETE_COPY = {
          "This permanently deletes every practice attempt, everything saved with them and your practice preferences. It can't be undone. " +
          "Your record of accepting the practice data terms is kept, because deleting your data does not withdraw it. " +
          "Your Lesson and Problem progress and your preparation workspace are not affected. " +
-         "We keep no automatic backups of practice data, but a copy of the database we made before you delete it can still hold it until that copy is removed.",
+         "We keep no automatic backups of practice data, but a manual copy of the database made before you delete it can still hold it until that copy is removed.",
       confirm: "Delete all practice data",
       cancel: "Keep my data",
       done: "Your practice data is deleted.",
