@@ -631,6 +631,11 @@ async function mobile(browser, fakes) {
       const ids = representative(fakes, server, id);
       await openDesign(page, id);
       check(`${label}: the canvas is view and select only (no palette, no handles)`, (await page.locator(".pg-palette").count()) === 0 && (await page.locator(".react-flow__handle.connectable").count()) === 0 && (await page.locator(".react-flow__edge path[marker-end]").count()) === 6);
+      await page.getByText("View settings").click();
+      const settingsBox = await page.locator(".pg-settings-panel").boundingBox();
+      check(`${label}: the settings panel stays inside the viewport`, settingsBox !== null && settingsBox.x >= 0 && settingsBox.x + settingsBox.width <= width, settingsBox ? `x ${settingsBox.x}, right ${settingsBox.x + settingsBox.width}, width ${width}` : "not visible");
+      await page.getByText("View settings").click();
+      check(`${label}: mobile copy says to edit through the Outline`, await page.getByText("On a phone, use the Outline below to add, connect and explain.").isVisible());
       await node(page, ids.svc).tap();
       await page.locator(".pg-side.is-sheet [data-fields=node]").waitFor();
       if (width === 390) await shot(page, "P9-T14-mobile-canvas-light-390");

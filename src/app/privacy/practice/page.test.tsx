@@ -32,7 +32,7 @@ describe("Practice data terms page (P9-T17)", () => {
       expect(() => PracticeTermsPage()).toThrow("NEXT_NOT_FOUND");
    });
 
-   it("is not indexed while it is a draft", () => {
+   it("is not indexed before release", () => {
       expect(pageModule.metadata.robots).toEqual({ index: false, follow: false });
    });
 
@@ -103,31 +103,36 @@ describe("Practice data terms page (P9-T17)", () => {
       expect(exporting).not.toMatch(/identical|exact copy|byte/i);
       const deleting = squash(sectionOf("Deleting your data").textContent);
       expect(deleting).toContain("It keeps the record of which version of these terms you accepted, because deleting your data does not withdraw your acceptance.");
-      expect(deleting).toContain("It removes the data from the live database at once. We keep no automatic backups of practice data. If we made our own copy of the database before you deleted, that copy still holds your data until it is removed, and we can't say when that will be.");
+      expect(deleting).toContain("It removes the data from the live database at once. We keep no automatic backups of practice data. If we made our own manual copy of the database before you deleted, that copy still holds your data until the copy is removed. We do not promise a fixed retention period for manual copies; because copies are manual, there is no fixed calendar expiry.");
       expect(deleting).not.toMatch(/expire/);
       expect(deleting).toContain("This deletion log holds none of your work.");
    });
 
-   it("keeps recovery, account-removal steps and analytics hosts pending instead of inventing facts", () => {
+   it("states established backup and analytics facts and keeps only the unresolved recovery limitations explicit", () => {
       renderPage();
       const notes = screen.getAllByRole("note").map((note) => squash(note.textContent));
-      expect(notes).toHaveLength(3);
-      expect(notes.every((note) => note.startsWith("Pending verification."))).toBe(true);
+      expect(notes).toHaveLength(2);
+      expect(notes.every((note) => note.startsWith("Current limitation."))).toBe(true);
       const backups = squash(sectionOf("Backups and restoring them").textContent);
       expect(backups).toContain("We don't keep automatic backups of practice data, and our database host keeps none for us. If our database were lost, practice work stored in it could not be recovered unless we have a usable manual backup, so export anything you want to keep.");
-      expect(backups).toContain("If we ever restored a copy made before you deleted something, that data could come back until it is deleted again.");
-      expect(within(sectionOf("Backups and restoring them")).getByRole("note")).toHaveTextContent("Until then we make no promise about re-deleting data after a restore.");
-      expect(within(sectionOf("Removing your account")).getByRole("note")).toBeInTheDocument();
-      expect(within(sectionOf("Logs and analytics")).getByRole("note")).toBeInTheDocument();
+      expect(backups).toContain("We do not promise a fixed retention period for manual copies. Because copies are made manually, there is no fixed calendar expiry.");
+      expect(backups).toContain("synchronization is scheduled at least daily, with an alert if the oldest record not yet copied is more than 26 hours old");
+      expect(backups).toContain("The restore rehearsal for a current practice database, including re-applying deletions after a restore, is deferred and has not passed.");
+      expect(backups).toContain("we do not promise that deleted data can never reappear after a restore");
+      expect(within(sectionOf("Removing your account")).getByRole("note")).toHaveTextContent("The sign-in provider's exact refresh-token revocation behavior is still being verified.");
+      expect(sectionOf("Logs and analytics").querySelector('[role="note"]')).not.toBeInTheDocument();
    });
 
    it("makes no unverified region, retention period, zero-retention, guarantee or no-access promise", () => {
       const page = renderPage().container.textContent ?? "";
       expect(page).toContain("We don't claim that no one else can ever access it.");
       const text = page.replace("We don't claim that no one else can ever access it.", "");
+      expect(text).toContain("wait at least one hour for already-issued access tokens to expire");
+      expect(text).toContain("synchronization is scheduled at least daily");
+      expect(text).toContain("more than 26 hours old");
       for (const claim of [
          /Ohio|Mumbai|region|United States|India/i,
-         /\b\d+\s*(minutes?|hours?|days?|weeks?|months?|years?)\b/i,
+         /\b\d+\s*(minutes?|days?|weeks?|months?|years?)\b/i,
          /zero (data )?retention/i,
          /guarantee/i,
          /no one (else )?(can|will)|never (be )?(accessed|seen|read)|only you can/i,
@@ -142,7 +147,7 @@ describe("Practice data terms page (P9-T17)", () => {
       renderPage();
       const text = squash(sectionOf("Removing your account").textContent);
       expect(text).toContain(`There is no account deletion button. To ask for your account to be removed, email ${SUPPORT_EMAIL}.`);
-      expect(text).toContain("before removing your sign-in identity");
+      expect(text).toContain("and only then remove your sign-in identity");
       expect(screen.queryByRole("button", { name: /delete (my )?account/i })).not.toBeInTheDocument();
    });
 
@@ -150,7 +155,8 @@ describe("Practice data terms page (P9-T17)", () => {
       renderPage();
       const text = squash(sectionOf("Logs and analytics").textContent);
       expect(text).toContain("Practice adds no analytics events of its own.");
-      expect(text).toContain("Vercel Web Analytics and Speed Insights record page views and how fast pages load");
+      expect(text).toContain("This deployment is served by Netlify.");
+      expect(text).toContain("they do not load or record page views on this Netlify deployment");
       expect(text).toContain("contains the attempt's random ID but none of its content");
    });
 
