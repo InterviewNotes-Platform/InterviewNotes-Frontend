@@ -6,14 +6,17 @@ import { ProblemPreparation } from "@/components/catalog/ProblemPreparation";
 import { ProblemChallenge, ProblemStages } from "@/components/catalog/ProblemStages";
 import { AlternateTracks } from "@/components/catalog/TrackContext";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { PracticeEntry } from "@/components/practice-workspace/PracticeEntry";
 import { ProblemSplit } from "@/components/problem/ProblemSplit";
 import { ReaderControls } from "@/components/prepare/reader/ReaderControls";
 import { RevealProvider } from "@/components/problem/RevealProvider";
 import type { ItemNavigation } from "@/lib/catalog/navigation";
 import { WITHHELD_NOTE } from "@/lib/catalog/positionCopy";
 import { problemRelations } from "@/lib/catalog/problem";
+import { targetedSeniorities } from "@/lib/catalog/practiceEntry";
 import { composeProblem } from "@/lib/catalog/problemSpine";
 import type { CatalogItem } from "@/lib/catalog/types";
+import { practiceEnabled } from "@/lib/practice-flag";
 import { prepApiUrl, prepEnabled } from "@/lib/prep-flag";
 import { WithheldNote } from "./ItemContent";
 
@@ -47,6 +50,8 @@ export function ProblemPage({ item, navigation, stayOnDeployment }: { item: Cata
                   <>
                      <ProblemHeader meta={item} placement={navigation?.home} />
                      {prepEnabled() ? <ReaderControls key={item.id} contentId={item.id} apiUrl={prepApiUrl()} /> : null}
+                     {/* "Practise this Problem": shown only when the backend says practice is ready for this caller and Problem; the targeted seniorities are read from the sections already released here. */}
+                     {practiceEnabled() ? <PracticeEntry key={`practice-${item.id}`} contentId={item.id} apiUrl={prepApiUrl()} seniorities={targetedSeniorities(item)} /> : null}
                      <ProblemChallenge composition={composition} stayOnDeployment={stayOnDeployment} />
                      {item.body ? <CatalogBody body={item.body} stayOnDeployment={stayOnDeployment} /> : null}
                      {related ? <ProblemPreparation groups={related.preparation} /> : null}
