@@ -12,14 +12,14 @@ describe("zoomDrawing", () => {
       const { container, svg } = drawing("0 0 400 1600");
       zoomDrawing(container, 1);
       expect(svg.style.width).toBe("100%");
-      expect(svg.style.maxWidth).toBe("min(400px, 0.25 * (100svh - 10rem))");
+      expect(svg.style.maxWidth).toBe("min(400px, 0.25 * max(10rem, -16rem + 100svh))");
    });
 
    it("scales the height cap with zoom so a deliberate zoom-in grows past one screen", () => {
       const { container, svg } = drawing("0 0 400 1600");
       zoomDrawing(container, 2);
       expect(svg.style.width).toBe("200%");
-      expect(svg.style.maxWidth).toBe("min(800px, 0.5 * (100svh - 10rem))");
+      expect(svg.style.maxWidth).toBe("min(800px, 0.5 * max(10rem, -16rem + 100svh))");
    });
 
    it("falls back to the width fit when the drawing has no height", () => {

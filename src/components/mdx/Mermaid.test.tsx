@@ -64,7 +64,7 @@ describe("Mermaid, adaptive", () => {
       const svg = await drawn(container);
       measure();
       expect(svg.style.width).toBe("100%");
-      expect(svg.style.maxWidth).toBe("min(1400px, 11.6667 * (100svh - 10rem))");
+      expect(svg.style.maxWidth).toBe("min(1400px, 11.6667 * max(10rem, -16rem + 100svh))");
       expect(screen.queryByRole("region")).not.toBeInTheDocument();
    });
 
@@ -76,7 +76,7 @@ describe("Mermaid, adaptive", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
       expect(svg.style.width).toBe("125%");
-      expect(svg.style.maxWidth).toBe("min(1750px, 14.5833 * (100svh - 10rem))");
+      expect(svg.style.maxWidth).toBe("min(1750px, 14.5833 * max(10rem, -16rem + 100svh))");
       expect(zoom).toHaveTextContent("125%");
 
       fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
