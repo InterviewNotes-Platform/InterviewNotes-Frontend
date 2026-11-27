@@ -25,11 +25,12 @@ export function supabaseSessionCookies(supabaseUrl: string): string[] {
 type Condition = { type: "header" | "cookie" | "query"; key: string };
 
 /**
- * Production on Netlify only: a preview or beta deployment (`CATALOG_PREVIEW_TOKEN`) is never cached, and without the
- * Supabase URL the session cookie names are unknown, so nothing is cached rather than guessing.
+ * Production on Netlify only: the preview catalog credential is set in the `dev` branch-deploy context alone (README), so
+ * a preview catalog is never cached; without the Supabase URL the session cookie names are unknown, so nothing is cached
+ * rather than guessing.
  */
 export function publicCacheHeaders(env: Record<string, string | undefined> = process.env) {
-   if (env.NETLIFY !== "true" || env.CONTEXT !== "production" || env.CATALOG_PREVIEW_TOKEN) return [];
+   if (env.NETLIFY !== "true" || env.CONTEXT !== "production") return [];
    if (!env.NEXT_PUBLIC_SUPABASE_URL) return [];
    let sessionCookies: string[];
    try {

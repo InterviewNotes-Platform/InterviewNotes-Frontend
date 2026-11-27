@@ -12,8 +12,7 @@ describe("public CDN cache rules", () => {
       ["outside Netlify", { ...PRODUCTION, NETLIFY: undefined }],
       ["on a branch deploy (beta)", { ...PRODUCTION, CONTEXT: "branch-deploy" }],
       ["on a deploy preview", { ...PRODUCTION, CONTEXT: "deploy-preview" }],
-      ["on a preview catalog", { ...PRODUCTION, CATALOG_PREVIEW_TOKEN: "x".repeat(40) }],
-      ["without the Supabase URL", { ...PRODUCTION, NEXT_PUBLIC_SUPABASE_URL: undefined }],
+            ["without the Supabase URL", { ...PRODUCTION, NEXT_PUBLIC_SUPABASE_URL: undefined }],
       ["with a malformed Supabase URL", { ...PRODUCTION, NEXT_PUBLIC_SUPABASE_URL: "not a url" }],
    ])("caches nothing %s", (_name, env) => {
       expect(publicCacheHeaders(env)).toEqual([]);
