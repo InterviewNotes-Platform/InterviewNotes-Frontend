@@ -8,7 +8,7 @@ vi.mock("@/lib/catalog/client", () => ({ getCatalogItem }));
 
 import type { CatalogHeading, CatalogItem } from "@/lib/catalog/types";
 import { COLLECTIONS, collectionOfContent, collectionSummaries, findCollection, loadAllCollectionQuestions, loadCollectionQuestions, workspaceLabels, type Collection } from "./collections";
-import { loadBehavioralQuestions, type CatalogQuestion } from "./questions";
+import { BEHAVIORAL_LESSONS, loadBehavioralQuestions, type CatalogQuestion } from "./questions";
 
 /*
  * Fixtures (src/lib/prep/fixtures): the two company Lessons byte for byte from content branch feat/p7-company-collections
@@ -311,16 +311,26 @@ describe("the general Behavioral collection is unchanged", () => {
 describe("every collection's questions, for the answer editor", () => {
    it("holds the questions of all three collections, so a company answer is related to its own Lesson, with one read per Lesson", async () => {
       serve();
-      const result = await loadAllCollectionQuestions();
-      if (result.status !== "ok") throw new Error(`expected ok, got ${result.status}`);
-      expect(result.data).toHaveLength(40 + 48 + 18);
-      expect(result.data.map(({ question_id }) => question_id)).toEqual(COLLECTIONS.flatMap(({ manifest }) => Object.values(manifest).flat()));
+      const { questions, unreadable } = await loadAllCollectionQuestions();
+      expect(unreadable).toEqual([]);
+      expect(questions).toHaveLength(40 + 48 + 18);
+      expect(questions.map(({ question_id }) => question_id)).toEqual(COLLECTIONS.flatMap(({ manifest }) => Object.values(manifest).flat()));
       expect(reads()).toEqual(COLLECTIONS.flatMap(({ lessons }) => lessons.map(({ slug }) => `lesson:${slug}`)).sort());
    });
 
-   it("returns the failed read rather than a partial list when one Lesson cannot be read", async () => {
+   it("names only the unreadable collection's Lessons and keeps every other collection's questions", async () => {
       serve({ "googleyness-and-leadership": { status: "unavailable", cause: "upstream" } });
-      expect(await loadAllCollectionQuestions()).toEqual({ status: "unavailable", cause: "upstream" });
+      const { questions, unreadable } = await loadAllCollectionQuestions();
+      expect(unreadable).toEqual(["lesson.googleyness-and-leadership"]);
+      expect(questions).toHaveLength(40 + 48);
+      expect(questions.some(({ content_id }) => content_id === "lesson.googleyness-and-leadership")).toBe(false);
+   });
+
+   it("names all four General Lessons when one of them cannot be read, since that collection is read whole", async () => {
+      serve({ "behavioral-prep-sde-2": { status: "unavailable", cause: "upstream" } });
+      const { questions, unreadable } = await loadAllCollectionQuestions();
+      expect(unreadable).toEqual(BEHAVIORAL_LESSONS.map(({ content_id }) => content_id));
+      expect(questions).toHaveLength(48 + 18);
    });
 });
 

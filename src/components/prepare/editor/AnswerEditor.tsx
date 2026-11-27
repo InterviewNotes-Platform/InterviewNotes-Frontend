@@ -57,14 +57,18 @@ const REASONS: Record<FieldIssue["reason"], string> = {
    unknown_field: "The server did not accept this field.",
 };
 
+const NONE: readonly string[] = [];
+
 type Load = { phase: "loading" } | { phase: "ready"; answer: Answer } | { phase: "signin" } | { phase: "failed"; message: string; retry: boolean };
 
 interface Props {
    /** The API origin the browser calls; null when the environment has none. */
    apiUrl: string | null;
    answerId: string;
-   /** The Behavioral questions as the Lessons now state them, or null when they could not be read. */
+   /** Every collection's questions as the Lessons now state them, or null when they could not be read. */
    catalog: readonly CatalogQuestion<TargetLevel | null>[] | null;
+   /** Lessons whose questions could not be read: an answer on one of them is shown with no relation, never as removed. */
+   unreadable?: readonly string[];
    getAccessToken?: () => Promise<string | null>;
    fetch?: typeof fetch;
 }
@@ -91,7 +95,7 @@ function loadFailure(result: PrepResult<Answer>): Load {
    }
 }
 
-export function AnswerEditor({ apiUrl, answerId, catalog, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+export function AnswerEditor({ apiUrl, answerId, catalog, unreadable = NONE, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
    const [load, setLoad] = useState<Load>(apiUrl ? { phase: "loading" } : { phase: "failed", message: "The preparation service is not configured for this environment.", retry: false });
    const [slow, setSlow] = useState(false);
    const [attempt, setAttempt] = useState(0);
@@ -125,7 +129,7 @@ export function AnswerEditor({ apiUrl, answerId, catalog, getAccessToken = sessi
    const signInHref = `/login?redirect=${encodeURIComponent(answerHref(answerId))}`;
 
    if (deleted) return <AnswerDeleted outcome={deleted} />;
-   if (load.phase === "ready" && client) return <AnswerForm initial={load.answer} client={client} catalog={catalog} ai={ai} signInHref={signInHref} onDeleted={setDeleted} />;
+   if (load.phase === "ready" && client) return <AnswerForm initial={load.answer} client={client} catalog={catalog} unreadable={unreadable} ai={ai} signInHref={signInHref} onDeleted={setDeleted} />;
    return (
       <div className="space-y-4">
          <BackLink />
@@ -208,13 +212,14 @@ interface FormProps {
    initial: Answer;
    client: PrepClient;
    catalog: readonly CatalogQuestion<TargetLevel | null>[] | null;
+   unreadable: readonly string[];
    /** Null while the build's AI setting is off: no AI control is drawn. */
    ai: { client: AiClient; consent: ConsentClient } | null;
    signInHref: string;
    onDeleted: (outcome: "deleted" | "missing") => void;
 }
 
-function AnswerForm({ initial, client, catalog, ai, signInHref, onDeleted }: FormProps) {
+function AnswerForm({ initial, client, catalog, unreadable, ai, signInHref, onDeleted }: FormProps) {
    const router = useRouter();
    const ids = useId();
    const editor = useAnswerEditor({ initial, client, onCopied: (id) => void leave(() => router.push(answerHref(id))) });
@@ -242,7 +247,7 @@ function AnswerForm({ initial, client, catalog, ai, signInHref, onDeleted }: For
    const freeForm = draft.framework === "free_form";
    const custom = saved.source === "custom";
 
-   const relation = !custom && catalog && saved.content_id && saved.question_id
+   const relation = !custom && catalog && saved.content_id && saved.question_id && !unreadable.includes(saved.content_id)
       ? relateToCatalog({ content_id: saved.content_id, question_id: saved.question_id, question_snapshot: saved.question_snapshot, snapshot_fallback: saved.snapshot_fallback }, catalog)
       : null;
    const lesson = !custom && saved.content_id && saved.question_id && relation?.state !== "removed" ? catalogHref(saved.content_id) : null;
