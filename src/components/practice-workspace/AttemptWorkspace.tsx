@@ -141,7 +141,7 @@ export function AttemptWorkspace({ detail, mlSubsections: given, onEnded = NOOP,
 
    return (
       <div data-practice-workspace="" className="mx-auto w-full max-w-page px-4 pb-24 md:px-6 lg:px-8">
-         <header className="sticky top-0 z-30 -mx-4 grid grid-cols-[minmax(0,1fr)] gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+         <header className="sticky top-0 z-30 -mx-4 grid grid-cols-[minmax(0,1fr)] gap-3 border-b border-border bg-background px-4 py-3 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
                <div className="flex min-w-0 items-center gap-3">
                   {back ? (
