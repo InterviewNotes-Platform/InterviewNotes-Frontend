@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockOverflow } from "@/test/overflow";
@@ -58,16 +58,48 @@ describe("Mermaid, scratch box", () => {
 });
 
 describe("Mermaid, adaptive", () => {
-   it("draws at the natural size Mermaid reports, so text is never scaled down to fit", async () => {
-      const measure = mockOverflow({ scrollWidth: 1400, clientWidth: 736 });
+   it("fits the whole diagram to its column, never wider than drawn, so it needs no scrolling", async () => {
+      const measure = mockOverflow({ scrollWidth: 736, clientWidth: 736 });
       const { container } = render(<Mermaid chart="graph LR" adaptive />);
       const svg = await drawn(container);
       measure();
-      expect(svg.style.width).toBe("1400px");
-      expect(svg.style.maxWidth).toBe("none");
+      expect(svg.style.width).toBe("100%");
+      expect(svg.style.maxWidth).toBe("1400px");
+      expect(screen.queryByRole("region")).not.toBeInTheDocument();
    });
 
-   it("frames a diagram that overflows its column, as a labelled, keyboard-reachable scroll region", async () => {
+   it("zooms in, out and back to the fit", async () => {
+      const { container } = render(<Mermaid chart="graph LR" adaptive />);
+      const svg = await drawn(container);
+      const zoom = screen.getByRole("group", { name: "Zoom" });
+      expect(zoom).toHaveTextContent("100%");
+
+      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      expect(svg.style.width).toBe("125%");
+      expect(svg.style.maxWidth).toBe("1750px");
+      expect(zoom).toHaveTextContent("125%");
+
+      fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+      fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+      expect(svg.style.width).toBe("80%");
+
+      fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+      expect(svg.style.width).toBe("100%");
+      expect(zoom).toHaveTextContent("100%");
+   });
+
+   it("keeps the zoom when the diagram is redrawn in another theme", async () => {
+      const { container } = render(<Mermaid chart="graph LR" adaptive />);
+      await drawn(container);
+      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      const before = render_.mock.calls.length;
+      document.documentElement.classList.add("dark");
+      await waitFor(() => expect(render_.mock.calls.length).toBeGreaterThan(before));
+      await waitFor(() => expect(container.querySelector("svg")!.style.width).toBe("125%"));
+      document.documentElement.classList.remove("dark");
+   });
+
+   it("frames a zoomed diagram that overflows its column, as a labelled, keyboard-reachable scroll region", async () => {
       const measure = mockOverflow({ scrollWidth: 1400, clientWidth: 736 });
       const { container } = render(<Mermaid chart="graph LR" adaptive />);
       await drawn(container);
@@ -88,7 +120,7 @@ describe("Mermaid, adaptive", () => {
       const svg = await drawn(container);
       measure();
 
-      expect(svg.style.width).toBe("420px");
+      expect(svg.style.width).toBe("100%");
       expect(screen.queryByRole("region")).not.toBeInTheDocument();
       expect(container.querySelector("[data-slot='technical-scroll']")).toHaveAttribute("data-scrolls", "false");
       expect(container.querySelector("[tabindex]")).toBeNull();
@@ -110,7 +142,7 @@ describe("Mermaid, adaptive", () => {
    it("uses no motion of its own", async () => {
       const { container } = render(<Mermaid chart="graph LR" adaptive />);
       await drawn(container);
-      expect(container.innerHTML).not.toMatch(/transition|animate|duration/);
+      expect(container.querySelector("[data-slot='technical-scroll']")!.outerHTML).not.toMatch(/transition|animate|duration/);
    });
 
    it("still reports a diagram it cannot draw without blanking the page", async () => {

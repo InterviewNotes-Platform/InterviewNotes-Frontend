@@ -11,6 +11,7 @@ vi.mock("mermaid", () => ({ default: { initialize: (...args: unknown[]) => initi
 
 import { CopyCode } from "./CopyCode";
 import { DiagramExpand } from "./DiagramExpand";
+import { viewerReturn } from "./diagramLoad";
 import { Mermaid } from "./Mermaid";
 
 const WIDE = { scrollWidth: 1400, clientWidth: 736 };
@@ -53,17 +54,16 @@ describe("Expand control (S-DGM-6)", () => {
       expect(expand().closest("figure")).toBe(container.querySelector("figure"));
    });
 
-   it("is absent, and adds no tab stop, when the diagram fits", async () => {
+   it("is offered when the diagram fits too, beside the zoom controls", async () => {
       const { container } = await shown(FITS);
-      expect(screen.queryByRole("button")).not.toBeInTheDocument();
-      expect(container.querySelectorAll("button, [tabindex]")).toHaveLength(0);
+      expect(expand().closest("figure")).toBe(container.querySelector("figure"));
+      expect(within(container).getByRole("group", { name: "Zoom" })).toBeInTheDocument();
    });
 
-   it("follows the fit when the column is resized", async () => {
+   it("stays when the column is resized", async () => {
       const { measure } = await shown(WIDE);
-      expect(expand()).toBeInTheDocument();
       measure(FITS);
-      expect(screen.queryByRole("button", { name: "Expand diagram" })).not.toBeInTheDocument();
+      expect(expand()).toBeInTheDocument();
       measure(WIDE);
       expect(expand()).toBeInTheDocument();
    });
@@ -168,6 +168,17 @@ describe("Focus", () => {
       fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       await waitFor(() => expect(expand()).toHaveFocus());
+   });
+
+   it("returns focus to the slip it was opened from, not to Expand", async () => {
+      await shown();
+      const slip = document.body.appendChild(document.createElement("button"));
+      viewerReturn.set(expand(), slip);
+      await open();
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(slip).toHaveFocus());
+      slip.remove();
    });
 
    it("closes with Close and returns focus to Expand", async () => {

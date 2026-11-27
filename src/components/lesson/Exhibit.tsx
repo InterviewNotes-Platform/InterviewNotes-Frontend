@@ -6,7 +6,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Expand, Pin as PinIcon } from "lucide-react";
 import { useReaderToolState } from "@/components/reader/readerState";
 import { inertPage } from "@/lib/inertPage";
-import { DrawDiagramNow } from "@/components/mdx/diagramLoad";
+import { DrawDiagramNow, viewerReturn } from "@/components/mdx/diagramLoad";
 import { DIAGRAM_VIEWER, EXHIBIT_OPEN, NO_PINS, PINS_KEY, pinKey, sectionOf, tablePreview, togglePin, type Pin } from "./pins";
 
 const ACTION =
@@ -106,7 +106,7 @@ function TableViewer({ children, size, label, open, onOpenChange, returnTo: retu
 /**
  * A Lesson table or diagram as an exhibit (P8-T27): the block as rendered, then its Expand and Pin controls. `anchor` is the
  * exhibit's stable id (its place in the body), so pins and "Go to source" reach this occurrence and no other. A plain click on
- * the cells or the drawing opens the viewer; a diagram's viewer is its own `DiagramExpand`, offered only while it overflows
+ * the cells or the drawing opens the viewer; a diagram's viewer is its own `DiagramExpand`, offered on every diagram
  * (S-DGM-6). Nothing is fetched.
  */
 export function Exhibit({ kind, anchor, size, label, children }: { kind: Pin["kind"]; anchor: string; size?: string; label: string; children: ReactNode }) {
@@ -121,7 +121,7 @@ export function Exhibit({ kind, anchor, size, label, children }: { kind: Pin["ki
       const table = ref.current?.querySelector("table");
       return table ? tablePreview(table) : label;
    };
-   /** Opens this exhibit's viewer; false when it has none (a diagram that fits its column has no Expand, S-DGM-6). */
+   /** Opens this exhibit's viewer, returning focus to `from` (its slip) on close; false when it has none (a diagram not yet drawn). */
    function show(from: HTMLElement | null): boolean {
       if (kind === "Table") {
          returnTo.current = from;
@@ -129,6 +129,7 @@ export function Exhibit({ kind, anchor, size, label, children }: { kind: Pin["ki
          return true;
       }
       const trigger = ref.current?.querySelector<HTMLButtonElement>(DIAGRAM_VIEWER);
+      if (trigger && from) viewerReturn.set(trigger, from);
       trigger?.click();
       return Boolean(trigger);
    }
