@@ -17,6 +17,7 @@ Canonical source: `specs/agent-tooling/frontend-design-policy.md`. Summary:
   auth, onboarding, subscription), research real product interfaces with Refero MCP. Pick references
   that solve the UX problem, then adapt them to the existing InterviewNotes typography, spacing,
   colours and components. Never copy a reference wholesale.
+  Refero runs in Devin cloud sessions via the organization's `refero` MCP plugin (no local key).
 - **Reuse existing components** (`src/components/ui`, the shared shell) wherever possible.
 - **Validate the rendered UI with Playwright MCP** at 390, 768 and 1440 px, light and dark, including
   keyboard navigation and accessibility. Fix findings before calling the task done.
@@ -25,5 +26,4 @@ Canonical source: `specs/agent-tooling/frontend-design-policy.md`. Summary:
 - **Non-visual changes** (API, state, logic-only fixes): brief Refero check, no unrelated UI edits.
 - **Evidence for visual changes** in the PR: Refero references used (screen/flow IDs or URLs) and what
   was adapted; Playwright screenshots per viewport and theme; a11y and keyboard findings.
-- **Never claim Refero was used if the MCP was unavailable.** Report the blocker or prepare a Local
-  handoff instead.
+- **Never claim Refero was used if the MCP was unavailable.** Report the blocker instead.
