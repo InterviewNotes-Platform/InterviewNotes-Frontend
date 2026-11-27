@@ -239,7 +239,7 @@ export function AttemptReview({ detail }: { detail: AttemptDetailOut }) {
                      {dimension.bar ? <Blocks blocks={dimension.bar} /> : <p className="m-0 text-body text-muted-foreground">This Problem has no separate bar for this level.</p>}
                   </div>
                   <p className="m-0 text-body text-muted-foreground">Read the bar and what strong and weak evidence look like, compare them with your work below, then choose your own mark. Nothing here is marked for you.</p>
-                  <details open className="text-body">
+                  <details key={dimension.dimension_id} open className="text-body">
                      <summary className="min-h-11 cursor-pointer content-center text-primary">Strong and weak evidence</summary>
                      <div className="grid gap-3 pt-2 md:grid-cols-2">
                         <div>
