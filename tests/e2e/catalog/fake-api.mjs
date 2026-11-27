@@ -30,8 +30,12 @@ const FREE_CHAPTER = freeChapterAccess && {
 const PRIVATE = "private, no-store";
 /** Every /catalog request, with its query string and the preview credential it presented, served or refused. */
 const catalogLog = [];
-/** Test control, not a catalog route: `PUT /__fault?path=…&delayMs=…&status=…` slows or fails that /catalog path until `DELETE /__fault`. */
-let fault = null;
+/**
+ * Test control, not a catalog route: `PUT /__fault?path=…&delayMs=…&status=…` slows or fails that /catalog path (a path ending
+ * in `*` matches every path it begins) until `DELETE /__fault?path=…`, or `DELETE /__fault` for every fault.
+ */
+const faults = new Map();
+const faultFor = (path) => faults.get(path) ?? [...faults.values()].find((f) => f.path.endsWith("*") && path.startsWith(f.path.slice(0, -1))) ?? null;
 
 const items = new Map(fixture.items.map((item) => [item.id, item]));
 const tracks = new Map(fixture.tracks.map((track) => [track.slug, track]));
@@ -390,14 +394,21 @@ const api = createServer((req, res) => {
       return void req.on("end", () => billingApi(req, res, path, raw ? JSON.parse(raw) : {}));
    }
    if (path === "/__fault" && (req.method === "PUT" || req.method === "DELETE")) {
-      fault = req.method === "PUT" ? { path: query.get("path"), delayMs: Number(query.get("delayMs") ?? 0), status: Number(query.get("status") ?? 0) } : null;
+      const target = query.get("path");
+      if (req.method === "DELETE") {
+         if (target) faults.delete(target);
+         else faults.clear();
+         return send(res, 200, { fault: null });
+      }
+      const fault = { path: target, delayMs: Number(query.get("delayMs") ?? 0), status: Number(query.get("status") ?? 0) };
+      faults.set(target, fault);
       return send(res, 200, { fault });
    }
    if (req.method !== "GET") return send(res, 405, { detail: "Method not allowed" });
    if (path === "/health") return send(res, 200, { status: "ok" });
    if (path === "/__catalog-log") return send(res, 200, catalogLog);
    if (path.startsWith("/catalog/")) {
-      const hit = fault?.path === path ? fault : null;
+      const hit = faultFor(path);
       if (!hit) return guardedCatalog(req, res, path, query);
       return void setTimeout(() => (hit.status ? send(res, hit.status, { detail: "Injected fault" }) : guardedCatalog(req, res, path, query)), hit.delayMs);
    }

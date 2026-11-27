@@ -708,7 +708,7 @@ test.describe("a slow Track list on a cold cache (production mode)", () => {
          expect(await reads(), "the page went on reading after the Tracks arrived").toBe(afterArrival);
          await expect(tracks(page).locator("[data-tracks-pending]")).toHaveCount(0);
       } finally {
-         await request.delete(`${COLD_API_ORIGIN}/__fault`);
+         await request.delete(`${COLD_API_ORIGIN}/__fault`, { params: { path: "/catalog/tracks" } });
       }
    });
 });
