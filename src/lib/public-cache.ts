@@ -7,11 +7,12 @@
  * request that carries a Supabase session, an Authorization header, Next.js preview state or an RSC navigation header
  * never gets the header, and `Netlify-Vary` keeps the cache key apart from any request carrying a session cookie.
  * Item pages and the homepage are not listed (item access and withdrawal changes, and the homepage's per-agent
- * rendering, are open owner decisions).
+ * rendering, are open owner decisions). Track detail is not listed either: a route rule cannot see the response, and that
+ * page answers a retired Track with a 200 tombstone and an unknown one with a 404, which must not be shared.
  */
 
 /** Pages whose signed-out response is the same for every caller: public catalog metadata only, no item body. */
-export const PUBLIC_CACHE_ROUTES = ["/tracks", "/tracks/:slug", "/knowledge"] as const;
+export const PUBLIC_CACHE_ROUTES = ["/tracks", "/knowledge"] as const;
 
 export const PUBLIC_CACHE_SECONDS = 60;
 

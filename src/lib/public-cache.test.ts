@@ -18,11 +18,11 @@ describe("public CDN cache rules", () => {
       expect(publicCacheHeaders(env)).toEqual([]);
    });
 
-   it("lists only metadata pages: no item body, homepage, account, practice, prepare or API route", () => {
+   it("lists only the two index pages: no Track detail (retired tombstone, 404), item body, homepage, account, practice, prepare or API route", () => {
       const sources = publicCacheHeaders(PRODUCTION).map(({ source }) => source);
       expect(sources).toEqual([...PUBLIC_CACHE_ROUTES]);
-      for (const source of sources) expect(source).toMatch(/^\/(tracks|knowledge)(\/:slug)?$/);
-      expect(sources).not.toContain("/knowledge/:slug");
+      expect(sources).toEqual(["/tracks", "/knowledge"]);
+      for (const detail of ["/tracks/:slug", "/knowledge/:slug"]) expect(sources).not.toContain(detail);
    });
 
    it("bypasses any session, preview or RSC request and keys each session cookie and query apart", () => {
