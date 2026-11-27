@@ -155,15 +155,15 @@ test.describe("signed in", () => {
       expect((await prep.answers()).map(({ question_id }) => question_id)).toEqual(["alp-earn-trust-01"]);
    });
 
-   test("the page-wide smooth-scrolling instance covers the workspace, as one instance across its client navigations", async ({ page, prep }) => {
+   test("the workspace scrolls natively: no smooth-scrolling instance, across its client navigations", async ({ page, prep }) => {
       const instances = () => page.evaluate(() => document.querySelectorAll("html.lenis").length);
       await page.goto("/prepare");
       await expect(page.getByRole("heading", { level: 1, name: "Prepare" })).toBeVisible();
-      await expect.poll(instances).toBe(1);
+      await expect.poll(instances).toBe(0);
       await page.getByRole("region", { name: "Library" }).getByRole("link", { name: /Amazon Leadership Principles/ }).click();
       await expect(page).toHaveURL(/\/prepare\/new\?collection=amazon$/);
       await expect(grid(page)).toBeVisible();
-      await expect.poll(instances).toBe(1);
+      await expect.poll(instances).toBe(0);
       expect(await prep.answers(), "browsing the workspace starts no answer").toEqual([]);
    });
 });

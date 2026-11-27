@@ -49,22 +49,22 @@ describe("SmoothScroll", () => {
       expect(instances).toHaveLength(0);
    });
 
-   it("lets Lenis animate in-page anchors on the homepage only", () => {
-      const { rerender } = render(<SmoothScroll />);
+   it("lets Lenis animate in-page anchors on the homepage", () => {
+      render(<SmoothScroll />);
       expect(instances[0].options.anchors).toBe(true);
-      for (const pathname of ["/knowledge", "/lessons/anatomy-of-a-model-request", "/problems/some-problem", "/prepare", "/pricing"]) {
-         route.pathname = pathname;
-         rerender(<SmoothScroll />);
-         expect(instances.at(-1)!.options.anchors, pathname).toBe(false);
-      }
    });
 
-   it("keeps the same options object across renders of one route, so a route does not rebuild the instance", () => {
-      route.pathname = "/knowledge";
+   it("creates no instance on any other route, and destroys the homepage's when the reader leaves it", () => {
       const { rerender } = render(<SmoothScroll />);
+      for (const pathname of ["/knowledge", "/lessons/anatomy-of-a-model-request", "/problems/some-problem", "/prepare", "/practice", "/dashboard", "/pricing"]) {
+         route.pathname = pathname;
+         rerender(<SmoothScroll />);
+         expect(instances, pathname).toHaveLength(1);
+      }
+      expect(instances[0].destroy).toHaveBeenCalledTimes(1);
+      route.pathname = "/";
       rerender(<SmoothScroll />);
-      rerender(<SmoothScroll />);
-      expect(instances).toHaveLength(1);
+      expect(instances).toHaveLength(2);
    });
 
    it("leaves nested scrolling regions, a running glide at navigation and overlays to the browser", () => {
