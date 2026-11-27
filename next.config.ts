@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { compatibilityRedirects } from "./src/lib/legacy-redirects";
+import { publicCacheHeaders } from "./src/lib/public-cache";
 
 const nextConfig: NextConfig = {
   // Unset everywhere but the e2e suite, which builds a preview next to the production build.
@@ -11,6 +12,7 @@ const nextConfig: NextConfig = {
   headers: async () => [
     { source: "/practice/attempts/:path*", headers: [{ key: "Cache-Control", value: "private, no-store" }] },
     { source: "/practice/history", headers: [{ key: "Cache-Control", value: "private, no-store" }] },
+    ...publicCacheHeaders(),
   ],
 };
 
