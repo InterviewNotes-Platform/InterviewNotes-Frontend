@@ -23,7 +23,7 @@ describe("the workspace home with M2", () => {
         open(fake, "ada");
         expect(await screen.findByRole("region", { name: "Continue" })).toBeInTheDocument();
         expect(await screen.findByRole("region", { name: "Bookmarks" })).toBeInTheDocument();
-        expect(screen.getAllByRole("link", { name: "Dynamic batching" })).toHaveLength(2);
+        expect(await screen.findAllByRole("link", { name: "Dynamic batching" })).toHaveLength(2);
         const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
         expect(headings.indexOf("Continue")).toBeGreaterThan(headings.indexOf("Prepare"));
     });
