@@ -113,7 +113,7 @@ function makeServer(fakes) {
 
 const axeScan = async (page) => (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations.map((v) => `${v.id} (${v.nodes.length}: ${v.nodes[0]?.target?.join(" ")})`);
 const overflows = (page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-const PRE_EXISTING = /useInsertionEffect must not schedule updates|Detected `scroll-behavior: smooth`/;
+const PRE_EXISTING = /Detected `scroll-behavior: smooth`/;
 /** Desktop evidence is the editor itself (with any save-trouble panel); phones are the whole viewport, as a learner sees it. */
 async function shot(page, name, options = {}) {
    if (!SHOTS) return;
@@ -297,7 +297,7 @@ async function desktop(browser, fakes) {
    await audit(page, `${label} (edge Inspector)`);
 
    // Add from the palette: the new component is selected and its Name field focused.
-   await page.getByRole("button", { name: "Add a cache" }).click();
+   await page.getByRole("button", { name: "Add cache" }).click();
    await page.locator('[data-fields=node] [name="label"]').waitFor();
    const focused = await page.waitForFunction(() => document.activeElement?.matches('[data-fields=node] [name="label"]'), null, { timeout: 3000 }).then(() => true, () => false);
    check(`${label}: a palette add focuses the Name field`, focused);

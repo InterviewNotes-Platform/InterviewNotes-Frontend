@@ -66,7 +66,7 @@ const FIELDS: Readonly<Record<Exclude<Position, "ml_reasoning">, readonly StageF
       { key: "deep_dives", label: "Deep dives" },
       { key: "decisions_and_costs", label: "Decisions and their costs" },
    ],
-   follow_ups: [{ key: "follow_up_answers", label: "Your answers to the follow-ups" }],
+   follow_ups: [{ key: "follow_up_answers", label: "Your answers to the follow-ups", hint: "For each probe you expect: the question, your answer, and what it changes in your design or assumptions." }],
 };
 
 /** One authored ML sub-section the workspace may be told about: `key` is the stage-work key, `title` the learner's label. */

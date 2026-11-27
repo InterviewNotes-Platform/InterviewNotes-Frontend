@@ -467,6 +467,33 @@ describe("leaving", () => {
 });
 
 describe("hints and clarifications", () => {
+   it("says when a stage has no authored hint and names the stages that have some, without any hint text", async () => {
+      const { store } = await open(SD);
+      goTo("Design");
+      const guide = screen.getByRole("complementary", { name: "Stage guide" });
+      expect(within(guide).getByText("No hints are written for this stage. This Problem has hints in: Frame, Requirements.")).toBeInTheDocument();
+      expect(within(guide).queryByRole("button", { name: /hint/ })).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/Synthetic hint/);
+      expect(within(guide).getByText(/clarifying questions, with their answers, are in Frame/)).toBeInTheDocument();
+      expect(store.calls("stage_hint")).toHaveLength(0);
+   });
+
+   it("tells the learner in Frame how many strong-candidate questions wait behind their own", async () => {
+      await open(SD);
+      expect(screen.getByText(/3 questions from a strong candidate, with their answers, are ready/)).toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/Synthetic answer/);
+   });
+
+   it("explains how to practise follow-ups in self-guided mode, and asks for the question, the answer and its effect", async () => {
+      await open(ML);
+      goTo("Follow-ups");
+      const guide = screen.getByRole("complementary", { name: "Stage guide" });
+      expect(within(guide).getByRole("heading", { name: "Practising follow-ups" })).toBeInTheDocument();
+      expect(within(guide).getByText(/What it changes in your design or assumptions/)).toBeInTheDocument();
+      expect(screen.getByText(/For each probe you expect: the question, your answer/)).toBeInTheDocument();
+      expect(within(guide).getByText("No hints are written for this stage. This Problem has hints in: Frame, ML Reasoning.")).toBeInTheDocument();
+   });
+
    it("shows authored hints one at a time, in the authored order, from the server", async () => {
       const { store } = await open(SD);
       expect(screen.queryByText(/Synthetic hint 1/)).not.toBeInTheDocument();

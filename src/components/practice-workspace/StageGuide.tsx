@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/ui/field";
 import { MAX_EVENT_TEXT, type useStageGuide } from "./useStageGuide";
+import { STAGE_COPY, isKnownPosition } from "@/lib/practice-workspace/stages";
 import type { ChallengeOut, Position } from "@/lib/practice-workspace/types";
 
 type Guide = ReturnType<typeof useStageGuide>;
@@ -26,8 +27,11 @@ function Notice({ guide, scope }: { guide: Guide; scope: string }) {
    ) : null;
 }
 
+const HEADING = "m-0 text-supporting font-semibold tracking-wide text-muted-foreground uppercase";
+
 /**
- * The quiet stage guide (Design D's margin): authored hints in their authored order, and in Frame the authored clarifications. An answer
+ * The quiet stage guide (Design D's margin): authored hints in their authored order, and in Frame the authored clarifications. Every
+ * stage says what it offers, so a stage with no authored hint says so and names the stages that have some (counts only, never text). An answer
  * or a hint appears only when the learner asks for it and the server returns it; nothing is shown ahead of the request and nothing
  * is written here. No interviewer or model appears in self-guided practice.
  */
@@ -48,13 +52,40 @@ export function StageGuide({ position, challenge, guide, readOnly, ownQuestionsS
    const comparable = ownQuestionsSaved || skipped;
    const mine = guide.assumptions.filter((entry) => entry.position === position);
 
-   if (available === 0 && shown.length === 0 && clarifications.length === 0) return null;
+   const hintedElsewhere = (challenge?.stages ?? []).filter((entry) => entry.position !== position && entry.hints_available > 0 && isKnownPosition(entry.position)).map((entry) => STAGE_COPY[entry.position].label);
+   const clarificationsElsewhere = position !== "frame" && (challenge?.clarifications.length ?? 0) > 0 && challenge?.stages.some((entry) => entry.position === "frame");
+
+   if (challenge === null) return null;
 
    return (
       <aside aria-label="Stage guide" className="grid gap-6 text-body">
-         {available > 0 || shown.length > 0 ? (
+         {position === "follow_ups" ? (
+            <section aria-labelledby="follow-ups-guide-title">
+               <h2 id="follow-ups-guide-title" className={HEADING}>
+                  Practising follow-ups
+               </h2>
+               <p className="m-0 mt-2">Self-guided practice does not show the interviewer&apos;s follow-up questions. Write the probes you expect for your design and answer each one:</p>
+               <ol className="m-0 mt-2 list-decimal space-y-1 pl-5">
+                  <li>The question, as an interviewer would ask it.</li>
+                  <li>Your answer.</li>
+                  <li>What it changes in your design or assumptions, or why nothing changes.</li>
+               </ol>
+               <p className="m-0 mt-2 text-muted-foreground">Good probes push on your central decisions or change a constraint: more load, a failure, a tighter budget. If an answer changes an earlier stage, go back and revise it there. Your work saves as you type.</p>
+            </section>
+         ) : null}
+
+         {available === 0 && shown.length === 0 ? (
             <section aria-labelledby={`hints-${position}`}>
-               <h2 id={`hints-${position}`} className="m-0 text-supporting font-semibold tracking-wide text-muted-foreground uppercase">
+               <h2 id={`hints-${position}`} className={HEADING}>
+                  Hints
+               </h2>
+               <p className="m-0 mt-2 text-muted-foreground">
+                  No hints are written for this stage.{hintedElsewhere.length > 0 ? ` This Problem has hints in: ${hintedElsewhere.join(", ")}.` : " This Problem has no hints."}
+               </p>
+            </section>
+         ) : (
+            <section aria-labelledby={`hints-${position}`}>
+               <h2 id={`hints-${position}`} className={HEADING}>
                   Hints
                </h2>
                {shown.length > 0 ? (
@@ -76,16 +107,27 @@ export function StageGuide({ position, challenge, guide, readOnly, ownQuestionsS
                </div>
                <Notice guide={guide} scope={`hint:${position}`} />
             </section>
+         )}
+
+         {clarificationsElsewhere ? (
+            <section aria-labelledby={`clarifications-elsewhere-${position}`}>
+               <h2 id={`clarifications-elsewhere-${position}`} className={HEADING}>
+                  Questions to compare with
+               </h2>
+               <p className="m-0 mt-2 text-muted-foreground">A strong candidate&apos;s clarifying questions, with their answers, are in {STAGE_COPY.frame.label}.</p>
+            </section>
          ) : null}
 
          {clarifications.length > 0 ? (
             <section aria-labelledby="clarifications-title">
-               <h2 id="clarifications-title" className="m-0 text-supporting font-semibold tracking-wide text-muted-foreground uppercase">
+               <h2 id="clarifications-title" className={HEADING}>
                   Questions to compare with
                </h2>
                {!comparable ? (
                   <>
-                     <p className="m-0 mt-2 text-muted-foreground">Write your own questions first. Once you have saved some, you can compare them with a strong candidate&apos;s.</p>
+                     <p className="m-0 mt-2 text-muted-foreground">
+                        {clarifications.length === 1 ? "1 question" : `${clarifications.length} questions`} from a strong candidate, with their answers, are ready. Write your own clarifying questions first; once one is saved, you can compare.
+                     </p>
                      <div className="mt-2">
                         <Button type="button" variant="ghost" className="min-h-11" onClick={() => setSkipped(true)}>
                            Skip my questions
