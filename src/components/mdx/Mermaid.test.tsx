@@ -58,13 +58,13 @@ describe("Mermaid, scratch box", () => {
 });
 
 describe("Mermaid, adaptive", () => {
-   it("fits the whole diagram to its column, never wider than drawn, so it needs no scrolling", async () => {
+   it("fits the whole diagram to its column and the usable viewport height, never larger than drawn", async () => {
       const measure = mockOverflow({ scrollWidth: 736, clientWidth: 736 });
       const { container } = render(<Mermaid chart="graph LR" adaptive />);
       const svg = await drawn(container);
       measure();
       expect(svg.style.width).toBe("100%");
-      expect(svg.style.maxWidth).toBe("1400px");
+      expect(svg.style.maxWidth).toBe("min(1400px, 11.6667 * (100svh - 10rem))");
       expect(screen.queryByRole("region")).not.toBeInTheDocument();
    });
 
@@ -76,7 +76,7 @@ describe("Mermaid, adaptive", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
       expect(svg.style.width).toBe("125%");
-      expect(svg.style.maxWidth).toBe("1750px");
+      expect(svg.style.maxWidth).toBe("min(1750px, 14.5833 * (100svh - 10rem))");
       expect(zoom).toHaveTextContent("125%");
 
       fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
