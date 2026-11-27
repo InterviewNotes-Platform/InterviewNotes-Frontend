@@ -44,7 +44,9 @@ const scrollDown = async (page: Page) => {
 const heading = (page: Page, id: string) => page.locator(`[id="${id}"]`);
 const overflows = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 const top = (locator: Locator) => locator.evaluate((element) => Math.round(element.getBoundingClientRect().top));
+/** Diagrams draw as they near the viewport (Mermaid loads lazily), so each figure is brought on screen first. */
 const diagrams = async (page: Page) => {
+   for (const figure of await page.locator("figure").all()) await figure.scrollIntoViewIfNeeded();
    await expect(page.locator("figure svg")).toHaveCount(2);
    return page.locator("figure");
 };

@@ -193,3 +193,31 @@ describe("Mermaid, catalog figure", () => {
       expect(container.querySelector("figure, figcaption")).toBeNull();
    });
 });
+
+describe("Mermaid, deferred load", () => {
+   it("does not draw (or load Mermaid) until the diagram nears the viewport", async () => {
+      let notify: (entries: Partial<IntersectionObserverEntry>[]) => void = () => {};
+      const observe = vi.fn();
+      vi.stubGlobal(
+         "IntersectionObserver",
+         class {
+            constructor(callback: (entries: Partial<IntersectionObserverEntry>[]) => void) {
+               notify = callback;
+            }
+            observe = observe;
+            disconnect = vi.fn();
+         }
+      );
+      // A chart of its own: an earlier test's draw may still settle on the shared mock.
+      const chart = "graph TD; deferred";
+      const drew = () => render_.mock.calls.filter((call) => call[1] === chart).length;
+      const { container } = render(<Mermaid chart={chart} />);
+      await waitFor(() => expect(observe).toHaveBeenCalled());
+      expect(drew()).toBe(0);
+      expect(container.querySelector("svg")).toBeNull();
+
+      notify([{ isIntersecting: true }]);
+      await drawn(container);
+      expect(drew()).toBe(1);
+   });
+});
