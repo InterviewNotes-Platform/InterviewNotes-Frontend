@@ -24,7 +24,7 @@ export const NODE_TYPE: Readonly<Record<NodeType, { label: string; key: string; 
    cache: { label: "Cache", key: "7", w: 124, h: 72 },
    object_store: { label: "Object store", key: "8", w: 124, h: 68 },
    worker: { label: "Worker", key: "9", w: 140, h: 56 },
-   external: { label: "External", key: "0", w: 140, h: 56 },
+   external: { label: "External system", key: "0", w: 140, h: 56 },
 };
 
 export const SUBTYPES: Readonly<Record<NodeType, readonly string[]>> = GRAPH.nodeTypes;
@@ -96,5 +96,12 @@ export const BOUNDARY_TYPE_LABEL: Readonly<Record<BoundaryType, string>> = {
 export const NODE_PROMPTS: readonly string[] = ["What is this component responsible for?", "What does it receive, and what does it produce?", "What happens when it fails?"];
 export const EDGE_PROMPTS: readonly string[] = ["Why does this connection exist?", "What is sent? What comes back?", "What happens on failure?"];
 
+/** The palette's accessible name for adding one component of a type: "Add database", "Add external system". */
+export const addLabel = (type: NodeType): string => `Add ${NODE_TYPE[type].label.toLowerCase()}`;
+/** A lower-case type name with its article, for announcements: "a database", "an object store". */
+export const withArticle = (type: NodeType): string => {
+   const name = NODE_TYPE[type].label.toLowerCase();
+   return `${/^[aeiou]/.test(name) ? "an" : "a"} ${name}`;
+};
 export const nodeName = (label: string | undefined, type: NodeType): string => (label && label.trim() !== "" ? label.trim() : `Unnamed ${NODE_TYPE[type].label.toLowerCase()}`);
 export const boundaryName = (label: string | undefined, type: BoundaryType): string => (label && label.trim() !== "" ? label.trim() : `Unnamed ${BOUNDARY_TYPE_LABEL[type].toLowerCase()}`);

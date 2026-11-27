@@ -182,13 +182,19 @@ export function ProblemSplit({
             if (where) setPane(where);
          });
       };
-      const first = window.setTimeout(follow, 0);
+      // Deferred like the reveal owner's: the router writes history inside an insertion effect, where no update may be
+      // scheduled. Both timers keep their registration order, so the stage is shown before the reveal focuses its target.
+      let pending = window.setTimeout(follow, 0);
+      const later = () => {
+         window.clearTimeout(pending);
+         pending = window.setTimeout(follow, 0);
+      };
       const navigation = (window as { navigation?: EventTarget }).navigation;
       const [source, event] = navigation ? [navigation, "currententrychange"] : [window, "hashchange"];
-      source.addEventListener(event, follow);
+      source.addEventListener(event, later);
       return () => {
-         window.clearTimeout(first);
-         source.removeEventListener(event, follow);
+         window.clearTimeout(pending);
+         source.removeEventListener(event, later);
       };
    }, []);
 

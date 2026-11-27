@@ -8,7 +8,7 @@ import { Link2, Redo2, Undo2 } from "lucide-react";
 import type { DiagramEngine, Refusal } from "@/lib/practice-graph/diagramSave";
 import { framesOf, freeSpot } from "@/lib/practice-graph/layout";
 import { addEdge, addNode, deleteEdge, deleteNode, deleteBoundary, deletionGroupSize, duplicateNode } from "@/lib/practice-graph/model";
-import { LIMITS, NODE_TYPE, NODE_TYPE_ORDER } from "@/lib/practice-graph/vocabulary";
+import { LIMITS, NODE_TYPE, NODE_TYPE_ORDER, addLabel, withArticle } from "@/lib/practice-graph/vocabulary";
 import type { NodeType } from "@/lib/practice-workspace/types";
 import { cn } from "@/lib/utils";
 import { CanvasView } from "./CanvasView";
@@ -90,7 +90,7 @@ function Editor({ engine, readOnly, refusal, variant }: DiagramEditorProps) {
          const rect = canvasRef.current?.getBoundingClientRect();
          const center = rect ? flow.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) : { x: 0, y: 0 };
          const at = freeSpot(framesOf(editor.draft).values(), center, NODE_TYPE[type]);
-         const result = editor.apply((d) => addNode(d, type, { at }), { select: (r) => ({ kind: "node", id: r.id }), announce: `Added a ${NODE_TYPE[type].label.toLowerCase()}. Name it in the Inspector.` });
+         const result = editor.apply((d) => addNode(d, type, { at }), { select: (r) => ({ kind: "node", id: r.id }), announce: `Added ${withArticle(type)}. Name it in the Inspector.` });
          if (result.ok) {
             setPanel("inspector");
             setFocus({ kind: "field", name: "label" });
@@ -194,7 +194,7 @@ function Editor({ engine, readOnly, refusal, variant }: DiagramEditorProps) {
                         type="button"
                         className="pg-tool"
                         title={`${NODE_TYPE[type].label} (${NODE_TYPE[type].key})`}
-                        aria-label={`Add a ${NODE_TYPE[type].label.toLowerCase()}`}
+                        aria-label={addLabel(type)}
                         onClick={() => addAtCenter(type)}
                         aria-keyshortcuts={editor.shortcuts ? NODE_TYPE[type].key : undefined}
                      >

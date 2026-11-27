@@ -48,7 +48,10 @@ export function SelfReviewStep({ dimension, review, onEdit, onSubmit, onKeepMine
             <label htmlFor={noteId} className="text-body font-semibold">
                Your note <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
-            <textarea id={noteId} value={note} maxLength={2000} onChange={(event) => onEdit({ note: event.target.value })} rows={3} className="min-h-24 w-full rounded-lg border border-border bg-background p-3 text-body" />
+            <p id={`${noteId}-help`} className="m-0 text-supporting text-muted-foreground">
+               What evidence in your work supports this mark, and what would you change to meet the bar next time?
+            </p>
+            <textarea id={noteId} aria-describedby={`${noteId}-help`} value={note} maxLength={2000} onChange={(event) => onEdit({ note: event.target.value })} rows={3} className="min-h-24 w-full rounded-lg border border-border bg-background p-3 text-body" />
             <div className="flex flex-wrap items-center gap-3">
                <Button type="button" variant="outline" className="min-h-11" disabled={busy || mark === null || !dirty} onClick={() => mark && onSubmit(mark, note)}>
                   Save note

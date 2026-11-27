@@ -60,7 +60,7 @@ describe("palette and shape vocabulary", () => {
       await setup();
       const palette = screen.getByRole("group", { name: "Add a component" });
       const names = within(palette).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent);
-      expect(names).toEqual([...NODE_TYPE_ORDER.map((t) => `Add a ${NODE_TYPE[t].label.toLowerCase()}`), "Connect"]);
+      expect(names).toEqual([...["Add client", "Add service", "Add gateway", "Add database", "Add queue", "Add model", "Add cache", "Add object store", "Add worker", "Add external system"], "Connect"]);
       expect(new Set(NODE_TYPE_ORDER.map((t) => NODE_TYPE[t].key)).size).toBe(10);
    });
 

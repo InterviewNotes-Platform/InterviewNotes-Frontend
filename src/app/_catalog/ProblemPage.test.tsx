@@ -816,6 +816,7 @@ describe("page-level reveal state (S-RVL-6 … S-RVL-10, S-AX-4, S-AX-5, S-PST-1
             await act(async () => {
                window.history.pushState(null, "", "#deep-two");
                navigation.dispatchEvent(new Event("currententrychange"));
+               await new Promise((done) => setTimeout(done, 10));
             });
             expect(opened()).toContain("Show reference: Deep dive: caching");
             expect(document.getElementById("deep-two")).toHaveFocus();
