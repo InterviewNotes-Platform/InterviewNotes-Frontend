@@ -5,6 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import { inertPage } from "@/lib/inertPage";
 import { showDiagram, zoomStep } from "./diagram-svg";
+import { viewerReturn } from "./diagramLoad";
 
 interface DiagramExpandProps {
    /** Inline controls shown in the same footer row, before Expand. */
@@ -43,6 +44,7 @@ export function DiagramExpand({ controls, name, caption, captionId, draw, render
    const drag = useRef<{ x: number; y: number } | null>(null);
    const region = useRef<HTMLDivElement>(null);
    const diagram = useRef<HTMLDivElement>(null);
+   const trigger = useRef<HTMLButtonElement>(null);
    const releasePage = useRef<() => void>(undefined);
 
    // Taken before the dialog's own layers are in the document, so they are never part of the page. Released
@@ -85,7 +87,7 @@ export function DiagramExpand({ controls, name, caption, captionId, draw, render
          <div className="mt-3 flex flex-wrap items-center gap-2">
             {controls}
             <Dialog.Trigger asChild>
-               <Button variant="outline" size="sm" aria-describedby={captionId}>
+               <Button ref={trigger} variant="outline" size="sm" aria-describedby={captionId}>
                   Expand diagram
                </Button>
             </Dialog.Trigger>
@@ -94,6 +96,13 @@ export function DiagramExpand({ controls, name, caption, captionId, draw, render
             <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
             <Dialog.Content
                aria-describedby={undefined}
+               onCloseAutoFocus={(event) => {
+                  const back = trigger.current && viewerReturn.get(trigger.current);
+                  if (trigger.current) viewerReturn.delete(trigger.current);
+                  if (!back?.isConnected) return;
+                  event.preventDefault();
+                  back.focus({ preventScroll: true });
+               }}
                onOpenAutoFocus={(event) => {
                   event.preventDefault();
                   region.current?.focus();

@@ -6,7 +6,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Expand, Pin as PinIcon } from "lucide-react";
 import { useReaderToolState } from "@/components/reader/readerState";
 import { inertPage } from "@/lib/inertPage";
-import { DrawDiagramNow } from "@/components/mdx/diagramLoad";
+import { DrawDiagramNow, viewerReturn } from "@/components/mdx/diagramLoad";
 import { DIAGRAM_VIEWER, EXHIBIT_OPEN, NO_PINS, PINS_KEY, pinKey, sectionOf, tablePreview, togglePin, type Pin } from "./pins";
 
 const ACTION =
@@ -121,7 +121,7 @@ export function Exhibit({ kind, anchor, size, label, children }: { kind: Pin["ki
       const table = ref.current?.querySelector("table");
       return table ? tablePreview(table) : label;
    };
-   /** Opens this exhibit's viewer; false when it has none (a diagram that fits its column has no Expand, S-DGM-6). */
+   /** Opens this exhibit's viewer, returning focus to `from` (its slip) on close; false when it has none (a diagram not yet drawn). */
    function show(from: HTMLElement | null): boolean {
       if (kind === "Table") {
          returnTo.current = from;
@@ -129,6 +129,7 @@ export function Exhibit({ kind, anchor, size, label, children }: { kind: Pin["ki
          return true;
       }
       const trigger = ref.current?.querySelector<HTMLButtonElement>(DIAGRAM_VIEWER);
+      if (trigger && from) viewerReturn.set(trigger, from);
       trigger?.click();
       return Boolean(trigger);
    }

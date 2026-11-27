@@ -11,6 +11,7 @@ vi.mock("mermaid", () => ({ default: { initialize: (...args: unknown[]) => initi
 
 import { CopyCode } from "./CopyCode";
 import { DiagramExpand } from "./DiagramExpand";
+import { viewerReturn } from "./diagramLoad";
 import { Mermaid } from "./Mermaid";
 
 const WIDE = { scrollWidth: 1400, clientWidth: 736 };
@@ -167,6 +168,17 @@ describe("Focus", () => {
       fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       await waitFor(() => expect(expand()).toHaveFocus());
+   });
+
+   it("returns focus to the slip it was opened from, not to Expand", async () => {
+      await shown();
+      const slip = document.body.appendChild(document.createElement("button"));
+      viewerReturn.set(expand(), slip);
+      await open();
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(slip).toHaveFocus());
+      slip.remove();
    });
 
    it("closes with Close and returns focus to Expand", async () => {
