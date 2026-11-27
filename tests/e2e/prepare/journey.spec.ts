@@ -84,6 +84,9 @@ test.describe("signed in", () => {
       expect(await prep.answers()).toHaveLength(1);
       expect(created).toMatchObject({ content_id: "lesson.amazon-leadership-principles", status: "draft" });
       expect(created.question_id).toMatch(/^alp-have-backbone/);
+      // A company question is related to its own Lesson: no "changed" notice, and the guidance link is there.
+      await expect(page.getByRole("link", { name: /^Read the Lesson guidance/ })).toBeVisible();
+      await expect(page.getByText("The question changed in the Lesson.", { exact: false })).toHaveCount(0);
 
       // Edit: it saves on its own.
       await page.getByLabel("Situation").fill("A teammate and I disagreed about the retry policy.");

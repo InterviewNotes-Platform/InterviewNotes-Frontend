@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
-vi.mock("@/lib/prep/questions", () => ({ loadBehavioralQuestions: mocks.load }));
+vi.mock("@/lib/prep/collections", () => ({ loadAllCollectionQuestions: mocks.load }));
 vi.mock("@/components/prepare/editor/AnswerEditor", () => ({
     AnswerEditor: (props: { apiUrl: string | null; answerId: string; catalog: unknown }) => (
         <pre data-testid="editor">{JSON.stringify({ apiUrl: props.apiUrl, answerId: props.answerId, catalog: props.catalog })}</pre>
@@ -59,7 +59,7 @@ describe("/prepare/answers/[id] access", () => {
             expect(mocks.load).not.toHaveBeenCalled();
         });
 
-        it("reads the four Lessons once and hands the editor the questions, the id and the API origin", async () => {
+        it("reads every collection's Lessons once and hands the editor the questions, the id and the API origin", async () => {
             vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
             render(await AnswerPage(props()));
             expect(mocks.load).toHaveBeenCalledTimes(1);

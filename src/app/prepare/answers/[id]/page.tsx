@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { PrepareFrame } from "@/components/prepare/PrepareFrame";
 import { AnswerEditor } from "@/components/prepare/editor/AnswerEditor";
+import { loadAllCollectionQuestions } from "@/lib/prep/collections";
 import { ANSWER_ID, answerHref } from "@/lib/prep/links";
-import { loadBehavioralQuestions } from "@/lib/prep/questions";
 import { prepEnabled } from "@/lib/prep-flag";
 import { hasSession } from "../../hasSession";
 
@@ -25,8 +25,8 @@ export default async function AnswerPage({ params }: PageProps) {
     if (!prepEnabled() || !ANSWER_ID.test(id)) notFound();
     if (!(await hasSession())) redirect(`/login?redirect=${encodeURIComponent(answerHref(id))}`);
 
-    // The questions as the Lessons now state them, to tell whether an answer's question changed. A failed read says nothing either way.
-    const read = await loadBehavioralQuestions();
+    // The questions of every collection as the Lessons now state them, to tell whether an answer's question changed. A failed read says nothing either way.
+    const read = await loadAllCollectionQuestions();
 
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (

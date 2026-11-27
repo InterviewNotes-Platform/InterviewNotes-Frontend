@@ -169,3 +169,15 @@ export const loadCollectionQuestions = ({
    lessons,
    grouped,
 }: Collection): Promise<CatalogResult<CatalogQuestion<TargetLevel | null>[]>> => loadLessonQuestions(lessons, grouped);
+
+/**
+ * Every collection's questions, for telling whether a saved answer's question changed (spec section 2.1, "The snapshot"): one
+ * catalog read per Lesson of every collection (six). Partial data would mark the unread Lessons' answers `removed`, so the
+ * first result that is not `ok` is returned instead.
+ */
+export async function loadAllCollectionQuestions(): Promise<CatalogResult<CatalogQuestion<TargetLevel | null>[]>> {
+   const results = await Promise.all(COLLECTIONS.map(loadCollectionQuestions));
+   const failed = results.find((result) => result.status !== "ok");
+   if (failed) return failed;
+   return { status: "ok", data: results.flatMap((result) => (result.status === "ok" ? result.data : [])) };
+}

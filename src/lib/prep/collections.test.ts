@@ -7,7 +7,7 @@ const getCatalogItem = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/catalog/client", () => ({ getCatalogItem }));
 
 import type { CatalogHeading, CatalogItem } from "@/lib/catalog/types";
-import { COLLECTIONS, collectionOfContent, collectionSummaries, findCollection, loadCollectionQuestions, workspaceLabels, type Collection } from "./collections";
+import { COLLECTIONS, collectionOfContent, collectionSummaries, findCollection, loadAllCollectionQuestions, loadCollectionQuestions, workspaceLabels, type Collection } from "./collections";
 import { loadBehavioralQuestions, type CatalogQuestion } from "./questions";
 
 /*
@@ -305,6 +305,22 @@ describe("the general Behavioral collection is unchanged", () => {
       const direct = await loadBehavioralQuestions();
       serve();
       expect(await loadCollectionQuestions(collection("behavioral"))).toStrictEqual(direct);
+   });
+});
+
+describe("every collection's questions, for the answer editor", () => {
+   it("holds the questions of all three collections, so a company answer is related to its own Lesson, with one read per Lesson", async () => {
+      serve();
+      const result = await loadAllCollectionQuestions();
+      if (result.status !== "ok") throw new Error(`expected ok, got ${result.status}`);
+      expect(result.data).toHaveLength(40 + 48 + 18);
+      expect(result.data.map(({ question_id }) => question_id)).toEqual(COLLECTIONS.flatMap(({ manifest }) => Object.values(manifest).flat()));
+      expect(reads()).toEqual(COLLECTIONS.flatMap(({ lessons }) => lessons.map(({ slug }) => `lesson:${slug}`)).sort());
+   });
+
+   it("returns the failed read rather than a partial list when one Lesson cannot be read", async () => {
+      serve({ "googleyness-and-leadership": { status: "unavailable", cause: "upstream" } });
+      expect(await loadAllCollectionQuestions()).toEqual({ status: "unavailable", cause: "upstream" });
    });
 });
 

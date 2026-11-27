@@ -18,7 +18,7 @@ import { createPrepClient, type PrepClient } from "@/lib/prep/client";
 import { answerHref } from "@/lib/prep/links";
 import type { CatalogQuestion } from "@/lib/prep/questions";
 import { relateToCatalog } from "@/lib/prep/relation";
-import type { Answer, AnswerStatus, FieldIssue, PrepResult } from "@/lib/prep/types";
+import type { Answer, AnswerStatus, FieldIssue, PrepResult, TargetLevel } from "@/lib/prep/types";
 import { PREPARE_HREF, PREPARE_NEW_HREF } from "@/lib/primary-navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -64,7 +64,7 @@ interface Props {
    apiUrl: string | null;
    answerId: string;
    /** The Behavioral questions as the Lessons now state them, or null when they could not be read. */
-   catalog: readonly CatalogQuestion[] | null;
+   catalog: readonly CatalogQuestion<TargetLevel | null>[] | null;
    getAccessToken?: () => Promise<string | null>;
    fetch?: typeof fetch;
 }
@@ -207,7 +207,7 @@ function issueText(issues: FieldIssue[], field: string): string | undefined {
 interface FormProps {
    initial: Answer;
    client: PrepClient;
-   catalog: readonly CatalogQuestion[] | null;
+   catalog: readonly CatalogQuestion<TargetLevel | null>[] | null;
    /** Null while the build's AI setting is off: no AI control is drawn. */
    ai: { client: AiClient; consent: ConsentClient } | null;
    signInHref: string;
