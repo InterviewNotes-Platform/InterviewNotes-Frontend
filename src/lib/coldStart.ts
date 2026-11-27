@@ -88,7 +88,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
 <p>The InterviewNotes server is starting, which can take up to a minute.</p>
 <p role="status" aria-live="polite" id="retry-status">Try again in a moment.</p>
 <noscript><p>Reload this page in a minute to see it.</p></noscript>
-<p class="actions"><a href="">Try again</a><a href="/">Go to the homepage</a></p>
+<p class="actions"><a href="" id="retry-now">Try again</a><a href="/">Go to the homepage</a></p>
 </main>
 <script>
 (function () {
@@ -96,6 +96,8 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
   try { state = JSON.parse(sessionStorage.getItem(key) || "null"); } catch (e) { state = null; }
   if (!state || now - state.at > 180000) state = { tries: 0, at: now };
   var status = document.getElementById("retry-status");
+  // href="" drops the URL's #fragment; a reload keeps it.
+  document.getElementById("retry-now").addEventListener("click", function (e) { e.preventDefault(); location.reload(); });
   if (state.tries >= delays.length) {
     status.textContent = "This is taking longer than usual. Try again, or come back later.";
     try { sessionStorage.removeItem(key); } catch (e) {}
