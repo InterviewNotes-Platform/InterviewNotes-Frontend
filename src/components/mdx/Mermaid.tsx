@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useId, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { DiagramExpand } from "./DiagramExpand";
+import { DrawDiagramNow } from "./diagramLoad";
 import { diagramName } from "./fence";
 import { showDiagram } from "./diagram-svg";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
@@ -102,11 +103,41 @@ function subscribeToTheme(onChange: () => void) {
    return () => observer.disconnect();
 }
 
+/** How far ahead of the viewport a diagram starts loading Mermaid, so it is usually drawn before the reader reaches it. */
+const LOAD_AHEAD = "600px 0px";
+
+/**
+ * True once `ref` comes within LOAD_AHEAD of the viewport, or once `now` is set. Mermaid and its layout engines are the
+ * largest script on a Lesson or Problem page, so a diagram below the fold must not load them during the page's first load.
+ */
+function useNearViewport(ref: RefObject<HTMLElement | null>, now: boolean): boolean {
+   const [near, setNear] = useState(false);
+   // Latched, so a diagram that was drawn early keeps redrawing on theme changes after `now` clears (an unpin).
+   if (now && !near) setNear(true);
+   useEffect(() => {
+      const element = ref.current;
+      if (near || !element || typeof IntersectionObserver === "undefined") return;
+      const observer = new IntersectionObserver(
+         (entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) {
+               setNear(true);
+               observer.disconnect();
+            }
+         },
+         { rootMargin: LOAD_AHEAD }
+      );
+      observer.observe(element);
+      return () => observer.disconnect();
+   }, [ref, near]);
+   // Without IntersectionObserver (older browsers, tests) the diagram loads at once, as it did before.
+   return near || typeof IntersectionObserver === "undefined";
+}
+
 /**
  * Renders a Mermaid diagram client-side.
  *
- * `mermaid` is imported dynamically so its ~200 KB only loads on chapters that
- * actually contain a diagram, and never during SSR — it reaches for `document`
+ * `mermaid` is imported dynamically, only once the diagram nears the viewport, so it never loads on chapters without
+ * a diagram, stays off the first load of chapters whose diagrams sit below the fold (unless pinned), and never runs during SSR — it reaches for `document`
  * at module scope, which would crash the server render.
  *
  * Re-renders when the dark-mode class flips, because the palette is baked into
@@ -121,6 +152,7 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
 
    // Null on the server and until hydrated, so the first client render matches the server HTML.
    const theme = useSyncExternalStore<Theme | null>(subscribeToTheme, currentTheme, () => null);
+   const near = useNearViewport(containerRef, useContext(DrawDiagramNow));
 
    // `useId` returns a value containing colons, which are invalid in the CSS
    // selectors Mermaid builds from the id.
@@ -130,7 +162,7 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
    const drawExpanded = useCallback((id: string) => drawDiagram(id, chart, theme ?? "light"), [chart, theme]);
 
    useEffect(() => {
-      if (theme === null) return;
+      if (theme === null || !near) return;
 
       let cancelled = false;
 
@@ -153,7 +185,7 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
       return () => {
          cancelled = true;
       };
-   }, [chart, theme, diagramId, adaptive, catalog]);
+   }, [chart, theme, near, diagramId, adaptive, catalog]);
 
    const caption = figure?.caption ? (
       <figcaption id={adaptive ? captionId : undefined} className="mt-3 text-supporting text-pretty text-muted-foreground">

@@ -6,6 +6,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Expand, Pin as PinIcon } from "lucide-react";
 import { useReaderToolState } from "@/components/reader/readerState";
 import { inertPage } from "@/lib/inertPage";
+import { DrawDiagramNow } from "@/components/mdx/diagramLoad";
 import { DIAGRAM_VIEWER, EXHIBIT_OPEN, NO_PINS, PINS_KEY, pinKey, sectionOf, tablePreview, togglePin, type Pin } from "./pins";
 
 const ACTION =
@@ -113,6 +114,9 @@ export function Exhibit({ kind, anchor, size, label, children }: { kind: Pin["ki
    const returnTo = useRef<HTMLElement | null>(null);
    const route = usePathname();
    const [open, setOpen] = useState(false);
+   const [pins] = useReaderToolState<readonly Pin[]>(PINS_KEY, NO_PINS);
+   // A pinned diagram draws at once, so its slip can offer Expand before the reader scrolls to it.
+   const pinned = kind === "Diagram" && pins.some((pin) => pin.key === pinKey(route, anchor));
    const preview = () => {
       const table = ref.current?.querySelector("table");
       return table ? tablePreview(table) : label;
@@ -167,7 +171,7 @@ export function Exhibit({ kind, anchor, size, label, children }: { kind: Pin["ki
       >
          {/* A pointer shortcut only: Expand is the keyboard route, so this wrapper takes no focus or key handler. */}
          <div className="lesson-exhibit-body [&>*]:my-0" onClick={onClick}>
-            {children}
+            <DrawDiagramNow value={pinned}>{children}</DrawDiagramNow>
          </div>
          {kind === "Table" ? (
             <p className="lesson-wider" aria-hidden="true">

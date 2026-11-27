@@ -355,6 +355,7 @@ test.describe("the P2 frame of a Problem (S-CMP-5)", () => {
       await expect(main(page).locator("[data-callout]")).toHaveCount(2);
       await expect(main(page).getByRole("table")).toHaveCount(2);
       await expect(main(page).locator("pre")).toHaveCount(3);
+      await main(page).locator("figure").first().scrollIntoViewIfNeeded();
       await expect(main(page).locator("figure svg")).toHaveCount(1);
       expect(await overflows(page)).toBe(false);
    });
@@ -492,6 +493,7 @@ test.describe("Challenge and Work on a phone", () => {
       await page.goto(rich);
       await work(page);
       await control(more(page), "Show more material").click();
+      await main(page).locator("figure").first().scrollIntoViewIfNeeded();
       await expect(main(page).locator("figure svg")).toHaveCount(1);
       expect(await overflows(page)).toBe(false);
 

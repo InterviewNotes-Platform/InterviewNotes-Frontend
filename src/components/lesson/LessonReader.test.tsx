@@ -1,9 +1,11 @@
+import { useContext } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ usePathname: () => "/lessons/a", useRouter: () => ({ push }) }));
 
+import { DrawDiagramNow } from "@/components/mdx/diagramLoad";
 import { ReaderModeProvider, ReaderToolStoreProvider, ToolsSheetProvider, useReaderToolState } from "@/components/reader/readerState";
 import type { ReaderMode } from "@/lib/reader/shellPolicy";
 import { Exhibit } from "./Exhibit";
@@ -185,6 +187,26 @@ describe("Margin Folio, Pin and Scratch", () => {
       view.rerender(diagram(true));
       fireEvent.click(await screen.findByRole("button", { name: "Expand diagram 1" }));
       expect(opened).toHaveBeenCalledTimes(1);
+   });
+});
+
+describe("pinned diagrams draw at once", () => {
+   function Drawing() {
+      return <figure data-now={String(useContext(DrawDiagramNow))} />;
+   }
+
+   it("asks the diagram in a pinned exhibit to draw now, so its slip can offer Expand before the reader scrolls to it", () => {
+      const { container } = render(
+         <ReaderToolStoreProvider>
+            <Exhibit kind="Diagram" anchor="exhibit-2-0" label="Diagram: flow">
+               <Drawing />
+            </Exhibit>
+         </ReaderToolStoreProvider>
+      );
+      const figure = container.querySelector("figure")!;
+      expect(figure).toHaveAttribute("data-now", "false");
+      fireEvent.click(screen.getByRole("button", { name: "Pin diagram" }));
+      expect(figure).toHaveAttribute("data-now", "true");
    });
 });
 

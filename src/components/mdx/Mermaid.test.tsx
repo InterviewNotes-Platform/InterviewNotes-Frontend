@@ -7,6 +7,7 @@ const svgOf = (width: number) => `<svg viewBox="0 0 ${width} 120" width="100%" s
 const render_ = vi.fn();
 vi.mock("mermaid", () => ({ default: { initialize: vi.fn(), render: (...args: unknown[]) => render_(...args) } }));
 
+import { DrawDiagramNow } from "./diagramLoad";
 import { Mermaid } from "./Mermaid";
 
 beforeEach(() => render_.mockImplementation(async () => ({ svg: svgOf(1400) })));
@@ -191,5 +192,53 @@ describe("Mermaid, catalog figure", () => {
       const svg = await drawn(container);
       expect(svg).not.toHaveAttribute("aria-hidden");
       expect(container.querySelector("figure, figcaption")).toBeNull();
+   });
+});
+
+describe("Mermaid, deferred load", () => {
+   it("does not draw (or load Mermaid) until the diagram nears the viewport", async () => {
+      let notify: (entries: Partial<IntersectionObserverEntry>[]) => void = () => {};
+      const observe = vi.fn();
+      vi.stubGlobal(
+         "IntersectionObserver",
+         class {
+            constructor(callback: (entries: Partial<IntersectionObserverEntry>[]) => void) {
+               notify = callback;
+            }
+            observe = observe;
+            disconnect = vi.fn();
+         }
+      );
+      // A chart of its own: an earlier test's draw may still settle on the shared mock.
+      const chart = "graph TD; deferred";
+      const drew = () => render_.mock.calls.filter((call) => call[1] === chart).length;
+      const { container } = render(<Mermaid chart={chart} />);
+      await waitFor(() => expect(observe).toHaveBeenCalled());
+      expect(drew()).toBe(0);
+      expect(container.querySelector("svg")).toBeNull();
+
+      notify([{ isIntersecting: true }]);
+      await drawn(container);
+      expect(drew()).toBe(1);
+   });
+
+   it("draws at once where it must be drawn now (a pinned exhibit), even far from the viewport", async () => {
+      const observe = vi.fn();
+      vi.stubGlobal(
+         "IntersectionObserver",
+         class {
+            observe = observe;
+            disconnect = vi.fn();
+         }
+      );
+      const chart = "graph TD; pinned";
+      const { container } = render(
+         <DrawDiagramNow value>
+            <Mermaid chart={chart} adaptive />
+         </DrawDiagramNow>
+      );
+      await drawn(container);
+      expect(render_.mock.calls.filter((call) => call[1] === chart)).toHaveLength(1);
+      expect(observe).not.toHaveBeenCalled();
    });
 });
