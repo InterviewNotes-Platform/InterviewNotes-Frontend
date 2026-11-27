@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CatalogPending } from "@/components/catalog/CatalogPending";
+import { CatalogPending } from "@/app/CatalogPending";
 import { CatalogStateNotice } from "@/app/_catalog/CatalogStateNotice";
 import { PreviewMarker, withPreviewRobots } from "@/app/_catalog/PreviewMarker";
 import { TrackCurriculum, TrackHeader, TrackSupport } from "@/components/catalog/TrackCurriculum";

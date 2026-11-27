@@ -46,6 +46,15 @@ export const COLD_PORT = 3117;
 export const COLD_API_ORIGIN = `http://127.0.0.1:${COLD_API_PORT}`;
 export const COLD_ORIGIN = `http://localhost:${COLD_PORT}`;
 
+/**
+ * The production build served again against a private API double that item-cold-start.spec.ts slows down to simulate a starting
+ * free-tier API. Private so its faults and its Data Cache never reach another test.
+ */
+export const STARTING_API_PORT = 3121;
+export const STARTING_PORT = 3122;
+export const STARTING_API_ORIGIN = `http://127.0.0.1:${STARTING_API_PORT}`;
+export const STARTING_ORIGIN = `http://localhost:${STARTING_PORT}`;
+
 /** The production build served again against a private API double that knows the homepage's free chapter; only journeys.spec.ts uses it. */
 export const JOURNEY_API_PORT = 3111;
 export const JOURNEY_PORT = 3112;

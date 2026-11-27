@@ -15,7 +15,7 @@ import { catalogHref } from "@/lib/catalog/routes";
 import type { CatalogItemType, CatalogMeta } from "@/lib/catalog/types";
 import { reportRender } from "@/lib/perf/hotpath";
 import type { ReaderSurface } from "@/lib/reader/shellPolicy";
-import { CatalogPending } from "@/components/catalog/CatalogPending";
+import { CatalogPending } from "@/app/CatalogPending";
 import { CatalogStateNotice } from "./CatalogStateNotice";
 import { KnowledgePage, knowledgeTools } from "./KnowledgePage";
 import { LessonPage, lessonTools } from "./LessonPage";

@@ -43,8 +43,8 @@ describe("withinItemBudget", () => {
       await expect(withinItemBudget(Promise.resolve({ status: "notFound" }))).resolves.toEqual({ settled: true, value: { status: "notFound" } });
    });
 
-   it("waits as long as the read takes for a crawler, a request without Sec-Fetch-Mode, or no request at all", async () => {
-      for (const headers of [new Headers({ "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)", "sec-fetch-mode": "navigate" }), new Headers({ "user-agent": "curl/8.5.0" }), null]) {
+   it("waits as long as the read takes for a refresh, a crawler, a request without Sec-Fetch-Mode, or no request at all", async () => {
+      for (const headers of [new Headers({ "user-agent": BROWSER, "sec-fetch-mode": "cors" }), new Headers({ "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)", "sec-fetch-mode": "navigate" }), new Headers({ "user-agent": "curl/8.5.0" }), null]) {
          request.headers = headers;
          let answered = false;
          const read = new Promise<string>((resolve) => setTimeout(() => resolve("late"), ITEM_READ_BUDGET_MS * 4));

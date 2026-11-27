@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({
 import { ItemRouteGuard, TrackRouteGuard } from "./CatalogRouteGuard";
 import { CatalogItemPage, catalogItemMetadata } from "./CatalogItemPage";
 import TrackPage, { generateMetadata as trackMetadata } from "@/app/tracks/[slug]/page";
-import { PENDING } from "@/components/catalog/CatalogPending";
+import { PENDING } from "@/app/CatalogPending";
 
 beforeEach(() => {
    for (const read of [getCatalogItem, getCatalogItemMeta, getCatalogTrack]) read.mockReset().mockReturnValue(new Promise(() => {}));

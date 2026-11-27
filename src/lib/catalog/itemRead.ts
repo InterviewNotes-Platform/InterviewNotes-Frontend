@@ -25,8 +25,10 @@ export function itemReadBudgetMs(setting: string | undefined = process.env.ITEM_
 
 /**
  * One deadline per request, shared by the metadata, the route guard and the page, so together they wait at most one budget.
- * Crawlers, monitors and browsers too old to say what they are get no deadline: the whole page, its status and its metadata,
- * as before. Outside a request (a unit test) there is no visitor to spare a wait, so there is no deadline either.
+ * Only a browser's document navigation has one: it would otherwise be a blank tab. A refresh or client-side navigation
+ * (`Sec-Fetch-Mode: cors`) keeps the current screen, so it waits for the answer however slow, which is how a pending page
+ * arrives even when every read outlasts the budget. Crawlers, monitors and browsers too old to say what they are get no
+ * deadline: the whole page, its status and its metadata, as before. Outside a request (a unit test) there is none either.
  */
 const requestDeadline = cache(async (): Promise<number | null> => {
    const budget = itemReadBudgetMs();
@@ -37,7 +39,8 @@ const requestDeadline = cache(async (): Promise<number | null> => {
    } catch {
       return null;
    }
-   if (wantsWholePage(requestHeaders.get("user-agent"), userAgent({ headers: requestHeaders }).isBot, requestHeaders.get("sec-fetch-mode"))) return null;
+   const mode = requestHeaders.get("sec-fetch-mode");
+   if (mode !== "navigate" || wantsWholePage(requestHeaders.get("user-agent"), userAgent({ headers: requestHeaders }).isBot, mode)) return null;
    return Date.now() + budget;
 });
 
