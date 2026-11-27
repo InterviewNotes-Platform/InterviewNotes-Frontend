@@ -319,11 +319,11 @@ describe("Integrity", () => {
 describe("Theme", () => {
    it("redraws the inline diagram in the new theme under an id the document does not hold", async () => {
       const { container } = await shown();
-      expect(initialize.mock.calls.at(-1)![0].themeVariables.background).toBe("#f8fbff");
+      expect(initialize.mock.calls.at(-1)![0].themeVariables.background).toBe("#fbf8f1");
 
       act(() => document.documentElement.classList.add("dark"));
       await waitFor(() => expect(drawn()).toHaveLength(2));
-      expect(initialize.mock.calls.at(-1)![0].themeVariables.background).toBe("#111827");
+      expect(initialize.mock.calls.at(-1)![0].themeVariables.background).toBe("#1a1612");
       const [light, dark] = drawn();
       expect(dark).not.toBe(light);
       await waitFor(() => expect(container.querySelector("svg")).toHaveAttribute("id", dark));
