@@ -105,7 +105,11 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
   status.textContent = "This page will reload automatically in " + wait + " seconds.";
   function reload() {
     if (document.hidden) { document.addEventListener("visibilitychange", reload, { once: true }); return; }
-    try { sessionStorage.setItem(key, JSON.stringify({ tries: state.tries + 1, at: Date.now() })); } catch (e) {}
+    // Without storage the count cannot advance, so stop rather than reload forever.
+    try { sessionStorage.setItem(key, JSON.stringify({ tries: state.tries + 1, at: Date.now() })); } catch (e) {
+      status.textContent = "Try again in a moment.";
+      return;
+    }
     location.reload();
   }
   setTimeout(reload, wait * 1000);
