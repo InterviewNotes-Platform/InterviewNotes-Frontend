@@ -513,51 +513,57 @@ test.describe("technical content", () => {
       expect(await overflows(page)).toBe(false);
    });
 
-   test("a diagram that fits the column stays plain; one that does not is framed, natural size and keyboard-scrollable", async ({ page }) => {
+   test("every diagram is drawn whole inside the column; zooming in frames it and scrolls by keyboard, Reset fits it again", async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(route);
-      const [fitting, wide] = await (await diagrams(page)).all();
+      const [, wide] = await (await diagrams(page)).all();
+      const box = wide.locator("[data-slot=technical-scroll]");
+      const fits = () => box.evaluate((element) => element.scrollWidth <= element.clientWidth);
 
-      await expect(fitting.getByRole("region")).toHaveCount(0);
-      await expect(fitting.locator("[data-slot=technical-scroll]")).toHaveAttribute("data-scrolls", "false");
-      await expect(fitting.locator("[data-slot=technical-scroll]")).toHaveCSS("border-top-width", "0px");
+      await expect(wide.getByRole("region")).toHaveCount(0);
+      await expect(box).toHaveCSS("border-top-width", "0px");
+      expect(await fits()).toBe(true);
+      const size = await wide.locator("svg").evaluate((svg) => ({ drawn: svg.getBoundingClientRect().width, natural: Number(svg.getAttribute("viewBox")!.split(/\s+/)[2]) }));
+      expect(size.drawn, "the wide diagram is scaled to the column").toBeLessThan(size.natural);
 
+      await wide.getByRole("button", { name: "Zoom in" }).click();
+      await expect(wide.getByRole("group", { name: "Zoom" })).toContainText("125%");
       const frame = wide.getByRole("region", { name: "Diagram" });
       await expect(frame).toHaveAttribute("tabindex", "0");
       await expect(frame).toHaveCSS("border-top-width", "1px");
-      const size = await wide.locator("svg").evaluate((svg) => ({ drawn: svg.getBoundingClientRect().width, natural: Number(svg.getAttribute("viewBox")!.split(/\s+/)[2]) }));
-      expect(Math.round(size.drawn), "scaled down instead of scrolling").toBe(Math.round(size.natural));
-      expect(await frame.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
-
       await tabTo(page, frame);
       await page.keyboard.press("ArrowRight");
       await expect.poll(() => frame.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
       expect(await overflows(page)).toBe(false);
+
+      await wide.getByRole("button", { name: "Reset" }).click();
+      await expect(wide.getByRole("region")).toHaveCount(0);
+      expect(await fits()).toBe(true);
    });
 
-   test("a diagram too wide for the column expands from its Expand button and Escape returns to it; one that fits has none", async ({ page }) => {
+   test("every diagram expands from its Expand button and Escape returns to it", async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(route);
-      const [fitting, wide] = await (await diagrams(page)).all();
-      await expect(fitting.getByRole("button", { name: "Expand diagram" })).toHaveCount(0);
+      for (const figure of await (await diagrams(page)).all()) {
+         const expand = figure.getByRole("button", { name: "Expand diagram" });
+         await tabTo(page, expand);
+         await page.keyboard.press("Enter");
+         const dialog = page.getByRole("dialog", { name: "Diagram" });
+         await expect(dialog.getByRole("region", { name: "Diagram" })).toBeFocused();
+         await expect(dialog.locator("svg")).toHaveCount(1);
 
-      const expand = wide.getByRole("button", { name: "Expand diagram" });
-      await tabTo(page, expand);
-      await page.keyboard.press("Enter");
-      const dialog = page.getByRole("dialog", { name: "Diagram" });
-      await expect(dialog.getByRole("region", { name: "Diagram" })).toBeFocused();
-      await expect(dialog.locator("svg")).toHaveCount(1);
-
-      await page.keyboard.press("Escape");
-      await expect(dialog).toHaveCount(0);
-      await expect(expand).toBeFocused();
+         await page.keyboard.press("Escape");
+         await expect(dialog).toHaveCount(0);
+         await expect(expand).toBeFocused();
+      }
    });
 
-   test("on a phone every diagram is natural size, and none stretches the page", async ({ page }) => {
+   test("on a phone every diagram fits whole, and none stretches the page", async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(route);
       for (const figure of await (await diagrams(page)).all()) {
-         await expect(figure.getByRole("region", { name: "Diagram" })).toHaveAttribute("tabindex", "0");
+         await expect(figure.getByRole("region")).toHaveCount(0);
+         expect(await figure.locator("[data-slot=technical-scroll]").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       }
       expect(await overflows(page)).toBe(false);
    });

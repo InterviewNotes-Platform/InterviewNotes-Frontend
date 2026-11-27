@@ -53,17 +53,16 @@ describe("Expand control (S-DGM-6)", () => {
       expect(expand().closest("figure")).toBe(container.querySelector("figure"));
    });
 
-   it("is absent, and adds no tab stop, when the diagram fits", async () => {
+   it("is offered when the diagram fits too, beside the zoom controls", async () => {
       const { container } = await shown(FITS);
-      expect(screen.queryByRole("button")).not.toBeInTheDocument();
-      expect(container.querySelectorAll("button, [tabindex]")).toHaveLength(0);
+      expect(expand().closest("figure")).toBe(container.querySelector("figure"));
+      expect(within(container).getByRole("group", { name: "Zoom" })).toBeInTheDocument();
    });
 
-   it("follows the fit when the column is resized", async () => {
+   it("stays when the column is resized", async () => {
       const { measure } = await shown(WIDE);
-      expect(expand()).toBeInTheDocument();
       measure(FITS);
-      expect(screen.queryByRole("button", { name: "Expand diagram" })).not.toBeInTheDocument();
+      expect(expand()).toBeInTheDocument();
       measure(WIDE);
       expect(expand()).toBeInTheDocument();
    });

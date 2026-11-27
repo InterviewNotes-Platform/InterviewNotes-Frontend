@@ -106,7 +106,7 @@ function TableViewer({ children, size, label, open, onOpenChange, returnTo: retu
 /**
  * A Lesson table or diagram as an exhibit (P8-T27): the block as rendered, then its Expand and Pin controls. `anchor` is the
  * exhibit's stable id (its place in the body), so pins and "Go to source" reach this occurrence and no other. A plain click on
- * the cells or the drawing opens the viewer; a diagram's viewer is its own `DiagramExpand`, offered only while it overflows
+ * the cells or the drawing opens the viewer; a diagram's viewer is its own `DiagramExpand`, offered on every diagram
  * (S-DGM-6). Nothing is fetched.
  */
 export function Exhibit({ kind, anchor, size, label, children }: { kind: Pin["kind"]; anchor: string; size?: string; label: string; children: ReactNode }) {

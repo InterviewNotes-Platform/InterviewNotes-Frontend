@@ -4,15 +4,16 @@ import { useCallback, useContext, useEffect, useId, useRef, useState, useSyncExt
 import { DiagramExpand } from "./DiagramExpand";
 import { DrawDiagramNow } from "./diagramLoad";
 import { diagramName } from "./fence";
-import { showDiagram } from "./diagram-svg";
+import { showDiagram, zoomDrawing, zoomStep } from "./diagram-svg";
+import { Button } from "@/components/ui/button";
 import { TechnicalScroll } from "@/components/ui/technical-scroll";
 
 interface MermaidProps {
    /** The raw diagram source from a ```mermaid fence. */
    chart: string;
    /**
-    * Lesson reading: draw the diagram at its natural size, plain while it fits its column and, only when it does
-    * not, in a framed box that scrolls sideways. Default: the shared box that scales a wide diagram down.
+    * Lesson reading: draw the whole diagram fitted to its column (never wider than drawn), with zoom in, zoom out and
+    * reset; zoomed past the column it is framed and scrolls sideways. Default: the shared box that scales a wide diagram down.
     */
    adaptive?: boolean;
    /**
@@ -148,7 +149,8 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
    const name = diagramName(figure ?? {});
    const containerRef = useRef<HTMLDivElement>(null);
    const [error, setError] = useState<string | null>(null);
-   const [overflows, setOverflows] = useState(false);
+   const [zoom, setZoom] = useState(1);
+   const zoomNow = useRef(1);
 
    // Null on the server and until hydrated, so the first client render matches the server HTML.
    const theme = useSyncExternalStore<Theme | null>(subscribeToTheme, currentTheme, () => null);
@@ -162,6 +164,12 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
    const drawExpanded = useCallback((id: string) => drawDiagram(id, chart, theme ?? "light"), [chart, theme]);
 
    useEffect(() => {
+      zoomNow.current = zoom;
+      if (adaptive) zoomDrawing(containerRef.current, zoom);
+   }, [zoom, adaptive]);
+   const zoomBy = (factor: number) => setZoom((current) => zoomStep(current, factor));
+
+   useEffect(() => {
       if (theme === null || !near) return;
 
       let cancelled = false;
@@ -172,7 +180,8 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
             if (cancelled || !containerRef.current) return;
 
             // The container's name speaks for the diagram; the drawing is not announced a second time.
-            showDiagram(containerRef.current, svg, { natural: adaptive, hidden: catalog });
+            showDiagram(containerRef.current, svg, { natural: false, hidden: catalog });
+            if (adaptive) zoomDrawing(containerRef.current, zoomNow.current);
             setError(null);
          } catch (err) {
             if (cancelled) return;
@@ -222,13 +231,19 @@ export function Mermaid({ chart, adaptive = false, figure }: MermaidProps) {
          <figure className="my-6">
             <TechnicalScroll
                label={name}
-               onScrollsChange={setOverflows}
                className="rounded-lg data-[scrolls=true]:border data-[scrolls=true]:border-border data-[scrolls=true]:p-4"
             >
                <div ref={containerRef} role="img" aria-label={name} className="[&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto" />
             </TechnicalScroll>
             <DiagramExpand
-               overflows={overflows}
+               controls={
+                  <div role="group" aria-label="Zoom" className="flex items-center gap-1">
+                     <Button variant="outline" size="sm" onClick={() => zoomBy(0.8)} aria-label="Zoom out">−</Button>
+                     <span className="min-w-12 text-center text-supporting tabular-nums" aria-live="polite">{Math.round(zoom * 100)}%</span>
+                     <Button variant="outline" size="sm" onClick={() => zoomBy(1.25)} aria-label="Zoom in">+</Button>
+                     <Button variant="outline" size="sm" onClick={() => setZoom(1)}>Reset</Button>
+                  </div>
+               }
                name={name}
                caption={figure?.caption}
                captionId={figure?.caption ? captionId : undefined}

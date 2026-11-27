@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import { inertPage } from "@/lib/inertPage";
-import { showDiagram } from "./diagram-svg";
+import { showDiagram, zoomStep } from "./diagram-svg";
 
 interface DiagramExpandProps {
-   /** True while the inline diagram does not fit its column at natural size. */
-   overflows: boolean;
+   /** Inline controls shown in the same footer row, before Expand. */
+   controls?: ReactNode;
    /** Accessible name of the diagram: text alternative, else caption, else "Diagram". */
    name: string;
    caption?: string;
@@ -32,12 +32,12 @@ function sizeDrawing(container: HTMLElement | null, zoom: number) {
 }
 
 /**
- * S-DGM-6 / S-DGM-7: an "Expand diagram" button in the figure footer, only while the diagram overflows, and the
+ * S-DGM-6 / S-DGM-7: an "Expand diagram" button in the figure footer, on every reading-mode diagram, and the
  * modal dialog it opens. The dialog is Radix's (as `sheet.tsx`): focus trap, Escape, backdrop, scroll lock, hidden
  * background and focus return to the trigger all come from it, and the page behind is made inert for as long as it
  * is open. The button stays while the dialog is open.
  */
-export function DiagramExpand({ overflows, name, caption, captionId, draw, renderId }: DiagramExpandProps) {
+export function DiagramExpand({ controls, name, caption, captionId, draw, renderId }: DiagramExpandProps) {
    const [open, setOpen] = useState(false);
    const [zoom, setZoom] = useState(1);
    const drag = useRef<{ x: number; y: number } | null>(null);
@@ -58,7 +58,7 @@ export function DiagramExpand({ overflows, name, caption, captionId, draw, rende
       zoomNow.current = zoom;
       sizeDrawing(diagram.current, zoom);
    }, [zoom, open]);
-   const zoomBy = (factor: number) => setZoom((current) => Math.min(4, Math.max(0.5, Math.round(current * factor * 100) / 100)));
+   const zoomBy = (factor: number) => setZoom((current) => zoomStep(current, factor));
    useEffect(() => () => releasePage.current?.(), []);
 
    // The dialog copy is its own Mermaid render, so none of its generated ids repeat the inline diagram's.
@@ -82,15 +82,14 @@ export function DiagramExpand({ overflows, name, caption, captionId, draw, rende
 
    return (
       <Dialog.Root open={open} onOpenChange={changeOpen}>
-         {(overflows || open) && (
-            <div className="mt-3">
-               <Dialog.Trigger asChild>
-                  <Button variant="outline" size="sm" aria-describedby={captionId}>
-                     Expand diagram
-                  </Button>
-               </Dialog.Trigger>
-            </div>
-         )}
+         <div className="mt-3 flex flex-wrap items-center gap-2">
+            {controls}
+            <Dialog.Trigger asChild>
+               <Button variant="outline" size="sm" aria-describedby={captionId}>
+                  Expand diagram
+               </Button>
+            </Dialog.Trigger>
+         </div>
          <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
             <Dialog.Content
