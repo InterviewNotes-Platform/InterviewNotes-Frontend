@@ -18,15 +18,20 @@ export function RevealProvider({ children }: { children: ReactNode }) {
          const found = arrivalAt(window.location.hash, document);
          dispatch({ type: "open", keys: [...openKeys(document), ...(found?.keys ?? [])], arrival: found?.arrival });
       };
-      // After the router has written a client navigation's URL.
-      const first = window.setTimeout(follow, 0);
+      // After the router has written a client navigation's URL. The router writes it inside an insertion effect, where
+      // `currententrychange` fires synchronously and an update may not be scheduled, so following is always deferred.
+      let pending = window.setTimeout(follow, 0);
+      const later = () => {
+         window.clearTimeout(pending);
+         pending = window.setTimeout(follow, 0);
+      };
       // The router's own hash links use `pushState`, which never fires `hashchange`; the Navigation API reports them.
       const navigation = (window as { navigation?: EventTarget }).navigation;
       const [source, event] = navigation ? [navigation, "currententrychange"] : [window, "hashchange"];
-      source.addEventListener(event, follow);
+      source.addEventListener(event, later);
       return () => {
-         window.clearTimeout(first);
-         source.removeEventListener(event, follow);
+         window.clearTimeout(pending);
+         source.removeEventListener(event, later);
       };
    }, []);
 
