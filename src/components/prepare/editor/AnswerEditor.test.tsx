@@ -124,6 +124,13 @@ describe("the question and the Lesson guidance", () => {
       expect(screen.queryByRole("link", { name: /Lesson guidance/ })).toBeNull();
    });
 
+   it("shows no relation for an answer whose Lesson could not be read, while a readable Lesson still raises its notice", async () => {
+      await open(await seed(), { catalog: [{ ...current, text: "Describe being blocked." }], unreadable: [current.content_id] });
+      expect(screen.getByText(QUESTION)).toBeInTheDocument();
+      expect(screen.queryByRole("note")).toBeNull();
+      expect(screen.getByRole("link", { name: /Read the Lesson guidance/ })).toBeInTheDocument();
+   });
+
    it("says a heading is standing in when the Lesson had no question line", async () => {
       await open(await seed({ snapshot_fallback: true, question_snapshot: "Being stuck" }));
       expect(screen.getByText(/the section heading/)).toBeInTheDocument();

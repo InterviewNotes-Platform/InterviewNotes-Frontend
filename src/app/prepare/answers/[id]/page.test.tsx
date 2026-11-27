@@ -17,8 +17,8 @@ vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.re
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/prep/collections", () => ({ loadAllCollectionQuestions: mocks.load }));
 vi.mock("@/components/prepare/editor/AnswerEditor", () => ({
-    AnswerEditor: (props: { apiUrl: string | null; answerId: string; catalog: unknown }) => (
-        <pre data-testid="editor">{JSON.stringify({ apiUrl: props.apiUrl, answerId: props.answerId, catalog: props.catalog })}</pre>
+    AnswerEditor: (props: { apiUrl: string | null; answerId: string; catalog: unknown; unreadable: unknown }) => (
+        <pre data-testid="editor">{JSON.stringify({ apiUrl: props.apiUrl, answerId: props.answerId, catalog: props.catalog, unreadable: props.unreadable })}</pre>
     ),
 }));
 
@@ -32,7 +32,7 @@ const shown = () => JSON.parse(screen.getByTestId("editor").textContent ?? "{}")
 beforeEach(() => {
     mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } });
     mocks.createClient.mockReset().mockResolvedValue({ auth: { getUser: mocks.getUser } });
-    mocks.load.mockReset().mockResolvedValue({ status: "ok", data: [Q] });
+    mocks.load.mockReset().mockResolvedValue({ questions: [Q], unreadable: [] });
     mocks.notFound.mockClear();
     mocks.redirect.mockClear();
 });
@@ -63,13 +63,13 @@ describe("/prepare/answers/[id] access", () => {
             vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
             render(await AnswerPage(props()));
             expect(mocks.load).toHaveBeenCalledTimes(1);
-            expect(shown()).toEqual({ apiUrl: "https://api.example.test", answerId: ID, catalog: [Q] });
+            expect(shown()).toEqual({ apiUrl: "https://api.example.test", answerId: ID, catalog: [Q], unreadable: [] });
         });
 
-        it("passes no questions, rather than a guess, when the Lessons could not be read", async () => {
-            mocks.load.mockResolvedValue({ status: "unavailable", cause: "upstream" });
+        it("names the Lessons that could not be read, rather than guessing about their answers", async () => {
+            mocks.load.mockResolvedValue({ questions: [Q], unreadable: ["lesson.googleyness-and-leadership"] });
             render(await AnswerPage(props()));
-            expect(shown().catalog).toBeNull();
+            expect(shown()).toMatchObject({ catalog: [Q], unreadable: ["lesson.googleyness-and-leadership"] });
         });
 
         it("passes no API origin when the environment has none", async () => {

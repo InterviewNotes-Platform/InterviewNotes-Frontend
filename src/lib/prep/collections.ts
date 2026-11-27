@@ -170,14 +170,20 @@ export const loadCollectionQuestions = ({
    grouped,
 }: Collection): Promise<CatalogResult<CatalogQuestion<TargetLevel | null>[]>> => loadLessonQuestions(lessons, grouped);
 
+/** What the answer editor relates a saved answer to: every readable collection's questions, and the Lessons that could not be read. */
+export type CollectionsRead = { questions: CatalogQuestion<TargetLevel | null>[]; unreadable: string[] };
+
 /**
  * Every collection's questions, for telling whether a saved answer's question changed (spec section 2.1, "The snapshot"): one
- * catalog read per Lesson of every collection (six). Partial data would mark the unread Lessons' answers `removed`, so the
- * first result that is not `ok` is returned instead.
+ * catalog read per Lesson of every collection (six). Each collection is judged on its own: one that cannot be read lists its
+ * Lessons as unreadable, so their answers show no relation, and the other collections' change notices still show.
  */
-export async function loadAllCollectionQuestions(): Promise<CatalogResult<CatalogQuestion<TargetLevel | null>[]>> {
+export async function loadAllCollectionQuestions(): Promise<CollectionsRead> {
    const results = await Promise.all(COLLECTIONS.map(loadCollectionQuestions));
-   const failed = results.find((result) => result.status !== "ok");
-   if (failed) return failed;
-   return { status: "ok", data: results.flatMap((result) => (result.status === "ok" ? result.data : [])) };
+   const read: CollectionsRead = { questions: [], unreadable: [] };
+   results.forEach((result, index) => {
+      if (result.status === "ok") read.questions.push(...result.data);
+      else read.unreadable.push(...COLLECTIONS[index].lessons.map(({ content_id }) => content_id));
+   });
+   return read;
 }
