@@ -7,6 +7,7 @@ const svgOf = (width: number) => `<svg viewBox="0 0 ${width} 120" width="100%" s
 const render_ = vi.fn();
 vi.mock("mermaid", () => ({ default: { initialize: vi.fn(), render: (...args: unknown[]) => render_(...args) } }));
 
+import { DrawDiagramNow } from "./diagramLoad";
 import { Mermaid } from "./Mermaid";
 
 beforeEach(() => render_.mockImplementation(async () => ({ svg: svgOf(1400) })));
@@ -219,5 +220,25 @@ describe("Mermaid, deferred load", () => {
       notify([{ isIntersecting: true }]);
       await drawn(container);
       expect(drew()).toBe(1);
+   });
+
+   it("draws at once where it must be drawn now (a pinned exhibit), even far from the viewport", async () => {
+      const observe = vi.fn();
+      vi.stubGlobal(
+         "IntersectionObserver",
+         class {
+            observe = observe;
+            disconnect = vi.fn();
+         }
+      );
+      const chart = "graph TD; pinned";
+      const { container } = render(
+         <DrawDiagramNow value>
+            <Mermaid chart={chart} adaptive />
+         </DrawDiagramNow>
+      );
+      await drawn(container);
+      expect(render_.mock.calls.filter((call) => call[1] === chart)).toHaveLength(1);
+      expect(observe).not.toHaveBeenCalled();
    });
 });
