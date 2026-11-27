@@ -120,7 +120,7 @@ export const TRACKS = {
 export const ROLES = {
    label: "Optional",
    heading: "Preparing for a specific role?",
-   lead: "A few published places to start for each role. The Tracks below are still the full path.",
+   lead: "A few published places to start for each role. The Tracks above remain the full path.",
 };
 
 export const KNOWLEDGE = {
