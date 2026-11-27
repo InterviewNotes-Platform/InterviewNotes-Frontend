@@ -25,9 +25,10 @@ const ACTION =
  * The bounded retry: one server refresh at a time, at the delays above, never for a hidden tab, then it stops. `retry`
  * starts a fresh sequence. Used by whatever is pending on the homepage: only one component runs it at a time, but when the
  * Tracks arrive while the free chapter is still late, the sequence passes from `TracksPending` to `FreeChapterRefresh` and
- * starts again, so a visitor sees at most two sequences (eight refreshes), each bounded.
+ * starts again, so a visitor sees at most two sequences (eight refreshes), each bounded. A pending catalog page
+ * (`CatalogPending`) runs one sequence of its own.
  */
-function useBoundedRefresh() {
+export function useBoundedRefresh() {
    const router = useRouter();
    const [attempt, setAttempt] = useState(0);
    const [cycle, setCycle] = useState(0);

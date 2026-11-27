@@ -37,6 +37,9 @@ import {
     READER_PORT,
     REJECTED_ORIGIN,
     REJECTED_PORT,
+    STARTING_API_ORIGIN,
+    STARTING_API_PORT,
+    STARTING_PORT,
     REJECTED_TOKEN,
 } from "./tests/e2e/catalog/harness";
 import { PREPARE_API_ORIGIN, PREPARE_API_PORT, PREPARE_ORIGIN, PREPARE_PORT } from "./tests/e2e/prepare/ports";
@@ -110,6 +113,25 @@ export default defineConfig({
             reuseExistingServer: !process.env.CI,
             env: {
                 API_URL: COLD_API_ORIGIN,
+                CATALOG_PREVIEW_TOKEN: "",
+                NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
+                NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
+                NEXT_TELEMETRY_DISABLED: "1",
+            },
+        },
+        {
+            // A private double that item-cold-start.spec.ts slows down, as a starting free-tier API would be.
+            command: `node tests/e2e/catalog/fake-api.mjs ${STARTING_API_PORT}`,
+            url: `${STARTING_API_ORIGIN}/health`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            // The production build above, served again with `API_URL` at that double.
+            command: `npx next start -p ${STARTING_PORT}`,
+            url: `http://localhost:${STARTING_PORT}/login`,
+            reuseExistingServer: !process.env.CI,
+            env: {
+                API_URL: STARTING_API_ORIGIN,
                 CATALOG_PREVIEW_TOKEN: "",
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",

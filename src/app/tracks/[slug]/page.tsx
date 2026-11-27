@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CatalogPending } from "@/app/CatalogPending";
 import { CatalogStateNotice } from "@/app/_catalog/CatalogStateNotice";
 import { PreviewMarker, withPreviewRobots } from "@/app/_catalog/PreviewMarker";
 import { TrackCurriculum, TrackHeader, TrackSupport } from "@/components/catalog/TrackCurriculum";
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { ReaderShell } from "@/components/reader/ReaderShell";
 import { getCatalogTrack } from "@/lib/catalog/client";
+import { withinItemBudget } from "@/lib/catalog/itemRead";
 import { outlineOf } from "@/lib/catalog/outline";
+import { catalogHref } from "@/lib/catalog/routes";
 import { loadLessonSummaries } from "@/lib/catalog/summaries";
 import { prepApiUrl, prepEnabled } from "@/lib/prep-flag";
 import { curriculumOf } from "@/lib/catalog/track";
@@ -20,7 +23,9 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-   const result = await getCatalogTrack((await params).slug);
+   const answer = await withinItemBudget(getCatalogTrack((await params).slug));
+   if (!answer.settled) return withPreviewRobots({ robots: { index: false, follow: false } });
+   const result = answer.value;
    if (result.status !== "ok") return withPreviewRobots({});
    return withPreviewRobots({ title: result.data.title, description: result.data.summary });
 }
@@ -60,7 +65,23 @@ function TrackBody({ track, summaries }: { track: CatalogTrack; summaries: Reado
 // Tracks are public and never gated, so unlike item pages this route sends no session.
 export default async function TrackPage({ params }: PageProps) {
    reportRender("track");
-   const result = await getCatalogTrack((await params).slug);
+   const slug = (await params).slug;
+   const answer = await withinItemBudget(getCatalogTrack(slug));
+   if (!answer.settled) {
+      return (
+         <>
+            <PreviewMarker />
+            <ReaderShell access="readable" surface="desk" outline={null}>
+               <PageContainer as="main" className="py-12 md:py-16">
+                  <ReadingColumn>
+                     <CatalogPending href={catalogHref(`track.${slug}`) ?? ""} />
+                  </ReadingColumn>
+               </PageContainer>
+            </ReaderShell>
+         </>
+      );
+   }
+   const result = answer.value;
    if (result.status === "notFound") notFound();
    // Lesson summaries are one bounded list scan, and only when the outline has a Lesson to describe.
    const summaries =
