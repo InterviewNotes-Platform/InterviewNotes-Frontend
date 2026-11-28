@@ -128,7 +128,7 @@ describe.each(COLLECTIONS.filter(({ grouped }) => grouped).map((collection) => (
          await open();
          await act(async () => {});
          const hrefs = links().map((link) => link.getAttribute("href"));
-         expect(hrefs).toEqual(manifest.map((question) => `/prepare/new?content=${lesson.content_id}&question=${question}`));
+         expect(hrefs).toEqual(manifest.map((question) => `/prepare/new?content=${lesson.content_id}&question=${question}&start=1`));
          expect(links().every((link) => link.closest("p")?.previousElementSibling?.tagName === "H3")).toBe(true);
       });
 

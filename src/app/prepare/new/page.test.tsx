@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ "sec-fetch-site": "same-origin" }) }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/prep/collections", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/prep/collections")>()), loadCollectionQuestions: mocks.load }));
 vi.mock("@/components/prepare/picker/QuestionPicker", () => ({
