@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { STORY_ID } from "@/app/prepare/stories/href";
 import { PrepareFrame } from "@/components/prepare/PrepareFrame";
@@ -57,7 +58,9 @@ export default async function NewAnswerPage({ searchParams }: PageProps) {
     const collection = chosenCollection(params.collection, requested?.content_id);
     // Signing in returns here with the chosen collection kept; a question's pair already implies it, and the general one is the default.
     const keepCollection = !requested && collection.id !== COLLECTIONS[0].id;
-    const autoStart = params.start === "1" && requested !== null && story === null;
+    // Starting an answer on arrival is honoured only for this site's own links or a typed address, never a link from another site.
+    const fetchSite = (await headers()).get("sec-fetch-site");
+    const autoStart = params.start === "1" && requested !== null && story === null && (fetchSite === "same-origin" || fetchSite === "none");
     const back = newAnswerHref(requested, story, autoStart) + (keepCollection ? `${story ? "&" : "?"}collection=${collection.id}` : "");
     if (!(await hasSession())) redirect(`/login?redirect=${encodeURIComponent(back)}`);
 

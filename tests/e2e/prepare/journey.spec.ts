@@ -160,13 +160,25 @@ test.describe("signed in", () => {
 
    test("a Lesson's Prepare your answer opens the editor in one click, and the same answer the next time", async ({ page, prep }) => {
       const href = "/prepare/new?content=lesson.amazon-leadership-principles&question=alp-earn-trust-01&start=1";
+      await page.goto("/prepare");
       await page.goto(href);
       await expect(page).toHaveURL(/\/prepare\/answers\//);
       const first = page.url();
       expect((await prep.answers()).map(({ question_id }) => question_id)).toEqual(["alp-earn-trust-01"]);
+      await page.goBack();
+      await expect(page, "Back leaves the editor for the page before, not for the start link").toHaveURL(/\/prepare$/);
       await page.goto(href);
       await expect(page).toHaveURL(first);
       expect(await prep.answers(), "a second visit reopens the answer instead of starting another").toHaveLength(1);
+   });
+
+   test("a link from another site never starts an answer on arrival", async ({ page, prep, baseURL }) => {
+      await page.goto("about:blank");
+      await page.setContent(`<a href="${baseURL}/prepare/new?content=lesson.amazon-leadership-principles&question=alp-earn-trust-01&start=1">go</a>`);
+      await page.getByRole("link", { name: "go" }).click();
+      await expect(page).toHaveURL(/start=1/);
+      await expect(questions(page).getByRole("radio", { checked: true })).toHaveCount(1);
+      expect(await prep.answers()).toEqual([]);
    });
 
    test("the workspace scrolls natively: no smooth-scrolling instance, across its client navigations", async ({ page, prep }) => {
