@@ -5,7 +5,7 @@ import { createFakePrepApi } from "@/lib/prep/fakeApi";
 import type { CatalogQuestion } from "@/lib/prep/questions";
 import { COMPANY_STATEMENT, QuestionPicker, SNAPSHOT_MAX, type CatalogLoad, type CollectionOption } from "./QuestionPicker";
 
-const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+const nav = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => nav }));
 
 const API = "https://api.example.test";
@@ -28,6 +28,7 @@ let token: string;
 
 beforeEach(() => {
    nav.push.mockReset();
+   nav.replace.mockReset();
    nav.refresh.mockReset();
    api = createFakePrepApi();
    token = api.signIn("user-1");
@@ -169,16 +170,24 @@ describe("opened from a Lesson's Prepare your answer (autoStart)", () => {
 
    it("starts the linked question's answer without a second click, then reopens that same answer next time", async () => {
       const first = render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={api.fetch} requested={requested} autoStart />);
-      await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(nav.replace).toHaveBeenCalledTimes(1));
       const listed = await client().listAnswers();
       const id = listed.status === "ok" ? listed.data.items[0].id : "";
-      expect(nav.push).toHaveBeenCalledWith(`/prepare/answers/${id}`);
+      expect(nav.replace).toHaveBeenCalledWith(`/prepare/answers/${id}`);
       expect(posts()).toHaveLength(1);
       first.unmount();
 
-      nav.push.mockReset();
+      nav.replace.mockReset();
       render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={api.fetch} requested={requested} autoStart />);
-      await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/prepare/answers/${id}`));
+      await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(`/prepare/answers/${id}`));
+      expect(posts()).toHaveLength(1);
+      expect(nav.push).not.toHaveBeenCalled();
+   });
+
+   it("keeps Start disabled while it looks for an existing answer", async () => {
+      render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={api.fetch} requested={requested} autoStart />);
+      expect(submit()).toBeDisabled();
+      await waitFor(() => expect(nav.replace).toHaveBeenCalledTimes(1));
       expect(posts()).toHaveLength(1);
    });
 
@@ -188,6 +197,7 @@ describe("opened from a Lesson's Prepare your answer (autoStart)", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(posts()).toHaveLength(0);
       expect(nav.push).not.toHaveBeenCalled();
+      expect(nav.replace).not.toHaveBeenCalled();
    });
 });
 

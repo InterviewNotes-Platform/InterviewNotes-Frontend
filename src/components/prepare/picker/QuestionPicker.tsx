@@ -321,7 +321,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       return choice ? { key: `catalog:${keyOf(choice)}`, body: catalogAnswer(choice) } : null;
    })();
 
-   async function create(next: { key: string; body: AnswerCreate }) {
+   async function create(next: { key: string; body: AnswerCreate }, replace = false) {
       if (!client || saving.current || unconfirmedRef.current === next.key) return;
       saving.current = true;
       setSave({ phase: "saving" });
@@ -346,7 +346,8 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       if (result.status === "ok") {
          // Stays disabled while the editor opens, so a second click cannot create a second answer.
          setSave({ phase: "done" });
-         router.push(answerHref(result.data.id));
+         if (replace) router.replace(answerHref(result.data.id));
+         else router.push(answerHref(result.data.id));
          return;
       }
       saving.current = false;
@@ -363,10 +364,16 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       if (!autoStart || autoStarted.current || !client || !linked || storyId || !pending) return;
       autoStarted.current = true;
       const next = pending;
+      // Start stays disabled during the lookup, so a click cannot start a second answer beside an existing one.
+      saving.current = true;
+      setSave({ phase: "saving" });
       client.listAnswers({ content_id: [linked.content_id], question_id: linked.question_id, limit: 1 }).then((found) => {
          const existing = found.status === "ok" ? found.data.items.find((answer) => answer.content_id === linked.content_id && answer.question_id === linked.question_id) : undefined;
-         if (existing) router.push(answerHref(existing.id));
-         else if (found.status === "ok") void create(next);
+         // Replace, not push: Back from the editor returns to the Lesson rather than to this page, which would start again.
+         if (existing) return router.replace(answerHref(existing.id));
+         saving.current = false;
+         if (found.status === "ok") void create(next, true);
+         else setSave({ phase: "idle" });
       });
    });
 
