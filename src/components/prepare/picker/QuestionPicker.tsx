@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { StartLinkNotice } from "@/components/prepare/stories/StartLinkNotice";
 import { startFromStory } from "@/components/prepare/stories/startFromStory";
@@ -360,7 +360,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
    }
 
    const autoStarted = useRef(false);
-   useEffect(() => {
+   const startLinked = useEffectEvent(() => {
       if (!autoStart || autoStarted.current || !client || !linked || storyId || !pending) return;
       autoStarted.current = true;
       const next = pending;
@@ -376,6 +376,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
          else setSave({ phase: "idle" });
       });
    });
+   useEffect(() => startLinked(), [autoStart, client, linked, pending]);
 
    /** The reader says they looked and it is not there: the one way past an unconfirmed create. */
    function createAgain() {
