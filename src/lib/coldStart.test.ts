@@ -114,4 +114,11 @@ describe("coldStartGate", () => {
       expect(await coldStartGate("GET", "/lessons/a", { ...env, API_WAKE_BUDGET_MS: "off" })).toBeNull();
       expect(fetch).not.toHaveBeenCalled();
    });
+
+   it("never probes for an in-app navigation, which keeps the current page on screen", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      expect(await coldStartGate("GET", "/lessons/a", { API_URL: "http://api.test" }, true)).toBeNull();
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+   });
 });
