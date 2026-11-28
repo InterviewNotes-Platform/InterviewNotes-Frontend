@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { STORY_ID } from "@/app/prepare/stories/href";
 import { PrepareFrame } from "@/components/prepare/PrepareFrame";
@@ -57,7 +58,10 @@ export default async function NewAnswerPage({ searchParams }: PageProps) {
     const collection = chosenCollection(params.collection, requested?.content_id);
     // Signing in returns here with the chosen collection kept; a question's pair already implies it, and the general one is the default.
     const keepCollection = !requested && collection.id !== COLLECTIONS[0].id;
-    const back = newAnswerHref(requested, story) + (keepCollection ? `${story ? "&" : "?"}collection=${collection.id}` : "");
+    // Starting an answer on arrival is honoured only for this site's own links or a typed address, never a link from another site.
+    const fetchSite = (await headers()).get("sec-fetch-site");
+    const autoStart = params.start === "1" && requested !== null && story === null && (fetchSite === "same-origin" || fetchSite === "none");
+    const back = newAnswerHref(requested, story, autoStart) + (keepCollection ? `${story ? "&" : "?"}collection=${collection.id}` : "");
     if (!(await hasSession())) redirect(`/login?redirect=${encodeURIComponent(back)}`);
 
     // One catalog read per Lesson of the chosen collection only, for this page only; the workspace home reads none.
@@ -67,7 +71,7 @@ export default async function NewAnswerPage({ searchParams }: PageProps) {
     // The browser calls the API directly with the user's token (P7-D-009), so it needs a public base URL.
     return (
         <PrepareFrame section="answers">
-            <QuestionPicker key={collection.id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} catalog={catalog} collections={options} collectionId={collection.id} requested={requested} storyId={story} initialGroup={groupParam(params.group)} />
+            <QuestionPicker key={collection.id} apiUrl={process.env.NEXT_PUBLIC_API_URL || null} catalog={catalog} collections={options} collectionId={collection.id} requested={requested} storyId={story} initialGroup={groupParam(params.group)} autoStart={autoStart} />
         </PrepareFrame>
     );
 }

@@ -14,13 +14,15 @@ const CONTENT_ID = /^[a-z0-9]+\.[a-z0-9]+(-[a-z0-9]+)*$/;
  * `/prepare/new`, naming the question and, when starting from a story, the story's id. All are identifiers; nothing the reader
  * wrote is in the URL, and a story id selects nothing until the signed-in reader's own API call finds it.
  */
-export function newAnswerHref(ref?: QuestionRef | null, storyId?: string | null): string {
+/** `start` opens the question's answer straight away: the reader's existing one, else a new one. */
+export function newAnswerHref(ref?: QuestionRef | null, storyId?: string | null, start = false): string {
    const params = new URLSearchParams();
    if (ref) {
       params.set("content", ref.content_id);
       params.set("question", ref.question_id);
    }
    if (storyId) params.set("story", storyId);
+   if (start && ref && !storyId) params.set("start", "1");
    return params.size > 0 ? `${PREPARE_NEW_HREF}?${params}` : PREPARE_NEW_HREF;
 }
 

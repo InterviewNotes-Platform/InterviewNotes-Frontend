@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { StartLinkNotice } from "@/components/prepare/stories/StartLinkNotice";
 import { startFromStory } from "@/components/prepare/stories/startFromStory";
@@ -81,6 +81,8 @@ interface Props {
    storyId?: string | null;
    /** Which principle or theme to open, counted from 1 (the `group` parameter). It is a view position only and is ignored when it names none. */
    initialGroup?: number | null;
+   /** Opened from a Lesson's "Prepare your answer": go straight to the reader's answer for the linked question, or start one. */
+   autoStart?: boolean;
    /** Tests supply these; the page uses the browser's Supabase session and `fetch`. */
    getAccessToken?: () => Promise<string | null>;
    fetch?: typeof fetch;
@@ -138,7 +140,7 @@ const FIELD =
    "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] " +
    "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40";
 
-export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId, requested = null, storyId = null, initialGroup = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId, requested = null, storyId = null, initialGroup = null, autoStart = false, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
    const router = useRouter();
    const ids = useId();
    const client = useMemo(
@@ -319,7 +321,7 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       return choice ? { key: `catalog:${keyOf(choice)}`, body: catalogAnswer(choice) } : null;
    })();
 
-   async function create(next: { key: string; body: AnswerCreate }) {
+   async function create(next: { key: string; body: AnswerCreate }, replace = false) {
       if (!client || saving.current || unconfirmedRef.current === next.key) return;
       saving.current = true;
       setSave({ phase: "saving" });
@@ -344,7 +346,8 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       if (result.status === "ok") {
          // Stays disabled while the editor opens, so a second click cannot create a second answer.
          setSave({ phase: "done" });
-         router.push(answerHref(result.data.id));
+         if (replace) router.replace(answerHref(result.data.id));
+         else router.push(answerHref(result.data.id));
          return;
       }
       saving.current = false;
@@ -355,6 +358,25 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       }
       setSave(failed);
    }
+
+   const autoStarted = useRef(false);
+   const startLinked = useEffectEvent(() => {
+      if (!autoStart || autoStarted.current || !client || !linked || storyId || !pending) return;
+      autoStarted.current = true;
+      const next = pending;
+      // Start stays disabled during the lookup, so a click cannot start a second answer beside an existing one.
+      saving.current = true;
+      setSave({ phase: "saving" });
+      client.listAnswers({ content_id: [linked.content_id], question_id: linked.question_id, limit: 1 }).then((found) => {
+         const existing = found.status === "ok" ? found.data.items.find((answer) => answer.content_id === linked.content_id && answer.question_id === linked.question_id) : undefined;
+         // Replace, not push: Back from the editor returns to the Lesson rather than to this page, which would start again.
+         if (existing) return router.replace(answerHref(existing.id));
+         saving.current = false;
+         if (found.status === "ok") void create(next, true);
+         else setSave({ phase: "idle" });
+      });
+   });
+   useEffect(() => startLinked(), [autoStart, client, linked, pending]);
 
    /** The reader says they looked and it is not there: the one way past an unconfirmed create. */
    function createAgain() {
