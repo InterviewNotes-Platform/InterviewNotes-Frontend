@@ -141,9 +141,11 @@ export function startingResponse(method: string): Response {
 export async function coldStartGate(
    method: string,
    pathname: string,
-   env: { API_URL?: string; API_WAKE_BUDGET_MS?: string; API_WAKE_FRESH_MS?: string }
+   env: { API_URL?: string; API_WAKE_BUDGET_MS?: string; API_WAKE_FRESH_MS?: string },
+   clientNavigation = false
 ): Promise<Response | null> {
-   if ((method !== "GET" && method !== "HEAD") || !isItemRoute(pathname)) return null;
+   // An in-app navigation keeps the current page on screen while it waits, so it never pays for the probe.
+   if (clientNavigation || (method !== "GET" && method !== "HEAD") || !isItemRoute(pathname)) return null;
    const base = env.API_URL?.replace(/\/$/, "");
    const budget = setting(env.API_WAKE_BUDGET_MS, DEFAULT_BUDGET_MS);
    if (!base || budget === null) return null;

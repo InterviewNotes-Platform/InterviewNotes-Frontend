@@ -6,7 +6,7 @@ import { LessonHeader } from "@/components/catalog/LessonHeader";
 import { ProblemHeader } from "@/components/catalog/ProblemHeader";
 import { PageContainer, ReadingColumn } from "@/components/layout/PageContainer";
 import { ReaderShell } from "@/components/reader/ReaderShell";
-import { getCatalogItem, getCatalogItemMeta } from "@/lib/catalog/client";
+import { getCatalogItem, getCatalogItemMeta, getCatalogRelated } from "@/lib/catalog/client";
 import { loadItemNavigation } from "@/lib/catalog/navigation";
 import { outlineOf } from "@/lib/catalog/outline";
 import { isPreview } from "@/lib/catalog/preview";
@@ -47,13 +47,16 @@ const SURFACE: Record<CatalogItemType, ReaderSurface> = { lesson: "paper", knowl
  */
 export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; slug: string }) {
    reportRender(type);
+   // The relationships need only the route, so they are read alongside the item instead of after it. Tracks still wait for access.
+   const relatedRead = getCatalogRelated(type, slug);
+   relatedRead.catch(() => null);
    const result = await getCatalogItem(type, slug);
    if (result.status === "notFound") notFound();
 
    if (result.status === "ok") {
       const Page = READABLE[type];
       // The authorized body is parsed while the Track reads wait; `/related` still follows the item's own answer.
-      const [navigation] = await Promise.all([loadItemNavigation(type, slug), parseReleasedBodies(result.data)]);
+      const [navigation] = await Promise.all([loadItemNavigation(type, slug, relatedRead), parseReleasedBodies(result.data)]);
       const outline = navigation?.home ? outlineOf(navigation.home.track, navigation.id) : null;
       return (
          <>

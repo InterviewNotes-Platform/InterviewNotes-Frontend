@@ -65,9 +65,10 @@ async function loadPracticeRow(candidate: PracticeCandidate, lessonApplies: Cata
  */
 export async function loadItemNavigation(
    type: CatalogItemType,
-   slug: string
+   slug: string,
+   relatedRead: ReturnType<typeof getCatalogRelated> = getCatalogRelated(type, slug)
 ): Promise<ItemNavigation | null> {
-   const related = await getCatalogRelated(type, slug);
+   const related = await relatedRead;
    if (related.status !== "ok" || related.data.id !== `${type}.${slug}`) return null;
 
    const { id, relations, placements } = related.data;

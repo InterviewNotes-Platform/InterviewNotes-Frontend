@@ -8,7 +8,7 @@ export async function proxy(request: NextRequest) {
     API_URL: process.env.API_URL,
     API_WAKE_BUDGET_MS: process.env.API_WAKE_BUDGET_MS,
     API_WAKE_FRESH_MS: process.env.API_WAKE_FRESH_MS,
-  })
+  }, request.headers.get('rsc') === '1')
   if (starting) return starting
 
   if (!hasSupabaseEnv()) {
