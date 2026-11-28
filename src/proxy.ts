@@ -8,7 +8,8 @@ export async function proxy(request: NextRequest) {
     API_URL: process.env.API_URL,
     API_WAKE_BUDGET_MS: process.env.API_WAKE_BUDGET_MS,
     API_WAKE_FRESH_MS: process.env.API_WAKE_FRESH_MS,
-  }, request.headers.get('rsc') === '1')
+  // Proxy never sees the `rsc` header (Next strips Flight headers), so an in-app fetch is told apart by Sec-Fetch-Dest.
+  }, request.headers.get('sec-fetch-dest') === 'empty')
   if (starting) return starting
 
   if (!hasSupabaseEnv()) {
