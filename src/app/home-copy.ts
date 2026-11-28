@@ -116,6 +116,13 @@ export const TRACKS = {
 };
 
 /** The explorer's own group ids (lib/catalog/knowledge.ts); a test holds each href to `explorerHref`. */
+/** The optional role strip (Option A, owner 2026-11-28): no selection is required and Tracks stay the way in. */
+export const ROLES = {
+   label: "Optional",
+   heading: "Preparing for a specific role?",
+   lead: "A few published places to start for each role. The Tracks above remain the full path.",
+};
+
 export const KNOWLEDGE = {
    label: "Knowledge",
    heading: "Build the Foundations",

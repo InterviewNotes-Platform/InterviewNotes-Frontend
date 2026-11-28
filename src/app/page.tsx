@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { userAgent } from "next/server";
-import { getCatalogItemMeta, listCatalogTracks, publicReadsAreCached } from "@/lib/catalog/client";
+import { getCatalogItemMeta, listCatalogItems, listCatalogTracks, publicReadsAreCached } from "@/lib/catalog/client";
 import {
    FREE_CHAPTER_LESSON_SLUG,
    freeChapterHref,
@@ -11,6 +11,7 @@ import {
    withinBudget,
    type HomeTracks,
 } from "@/lib/catalog/home";
+import { homeRoles, ROLE_LIST_LIMIT } from "@/lib/catalog/roles";
 import { reportHomeLate, reportRender } from "@/lib/perf/hotpath";
 import { PreviewMarker, withPreviewRobots } from "./_catalog/PreviewMarker";
 import { HomeContent } from "./HomeContent";
@@ -48,7 +49,13 @@ export default async function HomePage() {
 
    const tracksRead = listCatalogTracks();
    const freeRead = getCatalogItemMeta("lesson", FREE_CHAPTER_LESSON_SLUG);
-   const [tracksAnswer, freeAnswer] = await Promise.all([withinBudget(tracksRead, budget), withinBudget(freeRead, budget)]);
+   // The optional role strip: one public list read, same budget; a late or failed answer just leaves the strip out.
+   const rolesRead = listCatalogItems({ limit: ROLE_LIST_LIMIT });
+   const [tracksAnswer, freeAnswer, rolesAnswer] = await Promise.all([
+      withinBudget(tracksRead, budget),
+      withinBudget(freeRead, budget),
+      withinBudget(rolesRead, budget),
+   ]);
 
    const late = [...(tracksAnswer.settled ? [] : (["tracks"] as const)), ...(freeAnswer.settled ? [] : (["free"] as const))];
    if (late.length > 0) {
@@ -63,6 +70,7 @@ export default async function HomePage() {
             tracks={tracks}
             freeChapterHref={freeAnswer.settled ? freeChapterHref(freeAnswer.value) : null}
             freeChapterPending={!freeAnswer.settled}
+            roles={rolesAnswer.settled ? homeRoles(rolesAnswer.value) : []}
          />
       </>
    );

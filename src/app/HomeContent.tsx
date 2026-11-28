@@ -7,9 +7,10 @@ import { LinkPending } from "@/components/navigation/LinkPending";
 import { PendingLink } from "@/components/navigation/PendingLink";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { HomeTracks } from "@/lib/catalog/home";
+import type { HomeRole } from "@/lib/catalog/roles";
 import { PREFETCH_PRIMARY } from "@/lib/primary-navigation";
 import { cn } from "@/lib/utils";
-import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, STATS, STATS_DISCLOSURE, TRACKS } from "./home-copy";
+import { CLOSING, FAQ, HERO, HERO_AREAS, HERO_TOPICS, KNOWLEDGE, PRICING, ROLES, STATS, STATS_DISCLOSURE, TRACKS } from "./home-copy";
 import { HeroMotion } from "./HeroMotion";
 import { HeroStage } from "./HeroStage";
 import { HOME_FONT_VARIABLES } from "./home-font";
@@ -284,6 +285,40 @@ function Tracks({ tracks }: { tracks: HomeTracks }) {
    );
 }
 
+/**
+ * The optional role strip: each offered role lists its first published items, read from the public catalog. Nothing to
+ * pick and no script; a role with nothing published is not offered, and with none the strip is absent.
+ */
+function Roles({ roles }: { roles: HomeRole[] }) {
+   if (roles.length === 0) return null;
+   return (
+      <section id="roles" aria-labelledby="home-roles-heading" className="scroll-mt-20 border-t border-border/50 py-16 md:py-20">
+         <PageContainer>
+            <SectionIntro id="home-roles-heading" label={ROLES.label} title={ROLES.heading} lead={ROLES.lead} />
+            <ul className="m-0 mx-auto flex max-w-6xl list-none flex-wrap justify-center gap-5 p-0">
+               {roles.map(({ key, label, items }) => (
+                  <li key={key} className="flex w-full sm:w-[calc(50%-0.625rem)] lg:w-[calc(33.333%-0.84rem)]">
+                     <div className="home-reveal flex w-full flex-col rounded-2xl border border-border/60 bg-background p-6 text-left">
+                        <h3 className="m-0 mb-3 text-lg font-bold">{label}</h3>
+                        <ul aria-label={`Start here as ${label}`} className="m-0 flex list-none flex-col gap-2 p-0">
+                           {items.map(({ id, title, href }) => (
+                              <li key={id}>
+                                 <Link href={href} prefetch={false} className="group inline-flex items-start gap-2 text-supporting text-pretty text-foreground hover:text-premium">
+                                    <ArrowRight aria-hidden="true" className="mt-1 size-4 shrink-0 text-muted-foreground group-hover:text-premium" />
+                                    {title}
+                                 </Link>
+                              </li>
+                           ))}
+                        </ul>
+                     </div>
+                  </li>
+               ))}
+            </ul>
+         </PageContainer>
+      </section>
+   );
+}
+
 /** Knowledge supports the Tracks: its four editorial groups, each opening the explorer on that group. No catalog read. */
 function Knowledge() {
    return (
@@ -442,8 +477,11 @@ export function HomeContent({
    tracks,
    freeChapterHref,
    freeChapterPending = false,
+   roles = [],
 }: {
    tracks: HomeTracks;
+   /** Roles with at least one published item; empty hides the strip. */
+   roles?: HomeRole[];
    freeChapterHref: string | null;
    /** The free-chapter read is still outstanding: its slot is held, nothing is claimed about the Lesson. */
    freeChapterPending?: boolean;
@@ -453,6 +491,7 @@ export function HomeContent({
          <main data-home className={HOME_FONT_VARIABLES}>
             <Hero freeChapterHref={freeChapterHref} freeChapterPending={freeChapterPending} refreshFreeChapter={tracks.status !== "pending"} />
             <Tracks tracks={tracks} />
+            <Roles roles={roles} />
             <StatsBand />
             <Knowledge />
             <Testimonials />

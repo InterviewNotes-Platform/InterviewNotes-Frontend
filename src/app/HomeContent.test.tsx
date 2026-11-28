@@ -740,10 +740,11 @@ describe("catalog reads", () => {
         vi.clearAllMocks();
         listCatalogTracks.mockResolvedValue({ status: "ok", data: LIST });
         getCatalogItemMeta.mockResolvedValue({ status: "ok", data: FREE_META });
+        listCatalogItems.mockResolvedValue({ status: "ok", data: { items: [], next_cursor: null } });
     });
     afterEach(() => vi.unstubAllEnvs());
 
-    it("makes exactly the two public metadata reads, with no argument that could carry a session or a branch, and no Problem read (P6-D-50)", async () => {
+    it("makes exactly the three public metadata reads, with no argument that could carry a session or a branch, and no Problem read (P6-D-50)", async () => {
         const fetchSpy = vi.fn();
         vi.stubGlobal("fetch", fetchSpy);
         await page();
@@ -751,7 +752,8 @@ describe("catalog reads", () => {
         expect(listCatalogTracks).toHaveBeenCalledWith();
         expect(getCatalogItemMeta).toHaveBeenCalledTimes(1);
         expect(getCatalogItemMeta).toHaveBeenCalledWith("lesson", "anatomy-of-a-model-request");
-        expect(listCatalogItems).not.toHaveBeenCalled();
+        expect(listCatalogItems).toHaveBeenCalledTimes(1);
+        expect(listCatalogItems).toHaveBeenCalledWith({ limit: 100 });
         expect(fetchSpy).not.toHaveBeenCalled();
     });
 
@@ -839,6 +841,7 @@ describe("a slow API", () => {
         publicReadsAreCached.mockReturnValue(true);
         listCatalogTracks.mockResolvedValue({ status: "ok", data: LIST });
         getCatalogItemMeta.mockResolvedValue({ status: "ok", data: FREE_META });
+        listCatalogItems.mockResolvedValue({ status: "ok", data: { items: [], next_cursor: null } });
     });
 
     /** Start the page, let the budget pass, and render what it returned. */
