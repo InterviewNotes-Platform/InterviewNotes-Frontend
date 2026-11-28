@@ -81,6 +81,8 @@ interface Props {
    storyId?: string | null;
    /** Which principle or theme to open, counted from 1 (the `group` parameter). It is a view position only and is ignored when it names none. */
    initialGroup?: number | null;
+   /** Opened from a Lesson's "Prepare your answer": go straight to the reader's answer for the linked question, or start one. */
+   autoStart?: boolean;
    /** Tests supply these; the page uses the browser's Supabase session and `fetch`. */
    getAccessToken?: () => Promise<string | null>;
    fetch?: typeof fetch;
@@ -138,7 +140,7 @@ const FIELD =
    "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] " +
    "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40";
 
-export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId, requested = null, storyId = null, initialGroup = null, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
+export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId, requested = null, storyId = null, initialGroup = null, autoStart = false, getAccessToken = sessionToken, fetch: fetchImpl }: Props) {
    const router = useRouter();
    const ids = useId();
    const client = useMemo(
@@ -355,6 +357,18 @@ export function QuestionPicker({ apiUrl, catalog, collections = [], collectionId
       }
       setSave(failed);
    }
+
+   const autoStarted = useRef(false);
+   useEffect(() => {
+      if (!autoStart || autoStarted.current || !client || !linked || storyId || !pending) return;
+      autoStarted.current = true;
+      const next = pending;
+      client.listAnswers({ content_id: [linked.content_id], question_id: linked.question_id, limit: 1 }).then((found) => {
+         const existing = found.status === "ok" ? found.data.items.find((answer) => answer.content_id === linked.content_id && answer.question_id === linked.question_id) : undefined;
+         if (existing) router.push(answerHref(existing.id));
+         else if (found.status === "ok") void create(next);
+      });
+   });
 
    /** The reader says they looked and it is not there: the one way past an unconfirmed create. */
    function createAgain() {

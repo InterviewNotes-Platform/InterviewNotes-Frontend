@@ -72,8 +72,8 @@ describe("Prepare your answer on a Lesson", () => {
       draw({ prepare });
       const links = await screen.findAllByRole("link", { name: /^Prepare your answer/ });
       expect(links.map((link) => link.getAttribute("href"))).toEqual([
-         `/prepare/new?content=${LESSON}&question=being-stuck`,
-         `/prepare/new?content=${LESSON}&question=feedback`,
+         `/prepare/new?content=${LESSON}&question=being-stuck&start=1`,
+         `/prepare/new?content=${LESSON}&question=feedback&start=1`,
       ]);
       expect(links[0]).toHaveAccessibleName("Prepare your answer: Being stuck");
       expect(links[0]).toHaveTextContent("Prepare your answer");
@@ -162,8 +162,8 @@ describe("Prepare your answer on a grouped collection Lesson", () => {
       );
       const links = await screen.findAllByRole("link", { name: /^Prepare your answer/ });
       expect(links.map((link) => link.getAttribute("href"))).toEqual([
-         "/prepare/new?content=lesson.x-y&question=first-01",
-         "/prepare/new?content=lesson.x-y&question=second-01",
+         "/prepare/new?content=lesson.x-y&question=first-01&start=1",
+         "/prepare/new?content=lesson.x-y&question=second-01&start=1",
       ]);
       expect(links[0].closest("p")?.previousElementSibling?.tagName).toBe("H3");
    });

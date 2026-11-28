@@ -164,6 +164,33 @@ describe("target-level filtering", () => {
    });
 });
 
+describe("opened from a Lesson's Prepare your answer (autoStart)", () => {
+   const requested = { content_id: S1, question_id: "being-stuck" };
+
+   it("starts the linked question's answer without a second click, then reopens that same answer next time", async () => {
+      const first = render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={api.fetch} requested={requested} autoStart />);
+      await waitFor(() => expect(nav.push).toHaveBeenCalledTimes(1));
+      const listed = await client().listAnswers();
+      const id = listed.status === "ok" ? listed.data.items[0].id : "";
+      expect(nav.push).toHaveBeenCalledWith(`/prepare/answers/${id}`);
+      expect(posts()).toHaveLength(1);
+      first.unmount();
+
+      nav.push.mockReset();
+      render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={api.fetch} requested={requested} autoStart />);
+      await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/prepare/answers/${id}`));
+      expect(posts()).toHaveLength(1);
+   });
+
+   it("never starts anything without autoStart, or when the linked question is not in the collection", async () => {
+      render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={api.fetch} requested={requested} />);
+      render(<QuestionPicker apiUrl={API} catalog={ok} getAccessToken={async () => token} fetch={api.fetch} requested={{ content_id: S1, question_id: "missing" }} autoStart />);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(posts()).toHaveLength(0);
+      expect(nav.push).not.toHaveBeenCalled();
+   });
+});
+
 describe("catalog answers", () => {
    it("creates the answer with the exact pair and the snapshot, and opens that answer's editor", async () => {
       show();

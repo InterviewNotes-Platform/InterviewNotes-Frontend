@@ -44,7 +44,7 @@ export function PrepareAnswerLink({ contentId, questionId, heading }: Props) {
    return (
       <p className="-mt-2 mb-5 text-supporting">
          <Link
-            href={newAnswerHref({ content_id: contentId, question_id: questionId })}
+            href={newAnswerHref({ content_id: contentId, question_id: questionId }, null, true)}
             prefetch={false}
             aria-label={`Prepare your answer: ${heading}`}
             className="inline-flex min-h-11 items-center text-primary underline underline-offset-4 decoration-primary/40 transition-micro hover:decoration-primary"

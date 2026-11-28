@@ -158,6 +158,17 @@ test.describe("signed in", () => {
       expect((await prep.answers()).map(({ question_id }) => question_id)).toEqual(["alp-earn-trust-01"]);
    });
 
+   test("a Lesson's Prepare your answer opens the editor in one click, and the same answer the next time", async ({ page, prep }) => {
+      const href = "/prepare/new?content=lesson.amazon-leadership-principles&question=alp-earn-trust-01&start=1";
+      await page.goto(href);
+      await expect(page).toHaveURL(/\/prepare\/answers\//);
+      const first = page.url();
+      expect((await prep.answers()).map(({ question_id }) => question_id)).toEqual(["alp-earn-trust-01"]);
+      await page.goto(href);
+      await expect(page).toHaveURL(first);
+      expect(await prep.answers(), "a second visit reopens the answer instead of starting another").toHaveLength(1);
+   });
+
    test("the workspace scrolls natively: no smooth-scrolling instance, across its client navigations", async ({ page, prep }) => {
       const instances = () => page.evaluate(() => document.querySelectorAll("html.lenis").length);
       await page.goto("/prepare");

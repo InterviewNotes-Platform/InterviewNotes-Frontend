@@ -65,4 +65,10 @@ describe("answerHref", () => {
         expect(ANSWER_ID.test(bad)).toBe(false);
       }
    });
+
+   it("asks to open the answer straight away only for a question without a story", () => {
+      expect(newAnswerHref({ content_id: "lesson.a", question_id: "q" }, null, true)).toBe("/prepare/new?content=lesson.a&question=q&start=1");
+      expect(newAnswerHref({ content_id: "lesson.a", question_id: "q" }, "s", true)).toBe("/prepare/new?content=lesson.a&question=q&story=s");
+      expect(newAnswerHref(null, null, true)).toBe("/prepare/new");
+   });
 });
