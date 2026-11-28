@@ -11,6 +11,8 @@ const CATALOG_TRACKS = [...fixture.tracks].sort(byId);
 const FREE_CHAPTER_PATH = "/catalog/items/lesson/anatomy-of-a-model-request/meta";
 const FREE_CHAPTER_HREF = "/lessons/anatomy-of-a-model-request";
 const READ_FREE_CHAPTER = "Read a free chapter";
+/** The role strip's single public item page (`ROLE_LIST_LIMIT`). */
+const ROLE_ITEMS_READ = "/catalog/items?limit=100";
 
 const KNOWLEDGE_HREFS = ["/knowledge?group=core-concepts", "/knowledge?group=technologies-research", "/knowledge?group=patterns", "/knowledge?group=quick-references", "/knowledge"];
 
@@ -33,7 +35,7 @@ test.describe("catalog reads", () => {
    const catalogLog = async (request: APIRequestContext): Promise<{ path: string; query: string; presented: string | null }[]> =>
       (await request.get(`${ISOLATED_API_ORIGIN}/__catalog-log`)).json();
 
-   test("loading / reads at most the Track list and the free Lesson's metadata, all on the server and none from the browser; the hero stage reads nothing (P6-D-50)", async ({ page, request }) => {
+   test("loading / reads at most the Track list, the free Lesson's metadata and one public item page for the role strip, all on the server and none from the browser; the hero stage reads nothing (P6-D-50, S6-HOME-2 amendment)", async ({ page, request }) => {
       const before = await catalogLog(request);
       const browserRequests: string[] = [];
       page.on("request", (r) => {
@@ -46,12 +48,13 @@ test.describe("catalog reads", () => {
 
       const log = await catalogLog(request);
       const added = log.slice(before.length);
-      expect(added.length, "the homepage read more than two catalog endpoints").toBeLessThanOrEqual(2);
-      expect(added.map((entry) => entry.path).filter((path) => !["/catalog/tracks", FREE_CHAPTER_PATH].includes(path))).toEqual([]);
+      expect(added.length, "the homepage read more than three catalog endpoints").toBeLessThanOrEqual(3);
+      const read = (entry: { path: string; query: string }) => `${entry.path}?${entry.query}`;
+      const allowed = ["/catalog/tracks?", `${FREE_CHAPTER_PATH}?`, ROLE_ITEMS_READ];
+      expect(added.map(read).filter((r) => !allowed.includes(r))).toEqual([]);
       for (const entry of added) expect(entry.presented).toBeNull();
-      for (const entry of added) expect(entry.query).toBe("");
-      // Whether the 60-second data cache was warm decides how many of the two this load made; together they are the only two ever.
-      expect(new Set(log.map((entry) => entry.path))).toEqual(new Set(["/catalog/tracks", FREE_CHAPTER_PATH]));
+      // Whether the data cache was warm decides how many of the three this load made; together they are the only three ever.
+      expect(new Set(log.map(read))).toEqual(new Set(allowed));
       expect(browserRequests, "the browser requested catalog data or prefetched a catalog route").toEqual([]);
    });
 
