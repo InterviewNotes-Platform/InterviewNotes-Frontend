@@ -154,18 +154,19 @@ describe("item page navigation", () => {
 });
 
 describe("gated item pages", () => {
-   it.each(["unauthenticated", "unentitled"] as const)("loads no Track context and shows no relationships for a %s reader", async (status) => {
+   it.each(["unauthenticated", "unentitled"] as const)("loads no relationships or Track context for a %s reader", async (status) => {
       getCatalogItem.mockResolvedValue({ status });
       await show();
+      expect(getCatalogRelated).not.toHaveBeenCalled();
       expect(getCatalogTrack).not.toHaveBeenCalled();
       expect(screen.queryByRole("link", { name: /Previous|Next|Base Knowledge/ })).not.toBeInTheDocument();
       expect(screen.queryByText("Synthetic free body.")).not.toBeInTheDocument();
    });
 
-   it.each([{ status: "retired" }, { status: "unavailable", cause: "transport" }])("loads no Track context for a $status item", async (result) => {
+   it.each([{ status: "retired" }, { status: "unavailable", cause: "transport" }])("loads no relationships for a $status item", async (result) => {
       getCatalogItem.mockResolvedValue(result);
       await show();
-      expect(getCatalogTrack).not.toHaveBeenCalled();
+      expect(getCatalogRelated).not.toHaveBeenCalled();
    });
 });
 

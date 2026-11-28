@@ -644,6 +644,7 @@ describe("a fully locked Problem", () => {
       expect(document.querySelector("main dl")).toHaveTextContent("Hard");
       expect(main().getByText("ML system design")).toBeInTheDocument();
       expect(screen.getByRole("status")).toBeInTheDocument();
+      expect(getCatalogRelated).not.toHaveBeenCalled();
       expect(getCatalogTrack).not.toHaveBeenCalled();
       expect(screen.queryByText("Before you start")).not.toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Outline" })).not.toBeInTheDocument();

@@ -647,13 +647,12 @@ test.describe("a preview deployment", () => {
       }
    });
 
-   // Relations are read alongside the item (before access is known) and dropped unrendered when it is locked; no Track is read.
-   test("a locked Problem reads its own item, metadata and relations only: no Track", async ({ page, request }) => {
+   test("a locked Problem reads its own item and metadata only: no relations, no Track", async ({ page, request }) => {
       const since = (await log(request)).length;
       await page.goto(canonical(LOCKED.id));
       await expect(main(page).getByRole("status")).toBeVisible();
       const reads = (await log(request)).slice(since).map(({ path }) => path).filter((path) => path.includes("catalog-t8-"));
-      expect(reads.filter((path) => path !== `/catalog/items/problem/${LOCKED.slug}/related`).sort()).toEqual([`/catalog/items/problem/${LOCKED.slug}`, `/catalog/items/problem/${LOCKED.slug}/meta`].sort());
+      expect(reads.sort()).toEqual([`/catalog/items/problem/${LOCKED.slug}`, `/catalog/items/problem/${LOCKED.slug}/meta`].sort());
    });
 });
 

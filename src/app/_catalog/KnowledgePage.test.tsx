@@ -340,6 +340,7 @@ describe("a locked Knowledge topic", () => {
       getCatalogItem.mockResolvedValue({ status: "unauthenticated" });
       getCatalogItemMeta.mockResolvedValue({ status: "ok", data: knowledge({ access: "premium" }) });
       await show();
+      expect(getCatalogRelated).not.toHaveBeenCalled();
       expect(getCatalogTrack).not.toHaveBeenCalled();
       expect(getCatalogItemMeta).toHaveBeenCalledExactlyOnceWith("knowledge", "topic");
    });

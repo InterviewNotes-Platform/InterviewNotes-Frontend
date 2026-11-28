@@ -572,6 +572,7 @@ describe("a locked Lesson", () => {
       expect(screen.queryByRole("navigation", { name: "Lesson sections" })).not.toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: /First section|Builds on|Related|Practice/ })).not.toBeInTheDocument();
       expect(document.querySelectorAll("[id]")).toHaveLength(0);
+      expect(getCatalogRelated).not.toHaveBeenCalled();
       expect(getCatalogTrack).not.toHaveBeenCalled();
    });
 });

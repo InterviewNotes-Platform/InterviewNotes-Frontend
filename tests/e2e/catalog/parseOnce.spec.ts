@@ -134,14 +134,14 @@ test("concurrent callers each get only what they may read, and each render parse
    expect([counts.get(free), counts.get(premium)]).toEqual([others, entitled]);
 });
 
-test("/related is read alongside the item, never waiting for it", async () => {
+test("the early parse never starts before the item answered, so /related still follows the item", async () => {
    reset(on);
    await Promise.all([get(ON, LESSON, "signed-out"), get(ON, PROBLEM, "entitled"), get(ON, LESSON, "unentitled")]);
    await settle(on, 3);
    for (const line of on.lines) {
       const item = line.reads.find((read) => read.k.startsWith("item:"))!;
       const related = line.reads.find((read) => read.k.startsWith("related:"))!;
-      expect(related.s, "related waited for the item to answer").toBeLessThan(item.s + item.ms);
+      expect(related.s + 1, "related started before the item had answered").toBeGreaterThanOrEqual(item.s + item.ms);
    }
 });
 
