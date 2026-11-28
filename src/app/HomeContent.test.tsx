@@ -1061,7 +1061,7 @@ describe("pending-link feedback", () => {
             expect(link).toHaveAttribute("data-prefetch", "false");
         }
         expect(within(screen.getByRole("heading", { level: 1 }).closest("section")!).getByRole("link", { name: HERO.freeChapterLabel })).toHaveAttribute("data-prefetch", "false");
-        expect(within(section(CLOSING.heading)).getByRole("link", { name: CLOSING.action.label })).toHaveAttribute("data-prefetch", "true"); // PREFETCH_PRIMARY
+        expect(within(section(CLOSING.heading)).getByRole("link", { name: CLOSING.action.label })).toHaveAttribute("data-prefetch", "false"); // PREFETCH_PRIMARY, unchanged
     });
 
     it("adds no nested interactive element and no accessible name to the links", () => {

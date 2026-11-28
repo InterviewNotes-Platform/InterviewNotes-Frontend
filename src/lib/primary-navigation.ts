@@ -44,8 +44,8 @@ export const PRACTICE_HREF = "/practice";
 /** The gold Premium button in the header opens the same `/pricing` page. */
 export const PREMIUM_HREF = PRICING_HREF;
 
-/** The primary destinations all exist, so their links load in the background and a click opens them at once. */
-export const PREFETCH_PRIMARY = true;
+/** The landing routes arrive in later P2 tasks; prefetching them now only logs 404s. Re-enable as each one ships. */
+export const PREFETCH_PRIMARY = false;
 
 const AREA_BY_ROOT = new Map<string, NavArea>([
    ["tracks", "learn"],
