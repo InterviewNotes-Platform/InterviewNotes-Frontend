@@ -9,13 +9,11 @@ import { ReaderShell } from "@/components/reader/ReaderShell";
 import { getCatalogItem, getCatalogItemMeta } from "@/lib/catalog/client";
 import { loadItemNavigation } from "@/lib/catalog/navigation";
 import { outlineOf } from "@/lib/catalog/outline";
-import { withinItemBudget } from "@/lib/catalog/itemRead";
 import { isPreview } from "@/lib/catalog/preview";
 import { catalogHref } from "@/lib/catalog/routes";
 import type { CatalogItemType, CatalogMeta } from "@/lib/catalog/types";
 import { reportRender } from "@/lib/perf/hotpath";
 import type { ReaderSurface } from "@/lib/reader/shellPolicy";
-import { CatalogPending } from "@/app/CatalogPending";
 import { CatalogStateNotice } from "./CatalogStateNotice";
 import { KnowledgePage, knowledgeTools } from "./KnowledgePage";
 import { LessonPage, lessonTools } from "./LessonPage";
@@ -23,10 +21,7 @@ import { PreviewMarker, withPreviewRobots } from "./PreviewMarker";
 import { ProblemPage } from "./ProblemPage";
 
 export async function catalogItemMetadata(type: CatalogItemType, slug: string): Promise<Metadata> {
-   const answer = await withinItemBudget(getCatalogItemMeta(type, slug));
-   // A pending page names nothing it has not read, and is never indexed (crawlers wait for the whole page).
-   if (!answer.settled) return withPreviewRobots({ robots: { index: false, follow: false } });
-   const result = answer.value;
+   const result = await getCatalogItemMeta(type, slug);
    if (result.status !== "ok") return withPreviewRobots({});
    return withPreviewRobots({ title: result.data.title, description: result.data.summary });
 }
@@ -50,27 +45,9 @@ const SURFACE: Record<CatalogItemType, ReaderSurface> = { lesson: "paper", knowl
  * Track or related context: it keeps the public header its type uses when readable, and a notice. Both sit in the reader
  * shell, which shows Track orientation only for `access="readable"` (S-LSN-18).
  */
-/** The API had not answered by the deadline: the locked shell, which shows nothing about the item, and the bounded refresh. */
-function PendingItemPage({ type, slug }: { type: CatalogItemType; slug: string }) {
-   return (
-      <>
-         <PreviewMarker />
-         <ReaderShell access="locked" surface={SURFACE[type]}>
-            <PageContainer as="main" className="py-12 md:py-16">
-               <ReadingColumn>
-                  <CatalogPending href={catalogHref(`${type}.${slug}`) ?? ""} />
-               </ReadingColumn>
-            </PageContainer>
-         </ReaderShell>
-      </>
-   );
-}
-
 export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; slug: string }) {
    reportRender(type);
-   const answer = await withinItemBudget(getCatalogItem(type, slug));
-   if (!answer.settled) return <PendingItemPage type={type} slug={slug} />;
-   const result = answer.value;
+   const result = await getCatalogItem(type, slug);
    if (result.status === "notFound") notFound();
 
    if (result.status === "ok") {
@@ -91,8 +68,8 @@ export async function CatalogItemPage({ type, slug }: { type: CatalogItemType; s
    let header: React.ReactNode = null;
    // Public metadata is a safe teaser; the body stays withheld.
    if (result.status === "unauthenticated" || result.status === "unentitled") {
-      const meta = await withinItemBudget(getCatalogItemMeta(type, slug));
-      if (meta.settled && meta.value.status === "ok") header = <TeaserHeader type={type} meta={meta.value.data} />;
+      const meta = await getCatalogItemMeta(type, slug);
+      if (meta.status === "ok") header = <TeaserHeader type={type} meta={meta.data} />;
    }
    return (
       <>

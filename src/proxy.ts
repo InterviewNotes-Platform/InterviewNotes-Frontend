@@ -1,8 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSupabaseEnv, hasSupabaseEnv } from '@/lib/supabase/env'
+import { coldStartGate } from '@/lib/coldStart'
 
 export async function proxy(request: NextRequest) {
+  const starting = await coldStartGate(request.method, request.nextUrl.pathname, {
+    API_URL: process.env.API_URL,
+    API_WAKE_BUDGET_MS: process.env.API_WAKE_BUDGET_MS,
+    API_WAKE_FRESH_MS: process.env.API_WAKE_FRESH_MS,
+  })
+  if (starting) return starting
+
   if (!hasSupabaseEnv()) {
     return NextResponse.next({ request })
   }

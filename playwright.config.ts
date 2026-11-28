@@ -132,6 +132,8 @@ export default defineConfig({
             reuseExistingServer: !process.env.CI,
             env: {
                 API_URL: STARTING_API_ORIGIN,
+                // Every request probes the double, so each test sets the API's state afresh.
+                API_WAKE_FRESH_MS: "0",
                 CATALOG_PREVIEW_TOKEN: "",
                 NEXT_PUBLIC_SUPABASE_URL: FAKE_AUTH_ORIGIN,
                 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",

@@ -31,10 +31,11 @@ const PRIVATE = "private, no-store";
 /** Every /catalog request, with its query string and the preview credential it presented, served or refused. */
 const catalogLog = [];
 /**
- * Test control, not a catalog route: `PUT /__fault?path=…&delayMs=…&status=…` slows or fails that /catalog path (a path ending
+ * Test control, not a catalog route: `PUT /__fault?path=…&delayMs=…&status=…` slows or fails that /catalog path, or /content/health, (a path ending
  * in `*` matches every path it begins) until `DELETE /__fault?path=…`, or `DELETE /__fault` for every fault.
  */
 const faults = new Map();
+const heldHealth = new Set();
 const faultFor = (path) => faults.get(path) ?? [...faults.values()].find((f) => f.path.endsWith("*") && path.startsWith(f.path.slice(0, -1))) ?? null;
 
 const items = new Map(fixture.items.map((item) => [item.id, item]));
@@ -398,6 +399,12 @@ const api = createServer((req, res) => {
       if (req.method === "DELETE") {
          if (target) faults.delete(target);
          else faults.clear();
+         // The API has woken: health checks it was holding answer now.
+         if (!target || target === "/content/health") {
+            const held = [...heldHealth];
+            heldHealth.clear();
+            for (const release of held) release();
+         }
          return send(res, 200, { fault: null });
       }
       const fault = { path: target, delayMs: Number(query.get("delayMs") ?? 0), status: Number(query.get("status") ?? 0) };
@@ -411,6 +418,15 @@ const api = createServer((req, res) => {
       const hit = faultFor(path);
       if (!hit) return guardedCatalog(req, res, path, query);
       return void setTimeout(() => (hit.status ? send(res, hit.status, { detail: "Injected fault" }) : guardedCatalog(req, res, path, query)), hit.delayMs);
+   }
+   if (path === "/content/health") {
+      const hit = faultFor(path);
+      const answer = () => (hit?.status ? send(res, hit.status, { detail: "Injected fault" }) : send(res, 200, { status: "ok", db: "up" }));
+      if (!hit?.delayMs) return answer();
+      const timer = setTimeout(() => (heldHealth.delete(release), answer()), hit.delayMs);
+      const release = () => (clearTimeout(timer), answer());
+      heldHealth.add(release);
+      return;
    }
    if (path.startsWith("/content/")) return content(req, res, path);
    return send(res, 404, { detail: "Not found" });
